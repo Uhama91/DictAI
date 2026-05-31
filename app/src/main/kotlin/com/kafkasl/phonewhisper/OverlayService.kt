@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -36,6 +37,7 @@ class OverlayService : Service() {
         private const val NOTIF_ID = 1001
         private const val SAMPLE_RATE = 16000
         const val ACTION_ARM_MIC = "com.uhama.whisperpin.ARM_MIC"
+        private const val DOUBLE_TAP_MS = 280L
         @Volatile var micArmed = false
             private set
     }
@@ -215,6 +217,18 @@ class OverlayService : Service() {
         }
     }
 
+    /** Annule l'enregistrement en cours SANS transcrire (ex. 2e tap d'un double-tap). */
+    private fun cancelRec() {
+        if (state != State.RECORDING) return
+        setState(State.IDLE) // fait sortir la boucle (state est @Volatile)
+        // stop() AVANT le join : débloque immédiatement AudioRecord.read() → le thread sort vite.
+        try { audioRecord?.stop() } catch (_: Exception) {}
+        recordThread?.join(300); recordThread = null
+        try { audioRecord?.release() } catch (_: Exception) {}
+        audioRecord = null
+        pcm = null
+    }
+
     private fun setState(s: State) {
         state = s
         main.post {
@@ -326,6 +340,7 @@ class OverlayService : Service() {
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
         var pttFired = false
+        var lastTapAt = 0L
         val longPress = Runnable {
             // Maintenu 250ms, pas bougé, toujours IDLE → push-to-talk
             if (!moved && state == State.IDLE) {
@@ -363,7 +378,18 @@ class OverlayService : Service() {
                         // Relâchement du push-to-talk → on arrête + transcrit
                         if (state == State.RECORDING) stopRec()
                     } else {
-                        onTap()
+                        val now = SystemClock.uptimeMillis()
+                        if (state == State.RECORDING && now - lastTapAt < DOUBLE_TAP_MS) {
+                            // 2e tap rapide : l'enregistrement vient d'être lancé par le 1er tap → ouvrir l'app
+                            lastTapAt = 0L
+                            cancelRec()
+                            openApp()
+                        } else {
+                            // tap normal ; on ne mémorise l'instant que si CE tap démarre un enregistrement
+                            val starting = state == State.IDLE
+                            onTap()
+                            lastTapAt = if (starting) now else 0L
+                        }
                     }; true
                 }
                 else -> false

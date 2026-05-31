@@ -21,8 +21,9 @@ class CursiveWaveView(context: Context) : View(context) {
     companion object {
         // Boucles plus larges et moins nombreuses → ondulations cursives bien visibles
         // (au lieu d'un gribouillis dense). Espace logique 200x40.
-        private const val LOOP_WIDTH = 22f
-        private const val NUM_LOOPS = 12
+        // Moins de boucles, mais plus larges (largeur, pas hauteur → amplitudes inchangées).
+        private const val LOOP_WIDTH = 34f
+        private const val NUM_LOOPS = 8
         private const val SVG_W = 200f
         private const val SVG_H = 40f
         private const val CENTER_Y = 20f
