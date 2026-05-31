@@ -164,12 +164,10 @@ class MainActivity : AppCompatActivity() {
             }
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Mon vocabulaire")
-                .setMessage("Un par ligne :\n• un mot seul = favorisé (le modèle le reconnaît mieux)\n• \"entendu => voulu\" = correction automatique")
+                .setMessage("Un par ligne :\n• \"entendu => voulu\" = correction automatique (marche partout, y compris Parakeet local)\n• un mot seul = favorisé pour la transcription cloud (Whisper)")
                 .setView(et)
                 .setPositiveButton("Enregistrer") { _, _ ->
                     Vocabulary.setRaw(this, et.text.toString())
-                    startForegroundService(Intent(this, OverlayService::class.java)
-                        .setAction(OverlayService.ACTION_RELOAD_MODEL))
                     Toast.makeText(this, "Vocabulaire enregistré", Toast.LENGTH_SHORT).show()
                 }
                 .setNegativeButton("Annuler", null)

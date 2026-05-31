@@ -13,4 +13,8 @@ class VocabularyTest {
         val c = listOf("did" to "X")
         assertEquals("didier reste", Vocabulary.applyCorrectionsTo("didier reste", c))
     }
+    @Test fun replacesAccentedCaseInsensitive() {
+        val c = listOf("élise" to "Elise")
+        assertEquals("Bonjour Elise", Vocabulary.applyCorrectionsTo("Bonjour ÉLISE", c))
+    }
 }

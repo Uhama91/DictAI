@@ -38,7 +38,8 @@ object TranscriptionEngine {
             val wav = WavWriter.encode(pcm)
             var result: Result = Result(null, "timeout")
             val latch = java.util.concurrent.CountDownLatch(1)
-            TranscriberClient.transcribe(wav, apiKey) { r ->
+            val prompt = Vocabulary.promptString(ctx)
+            TranscriberClient.transcribe(wav, apiKey, prompt) { r ->
                 result = Result(r.text, r.error); latch.countDown()
             }
             latch.await(60, java.util.concurrent.TimeUnit.SECONDS)

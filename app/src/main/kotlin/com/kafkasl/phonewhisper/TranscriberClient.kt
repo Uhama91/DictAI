@@ -22,11 +22,12 @@ object TranscriberClient {
         Result(null, e.message ?: "Parse error")
     }
 
-    fun transcribe(wavData: ByteArray, apiKey: String, callback: (Result) -> Unit) {
+    fun transcribe(wavData: ByteArray, apiKey: String, prompt: String = "", callback: (Result) -> Unit) {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("model", "whisper-1")
             .addFormDataPart("file", "audio.wav", wavData.toRequestBody("audio/wav".toMediaType()))
+            .apply { if (prompt.isNotBlank()) addFormDataPart("prompt", prompt) }
             .build()
 
         val request = Request.Builder()

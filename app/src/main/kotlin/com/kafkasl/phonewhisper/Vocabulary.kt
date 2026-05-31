@@ -1,9 +1,8 @@
 package com.kafkasl.phonewhisper
 
 import android.content.Context
-import java.io.File
 
-/** Vocabulaire personnel : corrections "entendu => voulu" + mots favorisés (hotwords). */
+/** Vocabulaire personnel : corrections "entendu => voulu" + mots favorisés (prompt Whisper cloud). */
 object Vocabulary {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE)
 
@@ -11,7 +10,6 @@ object Vocabulary {
 
     fun setRaw(ctx: Context, raw: String) {
         prefs(ctx).edit().putString("vocab_raw", raw).apply()
-        writeHotwordsFile(ctx)
     }
 
     /** Lignes "a => b" -> paires de correction. */
@@ -31,26 +29,16 @@ object Vocabulary {
             if (t.isEmpty() || t.contains("=>")) null else t
         }
 
-    fun hasHotwords(ctx: Context): Boolean = boostWords(ctx).isNotEmpty()
+    /** Mots favorisés en une chaîne pour le prompt de l'API Whisper. */
+    fun promptString(ctx: Context): String = boostWords(ctx).joinToString(", ")
 
-    fun hotwordsFile(ctx: Context): File = File(ctx.filesDir, "hotwords.txt")
-
-    fun writeHotwordsFile(ctx: Context) {
-        try {
-            val words = boostWords(ctx)
-            if (words.isEmpty()) hotwordsFile(ctx).delete()
-            else hotwordsFile(ctx).writeText(words.joinToString("\n"))
-        } catch (_: Throwable) {}
-    }
-
-    /** Applique les corrections (mot entier, insensible à la casse) au texte. */
     fun applyCorrections(ctx: Context, text: String): String =
         applyCorrectionsTo(text, corrections(ctx))
 
     fun applyCorrectionsTo(text: String, corrections: List<Pair<String, String>>): String {
         var out = text
         for ((from, to) in corrections) {
-            val rx = Regex("(?i)(?<![\\p{L}])" + Regex.escape(from) + "(?![\\p{L}])")
+            val rx = Regex("(?iu)(?<![\\p{L}])" + Regex.escape(from) + "(?![\\p{L}])")
             out = rx.replace(out, Regex.escapeReplacement(to))
         }
         return out
