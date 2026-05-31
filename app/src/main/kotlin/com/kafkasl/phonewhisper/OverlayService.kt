@@ -24,7 +24,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.Toast
 import kotlin.concurrent.thread
 import kotlin.math.abs
@@ -46,10 +45,10 @@ class OverlayService : Service() {
     private val prefs by lazy { PersistencePrefs(this) }
     @Volatile private var state = State.MIC_UNARMED
     private var recordThread: Thread? = null
-    private var button: ImageView? = null
     private var container: FrameLayout? = null
     private var pill: FrameLayout? = null
     private var wave: CursiveWaveView? = null
+    private var loader: LoadingBorderView? = null
     private var params: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
     private var pcm: java.io.ByteArrayOutputStream? = null
@@ -201,6 +200,7 @@ class OverlayService : Service() {
                 llmMs = System.currentTimeMillis() - t1
                 if (!pp.isNullOrBlank()) finalText = pp
             }
+            if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
             val outText = finalText
             val timing = if (llmMs > 0) "transcr ${transcribeMs}ms · LLM ${llmMs}ms" else "transcr ${transcribeMs}ms"
             Log.i(TAG, "Pipeline: $timing")
@@ -218,39 +218,27 @@ class OverlayService : Service() {
     private fun setState(s: State) {
         state = s
         main.post {
-            val color = when (s) {
-                State.IDLE -> 0xDD1C1C1E.toInt()
-                State.RECORDING -> 0xDDEF4444.toInt()
-                State.TRANSCRIBING -> 0xDD6B6B6B.toInt()
-                State.LLM_PROCESSING -> 0xDD3B6B8A.toInt()
-                State.MIC_UNARMED -> 0xDD8A6D3B.toInt()
-            }
-            (button?.background as? GradientDrawable)?.setColor(color)
+            // Le micro a disparu : on signale l'état via la bordure de la pastille.
+            // Ambre + plus épais si le micro n'est pas encore armé (setup requis), neutre sinon.
+            val px = resources.displayMetrics.density
+            (pill?.background as? GradientDrawable)?.setStroke(
+                ((if (s == State.MIC_UNARMED) 2f else 1f) * px).toInt(),
+                if (s == State.MIC_UNARMED) 0xFFD9A441.toInt() else 0xFFE5E2DB.toInt()
+            )
             showRecordingPill(s == State.RECORDING)
+            // Bordure lumineuse pendant le traitement (transcription + LLM).
+            if (s == State.TRANSCRIBING || s == State.LLM_PROCESSING) loader?.start() else loader?.stop()
             updateNotif()
-            scheduleCollapse()
+            // Tant qu'une dictée est active, la pastille reste pleinement allumée (jamais de dim).
+            if (s == State.IDLE || s == State.MIC_UNARMED) scheduleCollapse()
+            else { main.removeCallbacks(collapse); container?.animate()?.alpha(1f)?.setDuration(120)?.start() }
         }
     }
 
+    /** La pastille est permanente : on anime juste l'onde pendant l'enregistrement, calme sinon. */
     private fun showRecordingPill(recording: Boolean) {
-        val dp = resources.displayMetrics.density
-        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        val lp = params ?: return
-        if (recording) {
-            button?.visibility = View.GONE
-            pill?.visibility = View.VISIBLE
-            wave?.start()
-            lp.width = (210 * dp).toInt(); lp.height = (46 * dp).toInt()
-        } else {
-            wave?.stop()
-            pill?.visibility = View.GONE
-            button?.visibility = View.VISIBLE
-            lp.width = (56 * dp).toInt(); lp.height = (56 * dp).toInt()
-        }
-        // garder le centre approximativement stable + clamp à l'écran
-        val screenW = resources.displayMetrics.widthPixels
-        lp.x = lp.x.coerceIn(0, (screenW - lp.width).coerceAtLeast(0))
-        try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
+        if (recording) wave?.start()
+        else { wave?.stop(); wave?.settle() }
     }
 
     private fun vibrate(ms: Long) {
@@ -269,7 +257,11 @@ class OverlayService : Service() {
     // ---- Bouton : drag + long-press + position memorisee + repli bord ----
 
     private val collapse = Runnable { container?.animate()?.alpha(0.4f)?.setDuration(200)?.start() }
-    private fun scheduleCollapse() { main.removeCallbacks(collapse); main.postDelayed(collapse, 3000) }
+    private fun scheduleCollapse() {
+        main.removeCallbacks(collapse)
+        // Dim auto seulement au repos : jamais pendant enregistrement / transcription / LLM.
+        if (state == State.IDLE || state == State.MIC_UNARMED) main.postDelayed(collapse, 3000)
+    }
     private fun wake() { container?.animate()?.alpha(1f)?.setDuration(120)?.start(); scheduleCollapse() }
 
     private fun showButton() {
@@ -280,23 +272,24 @@ class OverlayService : Service() {
         }
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val dp = resources.displayMetrics.density
-        val size = (56 * dp).toInt()
-        val margin = (8 * dp).toInt()
+        // Le bouton EST la pastille d'ondulation (plus aucun logo micro). Court horizontalement.
+        val pillW = (74 * dp).toInt()
+        val pillH = (44 * dp).toInt()
         val screenW = resources.displayMetrics.widthPixels
         val screenH = resources.displayMetrics.heightPixels
 
-        // Bouton micro rond (look/comportement existants)
-        val img = ImageView(this).apply {
-            setImageResource(R.drawable.ic_mic)
-            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xDD8A6D3B.toInt()) }
-            setPadding((12 * dp).toInt(), (12 * dp).toInt(), (12 * dp).toInt(), (12 * dp).toInt())
-            layoutParams = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
-        }
-
-        // Pilule : rounded-rect blanc cassé avec ombre douce + onde cursive
+        // Pastille : rounded-rect blanc cassé + onde cursive, TOUJOURS visible (= le bouton).
+        // Au repos l'onde est calme (figée), pendant l'enregistrement elle réagit à la voix.
+        // Onde : pleine largeur, SANS padding → les ondulations touchent les bords blancs.
         val waveView = CursiveWaveView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, (40 * dp).toInt(), Gravity.CENTER
+                FrameLayout.LayoutParams.MATCH_PARENT, (32 * dp).toInt(), Gravity.CENTER
+            )
+        }
+        // Bordure lumineuse de chargement (cachée au repos).
+        val loaderView = LoadingBorderView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
         val pillView = FrameLayout(this).apply {
@@ -307,27 +300,28 @@ class OverlayService : Service() {
                 setStroke(1, 0xFFE5E2DB.toInt())
             }
             elevation = 4 * dp
-            setPadding((6 * dp).toInt(), 0, (6 * dp).toInt(), 0)
+            setPadding(0, 0, 0, 0)
             layoutParams = FrameLayout.LayoutParams(
-                (200 * dp).toInt(), (44 * dp).toInt(), Gravity.CENTER
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER
             )
-            visibility = View.GONE
             addView(waveView)
+            addView(loaderView)
         }
 
         val frame = FrameLayout(this).apply {
-            addView(img)
             addView(pillView)
         }
 
         // La fenêtre démarre à la taille du bouton rond (56dp).
         val lp = WindowManager.LayoutParams(
-            size, size, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            pillW, pillH, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = if (prefs.buttonX >= 0) PersistencePrefs.clampX(prefs.buttonX, size, screenW) else screenW - size - margin
-            y = if (prefs.buttonY >= 0) PersistencePrefs.clampY(prefs.buttonY, size, screenH) else screenH / 2
+            // Toujours plaqué contre un bord (jamais au centre) : on re-colle au bord le plus proche.
+            val rawX = if (prefs.buttonX >= 0) PersistencePrefs.clampX(prefs.buttonX, pillW, screenW) else screenW - pillW
+            x = if (rawX + pillW / 2 >= screenW / 2) screenW - pillW else 0
+            y = if (prefs.buttonY >= 0) PersistencePrefs.clampY(prefs.buttonY, pillH, screenH) else screenH / 2
         }
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
@@ -361,7 +355,8 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_UP -> {
                     main.removeCallbacks(longPress)
                     if (moved) {
-                        lp.x = if (lp.x + lp.width / 2 > screenW / 2) screenW - lp.width - margin else margin
+                        // Snap flush au bord le plus proche (collé, sans marge).
+                        lp.x = if (lp.x + lp.width / 2 > screenW / 2) screenW - lp.width else 0
                         try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
                         prefs.buttonX = lp.x; prefs.buttonY = lp.y
                     } else if (pttFired) {
@@ -380,7 +375,8 @@ class OverlayService : Service() {
             Log.e(TAG, "addView echec: ${e.javaClass.simpleName}")
             return
         }
-        container = frame; button = img; pill = pillView; wave = waveView; params = lp
+        container = frame; pill = pillView; wave = waveView; loader = loaderView; params = lp
+        frame.post { waveView.settle() } // dessine l'onde calme au repos
         scheduleCollapse()
     }
 
@@ -402,8 +398,9 @@ class OverlayService : Service() {
         audioRecord = null
         main.removeCallbacksAndMessages(null)
         try { wave?.stop() } catch (_: Exception) {}
+        try { loader?.stop() } catch (_: Exception) {}
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
-        container = null; button = null; pill = null; wave = null
+        container = null; pill = null; wave = null; loader = null
         super.onDestroy()
     }
 }

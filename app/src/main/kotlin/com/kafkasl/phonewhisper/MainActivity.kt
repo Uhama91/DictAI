@@ -177,6 +177,17 @@ class MainActivity : AppCompatActivity() {
         keyRowSub = keyRow.findViewWithTag("subtitle")
         root.addView(keyRow)
 
+        // Espace automatique en fin de dictée
+        val spaceSwitch = MaterialSwitch(this).apply {
+            isChecked = PersistencePrefs(this@MainActivity).trailingSpace
+            greenTint()
+            setOnCheckedChangeListener { _, on ->
+                PersistencePrefs(this@MainActivity).trailingSpace = on
+            }
+        }
+        root.addView(settingsRow("Espace après chaque dictée",
+            "Ajoute une espace en fin de transcription", spaceSwitch))
+
         val vocabRow = settingsRow("Mon vocabulaire", "Mots favorisés + corrections (un par ligne)") {
             val et = EditText(this).apply {
                 setText(Vocabulary.getRaw(this@MainActivity))

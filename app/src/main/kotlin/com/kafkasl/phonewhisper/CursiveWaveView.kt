@@ -19,15 +19,20 @@ import kotlin.math.sin
 class CursiveWaveView(context: Context) : View(context) {
 
     companion object {
-        private const val LOOP_WIDTH = 10f
-        private const val NUM_LOOPS = 26
+        // Boucles plus larges et moins nombreuses → ondulations cursives bien visibles
+        // (au lieu d'un gribouillis dense). Espace logique 200x40.
+        private const val LOOP_WIDTH = 22f
+        private const val NUM_LOOPS = 12
         private const val SVG_W = 200f
         private const val SVG_H = 40f
         private const val CENTER_Y = 20f
-        private const val MIN_AMP = 6f
+        private const val MIN_AMP = 9f
         private const val MAX_AMP = 36f
-        private const val SCROLL_SPEED = 0.5f
+        // Pendant l'enregistrement les boucles DÉFILENT (écriture qui avance) + ondulent avec la voix.
+        // Au repos le tick est arrêté → figé. Vitesse de défilement horizontal :
+        private const val SCROLL_SPEED = 0.7f
         private const val WAVE_SPEED = 0.1f
+        private const val TWO_PI = 6.2831855f
     }
 
     private data class LoopVar(val widthMod: Float, val ampMod: Float)
@@ -58,13 +63,17 @@ class CursiveWaveView(context: Context) : View(context) {
     fun start() { if (!running) { running = true; postOnAnimation(tick) } }
     fun stop() { running = false; removeCallbacks(tick) }
 
+    /** Repos : onde calme (amplitude minimale) dessinée une seule fois, sans animer. */
+    fun settle() { level = 0f; smoothAmp = 0f; invalidate() }
+
     override fun onDetachedFromWindow() { stop(); super.onDetachedFromWindow() }
 
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
-            offset += SCROLL_SPEED
-            time -= WAVE_SPEED
+            // décroissant → translation des boucles vers la droite ; borné pour éviter la dérive float
+            offset = (offset - SCROLL_SPEED) % totalLoopsWidth
+            time = (time - WAVE_SPEED) % TWO_PI
             val targetAmp = max(0f, level * 38f)
             smoothAmp += (targetAmp - smoothAmp) * 0.12f
             invalidate()
@@ -75,8 +84,10 @@ class CursiveWaveView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
-        paint.strokeWidth = 1.5f * (h / SVG_H)
+        paint.strokeWidth = 2.2f * (h / SVG_H)
         canvas.save()
+        // Confiner l'encre à la pastille : les boucles ne débordent plus sur les côtés.
+        canvas.clipRect(0f, 0f, w, h)
         canvas.scale(w / SVG_W, h / SVG_H)
         buildPath(offset, smoothAmp, time)
         canvas.drawPath(path, paint)
@@ -85,7 +96,8 @@ class CursiveWaveView(context: Context) : View(context) {
 
     private fun buildPath(xOffset: Float, waveAmplitude: Float, t: Float) {
         path.reset()
-        val safeOffset = xOffset % totalLoopsWidth
+        // modulo positif (offset peut être négatif quand on défile vers la droite)
+        val safeOffset = ((xOffset % totalLoopsWidth) + totalLoopsWidth) % totalLoopsWidth
         var currentX = -safeOffset - LOOP_WIDTH * 2
         var started = false
         var i = 0

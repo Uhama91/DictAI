@@ -16,6 +16,11 @@ class PersistencePrefs(ctx: Context) {
         get() = p.getString("last_error", null)
         set(v) { p.edit().putString("last_error", v).apply() }
 
+    /** Ajoute automatiquement une espace à la fin de chaque transcription insérée. */
+    var trailingSpace: Boolean
+        get() = p.getBoolean("trailing_space", false)
+        set(v) { p.edit().putBoolean("trailing_space", v).apply() }
+
     companion object {
         fun clampX(x: Int, w: Int, screenW: Int) = x.coerceIn(0, (screenW - w).coerceAtLeast(0))
         fun clampY(y: Int, h: Int, screenH: Int) = y.coerceIn(0, (screenH - h).coerceAtLeast(0))
