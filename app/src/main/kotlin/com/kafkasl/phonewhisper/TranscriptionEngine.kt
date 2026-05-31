@@ -23,8 +23,11 @@ object TranscriptionEngine {
     fun transcribe(ctx: Context, pcm: ByteArray, local: LocalTranscriber?): Result {
         val prefs = prefs(ctx)
         val useLocal = prefs.getBoolean("use_local", true)
-        return if (useLocal && local != null) {
-            try {
+        if (useLocal) {
+            // Mode local : modèle pas (encore) téléchargé → message explicite, pas de repli cloud trompeur.
+            if (local == null) return Result(null,
+                "Modèle local absent — télécharge-le dans l'app (Réglages → Local models → Parakeet 0.6B)")
+            return try {
                 val samples = pcm16ToFloat(pcm)
                 Result(local.transcribe(samples, SAMPLE_RATE))
             } catch (t: Throwable) {
@@ -43,7 +46,7 @@ object TranscriptionEngine {
                 result = Result(r.text, r.error); latch.countDown()
             }
             latch.await(60, java.util.concurrent.TimeUnit.SECONDS)
-            result
+            return result
         }
     }
 

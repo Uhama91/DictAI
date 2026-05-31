@@ -106,7 +106,11 @@ class MainActivity : AppCompatActivity() {
 
         // --- Setup Section ---
         root.addView(sectionHeader("Setup"))
-        
+
+        root.addView(settingsRow("Assistant d'installation", "Configurer / vérifier les permissions pas à pas") {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+        })
+
         val audioRow = settingsRow("Audio permission", "Checking...") {
             if (!hasPerm(Manifest.permission.RECORD_AUDIO)) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
@@ -222,10 +226,18 @@ class MainActivity : AppCompatActivity() {
             addView(root)
         })
 
-        if (!hasPerm(Manifest.permission.RECORD_AUDIO)) {
+        // Nouveaux utilisateurs : si la config de base manque et que l'assistant n'a jamais été
+        // terminé, on lance directement l'onboarding d'installation.
+        val onbDone = getSharedPreferences("whisperpin", MODE_PRIVATE).getBoolean("onb_complete", false)
+        val coreMissing = !hasPerm(Manifest.permission.RECORD_AUDIO) ||
+            !android.provider.Settings.canDrawOverlays(this) ||
+            WhisperAccessibilityService.controller == null
+        if (!onbDone && coreMissing) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+        } else if (!hasPerm(Manifest.permission.RECORD_AUDIO)) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         }
-        
+
         refresh()
     }
 

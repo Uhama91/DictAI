@@ -55,6 +55,7 @@ class OverlayService : Service() {
     private var audioRecord: AudioRecord? = null
     private var pcm: java.io.ByteArrayOutputStream? = null
     private var local: LocalTranscriber? = null
+    private val localLoading = java.util.concurrent.atomic.AtomicBoolean(false)
     private val main = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -65,14 +66,29 @@ class OverlayService : Service() {
         createChannel()
         if (!startForegroundSpecialUse()) return
         showButton()
-        thread { local = TranscriptionEngine.loadLocal(this) }
+        ensureLocalLoaded()
         if (PostProcessPrompts.isEnabled(this) && LlmPostProcessor.isDownloaded(this))
             thread { LlmPostProcessor.ensureLoaded(this) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_ARM_MIC) promoteMic()
+        if (intent?.action == ACTION_ARM_MIC) {
+            promoteMic()
+            // Si le modèle local n'était pas dispo au démarrage (pas encore téléchargé),
+            // on retente de le charger (un seul chargement à la fois, cf. ensureLocalLoaded).
+            ensureLocalLoaded()
+        }
         return START_STICKY
+    }
+
+    /** Charge le modèle local hors thread principal, garanti une seule fois à la fois. */
+    private fun ensureLocalLoaded() {
+        if (local != null) return
+        if (!localLoading.compareAndSet(false, true)) return
+        thread {
+            try { local = TranscriptionEngine.loadLocal(this) }
+            finally { localLoading.set(false) }
+        }
     }
 
     private fun createChannel() {

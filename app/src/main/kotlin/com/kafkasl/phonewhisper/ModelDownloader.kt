@@ -17,14 +17,15 @@ data class Model(
 )
 
 val MODEL_CATALOG = listOf(
-    Model("Parakeet 110M", "sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000-int8",
-        100, "★★★ Best value", recommended = true),
-    Model("Whisper Base", "sherpa-onnx-whisper-base.en",
-        199, "★★★"),
-    Model("Parakeet 0.6B", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
-        465, "★★★★ Best quality"),
-    Model("Moonshine Tiny", "sherpa-onnx-moonshine-tiny-en-int8",
-        103, "★★☆ Fast"),
+    // Parakeet 0.6B v3 = SEUL modèle multilingue/français du catalogue → recommandé par défaut.
+    Model("Parakeet 0.6B (FR)", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+        465, "★★★★ Français — recommandé", recommended = true),
+    Model("Parakeet 110M (EN)", "sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000-int8",
+        100, "★★★ Anglais uniquement"),
+    Model("Whisper Base (EN)", "sherpa-onnx-whisper-base.en",
+        199, "★★★ Anglais uniquement"),
+    Model("Moonshine Tiny (EN)", "sherpa-onnx-moonshine-tiny-en-int8",
+        103, "★★☆ Anglais, rapide"),
 )
 
 sealed class DownloadState {
@@ -48,20 +49,33 @@ object ModelDownloader {
 
     /** Download and extract model. Callbacks fire on background thread. */
     fun download(ctx: Context, model: Model, onState: (DownloadState) -> Unit) {
+        val app = ctx.applicationContext // ne pas retenir une Activity pendant un long download
         val url = "$BASE_URL/${model.archive}.tar.bz2"
-        val tmpFile = File(ctx.cacheDir, "${model.archive}.tar.bz2")
-        val outDir = File(ctx.filesDir, "models")
+        val tmpFile = File(app.cacheDir, "${model.archive}.tar.bz2")
+        val modelsDir = File(app.filesDir, "models")
+        // Staging HORS de models/ → le dossier final n'apparaît qu'une fois complet (validation fiable).
+        val staging = File(app.filesDir, "staging_${model.archive}")
+        val finalDir = File(modelsDir, model.archive)
 
         Thread {
             try {
                 downloadFile(url, tmpFile, onState)
                 onState(DownloadState.Extracting)
-                extractTarBz2(tmpFile, outDir)
+                staging.deleteRecursively(); staging.mkdirs()
+                extractTarBz2(tmpFile, staging)
+                val extracted = staging.listFiles()?.firstOrNull { it.isDirectory } ?: staging
+                modelsDir.mkdirs()
+                finalDir.deleteRecursively()
+                if (!extracted.renameTo(finalDir)) {     // renommage atomique (même FS)
+                    extracted.copyRecursively(finalDir, overwrite = true) // repli rare
+                }
                 onState(DownloadState.Done)
             } catch (e: Exception) {
+                finalDir.deleteRecursively() // ne jamais laisser un modèle partiel "validable"
                 onState(DownloadState.Error(e.message ?: "Unknown error"))
             } finally {
                 tmpFile.delete()
+                staging.deleteRecursively()
             }
         }.start()
     }
