@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import io.github.fadizg.kmpai.llm.ChatSession
 import io.github.fadizg.kmpai.llm.ChatTemplate
+import io.github.fadizg.kmpai.llm.EngineConfig
 import io.github.fadizg.kmpai.llm.LlmEngine
 import io.github.fadizg.kmpai.llm.LlmEnvironment
 import io.github.fadizg.kmpai.llm.ModelSource
@@ -26,6 +27,21 @@ object LlmPostProcessor {
     @Volatile var ready: Boolean = false
         private set
 
+    /**
+     * Template ChatML Qwen3 avec le bloc `<think></think>` VIDE pré-rempli → désactive le mode
+     * "thinking" (llama.cpp ignore `enable_thinking=false` ; c'est le workaround documenté).
+     * Sans ça, Qwen3 génère des centaines de tokens de raisonnement avant la réponse (= très lent).
+     */
+    private val noThinkTemplate = ChatTemplate.Custom(
+        { msgs ->
+            val sb = StringBuilder()
+            for (m in msgs) sb.append("<|im_start|>${m.role.name.lowercase()}\n${m.content}<|im_end|>\n")
+            sb.append("<|im_start|>assistant\n<think>\n\n</think>\n\n")
+            sb.toString()
+        },
+        listOf("<|im_end|>")
+    )
+
     /** Retire un éventuel bloc de raisonnement Qwen3 `<think>...</think>`. */
     fun stripThink(raw: String): String {
         val s = raw.trim()
@@ -43,7 +59,10 @@ object LlmPostProcessor {
             if (engine != null) { ready = true; return@withLock true }
             try {
                 val e = LlmEnvironment(ctx.applicationContext)
-                engine = e.load(ModelSource.HuggingFace(REPO, FILE, "main", null))
+                // CPU only (kmp-ai ne bundle pas de backend GPU) ; 4 threads = optimal sur SoC
+                // asymétriques (8 threads régressent), contexte court suffisant, mmap pour la RAM.
+                engine = e.load(ModelSource.HuggingFace(REPO, FILE, "main", null),
+                    EngineConfig(2048, 0, 4, true))
                 env = e
                 ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE)
                     .edit().putBoolean("llm_downloaded", true).apply()
@@ -65,11 +84,12 @@ object LlmPostProcessor {
             try {
                 withTimeout(GEN_TIMEOUT_MS) {
                     val chat = ChatSession(
-                        e, ChatTemplate.ChatML,
-                        "Tu es un assistant qui reformule du texte en français. Réponds uniquement avec le texte final."
+                        e, noThinkTemplate,
+                        "Tu es un assistant qui reformule du texte en français. Réponds uniquement avec le texte final, sans explication."
                     )
                     val sb = StringBuilder()
-                    chat.send(userPrompt, SamplingParams(512, 0.7f, 0.8f, 20, 1.5f, null, emptyList()))
+                    // non-thinking: temp 0.7 / topP 0.8 / topK 20 (reco Qwen3) ; sortie courte.
+                    chat.send(userPrompt, SamplingParams(256, 0.7f, 0.8f, 20, 1.1f, null, emptyList()))
                         .collect { sb.append(it.text) }
                     stripThink(sb.toString()).ifBlank { null }
                 }

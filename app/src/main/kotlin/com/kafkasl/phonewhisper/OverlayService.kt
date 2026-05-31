@@ -170,20 +170,27 @@ class OverlayService : Service() {
         val data = pcm?.toByteArray() ?: ByteArray(0); pcm = null
         if (data.isEmpty()) { setState(State.IDLE); return }
         thread {
+            val t0 = System.currentTimeMillis()
             val r = TranscriptionEngine.transcribe(this, data, local)
+            val transcribeMs = System.currentTimeMillis() - t0
             var finalText = r.text?.let { Vocabulary.applyCorrections(this, it) }
+            var llmMs = 0L
             if (!finalText.isNullOrBlank() &&
                 PostProcessPrompts.isEnabled(this) && LlmPostProcessor.ready) {
                 setState(State.LLM_PROCESSING)
+                val t1 = System.currentTimeMillis()
                 val pp = LlmPostProcessor.rewrite(this, PostProcessPrompts.fill(this, finalText))
+                llmMs = System.currentTimeMillis() - t1
                 if (!pp.isNullOrBlank()) finalText = pp
             }
             val outText = finalText
+            val timing = if (llmMs > 0) "transcr ${transcribeMs}ms · LLM ${llmMs}ms" else "transcr ${transcribeMs}ms"
+            Log.i(TAG, "Pipeline: $timing")
             main.post {
                 if (!outText.isNullOrBlank()) {
                     copyToClipboard(outText)
                     val injected = WhisperAccessibilityService.controller?.inject(outText) ?: false
-                    toast(if (injected) "Insere" else "Copie (presse-papier)")
+                    toast((if (injected) "Inséré" else "Copié") + " · $timing")
                 } else toast("Erreur: ${r.error ?: "vide"}")
                 setState(State.IDLE)
             }
