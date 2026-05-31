@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(header)
 
         val spikeBtn = android.widget.Button(this).apply {
-            text = "Demarrer overlay (spike)"
+            text = "Activer le bouton flottant"
             setOnClickListener {
                 if (!android.provider.Settings.canDrawOverlays(this@MainActivity)) {
                     startActivity(Intent(
@@ -164,7 +164,16 @@ class MainActivity : AppCompatActivity() {
         refresh()
     }
 
-    override fun onResume() { super.onResume(); refresh() }
+    override fun onResume() {
+        super.onResume()
+        if (android.provider.Settings.canDrawOverlays(this)) {
+            startForegroundService(
+                Intent(this, OverlayService::class.java)
+                    .setAction(OverlayService.ACTION_ARM_MIC)
+            )
+        }
+        refresh()
+    }
     override fun onRequestPermissionsResult(c: Int, p: Array<String>, r: IntArray) {
         super.onRequestPermissionsResult(c, p, r); refresh()
     }
