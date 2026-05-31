@@ -42,13 +42,8 @@ object LlmPostProcessor {
         listOf("<|im_end|>")
     ) }
 
-    /** Retire un éventuel bloc de raisonnement Qwen3 `<think>...</think>`. */
-    fun stripThink(raw: String): String {
-        val s = raw.trim()
-        if (!s.contains("<think>")) return s
-        val close = s.indexOf("</think>")
-        return if (close >= 0) s.substring(close + "</think>".length).trim() else ""
-    }
+    /** Délègue au helper pur (testable sans charger kmp-ai). */
+    fun stripThink(raw: String): String = LlmText.stripThink(raw)
 
     fun isDownloaded(ctx: Context): Boolean =
         ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE).getBoolean("llm_downloaded", false)

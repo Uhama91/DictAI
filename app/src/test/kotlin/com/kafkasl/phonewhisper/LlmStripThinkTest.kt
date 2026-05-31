@@ -6,8 +6,8 @@ import org.junit.Test
 class LlmStripThinkTest {
     @Test fun stripsThinkBlock() {
         assertEquals("Salut, ça va ?",
-            LlmPostProcessor.stripThink("<think>\nL'utilisateur dit bonjour\n</think>Salut, ça va ?"))
+            LlmText.stripThink("<think>\nL'utilisateur dit bonjour\n</think>Salut, ça va ?"))
     }
-    @Test fun keepsPlainText() { assertEquals("Bonjour", LlmPostProcessor.stripThink("Bonjour")) }
-    @Test fun stripsUnclosedThink() { assertEquals("", LlmPostProcessor.stripThink("<think> en cours")) }
+    @Test fun keepsPlainText() { assertEquals("Bonjour", LlmText.stripThink("Bonjour")) }
+    @Test fun stripsUnclosedThink() { assertEquals("", LlmText.stripThink("<think> en cours")) }
 }
