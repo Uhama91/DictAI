@@ -159,3 +159,15 @@ SHA-256, reprise/nettoyage des téléchargements partiels, vérification d'espac
 
 ### 10.8 Validation prompt (P3)
 Exactement un `${output}`, plafonds de longueur prompt/transcription, délimitation du transcript, **fallback systématique sur le transcript brut** si prompt malformé / génération vide / timeout.
+
+---
+
+## 11. Résultat spike (GATE) — VERT 🟢
+
+- **Date** : 2026-05-31 — Poco F7 (HyperOS, SD 8s Gen 4).
+- **Binding retenu** : `io.github.fadizg.kmpai:llm:0.2.8` (+ `llm-catalog-qwen`) — **AAR Maven Central avec `.so` llama.cpp prébuilts, zéro NDK**. A nécessité bump **Kotlin 2.0.21 → 2.2.20** (JDK 17 OK, pas de JDK 21).
+- **Cohabitation native** : `.so` llama.cpp (`libllama.so`, `libggml*.so`, `libkmpai_llama.so`) + sherpa (`libsherpa-onnx*.so`, `libonnxruntime.so`) **packagés ensemble sans conflit**. APK ~45 Mo.
+- **Modèle** : `unsloth/Qwen3-0.6B-GGUF` / `Qwen3-0.6B-Q4_K_M.gguf` (~378 Mo), téléchargé in-app (SHA + reprise fournis par kmp-ai).
+- **Runtime mesuré** : génération **1446 ms**, pas de crash/OOM, coexiste avec Parakeet chargé. Sortie FR correcte (« salut sa va… » → « Salut, ça va ? Je voudrais te voir demain à la gare. »).
+- **Seul correctif requis** : `think=true` → Qwen3 émet un bloc `<think>…</think>` malgré `/no_think`. **Fix impl** : stripper tout jusqu'à `</think>` inclus dans la sortie (robuste).
+- **Verdict** : **GATE VERT.** L'intégration native (le vrai risque) est prouvée. On peut construire la feature réelle.

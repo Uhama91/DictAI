@@ -75,6 +75,21 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(spikeBtn)
 
+        val llmSpikeBtn = android.widget.Button(this).apply {
+            text = "Spike LLM local (test)"
+            setOnClickListener {
+                android.widget.Toast.makeText(this@MainActivity, "Spike LLM lancé — voir toasts/logs", android.widget.Toast.LENGTH_SHORT).show()
+                kotlin.concurrent.thread {
+                    LlmSpike.run(this@MainActivity) { msg ->
+                        runOnUiThread {
+                            android.widget.Toast.makeText(this@MainActivity, msg, android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+        root.addView(llmSpikeBtn)
+
         // Status row
         val statusRow = settingsRow("Status", "Checking...")
         statusSubtitle = statusRow.findViewWithTag("subtitle")
