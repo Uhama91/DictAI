@@ -42,7 +42,8 @@ class OverlayService : Service() {
     private enum class State { IDLE, RECORDING, TRANSCRIBING, MIC_UNARMED }
 
     private val prefs by lazy { PersistencePrefs(this) }
-    private var state = State.MIC_UNARMED
+    @Volatile private var state = State.MIC_UNARMED
+    private var recordThread: Thread? = null
     private var button: ImageView? = null
     private var params: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
@@ -54,8 +55,9 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        micArmed = false
         createChannel()
-        startForegroundSpecialUse()
+        if (!startForegroundSpecialUse()) return
         showButton()
         thread { local = TranscriptionEngine.loadLocal(this) }
     }
@@ -87,16 +89,18 @@ class OverlayService : Service() {
             .setOngoing(true)
             .build()
 
-    private fun startForegroundSpecialUse() {
-        try {
+    private fun startForegroundSpecialUse(): Boolean {
+        return try {
             startForeground(
                 NOTIF_ID, buildNotification(),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
+            true
         } catch (e: Exception) {
             Log.e(TAG, "startForeground specialUse echec: ${e.javaClass.simpleName} -> stopSelf")
             prefs.lastError = e.javaClass.simpleName
             stopSelf()
+            false
         }
     }
 
@@ -145,10 +149,11 @@ class OverlayService : Service() {
         audioRecord!!.startRecording()
         setState(State.RECORDING)
         vibrate(20)
-        thread {
+        val ar = audioRecord!!
+        recordThread = thread {
             val buf = ByteArray(bufSize)
             while (state == State.RECORDING) {
-                val n = audioRecord?.read(buf, 0, buf.size) ?: break
+                val n = ar.read(buf, 0, buf.size)
                 if (n > 0) pcm?.write(buf, 0, n)
             }
         }
@@ -157,6 +162,8 @@ class OverlayService : Service() {
     private fun stopRec() {
         setState(State.TRANSCRIBING)
         vibrate(20)
+        recordThread?.join(800)
+        recordThread = null
         audioRecord?.stop(); audioRecord?.release(); audioRecord = null
         val data = pcm?.toByteArray() ?: ByteArray(0); pcm = null
         if (data.isEmpty()) { setState(State.IDLE); return }
@@ -165,6 +172,7 @@ class OverlayService : Service() {
             main.post {
                 val text = r.text
                 if (!text.isNullOrBlank()) {
+                    copyToClipboard(text)
                     val injected = WhisperAccessibilityService.controller?.inject(text) ?: false
                     toast(if (injected) "Insere" else "Copie (presse-papier)")
                 } else toast("Erreur: ${r.error ?: "vide"}")
@@ -203,6 +211,10 @@ class OverlayService : Service() {
 
     private fun showButton() {
         if (button != null) return
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            Log.w(TAG, "overlay non accorde -> pas de bouton")
+            return
+        }
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val dp = resources.displayMetrics.density
         val size = (56 * dp).toInt()
@@ -257,7 +269,12 @@ class OverlayService : Service() {
                 else -> false
             }
         }
-        wm.addView(img, lp)
+        try {
+            wm.addView(img, lp)
+        } catch (e: Exception) {
+            Log.e(TAG, "addView echec: ${e.javaClass.simpleName}")
+            return
+        }
         button = img; params = lp
         scheduleCollapse()
     }
@@ -268,7 +285,13 @@ class OverlayService : Service() {
 
     private fun toast(s: String) { main.post { Toast.makeText(this, s, Toast.LENGTH_SHORT).show() } }
 
+    private fun copyToClipboard(text: String) {
+        val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("whisperpin", text))
+    }
+
     override fun onDestroy() {
+        micArmed = false
         state = State.IDLE
         audioRecord?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
         audioRecord = null

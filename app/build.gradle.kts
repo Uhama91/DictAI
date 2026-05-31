@@ -7,6 +7,10 @@ android {
     namespace = "com.kafkasl.phonewhisper"
     compileSdk = 34
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.uhama.whisperpin"
         minSdk = 30

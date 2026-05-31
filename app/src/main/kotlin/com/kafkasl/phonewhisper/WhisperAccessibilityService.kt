@@ -1,6 +1,7 @@
 package com.kafkasl.phonewhisper
 
 import android.accessibilityservice.AccessibilityService
+import com.kafkasl.phonewhisper.BuildConfig
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -22,7 +23,7 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         try {
             startForegroundService(Intent(this, OverlayService::class.java))
         } catch (e: Exception) {
-            Log.w(TAG, "overlay start from accessibility refused: ${e.javaClass.simpleName}")
+            if (BuildConfig.DEBUG) Log.w(TAG, "overlay start from accessibility refused: ${e.javaClass.simpleName}")
         }
     }
 
@@ -51,7 +52,7 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         val candidates = mutableListOf<AccessibilityNodeInfo>()
 
         rootInActiveWindow?.let { root ->
-            Log.i(TAG, "Active root: package=${root.packageName} class=${root.className}")
+            if (BuildConfig.DEBUG) Log.i(TAG, "Active root: package=${root.packageName} class=${root.className}")
             collectInjectionCandidates(root, candidates)
             root.recycle()
         }
@@ -60,7 +61,7 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
             ?.filter { it.isActive || it.isFocused }
             ?.forEach { window ->
                 val root = window.root ?: return@forEach
-                Log.i(
+                if (BuildConfig.DEBUG) Log.i(
                     TAG,
                     "Window root: type=${window.type} active=${window.isActive} focused=${window.isFocused} package=${root.packageName} class=${root.className}"
                 )
@@ -125,12 +126,12 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
 
         findCustomPasteAction(node)?.let { action ->
             val ok = node.performAction(action.id)
-            Log.i(TAG, "Custom action '${action.label}' (${action.id}) => $ok")
+            if (BuildConfig.DEBUG) Log.i(TAG, "Custom action (${action.id}) => $ok")
             if (ok) return true
         }
 
         val pasteOk = node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
-        Log.i(TAG, "ACTION_PASTE => $pasteOk")
+        if (BuildConfig.DEBUG) Log.i(TAG, "ACTION_PASTE => $pasteOk")
         if (pasteOk) return true
 
         if (node.isEditable || node.className?.toString()?.contains("EditText") == true) {
@@ -147,7 +148,7 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
                 )
             }
             val setTextOk = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-            Log.i(TAG, "ACTION_SET_TEXT => $setTextOk")
+            if (BuildConfig.DEBUG) Log.i(TAG, "ACTION_SET_TEXT => $setTextOk")
             if (setTextOk) return true
         }
 
@@ -160,13 +161,8 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         }
 
     private fun logNode(prefix: String, node: AccessibilityNodeInfo) {
-        val actions = node.actionList.joinToString { action ->
-            action.label?.toString() ?: action.id.toString()
-        }
-        Log.i(
-            TAG,
-            "$prefix package=${node.packageName} class=${node.className} focused=${node.isFocused} editable=${node.isEditable} text=${node.text} desc=${node.contentDescription} actions=[$actions]"
-        )
+        if (!BuildConfig.DEBUG) return
+        Log.i(TAG, "$prefix package=${node.packageName} class=${node.className} focused=${node.isFocused} editable=${node.isEditable}")
     }
 
     private fun prefs() = getSharedPreferences("phonewhisper", MODE_PRIVATE)
