@@ -35,6 +35,7 @@ class OverlayService : Service() {
         private const val NOTIF_ID = 1001
         private const val SAMPLE_RATE = 16000
         const val ACTION_ARM_MIC = "com.uhama.whisperpin.ARM_MIC"
+        const val ACTION_RELOAD_MODEL = "com.uhama.whisperpin.RELOAD_MODEL"
         @Volatile var micArmed = false
             private set
     }
@@ -64,6 +65,7 @@ class OverlayService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_ARM_MIC) promoteMic()
+        if (intent?.action == ACTION_RELOAD_MODEL) thread { local = TranscriptionEngine.loadLocal(this) }
         return START_STICKY
     }
 
@@ -170,7 +172,7 @@ class OverlayService : Service() {
         thread {
             val r = TranscriptionEngine.transcribe(this, data, local)
             main.post {
-                val text = r.text
+                val text = r.text?.let { Vocabulary.applyCorrections(this@OverlayService, it) }
                 if (!text.isNullOrBlank()) {
                     copyToClipboard(text)
                     val injected = WhisperAccessibilityService.controller?.inject(text) ?: false

@@ -152,6 +152,31 @@ class MainActivity : AppCompatActivity() {
         keyRowSub = keyRow.findViewWithTag("subtitle")
         root.addView(keyRow)
 
+        val vocabRow = settingsRow("Mon vocabulaire", "Mots favorisés + corrections (un par ligne)") {
+            val et = EditText(this).apply {
+                setText(Vocabulary.getRaw(this@MainActivity))
+                isSingleLine = false
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                minLines = 5
+                gravity = Gravity.TOP or Gravity.START
+                hint = "Dydy\ndidi => Dydy"
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+            }
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Mon vocabulaire")
+                .setMessage("Un par ligne :\n• un mot seul = favorisé (le modèle le reconnaît mieux)\n• \"entendu => voulu\" = correction automatique")
+                .setView(et)
+                .setPositiveButton("Enregistrer") { _, _ ->
+                    Vocabulary.setRaw(this, et.text.toString())
+                    startForegroundService(Intent(this, OverlayService::class.java)
+                        .setAction(OverlayService.ACTION_RELOAD_MODEL))
+                    Toast.makeText(this, "Vocabulaire enregistré", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Annuler", null)
+                .show()
+        }
+        root.addView(vocabRow)
+
         setContentView(ScrollView(this).apply {
             setBackgroundColor(attrColor(android.R.attr.colorBackground))
             addView(root)

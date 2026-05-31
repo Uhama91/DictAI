@@ -44,6 +44,13 @@ class LocalTranscriber private constructor(private val recognizer: OfflineRecogn
                 return null
             }
 
+            if (Vocabulary.hasHotwords(ctx)) {
+                Vocabulary.writeHotwordsFile(ctx)
+                config.decodingMethod = "modified_beam_search"
+                config.hotwordsFile = Vocabulary.hotwordsFile(ctx).absolutePath
+                config.hotwordsScore = 2.0f
+            }
+
             return try {
                 val recognizer = OfflineRecognizer(assetManager = null, config = config)
                 Log.i(TAG, "Loaded model: $modelName")

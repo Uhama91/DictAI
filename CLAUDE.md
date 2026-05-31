@@ -29,7 +29,19 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
   Si VERT → Phases C-F (manifest, refactor, OverlayService complet, boot, watchdog, assistant, bouton, sécurité, matrice).
   Si ROUGE → repli (capture dans le service d'accessibilité).
 
+## Étapes OEM réelles découvertes sur le Poco F7 (à encoder dans l'assistant Task 10)
+1. **Overlay** : Afficher par-dessus les autres apps → autoriser.
+2. **Paramètres restreints** (sideload + accessibilité Android 13+/HyperOS) : Réglages → Apps → WhisperPin → **bas de page** : interrupteur **« Autoriser les paramètres restreints »** = ON. (PAS dans le menu ⋮.) Sans ça, l'accessibilité reste grisée.
+3. **Accessibilité** : Réglages → Accessibilité → Applications téléchargées → WhisperPin → activer.
+4. **« Interrompre l'activité de l'application si elle n'est pas utilisée »** (en haut de la fiche app) → **désactiver** (sinon HyperOS retire les perms / tue l'app).
+5. Batterie sans restriction, Autostart, pop-up arrière-plan, verrouiller dans les récents (cf. spec §7).
+
+## Bugs réels écrasés (build de notre fork vs APK officiel)
+- **Libs natives sherpa-onnx** (`libonnxruntime.so`, `libsherpa-onnx-{c,cxx,jni}.so`) : `jniLibs/` est gitignoré upstream → absentes de notre clone → `UnsatisfiedLinkError` crash au chargement modèle local. **Fix** : extraites de l'APK officiel v0.3.0, commitées (force-add) dans `app/src/main/jniLibs/arm64-v8a/`.
+- **Permission `VIBRATE` manquante** → `SecurityException` crash au tap. **Fix** : déclarée + `vibrate()` en try/catch.
+- `loadLocal`/`transcribe` doivent `catch(Throwable)` (UnsatisfiedLinkError = Error, pas Exception).
+
 ## Session Log
 | Date | Action | Fichiers/Config |
 |------|--------|-----------------|
-| 2026-05-31 | Brainstorm→spec(3x Codex)→plan(Codex)→fork Uhama91 + CI. Tasks 1-3 faites (rebrand WhisperPin, CI Actions, spike micro). Spike en attente de test device. | spec+plan docs, `OverlayService.kt` (spike), manifest, `build.gradle.kts`, `.github/workflows/build.yml` |
+| 2026-05-31 | Brainstorm→spec(3x Codex)→plan(Codex)→fork Uhama91 + CI. Tasks 1-7+11 faites. Spike micro VERT (maxAmp 21791). Core fonctionnel testé sur Poco F7 : bouton overlay + record + transcription locale + injection accessibilité OK après levée des « paramètres restreints ». Reste : pack survie (boot/watchdog/assistant OEM), sécurité finale, matrice. | tous les `.kt` du package, `jniLibs/arm64-v8a/*.so`, manifest, CI |
