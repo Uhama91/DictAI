@@ -34,6 +34,9 @@ object LlmPostProcessor {
         return if (close >= 0) s.substring(close + "</think>".length).trim() else ""
     }
 
+    fun isDownloaded(ctx: Context): Boolean =
+        ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE).getBoolean("llm_downloaded", false)
+
     /** Charge le modèle (télécharge au 1er appel). Bloquant — hors thread principal. */
     fun ensureLoaded(ctx: Context): Boolean = runBlocking {
         mutex.withLock {
@@ -42,6 +45,8 @@ object LlmPostProcessor {
                 val e = LlmEnvironment(ctx.applicationContext)
                 engine = e.load(ModelSource.HuggingFace(REPO, FILE, "main", null))
                 env = e
+                ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE)
+                    .edit().putBoolean("llm_downloaded", true).apply()
                 ready = true
                 Log.i(TAG, "LLM prêt")
                 true

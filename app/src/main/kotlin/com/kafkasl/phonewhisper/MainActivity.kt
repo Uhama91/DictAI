@@ -28,10 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var audioRowSub: TextView
     private lateinit var accRowSub: TextView
     private lateinit var keyRowSub: TextView
-    private lateinit var promptRowSub: TextView
-    private lateinit var promptRow: LinearLayout
     private lateinit var modelContainer: LinearLayout
-    private lateinit var promptContainer: LinearLayout
 
     private val modelRows = mutableMapOf<String, ModelRowViews>()
     private val promptRows = mutableMapOf<String, PromptRowViews>()
@@ -118,32 +115,6 @@ class MainActivity : AppCompatActivity() {
         modelContainer.addView(sectionHeader("Local models"))
         for (m in MODEL_CATALOG) modelContainer.addView(buildModelRow(m))
         root.addView(modelContainer)
-
-        // --- Post-Processing Section ---
-        root.addView(sectionHeader("Post-Processing"))
-        
-        val isPostProcessing = prefs().getBoolean("use_post_processing", false)
-        val postProcessSwitch = MaterialSwitch(this).apply {
-            isChecked = isPostProcessing
-            isClickable = false
-        }
-        val postProcessRow = settingsRow("Cleanup transcript", "Uses OpenAI Chat API to fix grammar and punctuation", postProcessSwitch) {
-            val newVal = !postProcessSwitch.isChecked
-            prefs().edit().putBoolean("use_post_processing", newVal).apply()
-            postProcessSwitch.isChecked = newVal
-            refresh()
-        }
-        root.addView(postProcessRow)
-
-        promptContainer = vertical(0)
-        for (preset in promptPresets()) promptContainer.addView(buildPromptRow(preset))
-        root.addView(promptContainer)
-
-        promptRow = settingsRow("Edit current prompt", currentPrompt()) { promptPostProcessing() }
-        promptRowSub = promptRow.findViewWithTag("subtitle")
-        promptRowSub.maxLines = 2
-        promptRowSub.ellipsize = android.text.TextUtils.TruncateAt.END
-        root.addView(promptRow)
 
         // --- Post-traitement LLM local ---
         val ppSwitch = com.google.android.material.materialswitch.MaterialSwitch(this).apply {
@@ -377,7 +348,6 @@ class MainActivity : AppCompatActivity() {
         val audio = hasPerm(Manifest.permission.RECORD_AUDIO)
         val acc = WhisperAccessibilityService.controller != null
         val useLocal = prefs().getBoolean("use_local", true)
-        val usePostProcessing = prefs().getBoolean("use_post_processing", false)
         val hasKey = !prefs().getString("api_key", "").isNullOrBlank()
         val hasModel = LocalTranscriber.availableModels(this).isNotEmpty()
 
@@ -385,16 +355,11 @@ class MainActivity : AppCompatActivity() {
         accRowSub.text = if (acc) "Enabled" else "Tap to enable in settings"
 
         modelContainer.visibility = if (useLocal) View.VISIBLE else View.GONE
-        promptContainer.visibility = if (usePostProcessing) View.VISIBLE else View.GONE
-        promptRow.visibility = if (usePostProcessing) View.VISIBLE else View.GONE
 
         val apiKey = prefs().getString("api_key", "") ?: ""
-        keyRowSub.text = if (apiKey.isBlank()) "Tap to set" 
-                         else if (apiKey.length > 7) "sk-...${apiKey.takeLast(4)}" 
+        keyRowSub.text = if (apiKey.isBlank()) "Tap to set"
+                         else if (apiKey.length > 7) "sk-...${apiKey.takeLast(4)}"
                          else "sk-...***"
-
-        val prompt = currentPrompt()
-        promptRowSub.text = prompt
 
         val cur = prefs().getString("model_name", "") ?: ""
         if (cur.isBlank() || !File(filesDir, "models/$cur").exists()) {
@@ -405,8 +370,7 @@ class MainActivity : AppCompatActivity() {
         // Ready logic
         val localReady = useLocal && hasModel
         val cloudReady = !useLocal && hasKey
-        val postReady = !usePostProcessing || hasKey
-        val ready = audio && acc && (localReady || cloudReady) && postReady
+        val ready = audio && acc && (localReady || cloudReady)
 
         statusSubtitle.text = if (ready) "Ready — tap the overlay dot to dictate" else "Setup required"
         statusSubtitle.setTextColor(if (ready) attrColor(com.google.android.material.R.attr.colorPrimary) else attrColor(android.R.attr.textColorSecondary))

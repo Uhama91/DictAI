@@ -60,7 +60,8 @@ class OverlayService : Service() {
         if (!startForegroundSpecialUse()) return
         showButton()
         thread { local = TranscriptionEngine.loadLocal(this) }
-        if (PostProcessPrompts.isEnabled(this)) thread { LlmPostProcessor.ensureLoaded(this) }
+        if (PostProcessPrompts.isEnabled(this) && LlmPostProcessor.isDownloaded(this))
+            thread { LlmPostProcessor.ensureLoaded(this) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
