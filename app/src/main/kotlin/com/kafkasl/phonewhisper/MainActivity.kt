@@ -256,7 +256,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun selectModel(archive: String) {
         prefs().edit().putString("model_name", archive).apply()
-        WhisperAccessibilityService.instance?.reloadModel()
         refreshAllCards(); refresh()
     }
 
@@ -319,7 +318,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refresh() {
         val audio = hasPerm(Manifest.permission.RECORD_AUDIO)
-        val acc = WhisperAccessibilityService.instance != null
+        val acc = WhisperAccessibilityService.controller != null
         val useLocal = prefs().getBoolean("use_local", true)
         val usePostProcessing = prefs().getBoolean("use_post_processing", false)
         val hasKey = !prefs().getString("api_key", "").isNullOrBlank()
