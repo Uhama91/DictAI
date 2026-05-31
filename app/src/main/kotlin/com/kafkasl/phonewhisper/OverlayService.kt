@@ -197,10 +197,16 @@ class OverlayService : Service() {
     }
 
     private fun vibrate(ms: Long) {
-        val v = if (Build.VERSION.SDK_INT >= 31)
-            getSystemService(VibratorManager::class.java).defaultVibrator
-        else @Suppress("DEPRECATION") getSystemService(Vibrator::class.java)
-        v?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
+        // Défensif : une vibration ne doit JAMAIS crasher l'enregistrement
+        // (ex: SecurityException si permission absente, ou vibreur indispo).
+        try {
+            val v = if (Build.VERSION.SDK_INT >= 31)
+                getSystemService(VibratorManager::class.java).defaultVibrator
+            else @Suppress("DEPRECATION") getSystemService(Vibrator::class.java)
+            v?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (t: Throwable) {
+            Log.w(TAG, "vibrate indispo: ${t.javaClass.simpleName}")
+        }
     }
 
     // ---- Bouton : drag + long-press + position memorisee + repli bord ----
