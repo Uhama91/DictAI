@@ -75,21 +75,6 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(spikeBtn)
 
-        val llmSpikeBtn = android.widget.Button(this).apply {
-            text = "Spike LLM local (test)"
-            setOnClickListener {
-                android.widget.Toast.makeText(this@MainActivity, "Spike LLM lancé — voir toasts/logs", android.widget.Toast.LENGTH_SHORT).show()
-                kotlin.concurrent.thread {
-                    LlmSpike.run(this@MainActivity) { msg ->
-                        runOnUiThread {
-                            android.widget.Toast.makeText(this@MainActivity, msg, android.widget.Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            }
-        }
-        root.addView(llmSpikeBtn)
-
         // Status row
         val statusRow = settingsRow("Status", "Checking...")
         statusSubtitle = statusRow.findViewWithTag("subtitle")
@@ -159,6 +144,31 @@ class MainActivity : AppCompatActivity() {
         promptRowSub.maxLines = 2
         promptRowSub.ellipsize = android.text.TextUtils.TruncateAt.END
         root.addView(promptRow)
+
+        // --- Post-traitement LLM local ---
+        val ppSwitch = com.google.android.material.materialswitch.MaterialSwitch(this).apply {
+            isChecked = PostProcessPrompts.isEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, on ->
+                PostProcessPrompts.setEnabled(this@MainActivity, on)
+                if (on) {
+                    android.widget.Toast.makeText(this@MainActivity,
+                        "Préparation du modèle (~378 Mo en WiFi au 1er coup)…", android.widget.Toast.LENGTH_LONG).show()
+                    kotlin.concurrent.thread { LlmPostProcessor.ensureLoaded(this@MainActivity) }
+                } else {
+                    kotlin.concurrent.thread { LlmPostProcessor.unload() }
+                }
+            }
+        }
+        root.addView(settingsRow("Post-traitement (local)", "Reformule la dictée avec un LLM hors-ligne", ppSwitch))
+
+        root.addView(settingsRow("Modèle Qwen3-0.6B", if (LlmPostProcessor.ready) "Prêt" else "À préparer (active le toggle)") {
+            android.widget.Toast.makeText(this@MainActivity, "Préparation du modèle…", android.widget.Toast.LENGTH_SHORT).show()
+            kotlin.concurrent.thread { LlmPostProcessor.ensureLoaded(this@MainActivity) }
+        })
+
+        root.addView(settingsRow("Prompt de post-traitement", "Choisir / éditer (utilise \${output})") {
+            showPromptManager()
+        })
 
         // --- Settings Section ---
         root.addView(sectionHeader("Settings"))
@@ -443,6 +453,47 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun showPromptManager() {
+        val prompts = PostProcessPrompts.all(this).toMutableList()
+        val labels = prompts.map { it.label }.toTypedArray()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Prompt sélectionné")
+            .setSingleChoiceItems(labels, PostProcessPrompts.selectedIndex(this)) { d, which ->
+                PostProcessPrompts.setSelectedIndex(this, which); d.dismiss()
+            }
+            .setPositiveButton("Éditer") { _, _ -> editPrompt(prompts, PostProcessPrompts.selectedIndex(this)) }
+            .setNeutralButton("Nouveau") { _, _ -> editPrompt(prompts, -1) }
+            .setNegativeButton("Fermer", null)
+            .show()
+    }
+
+    private fun editPrompt(prompts: MutableList<PostProcessPrompts.Prompt>, index: Int) {
+        val existing = prompts.getOrNull(index)
+        val labelEt = EditText(this).apply { hint = "Libellé"; setText(existing?.label ?: "") }
+        val tplEt = EditText(this).apply {
+            hint = "Instructions (utilise \${output})"; setText(existing?.template ?: "")
+            isSingleLine = false; minLines = 4
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        }
+        val box = vertical(dp(16), dp(8)).apply { addView(labelEt); addView(tplEt) }
+        val b = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(if (existing == null) "Nouveau prompt" else "Modifier le prompt")
+            .setView(box)
+            .setPositiveButton("Enregistrer") { _, _ ->
+                val p = PostProcessPrompts.Prompt(labelEt.text.toString().ifBlank { "Prompt" }, tplEt.text.toString())
+                if (index >= 0 && index < prompts.size) prompts[index] = p else prompts.add(p)
+                PostProcessPrompts.save(this, prompts)
+                Toast.makeText(this, "Enregistré", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Annuler", null)
+        if (existing != null && prompts.size > 1) b.setNeutralButton("Supprimer") { _, _ ->
+            prompts.removeAt(index); PostProcessPrompts.save(this, prompts)
+            PostProcessPrompts.setSelectedIndex(this, 0)
+            Toast.makeText(this, "Supprimé", Toast.LENGTH_SHORT).show()
+        }
+        b.show()
     }
 
     // --- UI Helpers ---

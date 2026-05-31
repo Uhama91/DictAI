@@ -39,7 +39,7 @@ class OverlayService : Service() {
             private set
     }
 
-    private enum class State { IDLE, RECORDING, TRANSCRIBING, MIC_UNARMED }
+    private enum class State { IDLE, RECORDING, TRANSCRIBING, MIC_UNARMED, LLM_PROCESSING }
 
     private val prefs by lazy { PersistencePrefs(this) }
     @Volatile private var state = State.MIC_UNARMED
@@ -60,6 +60,7 @@ class OverlayService : Service() {
         if (!startForegroundSpecialUse()) return
         showButton()
         thread { local = TranscriptionEngine.loadLocal(this) }
+        if (PostProcessPrompts.isEnabled(this)) thread { LlmPostProcessor.ensureLoaded(this) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -131,7 +132,7 @@ class OverlayService : Service() {
             State.MIC_UNARMED -> { toast("Ouvre WhisperPin pour activer le micro"); openApp() }
             State.IDLE -> startRec()
             State.RECORDING -> stopRec()
-            State.TRANSCRIBING -> {}
+            State.TRANSCRIBING, State.LLM_PROCESSING -> {}
         }
     }
 
@@ -169,11 +170,18 @@ class OverlayService : Service() {
         if (data.isEmpty()) { setState(State.IDLE); return }
         thread {
             val r = TranscriptionEngine.transcribe(this, data, local)
+            var finalText = r.text?.let { Vocabulary.applyCorrections(this, it) }
+            if (!finalText.isNullOrBlank() &&
+                PostProcessPrompts.isEnabled(this) && LlmPostProcessor.ready) {
+                setState(State.LLM_PROCESSING)
+                val pp = LlmPostProcessor.rewrite(this, PostProcessPrompts.fill(this, finalText))
+                if (!pp.isNullOrBlank()) finalText = pp
+            }
+            val outText = finalText
             main.post {
-                val text = r.text?.let { Vocabulary.applyCorrections(this@OverlayService, it) }
-                if (!text.isNullOrBlank()) {
-                    copyToClipboard(text)
-                    val injected = WhisperAccessibilityService.controller?.inject(text) ?: false
+                if (!outText.isNullOrBlank()) {
+                    copyToClipboard(outText)
+                    val injected = WhisperAccessibilityService.controller?.inject(outText) ?: false
                     toast(if (injected) "Insere" else "Copie (presse-papier)")
                 } else toast("Erreur: ${r.error ?: "vide"}")
                 setState(State.IDLE)
@@ -188,6 +196,7 @@ class OverlayService : Service() {
                 State.IDLE -> 0xDD1C1C1E.toInt()
                 State.RECORDING -> 0xDDEF4444.toInt()
                 State.TRANSCRIBING -> 0xDD6B6B6B.toInt()
+                State.LLM_PROCESSING -> 0xDD3B6B8A.toInt()
                 State.MIC_UNARMED -> 0xDD8A6D3B.toInt()
             }
             (button?.background as? GradientDrawable)?.setColor(color)
