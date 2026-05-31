@@ -21,7 +21,9 @@ import android.os.VibratorManager
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.Toast
 import kotlin.concurrent.thread
@@ -45,6 +47,9 @@ class OverlayService : Service() {
     @Volatile private var state = State.MIC_UNARMED
     private var recordThread: Thread? = null
     private var button: ImageView? = null
+    private var container: FrameLayout? = null
+    private var pill: FrameLayout? = null
+    private var wave: CursiveWaveView? = null
     private var params: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
     private var pcm: java.io.ByteArrayOutputStream? = null
@@ -156,9 +161,22 @@ class OverlayService : Service() {
             val buf = ByteArray(bufSize)
             while (state == State.RECORDING) {
                 val n = ar.read(buf, 0, buf.size)
-                if (n > 0) pcm?.write(buf, 0, n)
+                if (n > 0) { pcm?.write(buf, 0, n); wave?.setLevel(rmsLevel(buf, n)) }
             }
         }
+    }
+
+    private fun rmsLevel(buf: ByteArray, n: Int): Float {
+        var sum = 0.0; var count = 0
+        var i = 0
+        while (i + 1 < n) {
+            val s = (buf[i].toInt() and 0xFF) or (buf[i + 1].toInt() shl 8)
+            val v = s.toShort().toInt(); sum += (v * v).toDouble(); count++; i += 2
+        }
+        if (count == 0) return 0f
+        val rms = Math.sqrt(sum / count) / 32768.0
+        // boost comme DictAI pour réagir à la parole normale
+        return (Math.sqrt(rms) * 4.0).coerceIn(0.0, 1.0).toFloat()
     }
 
     private fun stopRec() {
@@ -208,9 +226,31 @@ class OverlayService : Service() {
                 State.MIC_UNARMED -> 0xDD8A6D3B.toInt()
             }
             (button?.background as? GradientDrawable)?.setColor(color)
+            showRecordingPill(s == State.RECORDING)
             updateNotif()
             scheduleCollapse()
         }
+    }
+
+    private fun showRecordingPill(recording: Boolean) {
+        val dp = resources.displayMetrics.density
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val lp = params ?: return
+        if (recording) {
+            button?.visibility = View.GONE
+            pill?.visibility = View.VISIBLE
+            wave?.start()
+            lp.width = (210 * dp).toInt(); lp.height = (46 * dp).toInt()
+        } else {
+            wave?.stop()
+            pill?.visibility = View.GONE
+            button?.visibility = View.VISIBLE
+            lp.width = (56 * dp).toInt(); lp.height = (56 * dp).toInt()
+        }
+        // garder le centre approximativement stable + clamp à l'écran
+        val screenW = resources.displayMetrics.widthPixels
+        lp.x = lp.x.coerceIn(0, (screenW - lp.width).coerceAtLeast(0))
+        try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
     }
 
     private fun vibrate(ms: Long) {
@@ -228,12 +268,12 @@ class OverlayService : Service() {
 
     // ---- Bouton : drag + long-press + position memorisee + repli bord ----
 
-    private val collapse = Runnable { button?.animate()?.alpha(0.4f)?.setDuration(200)?.start() }
+    private val collapse = Runnable { container?.animate()?.alpha(0.4f)?.setDuration(200)?.start() }
     private fun scheduleCollapse() { main.removeCallbacks(collapse); main.postDelayed(collapse, 3000) }
-    private fun wake() { button?.animate()?.alpha(1f)?.setDuration(120)?.start(); scheduleCollapse() }
+    private fun wake() { container?.animate()?.alpha(1f)?.setDuration(120)?.start(); scheduleCollapse() }
 
     private fun showButton() {
-        if (button != null) return
+        if (container != null) return
         if (!android.provider.Settings.canDrawOverlays(this)) {
             Log.w(TAG, "overlay non accorde -> pas de bouton")
             return
@@ -245,11 +285,42 @@ class OverlayService : Service() {
         val screenW = resources.displayMetrics.widthPixels
         val screenH = resources.displayMetrics.heightPixels
 
+        // Bouton micro rond (look/comportement existants)
         val img = ImageView(this).apply {
             setImageResource(R.drawable.ic_mic)
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xDD8A6D3B.toInt()) }
             setPadding((12 * dp).toInt(), (12 * dp).toInt(), (12 * dp).toInt(), (12 * dp).toInt())
+            layoutParams = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
         }
+
+        // Pilule : rounded-rect blanc cassé avec ombre douce + onde cursive
+        val waveView = CursiveWaveView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, (40 * dp).toInt(), Gravity.CENTER
+            )
+        }
+        val pillView = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 22 * dp
+                setColor(0xF2FFFFFF.toInt())
+                setStroke(1, 0xFFE5E2DB.toInt())
+            }
+            elevation = 4 * dp
+            setPadding((6 * dp).toInt(), 0, (6 * dp).toInt(), 0)
+            layoutParams = FrameLayout.LayoutParams(
+                (200 * dp).toInt(), (44 * dp).toInt(), Gravity.CENTER
+            )
+            visibility = View.GONE
+            addView(waveView)
+        }
+
+        val frame = FrameLayout(this).apply {
+            addView(img)
+            addView(pillView)
+        }
+
+        // La fenêtre démarre à la taille du bouton rond (56dp).
         val lp = WindowManager.LayoutParams(
             size, size, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
@@ -260,45 +331,56 @@ class OverlayService : Service() {
         }
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
-        var longPressed = false
-        val longPress = Runnable { longPressed = true; vibrate(30); openApp() }
+        var pttFired = false
+        val longPress = Runnable {
+            // Maintenu 250ms, pas bougé, toujours IDLE → push-to-talk
+            if (!moved && state == State.IDLE) {
+                pttFired = true
+                vibrate(20)
+                startRec()
+            }
+        }
 
-        img.setOnTouchListener { v, ev ->
+        frame.setOnTouchListener { _, ev ->
             when (ev.action) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
-                    moved = false; longPressed = false
+                    moved = false; pttFired = false
                     wake()
-                    main.postDelayed(longPress, 500); true
+                    if (state == State.IDLE) main.postDelayed(longPress, 250); true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     if (abs(dx) + abs(dy) > 10 * dp) {
                         moved = true; main.removeCallbacks(longPress)
-                        lp.x = PersistencePrefs.clampX((downX + dx).toInt(), size, screenW)
-                        lp.y = PersistencePrefs.clampY((downY + dy).toInt(), size, screenH)
-                        wm.updateViewLayout(v, lp)
+                        lp.x = PersistencePrefs.clampX((downX + dx).toInt(), lp.width, screenW)
+                        lp.y = PersistencePrefs.clampY((downY + dy).toInt(), lp.height, screenH)
+                        try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
                     }; true
                 }
                 MotionEvent.ACTION_UP -> {
                     main.removeCallbacks(longPress)
-                    if (!moved && !longPressed) onTap()
-                    else if (moved) {
-                        lp.x = if (lp.x + size / 2 > screenW / 2) screenW - size - margin else margin
-                        wm.updateViewLayout(v, lp)
+                    if (moved) {
+                        lp.x = if (lp.x + lp.width / 2 > screenW / 2) screenW - lp.width - margin else margin
+                        try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
                         prefs.buttonX = lp.x; prefs.buttonY = lp.y
+                    } else if (pttFired) {
+                        // Relâchement du push-to-talk → on arrête + transcrit
+                        if (state == State.RECORDING) stopRec()
+                    } else {
+                        onTap()
                     }; true
                 }
                 else -> false
             }
         }
         try {
-            wm.addView(img, lp)
+            wm.addView(frame, lp)
         } catch (e: Exception) {
             Log.e(TAG, "addView echec: ${e.javaClass.simpleName}")
             return
         }
-        button = img; params = lp
+        container = frame; button = img; pill = pillView; wave = waveView; params = lp
         scheduleCollapse()
     }
 
@@ -319,8 +401,9 @@ class OverlayService : Service() {
         audioRecord?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
         audioRecord = null
         main.removeCallbacksAndMessages(null)
-        try { button?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
-        button = null
+        try { wave?.stop() } catch (_: Exception) {}
+        try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
+        container = null; button = null; pill = null; wave = null
         super.onDestroy()
     }
 }
