@@ -24,9 +24,14 @@ object TranscriptionEngine {
         val prefs = prefs(ctx)
         val useLocal = prefs.getBoolean("use_local", true)
         return if (useLocal && local != null) {
-            val samples = pcm16ToFloat(pcm)
-            val text = local.transcribe(samples, SAMPLE_RATE)
-            Result(text)
+            try {
+                val samples = pcm16ToFloat(pcm)
+                Result(local.transcribe(samples, SAMPLE_RATE))
+            } catch (t: Throwable) {
+                // Lib native sherpa absente / échec runtime → ne pas crasher
+                android.util.Log.w("WhisperPin", "transcription locale indisponible: ${t.javaClass.simpleName}")
+                Result(null, "Transcription locale indisponible (lib native absente)")
+            }
         } else {
             val apiKey = prefs.getString("api_key", "") ?: ""
             if (apiKey.isBlank()) return Result(null, "Set API key")
@@ -42,11 +47,18 @@ object TranscriptionEngine {
     }
 
     fun loadLocal(ctx: Context): LocalTranscriber? {
-        val modelName = prefs(ctx).getString("model_name", "") ?: ""
-        return if (modelName.isBlank()) {
-            val models = LocalTranscriber.availableModels(ctx)
-            if (models.isNotEmpty()) LocalTranscriber.create(ctx, models.first()) else null
-        } else LocalTranscriber.create(ctx, modelName)
+        return try {
+            val modelName = prefs(ctx).getString("model_name", "") ?: ""
+            if (modelName.isBlank()) {
+                val models = LocalTranscriber.availableModels(ctx)
+                if (models.isNotEmpty()) LocalTranscriber.create(ctx, models.first()) else null
+            } else LocalTranscriber.create(ctx, modelName)
+        } catch (t: Throwable) {
+            // UnsatisfiedLinkError (libsherpa-onnx-jni.so absente du build) est une Error,
+            // pas une Exception → catch(Throwable) obligatoire pour ne pas crasher l'app.
+            android.util.Log.w("WhisperPin", "modèle local indisponible: ${t.javaClass.simpleName} ${t.message}")
+            null
+        }
     }
 
     private fun prefs(ctx: Context): SharedPreferences =
