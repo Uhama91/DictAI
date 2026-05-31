@@ -61,6 +61,20 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(header)
 
+        val spikeBtn = android.widget.Button(this).apply {
+            text = "Demarrer overlay (spike)"
+            setOnClickListener {
+                if (!android.provider.Settings.canDrawOverlays(this@MainActivity)) {
+                    startActivity(Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")))
+                    return@setOnClickListener
+                }
+                startForegroundService(Intent(this@MainActivity, OverlayService::class.java))
+            }
+        }
+        root.addView(spikeBtn)
+
         // Status row
         val statusRow = settingsRow("Status", "Checking...")
         statusSubtitle = statusRow.findViewWithTag("subtitle")
