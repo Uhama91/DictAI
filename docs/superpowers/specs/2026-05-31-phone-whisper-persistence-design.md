@@ -241,3 +241,14 @@ MIUI varient selon les versions HyperOS). L'assistant affiche un état global «
 | Fuites de vues WindowManager (multi-start) | Création/suppression overlay idempotentes |
 | Re-signature CI casse l'install par-dessus | Keystore debug commité / `signingConfig` stable |
 | Notif FGS masquée si `POST_NOTIFICATIONS` refusé | FGS démarre quand même ; ligne assistant dédiée |
+
+---
+
+## Résultat spike micro (Task 3) — GATE VERT 🟢
+
+- **Date** : 2026-05-31
+- **Appareil** : Xiaomi (modèle 25053PC47G, `onyx`, HyperOS Android 15)
+- **Méthode** : OverlayService FGS `specialUse|microphone` démarré depuis l'app, app mise en arrière-plan, tap du bouton flottant.
+- **Résultat** : capture audio en arrière-plan **fonctionnelle**. `maxAmp` mesuré jusqu'à **21791** (samples jusqu'à 357760 ≈ 22 s). 5 cycles d'enregistrement réussis.
+- **Verdict** : **GATE VERT** — le chemin micro via FGS `microphone` est validé sur HyperOS. Approche C confirmée. On poursuit Phases C→F.
+- **Observation UX** : les `Toast` d'une app en arrière-plan sont masqués par HyperOS → le retour utilisateur doit reposer sur le **changement d'apparence du bouton + vibration** (déjà prévu Task 7/11), pas sur des toasts.
