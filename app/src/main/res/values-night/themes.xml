@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.PhoneWhisper" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Accent Colors -->
+        <!-- Accent / color roles — carnet sombre DictAI -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryContainer">@color/primary_container</item>
         <item name="colorOnPrimaryContainer">@color/on_primary_container</item>
-        
+        <item name="colorOnPrimary">@color/dictai_bg</item>
+        <item name="android:colorBackground">@color/dictai_bg</item>
+        <item name="colorSurface">@color/dictai_surface</item>
+        <item name="colorSurfaceVariant">@color/dictai_surface</item>
+        <item name="colorOnSurface">@color/dictai_ink</item>
+        <item name="colorOnSurfaceVariant">@color/dictai_ink_muted</item>
+        <item name="colorOnBackground">@color/dictai_ink</item>
+        <item name="colorError">@color/dictai_error</item>
+
         <!-- Status / Navigation Bars -->
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">?android:attr/colorBackground</item>

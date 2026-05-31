@@ -6,16 +6,18 @@ import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -50,16 +52,41 @@ class MainActivity : AppCompatActivity() {
 
         val root = vertical(0, 0)
 
-        // Top large header (like "Connected devices")
-        val header = TextView(this).apply {
-            text = "Phone Whisper"
-            textSize = 32f
-            setPadding(dp(24), dp(64), dp(24), dp(24))
+        // Header row : mic icon (encre verte) + "DictAI" en Caveat
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(56), 0, dp(20))
+            addView(ImageView(this@MainActivity).apply {
+                setImageResource(R.drawable.ic_mic)
+                imageTintList = ColorStateList.valueOf(ThemeTokens.GREEN)
+                layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).apply {
+                    rightMargin = dp(10)
+                }
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "DictAI"
+                ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let { typeface = it }
+                textSize = 40f
+                setTextColor(ThemeTokens.GREEN)
+                gravity = Gravity.CENTER_VERTICAL
+            })
         }
         root.addView(header)
 
         val spikeBtn = android.widget.Button(this).apply {
             text = "Activer le bouton flottant"
+            setTextColor(ThemeTokens.BG)
+            setTypeface(typeface, Typeface.BOLD)
+            stateListAnimator = null
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = ThemeTokens.dpf(this@MainActivity, 12f)
+                setColor(ThemeTokens.GREEN)
+            }
+            layoutParams = LinearLayout.LayoutParams(LP_MATCH, LP_WRAP).apply {
+                topMargin = dp(4); bottomMargin = dp(10)
+            }
             setOnClickListener {
                 if (!android.provider.Settings.canDrawOverlays(this@MainActivity)) {
                     startActivity(Intent(
@@ -101,6 +128,7 @@ class MainActivity : AppCompatActivity() {
         val cloudSwitch = MaterialSwitch(this).apply {
             isChecked = isCloud
             isClickable = false
+            greenTint()
         }
         val cloudRow = settingsRow("Use cloud transcription", "Requires OpenAI API key", cloudSwitch) {
             val newCloud = !cloudSwitch.isChecked
@@ -119,6 +147,7 @@ class MainActivity : AppCompatActivity() {
         // --- Post-traitement LLM local ---
         val ppSwitch = com.google.android.material.materialswitch.MaterialSwitch(this).apply {
             isChecked = PostProcessPrompts.isEnabled(this@MainActivity)
+            greenTint()
             setOnCheckedChangeListener { _, on ->
                 PostProcessPrompts.setEnabled(this@MainActivity, on)
                 if (on) {
@@ -157,6 +186,7 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.TOP or Gravity.START
                 hint = "Dydy\ndidi => Dydy"
                 setPadding(dp(16), dp(12), dp(16), dp(12))
+                inkColors()
             }
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Mon vocabulaire")
@@ -171,8 +201,13 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(vocabRow)
 
+        // Fond "page de carnet" : contenu à droite du filet de marge vert (~30dp)
+        root.background = NotebookBackgroundDrawable(this)
+        root.minimumHeight = resources.displayMetrics.heightPixels
+        root.setPadding(dp(46), root.paddingTop, dp(16), root.paddingBottom)
+
         setContentView(ScrollView(this).apply {
-            setBackgroundColor(attrColor(android.R.attr.colorBackground))
+            setBackgroundColor(ThemeTokens.BG)
             addView(root)
         })
 
@@ -383,8 +418,9 @@ class MainActivity : AppCompatActivity() {
         val input = EditText(this).apply {
             hint = "sk-..."
             setText(prefs().getString("api_key", ""))
+            inkColors()
         }
-        android.app.AlertDialog.Builder(this)
+        androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("OpenAI API Key")
             .setView(input.apply { setPadding(dp(24), dp(8), dp(24), dp(8)) })
             .setPositiveButton("Save") { _, _ ->
@@ -402,8 +438,9 @@ class MainActivity : AppCompatActivity() {
             minLines = 3
             gravity = Gravity.TOP or Gravity.START
             setText(currentPrompt())
+            inkColors()
         }
-        android.app.AlertDialog.Builder(this)
+        androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Edit current prompt")
             .setView(input.apply { setPadding(dp(24), dp(8), dp(24), dp(8)) })
             .setPositiveButton("Save") { _, _ ->
@@ -435,11 +472,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun editPrompt(prompts: MutableList<PostProcessPrompts.Prompt>, index: Int) {
         val existing = prompts.getOrNull(index)
-        val labelEt = EditText(this).apply { hint = "Libellé"; setText(existing?.label ?: "") }
+        val labelEt = EditText(this).apply { hint = "Libellé"; setText(existing?.label ?: ""); inkColors() }
         val tplEt = EditText(this).apply {
             hint = "Instructions (utilise \${output})"; setText(existing?.template ?: "")
             isSingleLine = false; minLines = 4
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            inkColors()
         }
         val box = vertical(dp(16), dp(8)).apply { addView(labelEt); addView(tplEt) }
         val b = androidx.appcompat.app.AlertDialog.Builder(this)
@@ -463,35 +501,43 @@ class MainActivity : AppCompatActivity() {
     // --- UI Helpers ---
 
     private fun settingsRow(title: String, subtitle: String, widget: View? = null, onClick: (() -> Unit)? = null): LinearLayout {
+        // Carte-note sobre : surface arrondie + filet fin
+        val cardBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = ThemeTokens.dpf(this@MainActivity, 11f)
+            setColor(ThemeTokens.SURFACE)
+            setStroke(dp(1), ThemeTokens.STROKE)
+        }
+        val rowBg = RippleDrawable(ColorStateList.valueOf(0x22FFFFFF), cardBg, null)
+
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(24), dp(16), dp(24), dp(16))
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            background = rowBg
+            layoutParams = LinearLayout.LayoutParams(LP_MATCH, LP_WRAP).apply {
+                topMargin = dp(6); bottomMargin = dp(6)
+            }
             isClickable = onClick != null
             isFocusable = onClick != null
-            if (onClick != null) {
-                val outValue = TypedValue()
-                context.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-                setBackgroundResource(outValue.resourceId)
-                setOnClickListener { onClick() }
-            }
+            if (onClick != null) setOnClickListener { onClick() }
         }
 
         val textContainer = vertical(0).apply {
             layoutParams = LinearLayout.LayoutParams(0, LP_WRAP, 1f)
         }
-        
+
         textContainer.addView(TextView(this).apply {
             text = title
             textSize = 18f
-            setTextColor(attrColor(android.R.attr.textColorPrimary))
+            setTextColor(ThemeTokens.INK)
         })
-        
+
         textContainer.addView(TextView(this).apply {
             tag = "subtitle"
             text = subtitle
             textSize = 14f
-            setTextColor(attrColor(android.R.attr.textColorSecondary))
+            setTextColor(ThemeTokens.INK_MUTED)
             setPadding(0, dp(2), 0, 0)
         })
 
@@ -505,8 +551,9 @@ class MainActivity : AppCompatActivity() {
         text = title
         textSize = 14f
         setTypeface(typeface, Typeface.BOLD)
-        setTextColor(attrColor(com.google.android.material.R.attr.colorPrimary)) // Neutral Android-like blue
-        setPadding(dp(24), dp(24), dp(24), dp(8))
+        letterSpacing = 0.08f
+        setTextColor(ThemeTokens.GREEN)
+        setPadding(dp(2), dp(22), dp(2), dp(8))
     }
 
     private fun vertical(padH: Int, padV: Int = padH) = LinearLayout(this).apply {
@@ -547,6 +594,27 @@ class MainActivity : AppCompatActivity() {
     )
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
+
+    /** Force du texte argenté sur fond sombre pour les champs des dialogs. */
+    private fun EditText.inkColors() {
+        setTextColor(ThemeTokens.INK)
+        setHintTextColor(ThemeTokens.INK_MUTED)
+    }
+
+    /** Teinte un switch en encre verte (coché) / atténué (décoché). */
+    private fun MaterialSwitch.greenTint() {
+        val track = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(0x665BCB95.toInt(), 0x33FFFFFF)
+        )
+        val thumb = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(ThemeTokens.GREEN, ThemeTokens.INK_MUTED)
+        )
+        trackTintList = track
+        thumbTintList = thumb
+    }
+
     private fun hasPerm(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
     private fun attrColor(attr: Int): Int {
         val ta = obtainStyledAttributes(intArrayOf(attr))

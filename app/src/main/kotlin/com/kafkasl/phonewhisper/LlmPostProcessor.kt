@@ -32,7 +32,7 @@ object LlmPostProcessor {
      * "thinking" (llama.cpp ignore `enable_thinking=false` ; c'est le workaround documenté).
      * Sans ça, Qwen3 génère des centaines de tokens de raisonnement avant la réponse (= très lent).
      */
-    private val noThinkTemplate = ChatTemplate.Custom(
+    private val noThinkTemplate by lazy { ChatTemplate.Custom(
         { msgs ->
             val sb = StringBuilder()
             for (m in msgs) sb.append("<|im_start|>${m.role.name.lowercase()}\n${m.content}<|im_end|>\n")
@@ -40,7 +40,7 @@ object LlmPostProcessor {
             sb.toString()
         },
         listOf("<|im_end|>")
-    )
+    ) }
 
     /** Retire un éventuel bloc de raisonnement Qwen3 `<think>...</think>`. */
     fun stripThink(raw: String): String {

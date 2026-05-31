@@ -83,7 +83,7 @@ class OverlayService : Service() {
 
     private fun buildNotification(): Notification =
         Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("WhisperPin actif")
+            .setContentTitle("DictAI actif")
             .setContentText(
                 when (state) {
                     State.MIC_UNARMED -> "Ouvre l'app pour activer le micro"
