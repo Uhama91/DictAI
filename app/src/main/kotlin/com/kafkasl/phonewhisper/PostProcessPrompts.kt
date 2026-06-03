@@ -18,6 +18,16 @@ object PostProcessPrompts {
     fun isEnabled(ctx: Context) = prefs(ctx).getBoolean("llm_enabled", false)
     fun setEnabled(ctx: Context, v: Boolean) = prefs(ctx).edit().putBoolean("llm_enabled", v).apply()
 
+    /** Moteur de nettoyage : "off" | "local" | "cloud". Migre depuis l'ancien flag llm_enabled. */
+    fun engine(ctx: Context): String {
+        val p = prefs(ctx)
+        p.getString("cleanup_engine", null)?.let { return it }
+        return if (p.getBoolean("llm_enabled", false)) "local" else "off"
+    }
+    fun setEngine(ctx: Context, e: String) =
+        // garde l'ancien flag llm_enabled cohérent (préchargement Qwen3, compat)
+        prefs(ctx).edit().putString("cleanup_engine", e).putBoolean("llm_enabled", e == "local").apply()
+
     fun all(ctx: Context): List<Prompt> = try {
         val raw = prefs(ctx).getString("llm_prompts", null) ?: return default()
         val arr = JSONArray(raw)

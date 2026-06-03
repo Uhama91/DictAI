@@ -67,7 +67,7 @@ class OverlayService : Service() {
         if (!startForegroundSpecialUse()) return
         showButton()
         ensureLocalLoaded()
-        if (PostProcessPrompts.isEnabled(this) && LlmPostProcessor.isDownloaded(this))
+        if (PostProcessPrompts.engine(this) == "local" && LlmPostProcessor.isDownloaded(this))
             thread { LlmPostProcessor.ensureLoaded(this) }
     }
 
@@ -210,13 +210,26 @@ class OverlayService : Service() {
             val transcribeMs = System.currentTimeMillis() - t0
             var finalText = r.text?.let { Vocabulary.applyCorrections(this, it) }
             var llmMs = 0L
-            if (!finalText.isNullOrBlank() &&
-                PostProcessPrompts.isEnabled(this) && LlmPostProcessor.ready) {
+            var cleanupFailed = false
+            val engine = PostProcessPrompts.engine(this)
+            // On n'entre en état "traitement" que si le moteur peut VRAIMENT tourner
+            // (modèle local prêt, ou clé cloud présente) → pas de badge trompeur.
+            val canClean = !finalText.isNullOrBlank() && when (engine) {
+                "local" -> LlmPostProcessor.ready
+                "cloud" -> CloudCleanup.hasKey(this)
+                else -> false
+            }
+            if (canClean) {
                 setState(State.LLM_PROCESSING)
                 val t1 = System.currentTimeMillis()
-                val pp = LlmPostProcessor.rewrite(this, PostProcessPrompts.fill(this, finalText))
+                val userPrompt = PostProcessPrompts.fill(this, finalText!!)
+                val pp = when (engine) {
+                    "local" -> LlmPostProcessor.rewrite(this, userPrompt)
+                    "cloud" -> CloudCleanup.rewrite(this, userPrompt)
+                    else -> null
+                }
                 llmMs = System.currentTimeMillis() - t1
-                if (!pp.isNullOrBlank()) finalText = pp
+                if (!pp.isNullOrBlank()) finalText = pp else cleanupFailed = true
             }
             if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
             val outText = finalText
@@ -226,7 +239,8 @@ class OverlayService : Service() {
                 if (!outText.isNullOrBlank()) {
                     copyToClipboard(outText)
                     val injected = WhisperAccessibilityService.controller?.inject(outText) ?: false
-                    toast((if (injected) "Inséré" else "Copié") + " · $timing")
+                    toast((if (injected) "Inséré" else "Copié") + " · $timing" +
+                        if (cleanupFailed) " · nettoyage indispo" else "")
                 } else toast("Erreur: ${r.error ?: "vide"}")
                 setState(State.IDLE)
             }

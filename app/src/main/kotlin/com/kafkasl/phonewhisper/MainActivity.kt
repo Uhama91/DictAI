@@ -30,6 +30,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var audioRowSub: TextView
     private lateinit var accRowSub: TextView
     private lateinit var keyRowSub: TextView
+    private lateinit var cleanupSub: TextView
+    private lateinit var cloudModelSub: TextView
+    private lateinit var orKeySub: TextView
     private lateinit var modelContainer: LinearLayout
 
     private val modelRows = mutableMapOf<String, ModelRowViews>()
@@ -148,29 +151,25 @@ class MainActivity : AppCompatActivity() {
         for (m in MODEL_CATALOG) modelContainer.addView(buildModelRow(m))
         root.addView(modelContainer)
 
-        // --- Post-traitement LLM local ---
-        val ppSwitch = com.google.android.material.materialswitch.MaterialSwitch(this).apply {
-            isChecked = PostProcessPrompts.isEnabled(this@MainActivity)
-            greenTint()
-            setOnCheckedChangeListener { _, on ->
-                PostProcessPrompts.setEnabled(this@MainActivity, on)
-                if (on) {
-                    android.widget.Toast.makeText(this@MainActivity,
-                        "Préparation du modèle (~378 Mo en WiFi au 1er coup)…", android.widget.Toast.LENGTH_LONG).show()
-                    kotlin.concurrent.thread { LlmPostProcessor.ensureLoaded(this@MainActivity) }
-                } else {
-                    kotlin.concurrent.thread { LlmPostProcessor.unload() }
-                }
-            }
-        }
-        root.addView(settingsRow("Post-traitement (local)", "Reformule la dictée avec un LLM hors-ligne", ppSwitch))
+        // --- Nettoyage (post-traitement) : Désactivé / Local (Qwen3) / Cloud (OpenRouter) ---
+        val cleanupRow = settingsRow("Nettoyage", cleanupEngineLabel()) { showCleanupEngineDialog() }
+        cleanupSub = cleanupRow.findViewWithTag("subtitle")
+        root.addView(cleanupRow)
 
-        root.addView(settingsRow("Modèle Qwen3-0.6B", if (LlmPostProcessor.ready) "Prêt" else "À préparer (active le toggle)") {
+        val cloudModelRow = settingsRow("Modèle cloud", cloudModelSummary()) { showCloudModelDialog() }
+        cloudModelSub = cloudModelRow.findViewWithTag("subtitle")
+        root.addView(cloudModelRow)
+
+        val orKeyRow = settingsRow("Clé OpenRouter", openRouterKeySummary()) { promptOpenRouterKey() }
+        orKeySub = orKeyRow.findViewWithTag("subtitle")
+        root.addView(orKeyRow)
+
+        root.addView(settingsRow("Modèle local Qwen3-0.6B", if (LlmPostProcessor.ready) "Prêt" else "À préparer (mode Local)") {
             android.widget.Toast.makeText(this@MainActivity, "Préparation du modèle…", android.widget.Toast.LENGTH_SHORT).show()
             kotlin.concurrent.thread { LlmPostProcessor.ensureLoaded(this@MainActivity) }
         })
 
-        root.addView(settingsRow("Prompt de post-traitement", "Choisir / éditer (utilise \${output})") {
+        root.addView(settingsRow("Prompt de nettoyage", "Choisir / éditer (utilise \${output})") {
             showPromptManager()
         })
 
@@ -451,6 +450,82 @@ class MainActivity : AppCompatActivity() {
                 refresh()
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // --- Nettoyage : moteur (off/local/cloud), modèle cloud, clé OpenRouter ---
+
+    private fun cleanupEngineLabel() = when (PostProcessPrompts.engine(this)) {
+        "local" -> "Local (Qwen3, hors-ligne, gratuit)"
+        "cloud" -> "Cloud (OpenRouter)"
+        else -> "Désactivé"
+    }
+    private fun cloudModelSummary() = CloudCleanup.selectedModel(this).let { "${it.label} · ${it.price}" }
+    private fun openRouterKeySummary(): String {
+        val k = CloudCleanup.key(this)
+        return if (k.isBlank()) "Tap to set (requis pour le mode Cloud)" else "sk-or-...${k.takeLast(4)}"
+    }
+
+    private fun showCleanupEngineDialog() {
+        val labels = arrayOf("Désactivé", "Local (Qwen3, hors-ligne, gratuit)", "Cloud (OpenRouter, rapide)")
+        val vals = arrayOf("off", "local", "cloud")
+        val cur = vals.indexOf(PostProcessPrompts.engine(this)).coerceAtLeast(0)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Moteur de nettoyage")
+            .setSingleChoiceItems(labels, cur) { d, which ->
+                val e = vals[which]
+                PostProcessPrompts.setEngine(this, e)
+                when (e) {
+                    "local" -> {
+                        Toast.makeText(this, "Préparation du modèle local (~378 Mo au 1er coup)…", Toast.LENGTH_LONG).show()
+                        kotlin.concurrent.thread { LlmPostProcessor.ensureLoaded(this) }
+                    }
+                    "cloud" -> {
+                        kotlin.concurrent.thread { LlmPostProcessor.unload() }
+                        // Pas de clé → on la demande tout de suite, sinon le nettoyage échouerait en silence.
+                        if (!CloudCleanup.hasKey(this)) {
+                            Toast.makeText(this, "Ajoute ta clé OpenRouter pour activer le mode Cloud", Toast.LENGTH_LONG).show()
+                            promptOpenRouterKey()
+                        }
+                    }
+                    else -> kotlin.concurrent.thread { LlmPostProcessor.unload() }
+                }
+                cleanupSub.text = cleanupEngineLabel()
+                d.dismiss()
+            }
+            .setNegativeButton("Fermer", null)
+            .show()
+    }
+
+    private fun showCloudModelDialog() {
+        val models = CloudCleanup.CLOUD_MODELS
+        val labels = models.map { "${it.label} · ${it.price}" }.toTypedArray()
+        val cur = models.indexOfFirst { it.id == CloudCleanup.selectedModel(this).id }.coerceAtLeast(0)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Modèle de nettoyage cloud (OpenRouter)")
+            .setSingleChoiceItems(labels, cur) { d, which ->
+                CloudCleanup.setSelectedModel(this, models[which].id)
+                cloudModelSub.text = cloudModelSummary()
+                d.dismiss()
+            }
+            .setNegativeButton("Fermer", null)
+            .show()
+    }
+
+    private fun promptOpenRouterKey() {
+        val input = EditText(this).apply {
+            hint = "sk-or-..."
+            setText(CloudCleanup.key(this@MainActivity))
+            inkColors()
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Clé OpenRouter")
+            .setView(input.apply { setPadding(dp(24), dp(8), dp(24), dp(8)) })
+            .setPositiveButton("Save") { _, _ ->
+                CloudCleanup.setKey(this, input.text.toString())
+                orKeySub.text = openRouterKeySummary()
+            }
+            .setNegativeButton("Annuler", null)
             .show()
     }
 
