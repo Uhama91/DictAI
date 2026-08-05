@@ -2,9 +2,6 @@ package com.kafkasl.phonewhisper
 
 import android.accessibilityservice.AccessibilityService
 import com.kafkasl.phonewhisper.BuildConfig
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -35,22 +32,25 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         super.onDestroy()
     }
 
-    override fun inject(text: String): Boolean {
-        val clip = ClipData.newPlainText("whisperpin", text)
-        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
+    override fun inject(text: String): InjectionResult {
         val candidates = findInjectionCandidates()
-        var injected = false
-        try {
-            for (c in candidates) { if (tryInjectIntoNode(c, text)) { injected = true; break } }
-        } finally { candidates.forEach { it.recycle() } }
-        return injected
+        return try {
+            val fallbackTarget = candidates.firstOrNull(::isKnownFallbackTarget)
+            orchestrateInjection(
+                directInsert = { candidates.any { tryDirectSetText(it, text) } },
+                targetSafety = { targetSafety(fallbackTarget) },
+                prepareClipboard = { SensitiveClipboard.copy(this, text) },
+                paste = { fallbackTarget?.let(::tryPaste) == true },
+            )
+        } finally {
+            candidates.forEach { it.recycle() }
+        }
     }
 
     override fun isActiveTargetSensitive(): Boolean {
         val candidates = findInjectionCandidates()
         return try {
-            val target = candidates.firstOrNull() ?: return true
-            SensitiveInputPolicy.isSensitive(target.isPassword, target.inputType)
+            targetSafety(candidates.firstOrNull(::isKnownFallbackTarget)) != InjectionTargetSafety.Safe
         } finally {
             candidates.forEach { it.recycle() }
         }
@@ -129,11 +129,52 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         return score
     }
 
-    private fun tryInjectIntoNode(node: AccessibilityNodeInfo, text: String): Boolean {
-        logNode("Trying node", node)
+    private fun isKnownFallbackTarget(node: AccessibilityNodeInfo): Boolean {
+        if (!node.isFocused) return false
+        val className = node.className?.toString().orEmpty()
+        return node.isEditable ||
+            className.contains("EditText") ||
+            className.contains("TerminalView") ||
+            findCustomPasteAction(node) != null ||
+            node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_PASTE }
+    }
 
-        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+    private fun targetSafety(node: AccessibilityNodeInfo?): InjectionTargetSafety = when {
+        node == null -> InjectionTargetSafety.Unknown
+        SensitiveInputPolicy.isSensitive(node.isPassword, node.inputType) ->
+            InjectionTargetSafety.Sensitive
+        else -> InjectionTargetSafety.Safe
+    }
 
+    private fun tryDirectSetText(node: AccessibilityNodeInfo, text: String): Boolean {
+        val updated = readAfterSuccessfulRefresh(
+            refresh = { node.refresh() },
+            read = read@{
+                if (!node.isFocused || !node.isEditable) return@read null
+                if (SensitiveInputPolicy.isSensitive(node.isPassword, node.inputType)) return@read null
+                composeDirectSetText(
+                    currentText = node.text,
+                    selectionStart = node.textSelectionStart,
+                    selectionEnd = node.textSelectionEnd,
+                    dictatedText = text,
+                )
+            },
+        ) ?: return false
+
+        logNode("Trying direct node", node)
+        val args = Bundle().apply {
+            putCharSequence(
+                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                updated,
+            )
+        }
+        val setTextOk = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        if (BuildConfig.DEBUG) Log.i(TAG, "ACTION_SET_TEXT => $setTextOk")
+        return setTextOk
+    }
+
+    private fun tryPaste(node: AccessibilityNodeInfo): Boolean {
+        logNode("Trying paste node", node)
         findCustomPasteAction(node)?.let { action ->
             val ok = node.performAction(action.id)
             if (BuildConfig.DEBUG) Log.i(TAG, "Custom action (${action.id}) => $ok")
@@ -142,27 +183,7 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
 
         val pasteOk = node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
         if (BuildConfig.DEBUG) Log.i(TAG, "ACTION_PASTE => $pasteOk")
-        if (pasteOk) return true
-
-        if (node.isEditable || node.className?.toString()?.contains("EditText") == true) {
-            val current = node.text?.toString().orEmpty()
-            val start = if (node.textSelectionStart >= 0) node.textSelectionStart else current.length
-            val end = if (node.textSelectionEnd >= 0) node.textSelectionEnd else start
-            val replacementStart = minOf(start, end)
-            val replacementEnd = maxOf(start, end)
-            val updated = current.replaceRange(replacementStart, replacementEnd, text)
-            val args = Bundle().apply {
-                putCharSequence(
-                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                    updated
-                )
-            }
-            val setTextOk = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-            if (BuildConfig.DEBUG) Log.i(TAG, "ACTION_SET_TEXT => $setTextOk")
-            if (setTextOk) return true
-        }
-
-        return false
+        return pasteOk
     }
 
     private fun findCustomPasteAction(node: AccessibilityNodeInfo): AccessibilityNodeInfo.AccessibilityAction? =

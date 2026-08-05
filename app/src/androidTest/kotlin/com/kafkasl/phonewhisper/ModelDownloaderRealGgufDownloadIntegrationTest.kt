@@ -24,7 +24,9 @@ class ModelDownloaderRealGgufDownloadIntegrationTest {
         )
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val model = MODEL_CATALOG.single { it.runtimeType == RuntimeModelType.GGUF }
+        val model = MODEL_CATALOG.single {
+            it.archive == "nemotron-3.5-asr-streaming-0.6b-Q8_0"
+        }
         val artifact = requireNotNull(model.directArtifact)
         val modelDir = ModelDownloader.modelDir(context, model)
         removeTargetModel(modelDir, context, model)

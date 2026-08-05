@@ -177,9 +177,22 @@ class ModelDownloaderTest {
         }
     }
 
-    @Test fun `catalog lists Handy Q8 and compact Q6 as direct GGUF models`() {
-        assertEquals(7, MODEL_CATALOG.size)
-        assertTrue(MODEL_CATALOG.any { it.recommended })
+    @Test fun `catalog contains exactly the four supported models in product order`() {
+        assertEquals(
+            listOf(
+                "nemotron-3.5-asr-streaming-0.6b-Q8_0",
+                "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+                "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11",
+                "nemotron-3.5-asr-streaming-0.6b-Q6_K",
+            ),
+            MODEL_CATALOG.map { it.archive },
+        )
+        assertEquals(
+            listOf("Nemotron 3.5 Handy (FR/EN)", "Parakeet 0.6B (FR/EN)", "Nemotron 3.5 Live (FR/EN)", "Nemotron 3.5 Compact (FR/EN)"),
+            MODEL_CATALOG.map { it.name },
+        )
+        assertEquals(listOf(true, false, false, false), MODEL_CATALOG.map { it.recommended })
+
         val ggufModels = MODEL_CATALOG.filter { it.runtimeType == RuntimeModelType.GGUF }
         assertEquals(
             setOf(
@@ -238,12 +251,39 @@ class ModelDownloaderTest {
     @Test fun `runtime labels distinguish GGUF quantizations and ONNX runtime`() {
         val q8 = MODEL_CATALOG.single { it.archive.endsWith("Q8_0") }
         val q6 = MODEL_CATALOG.single { it.archive.endsWith("Q6_K") }
-        val parakeet = MODEL_CATALOG.single { it.recommended }
+        val parakeet = MODEL_CATALOG.single {
+            it.archive == "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8"
+        }
 
         assertEquals("transcribe.cpp · GGUF Q8_0", q8.runtimeLabel)
         assertEquals("transcribe.cpp · GGUF Q6_K", q6.runtimeLabel)
         assertEquals("sherpa-onnx · ONNX Transducer", parakeet.runtimeLabel)
         assertNotEquals(q8.runtimeLabel, q6.runtimeLabel)
+    }
+
+    @Test fun `retired selection reconciles to first installed current model`() {
+        val installedArchives = setOf(
+            "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+            "nemotron-3.5-asr-streaming-0.6b-Q6_K",
+        )
+
+        val reconciled = reconciledModelId(
+            selectedId = "sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000-int8",
+            currentModels = MODEL_CATALOG,
+            isInstalled = { it.archive in installedArchives },
+        )
+
+        assertEquals("sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8", reconciled)
+    }
+
+    @Test fun `retired selection is cleared when no current model is installed`() {
+        val reconciled = reconciledModelId(
+            selectedId = "sherpa-onnx-whisper-base.en",
+            currentModels = MODEL_CATALOG,
+            isInstalled = { false },
+        )
+
+        assertNull(reconciled)
     }
 
     @Test fun `direct publication verifies size and SHA before atomically exposing the GGUF`() {

@@ -46,13 +46,8 @@ private fun ggufQuantization(fileName: String?): String? = fileName
     ?.uppercase()
 
 val MODEL_CATALOG = listOf(
-    // Parakeet 0.6B v3 remains auto-detect; Nemotron receives the language per stream.
-    Model("Parakeet 0.6B (FR/EN)", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
-        465, "★★★★ Français/anglais — recommandé", recommended = true, runtimeType = RuntimeModelType.TRANSDUCER),
-    Model("Nemotron 3.5 Live (FR/EN)", "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11",
-        453, "★★★★ Français/anglais en direct — expérimental", runtimeType = RuntimeModelType.TRANSDUCER),
     Model("Nemotron 3.5 Handy (FR/EN)", "nemotron-3.5-asr-streaming-0.6b-Q8_0",
-        751, "★★★★ Français/anglais — réglage Handy", runtimeType = RuntimeModelType.GGUF,
+        751, "★★★★ Français/anglais — réglage Handy", recommended = true, runtimeType = RuntimeModelType.GGUF,
         directArtifact = DirectModelArtifact(
             url = "https://huggingface.co/handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf/resolve/6d44e540bc31b0de1dbe174a3cea87f53a7f22fb/nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf",
             fileName = "nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf",
@@ -60,6 +55,11 @@ val MODEL_CATALOG = listOf(
             sha256 = "b94545b313b3223fda7b2857a52681da813935c2127643d1e9ff0c23d988089c",
         ),
     ),
+    // Parakeet 0.6B v3 remains auto-detect; Nemotron receives the language per stream.
+    Model("Parakeet 0.6B (FR/EN)", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+        465, "★★★★ Français/anglais", runtimeType = RuntimeModelType.TRANSDUCER),
+    Model("Nemotron 3.5 Live (FR/EN)", "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11",
+        453, "★★★★ Français/anglais en direct — expérimental", runtimeType = RuntimeModelType.TRANSDUCER),
     Model("Nemotron 3.5 Compact (FR/EN)", "nemotron-3.5-asr-streaming-0.6b-Q6_K",
         621, "★★★★ Français/anglais — compact", runtimeType = RuntimeModelType.GGUF,
         directArtifact = DirectModelArtifact(
@@ -69,13 +69,17 @@ val MODEL_CATALOG = listOf(
             sha256 = "4ff802c6207c4a7df23242003fd2aa849a1ab02bba6bc80c3db02e7e82606c28",
         ),
     ),
-    Model("Parakeet 110M (EN)", "sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000-int8",
-        100, "★★★ Anglais uniquement", runtimeType = RuntimeModelType.CTC),
-    Model("Whisper Base (EN)", "sherpa-onnx-whisper-base.en",
-        199, "★★★ Anglais uniquement", runtimeType = RuntimeModelType.WHISPER),
-    Model("Moonshine Tiny (EN)", "sherpa-onnx-moonshine-tiny-en-int8",
-        103, "★★☆ Anglais, rapide", runtimeType = RuntimeModelType.MOONSHINE),
 )
+
+internal fun reconciledModelId(
+    selectedId: String?,
+    currentModels: List<Model>,
+    isInstalled: (Model) -> Boolean,
+): String? {
+    val selectedModel = currentModels.firstOrNull { it.archive == selectedId }
+    if (selectedModel != null && isInstalled(selectedModel)) return selectedModel.archive
+    return currentModels.firstOrNull(isInstalled)?.archive
+}
 
 sealed class DownloadState {
     data class Downloading(val progress: Float, val isDirect: Boolean = false) : DownloadState()
@@ -125,11 +129,9 @@ object ModelDownloader {
     /** Repair stale or invalid model_name preferences deterministically from the catalog. */
     fun reconcileSelectedModel(ctx: Context): String? {
         val prefs = ctx.getSharedPreferences("phonewhisper", Context.MODE_PRIVATE)
-        val selected = prefs.getString("model_name", "") ?: ""
-        val selectedModel = MODEL_CATALOG.firstOrNull { it.archive == selected }
-        if (selectedModel != null && isInstalled(ctx, selectedModel)) return selected
-
-        val fallback = MODEL_CATALOG.firstOrNull { isInstalled(ctx, it) }?.archive
+        val selected = prefs.getString("model_name", null)
+        val fallback = reconciledModelId(selected, MODEL_CATALOG) { isInstalled(ctx, it) }
+        if (fallback == selected) return fallback
         prefs.edit().apply {
             if (fallback == null) remove("model_name") else putString("model_name", fallback)
         }.apply()

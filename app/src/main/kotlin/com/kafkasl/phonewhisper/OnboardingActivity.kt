@@ -107,14 +107,16 @@ class OnboardingActivity : AppCompatActivity() {
         return m.contains("xiaomi") || m.contains("redmi") || m.contains("poco")
     }
 
-    private fun steps(): List<Step> = listOf(
+    private fun steps(): List<Step> {
+        val onboardingModel = recommendedModel()
+        return listOf(
         Step("mic", "Microphone", "Pour enregistrer et transcrire ta voix.",
             { hasPerm(Manifest.permission.RECORD_AUDIO) }, "Autoriser",
             { ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1) }),
 
         Step("model", "Modèle de transcription (FR/EN)",
-            "Télécharge Parakeet 0.6B (~465 Mo, WiFi conseillé) pour dicter hors-ligne en français ou en anglais. Le téléchargement continue pendant que tu fais les autres étapes.",
-            { ModelDownloader.isInstalled(this, recommendedModel()) }, "Télécharger (~465 Mo)",
+            "Télécharge ${onboardingModel.name} (~${onboardingModel.sizeMb} Mo, WiFi conseillé) pour dicter hors-ligne en français ou en anglais. Le téléchargement continue pendant que tu fais les autres étapes.",
+            { ModelDownloader.isInstalled(this, onboardingModel) }, "Télécharger (~${onboardingModel.sizeMb} Mo)",
             { startModelDownload() }),
 
         Step("overlay", "Afficher par-dessus les apps", "Pour la pastille flottante au-dessus de toutes les apps.",
@@ -146,7 +148,8 @@ class OnboardingActivity : AppCompatActivity() {
             { hasPerm(Manifest.permission.POST_NOTIFICATIONS) }, "Autoriser",
             { if (Build.VERSION.SDK_INT >= 33) ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2) },
             visible = { Build.VERSION.SDK_INT >= 33 })
-    )
+        )
+    }
 
     private fun stepDone(s: Step): Boolean = s.detect() ?: prefs.getBoolean("onb_${s.id}", false)
 

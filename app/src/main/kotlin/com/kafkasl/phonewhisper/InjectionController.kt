@@ -4,10 +4,76 @@ import android.text.InputType
 
 /** Contrat exposé par le service d'accessibilité au OverlayService. */
 interface InjectionController {
-    fun inject(text: String): Boolean
+    fun inject(text: String): InjectionResult
 
     /** A legacy or unavailable controller must conservatively suppress cloud cleanup. */
     fun isActiveTargetSensitive(): Boolean = true
+}
+
+enum class InjectionResult {
+    Inserted,
+    Copied,
+    Failed,
+}
+
+enum class InjectionTargetSafety {
+    Safe,
+    Sensitive,
+    Unknown,
+}
+
+internal fun orchestrateInjection(
+    directInsert: () -> Boolean,
+    targetSafety: () -> InjectionTargetSafety,
+    prepareClipboard: () -> Boolean,
+    paste: () -> Boolean,
+): InjectionResult {
+    if (directInsert()) return InjectionResult.Inserted
+    if (targetSafety() != InjectionTargetSafety.Safe) return InjectionResult.Failed
+    if (!prepareClipboard()) return InjectionResult.Failed
+    return if (paste()) InjectionResult.Inserted else InjectionResult.Copied
+}
+
+internal fun injectionFeedbackMessage(result: InjectionResult): String? = when (result) {
+    InjectionResult.Inserted -> null
+    InjectionResult.Copied -> "Insertion impossible — texte copié"
+    InjectionResult.Failed -> "Insertion impossible"
+}
+
+internal fun injectOrCopy(
+    controller: InjectionController?,
+    text: String,
+    copyToClipboard: (String) -> Boolean,
+): InjectionResult {
+    if (controller != null) return controller.inject(text)
+    return if (copyToClipboard(text)) InjectionResult.Copied else InjectionResult.Failed
+}
+
+internal fun composeDirectSetText(
+    currentText: CharSequence?,
+    selectionStart: Int,
+    selectionEnd: Int,
+    dictatedText: String,
+): String? {
+    if (currentText == null) {
+        return dictatedText.takeIf { selectionStart == 0 && selectionEnd == 0 }
+    }
+
+    val current = currentText.toString()
+    if (selectionStart !in 0..current.length || selectionEnd !in 0..current.length) return null
+    return current.replaceRange(
+        minOf(selectionStart, selectionEnd),
+        maxOf(selectionStart, selectionEnd),
+        dictatedText,
+    )
+}
+
+internal fun <T> readAfterSuccessfulRefresh(
+    refresh: () -> Boolean,
+    read: () -> T,
+): T? {
+    if (!refresh()) return null
+    return read()
 }
 
 object SensitiveInputPolicy {

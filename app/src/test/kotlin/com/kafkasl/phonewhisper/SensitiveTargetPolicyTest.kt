@@ -31,7 +31,7 @@ class SensitiveTargetPolicyTest {
 
     @Test fun `legacy fake controllers default to sensitive without requiring a new override`() {
         val fake = object : InjectionController {
-            override fun inject(text: String): Boolean = true
+            override fun inject(text: String): InjectionResult = InjectionResult.Inserted
         }
 
         assertTrue(fake.isActiveTargetSensitive())

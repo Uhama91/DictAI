@@ -523,20 +523,15 @@ class OverlayService : Service() {
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
         val outText = finalText
         val source = if (capture.session != null) "stream" else "batch"
-        val timing = "transcr ${transcribeMs}ms"
         Log.i(TAG, "event=transcription source=$source outcome=${if (outText.isNullOrBlank()) "empty_or_failure" else "success"} elapsedMs=$transcribeMs")
         main.post {
             if (!outText.isNullOrBlank()) {
-                copyToClipboard(outText)
-                val injected = WhisperAccessibilityService.controller?.inject(outText) ?: false
-                val cleanupFeedback = when {
-                    capture.options.cloudSuppressedForSensitiveTarget ->
-                        " · cloud désactivé (champ sensible)"
-                    capture.options.cloudCleanupEnabled && cloudText != null -> " · nettoyage appliqué"
-                    capture.options.cloudCleanupEnabled -> " · texte local conservé"
-                    else -> ""
-                }
-                toast((if (injected) "Inséré" else "Copié") + cleanupFeedback + " · $timing")
+                val result = injectOrCopy(
+                    controller = WhisperAccessibilityService.controller,
+                    text = outText,
+                    copyToClipboard = { SensitiveClipboard.copy(this, it) },
+                )
+                injectionFeedbackMessage(result)?.let(::toast)
             } else if (streamingResult !is LiveStreamingTranscriber.Finalization.Empty) {
                 toast("Erreur: ${r.error ?: "vide"}")
             }
@@ -912,11 +907,6 @@ class OverlayService : Service() {
     )
 
     private fun toast(s: String) { main.post { Toast.makeText(this, s, Toast.LENGTH_SHORT).show() } }
-
-    private fun copyToClipboard(text: String) {
-        val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        cm.setPrimaryClip(android.content.ClipData.newPlainText("whisperpin", text))
-    }
 
     override fun onDestroy() {
         micArmed = false
