@@ -79,6 +79,77 @@ internal class RecordingStopCoordinator(
     }
 }
 
+/** Acquires loading ownership before consulting the resident engine, whose lock may wrap a slow JNI open. */
+internal object LocalLoadStartGate {
+    enum class Decision { START, BUSY, ALREADY_LOADED, DESTROYED }
+
+    fun acquire(
+        localLoading: java.util.concurrent.atomic.AtomicBoolean,
+        isDestroyed: () -> Boolean,
+        isLoaded: () -> Boolean,
+    ): Decision {
+        if (!localLoading.compareAndSet(false, true)) return Decision.BUSY
+        return try {
+            when {
+                isDestroyed() -> Decision.DESTROYED.also { localLoading.set(false) }
+                isLoaded() -> Decision.ALREADY_LOADED.also { localLoading.set(false) }
+                else -> Decision.START
+            }
+        } catch (t: Throwable) {
+            localLoading.set(false)
+            throw t
+        }
+    }
+}
+
+/** Serializes destruction with publication so a completed background open cannot revive the service. */
+internal class LocalEngineLifecycle {
+    private val lock = Any()
+    private val destroyed = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun isDestroyed(): Boolean = destroyed.get()
+
+    fun publishIfAlive(publish: () -> Unit): Boolean = synchronized(lock) {
+        if (destroyed.get()) return false
+        publish()
+        true
+    }
+
+    fun destroy(clearPublishedEngine: () -> Unit): Boolean = synchronized(lock) {
+        if (!destroyed.compareAndSet(false, true)) return false
+        clearPublishedEngine()
+        true
+    }
+}
+
+internal fun dispatchResidentClose(
+    close: () -> Unit,
+    launch: ((() -> Unit) -> Unit) = { task ->
+        thread(name = "dictai-release-local-engine") { task() }
+    },
+) {
+    launch(close)
+}
+
+/** Pure guard so the overlay never starts AudioRecord while its selected engine is loading or absent. */
+internal object RecordingStartGate {
+    enum class Decision { START, LOADING, RELOAD_REQUIRED, UNAVAILABLE }
+
+    fun decide(
+        localLoading: Boolean,
+        selectedModel: String,
+        loadedModel: String?,
+        hasBatchEngine: Boolean,
+        hasStreamingEngine: Boolean,
+    ): Decision = when {
+        localLoading -> Decision.LOADING
+        selectedModel != loadedModel -> Decision.RELOAD_REQUIRED
+        LiveStreamingTranscriber.supports(selectedModel) && !hasStreamingEngine -> Decision.UNAVAILABLE
+        !LiveStreamingTranscriber.supports(selectedModel) && !hasBatchEngine -> Decision.UNAVAILABLE
+        else -> Decision.START
+    }
+}
+
 class OverlayService : Service() {
 
     companion object {
@@ -108,10 +179,10 @@ class OverlayService : Service() {
     private var liveParams: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
     private var pcm: java.io.ByteArrayOutputStream? = null
-    private var local: LocalTranscriber? = null
-    private var streamingLocal: LiveStreamingTranscriber? = null
+    @Volatile private var local: LocalTranscriber? = null
+    @Volatile private var streamingLocal: LiveStreamingTranscriber? = null
     private var liveSession: LiveStreamingTranscriber.Session? = null
-    private var loadedModelName: String? = null
+    @Volatile private var loadedModelName: String? = null
     private var baseButtonW = 0
     private var baseButtonH = 0
     private var livePanelW = 0
@@ -121,6 +192,8 @@ class OverlayService : Service() {
     private var livePreviewVisible = false
     private val liveTranscriptBuffer = LiveTranscriptBuffer()
     private val localLoading = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val localEngineLifecycle = LocalEngineLifecycle()
+    private val residentLocalEngine = ResidentEngine<LoadedLocalEngine>()
     private val main = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -144,18 +217,51 @@ class OverlayService : Service() {
         return START_STICKY
     }
 
-    /** Charge le modèle local hors thread principal, garanti une seule fois à la fois. */
+    private class LoadedLocalEngine(
+        val batch: LocalTranscriber?,
+        val streaming: LiveStreamingTranscriber?,
+    ) : java.io.Closeable {
+        override fun close() {
+            try {
+                streaming?.close()
+            } finally {
+                localClose()
+            }
+        }
+
+        private fun localClose() {
+            batch?.close()
+        }
+    }
+
+    /** Charge le modèle local hors thread principal; l'ancien moteur est fermé avant toute nouvelle ouverture. */
     private fun ensureLocalLoaded() {
         val selectedModel = TranscriptionEngine.selectedModelName(this)
-        if (selectedModel == loadedModelName && (local != null || streamingLocal != null)) return
-        if (!localLoading.compareAndSet(false, true)) return
+        when (LocalLoadStartGate.acquire(
+            localLoading = localLoading,
+            isDestroyed = localEngineLifecycle::isDestroyed,
+            isLoaded = { residentLocalEngine.isLoaded(selectedModel) },
+        )) {
+            LocalLoadStartGate.Decision.START -> Unit
+            LocalLoadStartGate.Decision.BUSY,
+            LocalLoadStartGate.Decision.ALREADY_LOADED,
+            LocalLoadStartGate.Decision.DESTROYED -> return
+        }
         thread {
             try {
-                val batch = TranscriptionEngine.loadLocal(this)
-                val streaming = TranscriptionEngine.loadStreamingLocal(this)
-                local = batch
-                streamingLocal = streaming
-                loadedModelName = selectedModel
+                liveSession?.cancelAndAwait()
+                liveSession = null
+                val loaded = residentLocalEngine.replace(selectedModel) {
+                    val batch = TranscriptionEngine.loadLocal(this, selectedModel)
+                    val streaming = TranscriptionEngine.loadStreamingLocal(this, selectedModel)
+                    LoadedLocalEngine(batch, streaming).takeIf { batch != null || streaming != null }
+                }
+                val published = localEngineLifecycle.publishIfAlive {
+                    local = loaded?.batch
+                    streamingLocal = loaded?.streaming
+                    loadedModelName = selectedModel
+                }
+                if (!published) residentLocalEngine.close()
             }
             finally { localLoading.set(false) }
         }
@@ -230,6 +336,29 @@ class OverlayService : Service() {
     }
 
     private fun startRec() {
+        val selectedModel = TranscriptionEngine.selectedModelName(this)
+        when (RecordingStartGate.decide(
+            localLoading = localLoading.get(),
+            selectedModel = selectedModel,
+            loadedModel = loadedModelName,
+            hasBatchEngine = local != null,
+            hasStreamingEngine = streamingLocal != null,
+        )) {
+            RecordingStartGate.Decision.START -> Unit
+            RecordingStartGate.Decision.LOADING -> {
+                toast("Chargement du modèle local…")
+                return
+            }
+            RecordingStartGate.Decision.RELOAD_REQUIRED -> {
+                ensureLocalLoaded()
+                toast("Chargement du modèle local…")
+                return
+            }
+            RecordingStartGate.Decision.UNAVAILABLE -> {
+                toast("Modèle local indisponible.")
+                return
+            }
+        }
         val bufSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
         )
@@ -241,7 +370,6 @@ class OverlayService : Service() {
         } catch (e: SecurityException) { toast("Mic refuse"); return }
         pcm = java.io.ByteArrayOutputStream()
         audioRecord!!.startRecording()
-        val selectedModel = TranscriptionEngine.selectedModelName(this)
         liveTranscriptBuffer.clear()
         liveSession = if (LiveStreamingTranscriber.supports(selectedModel)) {
             streamingLocal?.start { committed, tentative ->
@@ -741,8 +869,16 @@ class OverlayService : Service() {
     override fun onDestroy() {
         micArmed = false
         state = State.IDLE
+        val releaseResident = localEngineLifecycle.destroy {
+            local = null
+            streamingLocal = null
+            loadedModelName = null
+        }
         liveSession?.cancel()
         liveSession = null
+        if (releaseResident) {
+            dispatchResidentClose(close = { residentLocalEngine.close() })
+        }
         audioRecord?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
         audioRecord = null
         main.removeCallbacksAndMessages(null)

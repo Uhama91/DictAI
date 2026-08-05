@@ -27,6 +27,20 @@ def elf_with_load_alignment(alignment: int, byte_order: str = "<") -> bytes:
     return bytes(data)
 
 
+def transcribe_bundle_entries(abi: str = "arm64-v8a") -> list[tuple[str, bytes, int]]:
+    libraries = (
+        "libggml.so",
+        "libggml-base.so",
+        "libggml-cpu.so",
+        "libtranscribe.so",
+        "libtranscribe_jni.so",
+    )
+    return [
+        (f"lib/{abi}/{library}", elf_with_load_alignment(16 * 1024), zipfile.ZIP_STORED)
+        for library in libraries
+    ]
+
+
 class CheckApkNativeAlignmentTest(unittest.TestCase):
     def run_check(self, entries: list[tuple[str, bytes, int]]) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -45,6 +59,57 @@ class CheckApkNativeAlignmentTest(unittest.TestCase):
         result = self.run_check(
             [("lib/arm64-v8a/libllama.so", elf_with_load_alignment(16 * 1024), zipfile.ZIP_STORED)]
         )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("libllama.so", result.stdout)
+
+    def test_accepts_complete_transcribe_ggml_bundle_in_one_abi(self) -> None:
+        result = self.run_check(transcribe_bundle_entries())
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_rejects_incomplete_transcribe_ggml_bundle(self) -> None:
+        entries = transcribe_bundle_entries()
+        entries.pop()
+        result = self.run_check(entries)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("incomplete transcribe GGML bundle", result.stdout)
+
+    def test_rejects_standalone_allowed_ggml_library(self) -> None:
+        result = self.run_check(
+            [("lib/arm64-v8a/libggml.so", elf_with_load_alignment(16 * 1024), zipfile.ZIP_STORED)]
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("incomplete transcribe GGML bundle", result.stdout)
+
+    def test_rejects_transcribe_bundle_split_across_abis(self) -> None:
+        entries = transcribe_bundle_entries("arm64-v8a")
+        entries[-1] = (
+            "lib/x86_64/libtranscribe_jni.so",
+            elf_with_load_alignment(16 * 1024),
+            zipfile.ZIP_STORED,
+        )
+        result = self.run_check(entries)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("incomplete transcribe GGML bundle", result.stdout)
+
+    def test_rejects_unexpected_ggml_library_name(self) -> None:
+        result = self.run_check(
+            [("lib/arm64-v8a/libggml-metal.so", elf_with_load_alignment(16 * 1024), zipfile.ZIP_STORED)]
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("libggml-metal.so", result.stdout)
+
+    def test_rejects_llama_library_in_complete_transcribe_bundle(self) -> None:
+        entries = transcribe_bundle_entries()
+        entries.append(
+            ("lib/arm64-v8a/libllama.so", elf_with_load_alignment(16 * 1024), zipfile.ZIP_STORED)
+        )
+        result = self.run_check(entries)
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("libllama.so", result.stdout)

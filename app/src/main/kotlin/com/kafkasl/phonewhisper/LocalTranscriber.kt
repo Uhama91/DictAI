@@ -3,22 +3,34 @@ package com.kafkasl.phonewhisper
 import android.content.Context
 import android.util.Log
 import com.k2fsa.sherpa.onnx.*
+import java.io.Closeable
 import java.io.File
 
 /**
  * Local on-device transcription via sherpa-onnx.
  * Models are loaded from the app's external files dir.
  */
-class LocalTranscriber private constructor(private val recognizer: OfflineRecognizer) {
+class LocalTranscriber private constructor(private var recognizer: OfflineRecognizer?) : Closeable {
 
     /** Transcribe raw PCM float samples. Blocking — call from background thread. */
+    @Synchronized
     fun transcribe(samples: FloatArray, sampleRate: Int = 16000): String {
-        val stream = recognizer.createStream()
-        stream.acceptWaveform(samples, sampleRate)
-        recognizer.decode(stream)
-        val result = recognizer.getResult(stream)
-        stream.release()
-        return result.text.trim()
+        val openRecognizer = checkNotNull(recognizer) { "Local recognizer is closed" }
+        val stream = openRecognizer.createStream()
+        return try {
+            stream.acceptWaveform(samples, sampleRate)
+            openRecognizer.decode(stream)
+            openRecognizer.getResult(stream).text.trim()
+        } finally {
+            stream.release()
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        val openRecognizer = recognizer ?: return
+        recognizer = null
+        openRecognizer.release()
     }
 
     companion object {
@@ -100,6 +112,8 @@ class LocalTranscriber private constructor(private val recognizer: OfflineRecogn
                         numThreads = 2,
                     )
                 )
+                // GGUF is handled by the dedicated native runtime, not sherpa-onnx.
+                RuntimeModelType.GGUF -> null
             }
         }
     }

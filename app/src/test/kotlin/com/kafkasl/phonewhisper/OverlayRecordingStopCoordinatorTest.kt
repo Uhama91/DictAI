@@ -2,12 +2,84 @@ package com.kafkasl.phonewhisper
 
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OverlayRecordingStopCoordinatorTest {
+    @Test
+    fun active_load_guard_never_reads_the_potentially_locked_resident_engine() {
+        val loading = AtomicBoolean(true)
+        var residentRead = false
+
+        val result = LocalLoadStartGate.acquire(
+            localLoading = loading,
+            isDestroyed = { false },
+            isLoaded = {
+                residentRead = true
+                false
+            },
+        )
+
+        assertEquals(LocalLoadStartGate.Decision.BUSY, result)
+        assertTrue(loading.get())
+        assertEquals(false, residentRead)
+    }
+
+    @Test
+    fun already_loaded_guard_releases_loading_ownership() {
+        val loading = AtomicBoolean(false)
+
+        val result = LocalLoadStartGate.acquire(
+            localLoading = loading,
+            isDestroyed = { false },
+            isLoaded = { true },
+        )
+
+        assertEquals(LocalLoadStartGate.Decision.ALREADY_LOADED, result)
+        assertEquals(false, loading.get())
+    }
+
+    @Test
+    fun destroyed_lifecycle_rejects_a_late_engine_publication() {
+        val lifecycle = LocalEngineLifecycle()
+        var published = false
+
+        lifecycle.destroy { }
+        val accepted = lifecycle.publishIfAlive { published = true }
+
+        assertEquals(false, accepted)
+        assertEquals(false, published)
+    }
+
+    @Test
+    fun resident_close_is_dispatched_without_running_on_the_caller() {
+        var pending: (() -> Unit)? = null
+        var closed = false
+
+        dispatchResidentClose(close = { closed = true }, launch = { pending = it })
+
+        assertEquals(false, closed)
+        pending!!.invoke()
+        assertTrue(closed)
+    }
+
+    @Test
+    fun recording_start_is_blocked_with_a_loading_decision_while_the_local_engine_loads() {
+        assertEquals(
+            RecordingStartGate.Decision.LOADING,
+            RecordingStartGate.decide(
+                localLoading = true,
+                selectedModel = "model",
+                loadedModel = "model",
+                hasBatchEngine = true,
+                hasStreamingEngine = true,
+            ),
+        )
+    }
+
     @Test
     fun completed_stop_joins_releases_then_snapshots_in_order() {
         val events = mutableListOf<String>()

@@ -20,14 +20,17 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android Build Tools 35.0.0
-        run: sdkmanager "build-tools;35.0.0"
+      - name: Install Android Build Tools 35.0.0 and NDK 28.2.13676358
+        run: sdkmanager "build-tools;35.0.0" "ndk;28.2.13676358"
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
       - name: Run native alignment controller tests
         run: python3 -m unittest scripts/test_check_apk_native_alignment.py -v
+
+      - name: Run transcribe.cpp native bundle contract
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" scripts/test_transcribe_cpp_bundle.sh
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace

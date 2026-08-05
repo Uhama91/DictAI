@@ -1,6 +1,37 @@
 package com.kafkasl.phonewhisper
 
 import android.content.Context
+import java.io.Closeable
+
+/** Keeps exactly one native transcription engine resident and closes it before a replacement opens. */
+internal class ResidentEngine<T : Closeable> : Closeable {
+    private val lock = Any()
+    private var modelName: String? = null
+    private var engine: T? = null
+
+    fun isLoaded(model: String): Boolean = synchronized(lock) { modelName == model && engine != null }
+
+    fun replace(model: String, open: () -> T?): T? = synchronized(lock) {
+        if (modelName == model && engine != null) return engine
+        val previous = engine
+        engine = null
+        modelName = null
+        previous?.close()
+        return open()?.also {
+            engine = it
+            modelName = model
+        }
+    }
+
+    override fun close() = synchronized(lock) {
+        val previous = engine
+        engine = null
+        modelName = null
+        previous?.close()
+        Unit
+    }
+}
+
 object TranscriptionEngine {
 
     private const val SAMPLE_RATE = 16000
@@ -32,9 +63,8 @@ object TranscriptionEngine {
         }
     }
 
-    fun loadLocal(ctx: Context): LocalTranscriber? {
+    fun loadLocal(ctx: Context, modelName: String = selectedModelName(ctx)): LocalTranscriber? {
         return try {
-            val modelName = selectedModelName(ctx)
             if (LiveStreamingTranscriber.supports(modelName)) return null
             if (modelName.isBlank()) null else LocalTranscriber.create(ctx, modelName)
         } catch (t: Throwable) {
@@ -45,9 +75,8 @@ object TranscriptionEngine {
         }
     }
 
-    fun loadStreamingLocal(ctx: Context): LiveStreamingTranscriber? {
+    fun loadStreamingLocal(ctx: Context, modelName: String = selectedModelName(ctx)): LiveStreamingTranscriber? {
         return try {
-            val modelName = selectedModelName(ctx)
             if (modelName.isBlank()) return null
             LiveStreamingTranscriber.create(ctx, modelName)
         } catch (t: Throwable) {

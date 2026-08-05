@@ -12,7 +12,24 @@ import zipfile
 ELF_MAGIC = b"\x7fELF"
 PT_LOAD = 1
 MIN_ALIGN = 16 * 1024
-FORBIDDEN_NAME_PARTS = ("ggml", "llama")
+ALLOWED_GGML_LIBRARY_NAMES = frozenset(
+    {
+        "libggml.so",
+        "libggml-base.so",
+        "libggml-cpu.so",
+    }
+)
+REQUIRED_TRANSCRIBE_BUNDLE_NAMES = ALLOWED_GGML_LIBRARY_NAMES | {
+    "libtranscribe.so",
+    "libtranscribe_jni.so",
+}
+
+
+def apk_library_abi_and_name(path: str) -> tuple[str, str] | None:
+    parts = path.split("/")
+    if len(parts) != 3 or parts[0] != "lib":
+        return None
+    return parts[1], parts[2]
 
 
 def load_alignments(data: bytes) -> list[int]:
@@ -61,13 +78,28 @@ def main() -> int:
         libs = sorted(n for n in apk.namelist() if n.startswith("lib/") and n.endswith(".so"))
         if not libs:
             failures.append("APK contains no native libraries")
+
+        library_names_by_abi: dict[str, set[str]] = {}
         for lib in libs:
             checked += 1
             info = apk.getinfo(lib)
             if info.compress_type != zipfile.ZIP_STORED:
                 failures.append(f"{lib}: ZIP entry is not stored")
-            if any(part in lib.lower() for part in FORBIDDEN_NAME_PARTS):
-                failures.append(f"{lib}: forbidden ggml/llama native library")
+
+            abi_and_name = apk_library_abi_and_name(lib)
+            if abi_and_name is not None:
+                abi, name = abi_and_name
+                library_names_by_abi.setdefault(abi, set()).add(name)
+            else:
+                name = lib.rsplit("/", 1)[-1]
+
+            lowercase_path = lib.lower()
+            if "llama" in lowercase_path:
+                failures.append(f"{lib}: forbidden llama native library")
+            elif "ggml" in lowercase_path and (
+                abi_and_name is None or name not in ALLOWED_GGML_LIBRARY_NAMES
+            ):
+                failures.append(f"{lib}: forbidden ggml native library")
             try:
                 alignments = load_alignments(apk.read(lib))
             except (ValueError, struct.error) as error:
@@ -75,6 +107,14 @@ def main() -> int:
                 continue
             if any(alignment < MIN_ALIGN for alignment in alignments):
                 failures.append(f"{lib}: PT_LOAD p_align={alignments}")
+
+        for abi, names in sorted(library_names_by_abi.items()):
+            if names & ALLOWED_GGML_LIBRARY_NAMES:
+                missing = sorted(REQUIRED_TRANSCRIBE_BUNDLE_NAMES - names)
+                if missing:
+                    failures.append(
+                        f"lib/{abi}: incomplete transcribe GGML bundle; missing {', '.join(missing)}"
+                    )
 
     if failures:
         print("Native library checks failed:")

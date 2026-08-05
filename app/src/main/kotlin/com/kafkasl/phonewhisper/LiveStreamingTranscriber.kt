@@ -8,6 +8,7 @@ import com.k2fsa.sherpa.onnx.OnlineRecognizer
 import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OnlineStream
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
+import java.io.Closeable
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
@@ -24,14 +25,36 @@ import kotlin.concurrent.thread
 class LiveStreamingTranscriber private constructor(
     private val recognizer: StreamingRecognizer,
     private val language: String,
-) {
-    fun start(onText: (committed: String, tentative: String) -> Unit): Session =
-        Session(recognizer, language, onText).also { it.start() }
+) : Closeable {
+    private val closed = AtomicBoolean(false)
+    private val activeSession = AtomicReference<Session?>(null)
+
+    fun start(onText: (committed: String, tentative: String) -> Unit): Session {
+        check(!closed.get()) { "Streaming recognizer is closed" }
+        val session = Session(recognizer, language, onText) {
+            activeSession.compareAndSet(it, null)
+        }
+        check(activeSession.compareAndSet(null, session)) { "A streaming session is already active" }
+        if (closed.get()) {
+            session.cancel()
+            activeSession.compareAndSet(session, null)
+            error("Streaming recognizer is closed")
+        }
+        session.start()
+        return session
+    }
+
+    override fun close() {
+        if (!closed.compareAndSet(false, true)) return
+        activeSession.getAndSet(null)?.cancelAndAwait()
+        recognizer.close()
+    }
 
     class Session internal constructor(
         private val recognizer: StreamingRecognizer,
         private val language: String,
         private val onText: (committed: String, tentative: String) -> Unit,
+        private val onClosed: (Session) -> Unit,
     ) {
         private val queue = LinkedBlockingQueue<Command>()
         private val done = CountDownLatch(1)
@@ -39,7 +62,7 @@ class LiveStreamingTranscriber private constructor(
         private val finalization = AtomicReference<Finalization?>(null)
         private val acceptedSamples = AtomicLong(0)
         private val decodeCalls = AtomicLong(0)
-        private var lastEmitted = ""
+        private var lastEmitted: Pair<String, String>? = null
 
         fun start() {
             thread(name = "dictai-live-asr") { runWorker() }
@@ -69,6 +92,12 @@ class LiveStreamingTranscriber private constructor(
             if (closed.compareAndSet(false, true)) {
                 queue.offer(Command.Cancel)
             }
+        }
+
+        internal fun cancelAndAwait(timeoutMs: Long = DEFAULT_FINALIZE_TIMEOUT_MS): Boolean {
+            closed.set(true)
+            queue.offer(Command.Cancel)
+            return done.await(timeoutMs, TimeUnit.MILLISECONDS)
         }
 
         private fun runWorker() {
@@ -105,23 +134,27 @@ class LiveStreamingTranscriber private constructor(
             } finally {
                 try { stream?.release() } catch (_: Throwable) {}
                 done.countDown()
+                onClosed(this)
             }
         }
 
         private fun handleSamples(stream: StreamingStream, samples: FloatArray) {
             stream.acceptWaveform(samples, SAMPLE_RATE_HZ)
             acceptedSamples.addAndGet(samples.size.toLong())
-            if (drain(stream) > 0) emitLivePreview(stream.resultText().trim())
+            val decoded = drain(stream)
+            if (decoded > 0 || stream.emitsSnapshotOnAccept) emitLivePreview(stream.snapshot())
         }
 
         private fun finalizeStream(stream: StreamingStream) {
             val startedAt = System.currentTimeMillis()
-            val trailingSilence = FloatArray(FINAL_SILENCE_SAMPLES)
-            stream.acceptWaveform(trailingSilence, SAMPLE_RATE_HZ)
-            acceptedSamples.addAndGet(trailingSilence.size.toLong())
+            if (stream.finalSilenceSamples > 0) {
+                val trailingSilence = FloatArray(stream.finalSilenceSamples)
+                stream.acceptWaveform(trailingSilence, SAMPLE_RATE_HZ)
+                acceptedSamples.addAndGet(trailingSilence.size.toLong())
+            }
             stream.inputFinished()
             drain(stream)
-            val text = stream.resultText().trim()
+            val text = stream.snapshot().full.trim()
             val outcome = if (text.isBlank()) {
                 Finalization.Empty
             } else {
@@ -148,11 +181,11 @@ class LiveStreamingTranscriber private constructor(
             return decoded
         }
 
-        private fun emitLivePreview(text: String) {
-            if (text == lastEmitted) return
-            lastEmitted = text
-            // Nemotron revises its own live output. There is no committed prefix until finalization.
-            onText("", text)
+        private fun emitLivePreview(snapshot: TextSnapshot) {
+            val preview = snapshot.committed to snapshot.tentative
+            if (preview == lastEmitted) return
+            lastEmitted = preview
+            onText(preview.first, preview.second)
         }
 
         private fun logMetric(event: String, outcome: String, startedAt: Long) {
@@ -177,17 +210,27 @@ class LiveStreamingTranscriber private constructor(
         }
     }
 
+    data class TextSnapshot(
+        val full: String,
+        val committed: String,
+        val tentative: String,
+    )
+
     /** Minimal seam around the native API so finalization behavior remains unit-testable. */
-    internal interface StreamingRecognizer {
+    internal interface StreamingRecognizer : Closeable {
         fun createStream(): StreamingStream
     }
 
     internal interface StreamingStream {
+        /** Sherpa needs the documented end-of-utterance tail; transcribe.cpp does not. */
+        val finalSilenceSamples: Int get() = 0
+        /** transcribe.cpp returns a usable native snapshot directly from feed(). */
+        val emitsSnapshotOnAccept: Boolean get() = false
         fun setLanguage(language: String)
         fun acceptWaveform(samples: FloatArray, sampleRate: Int)
         fun isReady(): Boolean
         fun decode()
-        fun resultText(): String
+        fun snapshot(): TextSnapshot
         fun inputFinished()
         fun release()
     }
@@ -215,19 +258,29 @@ class LiveStreamingTranscriber private constructor(
         }
 
         fun supports(modelName: String): Boolean =
-            modelName.contains("nemotron-3.5-asr-streaming", ignoreCase = true)
+            MODEL_CATALOG.any { it.archive == modelName && it.runtimeType == RuntimeModelType.GGUF } ||
+                modelName.contains("sherpa-onnx-nemotron-3.5-asr-streaming", ignoreCase = true)
 
         fun create(ctx: Context, modelName: String): LiveStreamingTranscriber? {
             if (!supports(modelName)) return null
             val dir = File(ctx.filesDir, "models/$modelName")
             val model = MODEL_CATALOG.firstOrNull { it.archive == modelName }
             if (model == null || !ModelDownloader.isInstalled(ctx, model)) return null
-            val config = detectConfig(dir) ?: return null
+            val layout = ModelStorage.inspectModelDirectory(dir) ?: return null
 
             return try {
-                val recognizer = OnlineRecognizer(assetManager = null, config = config)
-                Log.i(TAG, "Loaded streaming model: $modelName")
-                LiveStreamingTranscriber(SherpaStreamingRecognizer(recognizer), language = "fr")
+                when (layout.type) {
+                    RuntimeModelType.GGUF -> LiveStreamingTranscriber(
+                        TranscribeCppStreamingRecognizer(TranscribeCppNative.open(layout.model!!.absolutePath)),
+                        language = "fr-FR",
+                    )
+                    RuntimeModelType.TRANSDUCER -> {
+                        val config = detectConfig(layout) ?: return null
+                        val recognizer = OnlineRecognizer(assetManager = null, config = config)
+                        LiveStreamingTranscriber(SherpaStreamingRecognizer(recognizer), language = "fr")
+                    }
+                    else -> null
+                }?.also { Log.i(TAG, "Loaded streaming model: $modelName") }
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to load streaming model: ${t.javaClass.simpleName}")
                 null
@@ -237,8 +290,10 @@ class LiveStreamingTranscriber private constructor(
         internal fun forTesting(recognizer: StreamingRecognizer): LiveStreamingTranscriber =
             LiveStreamingTranscriber(recognizer, language = "fr")
 
-        private fun detectConfig(dir: File): OnlineRecognizerConfig? {
-            val layout = ModelStorage.inspectModelDirectory(dir) ?: return null
+        internal fun forTesting(native: TranscribeCppNative): LiveStreamingTranscriber =
+            LiveStreamingTranscriber(TranscribeCppStreamingRecognizer(native), language = "fr-FR")
+
+        private fun detectConfig(layout: ValidatedModelLayout): OnlineRecognizerConfig? {
             if (layout.type != RuntimeModelType.TRANSDUCER) return null
 
             return OnlineRecognizerConfig(
@@ -265,12 +320,18 @@ private class SherpaStreamingRecognizer(
 ) : LiveStreamingTranscriber.StreamingRecognizer {
     override fun createStream(): LiveStreamingTranscriber.StreamingStream =
         SherpaStreamingStream(recognizer, recognizer.createStream())
+
+    override fun close() {
+        recognizer.release()
+    }
 }
 
 private class SherpaStreamingStream(
     private val recognizer: OnlineRecognizer,
     private val stream: OnlineStream,
 ) : LiveStreamingTranscriber.StreamingStream {
+    override val finalSilenceSamples: Int = LiveStreamingTranscriber.FINAL_SILENCE_SAMPLES
+
     override fun setLanguage(language: String) {
         stream.setOption("language", language)
     }
@@ -285,7 +346,10 @@ private class SherpaStreamingStream(
         recognizer.decode(stream)
     }
 
-    override fun resultText(): String = recognizer.getResult(stream).text
+    override fun snapshot(): LiveStreamingTranscriber.TextSnapshot {
+        val text = recognizer.getResult(stream).text
+        return LiveStreamingTranscriber.TextSnapshot(full = text, committed = "", tentative = text)
+    }
 
     override fun inputFinished() {
         stream.inputFinished()
@@ -295,3 +359,67 @@ private class SherpaStreamingStream(
         stream.release()
     }
 }
+
+/** One preloaded transcribe.cpp session. Its native stream is reset after every utterance. */
+private class TranscribeCppStreamingRecognizer(
+    private val native: TranscribeCppNative,
+) : LiveStreamingTranscriber.StreamingRecognizer {
+    private val streamActive = AtomicBoolean(false)
+
+    override fun createStream(): LiveStreamingTranscriber.StreamingStream {
+        check(streamActive.compareAndSet(false, true)) { "A transcribe.cpp stream is already active" }
+        return try {
+            native.begin()
+            TranscribeCppStreamingStream(native) { streamActive.set(false) }
+        } catch (t: Throwable) {
+            try { native.reset() } catch (_: Throwable) {}
+            streamActive.set(false)
+            throw t
+        }
+    }
+
+    override fun close() {
+        native.close()
+    }
+}
+
+private class TranscribeCppStreamingStream(
+    private val native: TranscribeCppNative,
+    private val onRelease: () -> Unit,
+) : LiveStreamingTranscriber.StreamingStream {
+    override val emitsSnapshotOnAccept: Boolean = true
+    private var latest = native.getText().asStreamingSnapshot()
+    private var released = false
+
+    override fun setLanguage(language: String) = Unit // begin() configures transcribe.cpp with fr-FR.
+
+    override fun acceptWaveform(samples: FloatArray, sampleRate: Int) {
+        latest = native.feed(samples).asStreamingSnapshot()
+    }
+
+    override fun isReady(): Boolean = false
+
+    override fun decode() = Unit
+
+    override fun snapshot(): LiveStreamingTranscriber.TextSnapshot = latest
+
+    override fun inputFinished() {
+        latest = native.finish().asStreamingSnapshot()
+    }
+
+    override fun release() {
+        if (released) return
+        released = true
+        try {
+            native.reset()
+        } finally {
+            onRelease()
+        }
+    }
+}
+
+private fun TranscribeCppNative.Text.asStreamingSnapshot() = LiveStreamingTranscriber.TextSnapshot(
+    full = full,
+    committed = committed,
+    tentative = tentative,
+)

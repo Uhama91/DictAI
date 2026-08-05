@@ -1,8 +1,16 @@
 package com.kafkasl.phonewhisper
 
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
+import java.security.MessageDigest
 
-enum class RuntimeModelType { TRANSDUCER, WHISPER, MOONSHINE, CTC }
+enum class RuntimeModelType { TRANSDUCER, WHISPER, MOONSHINE, CTC, GGUF }
 
 data class ValidatedModelLayout(
     val type: RuntimeModelType,
@@ -18,13 +26,94 @@ data class ValidatedModelLayout(
 
 /** Lightweight filesystem validation shared by installation, selection, and runtime loading. */
 object ModelStorage {
+    private const val DIRECT_INTEGRITY_MARKER = ".gguf-integrity"
+    private const val DIRECT_INTEGRITY_MAGIC = "dictai-gguf-integrity-v1"
+
     fun isValidModelDirectory(dir: File, expectedType: RuntimeModelType? = null): Boolean {
         val layout = inspectModelDirectory(dir) ?: return false
         return expectedType == null || layout.type == expectedType
     }
 
+    fun isValidModelDirectory(dir: File, expectedModel: Model): Boolean {
+        val layout = inspectModelDirectory(dir) ?: return false
+        if (layout.type != expectedModel.runtimeType) return false
+        val artifact = expectedModel.directArtifact ?: return true
+        val gguf = layout.model ?: return false
+        return gguf.name == artifact.fileName && hasValidDirectIntegrityMarker(dir, gguf, artifact)
+    }
+
+    /** Full byte-level verification. Use only before publishing a freshly downloaded artifact. */
+    fun verifyDirectArtifact(file: File, artifact: DirectModelArtifact): Boolean {
+        if (!file.isFile || file.length() != artifact.expectedSizeBytes) return false
+        val digest = MessageDigest.getInstance("SHA-256")
+        FileInputStream(file).use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { byte -> "%02x".format(byte) } == artifact.sha256
+    }
+
+    /** Write the metadata proof into unpublished staging using an atomic same-directory rename. */
+    fun writeDirectIntegrityMarker(staging: File, gguf: File, artifact: DirectModelArtifact): Boolean {
+        if (!staging.isDirectory || gguf.parentFile?.canonicalFile != staging.canonicalFile) return false
+        if (gguf.name != artifact.fileName || gguf.length() != artifact.expectedSizeBytes) return false
+        val marker = File(staging, DIRECT_INTEGRITY_MARKER)
+        val markerPart = File(staging, "$DIRECT_INTEGRITY_MARKER.part")
+        if (markerPart.exists() && !markerPart.delete()) return false
+
+        return try {
+            FileOutputStream(markerPart).use { fileOutput ->
+                val output = DataOutputStream(BufferedOutputStream(fileOutput))
+                output.writeUTF(DIRECT_INTEGRITY_MAGIC)
+                output.writeUTF(artifact.sha256)
+                output.writeLong(artifact.expectedSizeBytes)
+                output.writeLong(gguf.lastModified())
+                output.flush()
+                fileOutput.fd.sync()
+            }
+            if (marker.exists() && !marker.delete()) return false
+            markerPart.renameTo(marker)
+        } catch (_: IOException) {
+            markerPart.delete()
+            false
+        }
+    }
+
+    private fun hasValidDirectIntegrityMarker(
+        dir: File,
+        gguf: File,
+        artifact: DirectModelArtifact,
+    ): Boolean {
+        if (gguf.length() != artifact.expectedSizeBytes) return false
+        val marker = File(dir, DIRECT_INTEGRITY_MARKER)
+        if (!marker.isFile) return false
+        return try {
+            DataInputStream(BufferedInputStream(FileInputStream(marker))).use { input ->
+                input.readUTF() == DIRECT_INTEGRITY_MAGIC &&
+                    input.readUTF() == artifact.sha256 &&
+                    input.readLong() == artifact.expectedSizeBytes &&
+                    input.readLong() == gguf.lastModified() &&
+                    input.read() == -1
+            }
+        } catch (_: IOException) {
+            false
+        }
+    }
+
     fun inspectModelDirectory(dir: File): ValidatedModelLayout? {
         if (!dir.isDirectory) return null
+        val ggufFiles = dir.listFiles()?.filter { file ->
+            file.isFile && file.length() > 0L && file.name.endsWith(".gguf", ignoreCase = true)
+        }.orEmpty()
+        if (ggufFiles.size == 1) {
+            val gguf = ggufFiles.single()
+            // GGUF bundles its tokenizer, so the legacy tokens field is the GGUF file itself.
+            return ValidatedModelLayout(RuntimeModelType.GGUF, tokens = gguf, model = gguf)
+        }
         val tokens = nonEmptyFile(dir, "tokens.txt") ?: return null
 
         // Moonshine is identified by preprocess, matching LocalTranscriber's runtime branch.
@@ -60,7 +149,7 @@ object ModelStorage {
     fun extractedModelRoot(staging: File, model: Model): File? {
         val expectedRoot = File(staging, model.archive)
         if (expectedRoot.isDirectory) return expectedRoot
-        return staging.takeIf { isValidModelDirectory(it, model.runtimeType) }
+        return staging.takeIf { isValidModelDirectory(it, model) }
     }
 
     /** Publish only an already valid staging directory. Both paths must be on the same filesystem. */
@@ -68,16 +157,29 @@ object ModelStorage {
         staging: File,
         finalDir: File,
         expectedType: RuntimeModelType? = null,
+    ): Boolean = publishValidatedModel(staging, finalDir) { dir ->
+        isValidModelDirectory(dir, expectedType)
+    }
+
+    fun publishValidatedModel(staging: File, finalDir: File, expectedModel: Model): Boolean =
+        publishValidatedModel(staging, finalDir) { dir ->
+            isValidModelDirectory(dir, expectedModel)
+        }
+
+    private fun publishValidatedModel(
+        staging: File,
+        finalDir: File,
+        isValid: (File) -> Boolean,
     ): Boolean {
-        if (!isValidModelDirectory(staging, expectedType)) return false
+        if (!isValid(staging)) return false
         if (finalDir.exists()) {
-            if (isValidModelDirectory(finalDir, expectedType)) return true
+            if (isValid(finalDir)) return true
             if (!finalDir.deleteRecursively()) return false
         }
         val parent = finalDir.parentFile ?: return false
         if (!parent.exists() && !parent.mkdirs()) return false
         if (!staging.renameTo(finalDir)) return false
-        if (isValidModelDirectory(finalDir, expectedType)) return true
+        if (isValid(finalDir)) return true
         finalDir.deleteRecursively()
         return false
     }
@@ -85,6 +187,10 @@ object ModelStorage {
     /** A broken final must never become an installed model after a failed attempt. */
     fun removeFinalIfInvalid(finalDir: File, expectedType: RuntimeModelType? = null) {
         if (finalDir.exists() && !isValidModelDirectory(finalDir, expectedType)) finalDir.deleteRecursively()
+    }
+
+    fun removeFinalIfInvalid(finalDir: File, expectedModel: Model) {
+        if (finalDir.exists() && !isValidModelDirectory(finalDir, expectedModel)) finalDir.deleteRecursively()
     }
 
     private fun nonEmptyFile(dir: File, name: String): File? =
