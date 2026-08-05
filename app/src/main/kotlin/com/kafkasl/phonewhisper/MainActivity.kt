@@ -173,26 +173,19 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(settingsRow(
             "Nettoyage cloud (optionnel)",
-            "Si activé, la transcription finale est envoyée au fournisseur choisi.",
+            "Si activé, la transcription finale est envoyée via OpenRouter, selon les paramètres de confidentialité de votre compte.",
             cleanupSwitch,
         ))
 
-        val cleanupProvider = languagePrefs.cloudProvider
-        root.addView(settingsRow(
-            "Fournisseur cloud",
-            "${cleanupProvider.label} · ${cleanupProvider.privacyNotice}",
-        ) {
-            showCloudProviderDialog()
-        })
-        root.addView(settingsRow("Modèle cloud", languagePrefs.cloudModel(cleanupProvider).label) {
-            showCloudModelDialog(cleanupProvider)
+        root.addView(settingsRow("Modèle de nettoyage", languagePrefs.cloudModel().label) {
+            showCloudModelDialog()
         })
         val credentialStore = SecureCredentialStore(this)
         root.addView(settingsRow(
-            "Clé du fournisseur",
-            if (credentialStore.has(cleanupProvider)) "Clé enregistrée (masquée)" else "Aucune clé enregistrée",
+            "Clé OpenRouter",
+            if (credentialStore.has()) "Clé enregistrée (masquée)" else "Aucune clé enregistrée",
         ) {
-            showCredentialDialog(cleanupProvider)
+            showCredentialDialog()
         })
 
         // Fond "page de carnet" : contenu à droite du filet de marge vert (~30dp)
@@ -471,26 +464,12 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showCloudProviderDialog() {
+    private fun showCloudModelDialog() {
         val prefs = PersistencePrefs(this)
-        val choices = CloudProvider.entries.map { it.label }.toTypedArray()
-        val checked = CloudProvider.entries.indexOf(prefs.cloudProvider)
+        val models = CloudModelCatalog.all
+        val checked = models.indexOf(prefs.cloudModel())
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Fournisseur cloud")
-            .setSingleChoiceItems(choices, checked) { dialog, which ->
-                prefs.cloudProvider = CloudProvider.entries[which]
-                dialog.dismiss()
-                recreate()
-            }
-            .show()
-    }
-
-    private fun showCloudModelDialog(provider: CloudProvider) {
-        val prefs = PersistencePrefs(this)
-        val models = CloudModelCatalog.forProvider(provider)
-        val checked = models.indexOf(prefs.cloudModel(provider))
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Modèle ${provider.label}")
+            .setTitle("Modèle de nettoyage")
             .setSingleChoiceItems(models.map { it.label }.toTypedArray(), checked) { dialog, which ->
                 prefs.setCloudModel(models[which])
                 dialog.dismiss()
@@ -499,7 +478,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showCredentialDialog(provider: CloudProvider) {
+    private fun showCredentialDialog() {
         val field = EditText(this).apply {
             hint = "Clé API"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -508,18 +487,23 @@ class MainActivity : AppCompatActivity() {
         }
         val store = SecureCredentialStore(this)
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Clé ${provider.label}")
+            .setTitle("Clé OpenRouter")
             .setMessage("La clé est chiffrée sur cet appareil et n’est jamais affichée à nouveau.")
             .setView(field)
             .setPositiveButton("Enregistrer") { _, _ ->
-                val saved = store.save(provider, field.text.toString())
-                toast(if (saved) "Clé enregistrée" else "Enregistrement impossible")
-                recreate()
+                when (store.save(field.text.toString())) {
+                    CredentialSaveResult.Saved -> {
+                        toast("Clé enregistrée")
+                        recreate()
+                    }
+                    CredentialSaveResult.Rejected -> toast("Saisissez une clé OpenRouter")
+                    CredentialSaveResult.Failed -> toast("Stockage sécurisé indisponible")
+                }
             }
             .setNeutralButton("Supprimer") { _, _ ->
-                store.delete(provider)
-                toast("Clé supprimée")
-                recreate()
+                val deleted = store.delete()
+                toast(credentialDeletionFeedback(deleted))
+                if (deleted) recreate()
             }
             .setNegativeButton("Annuler", null)
             .show()
@@ -543,5 +527,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val LP_MATCH = LinearLayout.LayoutParams.MATCH_PARENT
         private const val LP_WRAP = LinearLayout.LayoutParams.WRAP_CONTENT
+
+        internal fun credentialDeletionFeedback(deleted: Boolean): String =
+            if (deleted) "Clé supprimée" else "Suppression de la clé impossible"
     }
 }

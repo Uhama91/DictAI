@@ -3,9 +3,9 @@ package com.kafkasl.phonewhisper
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Log
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
-import java.security.SecureRandom
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
@@ -13,11 +13,11 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.HttpUrl.Companion.toHttpUrl
 
 enum class DictationLanguage(
     val preferenceValue: String,
@@ -34,97 +34,65 @@ enum class DictationLanguage(
     }
 }
 
-enum class CloudProvider(
-    val preferenceValue: String,
-    val label: String,
-    val api: CloudApi,
-    val privacyNotice: String,
-) {
-    OPENAI("openai", "OpenAI", CloudApi.OPENAI_COMPATIBLE,
-        "Traitement cloud selon les conditions OpenAI."),
-    OPENROUTER("openrouter", "OpenRouter", CloudApi.OPENAI_COMPATIBLE,
-        "Routeur multi-fournisseurs ; rétention selon la route choisie."),
-    GOOGLE("google", "Google", CloudApi.GOOGLE_GENERATE_CONTENT,
-        "Traitement cloud selon les conditions Google."),
-    MISTRAL("mistral", "Mistral AI", CloudApi.OPENAI_COMPATIBLE,
-        "Fournisseur européen ; traitement selon les conditions Mistral."),
-    DEEPSEEK("deepseek", "DeepSeek", CloudApi.OPENAI_COMPATIBLE,
-        "Données traitées en Chine selon sa politique.");
-
-    companion object {
-        fun fromPreference(value: String?): CloudProvider =
-            entries.firstOrNull { it.preferenceValue == value } ?: OPENAI
-    }
-}
-
-enum class CloudApi { OPENAI_COMPATIBLE, GOOGLE_GENERATE_CONTENT }
-
-/** Typed, provider-bound curated choices; only verified IDs are executable. */
 data class CuratedCloudModel(
     val preferenceValue: String,
     val label: String,
-    val provider: CloudProvider,
-    val modelId: String?,
+    val modelId: String,
+    val reasoningCanBeDisabled: Boolean,
 )
 
 object CloudModelCatalog {
     val all = listOf(
-        CuratedCloudModel("openai-gpt-5-4-nano", "GPT-5.4 Nano · ~$0.20/$1.25 M", CloudProvider.OPENAI, "gpt-5.4-nano"),
-        CuratedCloudModel("openai-gpt-5-mini", "GPT-5 Mini · ~$0.25/$2.00 M", CloudProvider.OPENAI, "gpt-5-mini"),
-        CuratedCloudModel("openrouter-gpt-5-4-nano", "GPT-5.4 Nano · ~$0.20/$1.25 M", CloudProvider.OPENROUTER, "openai/gpt-5.4-nano"),
-        CuratedCloudModel("openrouter-mistral-small-3-2", "Mistral Small 3.2 · dès ~$0.075/$0.20 M", CloudProvider.OPENROUTER, "mistralai/mistral-small-3.2-24b-instruct"),
-        CuratedCloudModel("google-gemini-3-5-flash-lite", "Gemini 3.5 Flash-Lite · ~$0.30/$2.50 M", CloudProvider.GOOGLE, "gemini-3.5-flash-lite"),
-        CuratedCloudModel("google-gemini-3-1-flash-lite", "Gemini 3.1 Flash-Lite · ~$0.25/$1.50 M", CloudProvider.GOOGLE, "gemini-3.1-flash-lite"),
-        CuratedCloudModel("mistral-ministral-8b", "Ministral 8B · ~$0.15/$0.15 M", CloudProvider.MISTRAL, "ministral-8b-latest"),
-        CuratedCloudModel("mistral-small", "Mistral Small 4 — ~$0.15/$0.60 M", CloudProvider.MISTRAL, "mistral-small-latest"),
-        CuratedCloudModel("deepseek-v4-flash", "DeepSeek V4 Flash — ~$0.14/$0.28 M", CloudProvider.DEEPSEEK, "deepseek-v4-flash"),
-        CuratedCloudModel("deepseek-v4-pro", "DeepSeek V4 Pro — ~$0.435/$0.87 M", CloudProvider.DEEPSEEK, "deepseek-v4-pro"),
+        CuratedCloudModel(
+            "mistral-small-3-2",
+            "Mistral Small 3.2 · ~$0.094/$0.25 M",
+            "mistralai/mistral-small-3.2-24b-instruct",
+            reasoningCanBeDisabled = false,
+        ),
+        CuratedCloudModel(
+            "gpt-5-4-nano",
+            "GPT-5.4 Nano · ~$0.20/$1.25 M",
+            "openai/gpt-5.4-nano",
+            reasoningCanBeDisabled = true,
+        ),
+        CuratedCloudModel(
+            "gemini-3-1-flash-lite",
+            "Gemini 3.1 Flash-Lite · ~$0.25/$1.50 M",
+            "google/gemini-3.1-flash-lite",
+            reasoningCanBeDisabled = true,
+        ),
+        CuratedCloudModel(
+            "deepseek-v4-flash-0731",
+            "DeepSeek V4 Flash · ~$0.09/$0.18 M",
+            "deepseek/deepseek-v4-flash-0731",
+            reasoningCanBeDisabled = true,
+        ),
+        CuratedCloudModel(
+            "qwen3-5-flash-02-23",
+            "Qwen 3.5 Flash · ~$0.065/$0.26 M",
+            "qwen/qwen3.5-flash-02-23",
+            reasoningCanBeDisabled = true,
+        ),
     )
 
-    fun forProvider(provider: CloudProvider): List<CuratedCloudModel> =
-        all.filter { it.provider == provider }
+    val default: CuratedCloudModel = all.first()
 
-    fun selected(provider: CloudProvider, preferenceValue: String?): CuratedCloudModel =
-        forProvider(provider).firstOrNull { it.preferenceValue == preferenceValue } ?: forProvider(provider).first()
+    fun selected(preferenceValue: String?): CuratedCloudModel =
+        all.firstOrNull { it.preferenceValue == preferenceValue } ?: default
 }
 
 object CloudModelPreferences {
-    fun key(provider: CloudProvider): String = "cloud_cleanup_model_${provider.preferenceValue}"
-    fun default(provider: CloudProvider): CuratedCloudModel = CloudModelCatalog.forProvider(provider).first()
+    const val KEY = "cloud_cleanup_model"
 }
 
-/** The model is internal policy, never a user configurable value. */
-data class CloudEndpoints(
-    val openAi: HttpUrl,
-    val openRouter: HttpUrl,
-    val google: HttpUrl,
-    val mistral: HttpUrl,
-    val deepSeek: HttpUrl,
-) {
+/** The only executable cloud endpoint: every curated model is routed through OpenRouter. */
+data class CloudEndpoints(val openRouter: HttpUrl) {
     companion object {
-        fun production() = CloudEndpoints(
-            "https://api.openai.com/v1/chat/completions".toHttpUrl(),
-            "https://openrouter.ai/api/v1/chat/completions".toHttpUrl(),
-            "https://generativelanguage.googleapis.com/v1beta".toHttpUrl(),
-            "https://api.mistral.ai/v1/chat/completions".toHttpUrl(),
-            "https://api.deepseek.com/chat/completions".toHttpUrl(),
-        )
+        fun production() = CloudEndpoints("https://openrouter.ai/api/v1/chat/completions".toHttpUrl())
 
         internal fun forTests(root: HttpUrl) = CloudEndpoints(
-            root.newBuilder().addPathSegments("openai/v1/chat/completions").build(),
-            root.newBuilder().addPathSegments("openrouter/api/v1/chat/completions").build(),
-            root.newBuilder().addPathSegment("google").addPathSegment("v1beta").build(),
-            root.newBuilder().addPathSegments("mistral/v1/chat/completions").build(),
-            root.newBuilder().addPathSegments("deepseek/chat/completions").build(),
+            root.newBuilder().addPathSegments("api/v1/chat/completions").build(),
         )
-
-        fun chatCompletion(provider: CloudProvider, endpoints: CloudEndpoints): HttpUrl = when (provider) {
-            CloudProvider.OPENAI -> endpoints.openAi
-            CloudProvider.OPENROUTER -> endpoints.openRouter
-            CloudProvider.MISTRAL -> endpoints.mistral
-            CloudProvider.DEEPSEEK -> endpoints.deepSeek
-            CloudProvider.GOOGLE -> error("Google does not use chat completions")
-        }
     }
 }
 
@@ -137,9 +105,10 @@ object CloudCleanupPrompt {
     """.trimIndent()
 }
 
-/** Minimal strict JSON reader/writer for the one structured field accepted from cloud providers. */
+/** Minimal strict JSON reader/writer for the one structured field accepted from OpenRouter. */
 internal object StrictJson {
     private object JsonNull
+
     fun quote(value: String): String = buildString {
         append('"')
         value.forEach { char ->
@@ -157,21 +126,15 @@ internal object StrictJson {
         append('"')
     }
 
-    fun textObject(value: String): String = "{\"text\":${quote(value)}}"
+    fun extractOpenAiText(response: String): String? =
+        extractStringAt(response, listOf("choices", "0", "message", "content"))?.let(::extractTextObject)
 
-    /** Intentionally accepts exactly an object with the single string property `text`. */
-    fun extractTextObject(value: String): String? {
+    private fun extractTextObject(value: String): String? {
         val parser = Parser(value)
         val obj = parser.objectValue() ?: return null
         if (!parser.finished() || obj.size != 1) return null
         return obj["text"] as? String
     }
-
-    fun extractOpenAiText(response: String): String? =
-        extractStringAt(response, listOf("choices", "0", "message", "content"))?.let(::extractTextObject)
-
-    fun extractGoogleText(response: String): String? =
-        extractStringAt(response, listOf("candidates", "0", "content", "parts", "0", "text"))?.let(::extractTextObject)
 
     private fun extractStringAt(source: String, path: List<String>): String? {
         val parser = Parser(source)
@@ -288,8 +251,7 @@ object CleanupPlausibility {
         val inputWords = words(cleanInput)
         if (inputWords.size < 2) return true
         val outputWords = words(cleanOutput).toSet()
-        val retained = inputWords.count { it in outputWords }
-        return retained * 2 >= inputWords.size
+        return inputWords.count { it in outputWords } * 2 >= inputWords.size
     }
 
     private fun words(value: String): List<String> =
@@ -303,22 +265,17 @@ class CloudCleanup(
     fun clean(
         transcript: String,
         language: DictationLanguage,
-        provider: CloudProvider,
         model: CuratedCloudModel,
         credential: String,
     ): String? {
         if (transcript.isBlank() || transcript.length > MAX_TRANSCRIPT_CHARS || credential.isBlank() ||
-            model.provider != provider || model.modelId.isNullOrBlank()) return null
+            model !in CloudModelCatalog.all) return null
         return try {
-            val response = client.newCall(request(transcript, language, provider, model, credential)).execute().use {
+            val response = client.newCall(request(transcript, language, model, credential)).execute().use {
                 if (!it.isSuccessful) return null
                 it.body?.string() ?: return null
             }
-            val candidate = when (provider) {
-                CloudProvider.OPENAI, CloudProvider.OPENROUTER, CloudProvider.MISTRAL, CloudProvider.DEEPSEEK -> StrictJson.extractOpenAiText(response)
-                CloudProvider.GOOGLE -> StrictJson.extractGoogleText(response)
-            }?.trim()
-            candidate?.takeIf { CleanupPlausibility.accepts(transcript, it) }
+            StrictJson.extractOpenAiText(response)?.trim()?.takeIf { CleanupPlausibility.accepts(transcript, it) }
         } catch (_: Throwable) {
             null
         }
@@ -328,84 +285,50 @@ class CloudCleanup(
     fun cleanupOrOriginal(
         transcript: String,
         language: DictationLanguage,
-        provider: CloudProvider,
         model: CuratedCloudModel,
         credential: String,
-    ): String = clean(transcript, language, provider, model, credential) ?: transcript
+    ): String = clean(transcript, language, model, credential) ?: transcript
 
     private fun request(
         transcript: String,
         language: DictationLanguage,
-        provider: CloudProvider,
         model: CuratedCloudModel,
         credential: String,
     ): Request {
         val prompt = CloudCleanupPrompt.system(language)
         val transcriptJson = "{\"transcript\":${StrictJson.quote(transcript)}}"
-        val outputTokenBudget = outputTokenBudget(transcript.length)
-        val body = when (provider) {
-            CloudProvider.OPENAI, CloudProvider.OPENROUTER, CloudProvider.MISTRAL, CloudProvider.DEEPSEEK ->
-                chatCompletionsBody(provider, requireNotNull(model.modelId), prompt, transcriptJson, outputTokenBudget)
-            CloudProvider.GOOGLE -> googleBody(prompt, transcriptJson, outputTokenBudget)
-        }.toRequestBody(JSON_MEDIA_TYPE)
-        return when (provider) {
-            CloudProvider.OPENAI, CloudProvider.OPENROUTER, CloudProvider.MISTRAL, CloudProvider.DEEPSEEK -> Request.Builder()
-                .url(CloudEndpoints.chatCompletion(provider, endpoints))
-                // These OpenAI-compatible providers document HTTP Bearer authentication.
-                .header("Authorization", "Bearer $credential").post(body).build()
-            CloudProvider.GOOGLE -> Request.Builder()
-                .url(googleModelUrl(requireNotNull(model.modelId)))
-                // Gemini documents x-goog-api-key; keeping it in a header avoids URL logging.
-                .header("x-goog-api-key", credential).post(body).build()
-        }
+        val body = chatCompletionsBody(model, prompt, transcriptJson, outputTokenBudget(transcript.length))
+            .toRequestBody(JSON_MEDIA_TYPE)
+        return Request.Builder()
+            .url(endpoints.openRouter)
+            .header("Authorization", "Bearer $credential")
+            .post(body)
+            .build()
     }
 
-    private fun googleModelUrl(model: String): HttpUrl = endpoints.google.newBuilder()
-        .addPathSegment("models")
-        .addPathSegment("$model:generateContent") // Path segment encoding prevents model-path injection.
-        .build()
-
     private fun chatCompletionsBody(
-        provider: CloudProvider,
-        model: String,
+        model: CuratedCloudModel,
         prompt: String,
         transcriptJson: String,
         outputTokenBudget: Int,
     ): String {
-        val responseFormat = when (provider) {
-            CloudProvider.OPENAI, CloudProvider.OPENROUTER ->
-                "{\"type\":\"json_schema\",\"json_schema\":{\"name\":\"dictation_cleanup\",\"strict\":true,\"schema\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}},\"required\":[\"text\"],\"additionalProperties\":false}}}"
-            CloudProvider.MISTRAL, CloudProvider.DEEPSEEK -> "{\"type\":\"json_object\"}"
-            CloudProvider.GOOGLE -> error("Google does not use chat completions")
-        }
-        val tokenLimit = when (provider) {
-            CloudProvider.OPENAI -> "\"max_completion_tokens\":$outputTokenBudget"
-            CloudProvider.OPENROUTER, CloudProvider.MISTRAL, CloudProvider.DEEPSEEK ->
-                "\"max_tokens\":$outputTokenBudget"
-            CloudProvider.GOOGLE -> error("Google does not use chat completions")
-        }
-        val reasoning = if (provider == CloudProvider.OPENAI && model == "gpt-5-mini") {
-            ",\"reasoning_effort\":\"minimal\""
-        } else ""
-        val thinking = if (provider == CloudProvider.DEEPSEEK) ",\"thinking\":{\"type\":\"disabled\"}" else ""
-        return "{\"model\":${StrictJson.quote(model)},$tokenLimit,\"response_format\":$responseFormat$reasoning$thinking,\"messages\":[{\"role\":\"system\",\"content\":${StrictJson.quote(prompt)}},{\"role\":\"user\",\"content\":${StrictJson.quote(transcriptJson)}}]}"
+        val responseFormat = "{\"type\":\"json_schema\",\"json_schema\":{\"name\":\"dictation_cleanup\",\"strict\":true,\"schema\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}},\"required\":[\"text\"],\"additionalProperties\":false}}}"
+        val reasoning = if (model.reasoningCanBeDisabled) ",\"reasoning\":{\"enabled\":false}" else ""
+        return "{\"model\":${StrictJson.quote(model.modelId)},\"max_tokens\":$outputTokenBudget,\"response_format\":$responseFormat,\"provider\":{\"require_parameters\":true}$reasoning,\"messages\":[{\"role\":\"system\",\"content\":${StrictJson.quote(prompt)}},{\"role\":\"user\",\"content\":${StrictJson.quote(transcriptJson)}}]}"
     }
-
-    private fun googleBody(prompt: String, transcriptJson: String, outputTokenBudget: Int): String = """
-        {"systemInstruction":{"parts":[{"text":${StrictJson.quote(prompt)}}]},"contents":[{"role":"user","parts":[{"text":${StrictJson.quote(transcriptJson)}}]}],"generationConfig":{"maxOutputTokens":$outputTokenBudget,"thinkingConfig":{"thinkingLevel":"minimal"},"responseMimeType":"application/json","responseSchema":{"type":"OBJECT","properties":{"text":{"type":"STRING"}},"required":["text"]}}}
-    """.trim()
 
     companion object {
         const val MAX_TRANSCRIPT_CHARS = 12_000
         private const val MIN_OUTPUT_TOKENS = 512
         private const val MAX_OUTPUT_TOKENS = 5_120
+        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
         fun outputTokenBudget(transcriptLength: Int): Int {
             val chars = transcriptLength.coerceAtLeast(0).toLong()
             val estimated = ((chars * 2L + 4L) / 5L) + 256L
             return estimated.coerceIn(MIN_OUTPUT_TOKENS.toLong(), MAX_OUTPUT_TOKENS.toLong()).toInt()
         }
-        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+
         internal fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .callTimeout(45, TimeUnit.SECONDS)
             .connectTimeout(5, TimeUnit.SECONDS)
@@ -419,12 +342,16 @@ class CloudCleanup(
 object AesGcmCodec {
     private const val IV_BYTES = 12
     private const val TAG_BITS = 128
-    private val random = SecureRandom()
 
-    fun encrypt(key: SecretKey, clearText: String): String {
-        val iv = ByteArray(IV_BYTES).also(random::nextBytes)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(TAG_BITS, iv))
+    internal fun encrypt(
+        key: SecretKey,
+        clearText: String,
+        cipherFactory: (() -> Cipher)? = null,
+    ): String {
+        val cipher = cipherFactory?.invoke() ?: Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key)
+        val iv = requireNotNull(cipher.iv) { "AES-GCM encryption must generate an IV" }
+        require(iv.size == IV_BYTES) { "AES-GCM IV must be $IV_BYTES bytes" }
         val encrypted = cipher.doFinal(clearText.toByteArray(StandardCharsets.UTF_8))
         return Base64.getEncoder().withoutPadding().encodeToString(iv) + ":" +
             Base64.getEncoder().withoutPadding().encodeToString(encrypted)
@@ -445,92 +372,129 @@ object AesGcmCodec {
     }
 }
 
+sealed interface CredentialSaveResult {
+    data object Saved : CredentialSaveResult
+    data object Rejected : CredentialSaveResult
+    data object Failed : CredentialSaveResult
+}
+
 object CredentialMigration {
-    private val legacyKeys = listOf("api_key", "openrouter_key")
+    val purgeLegacyApiKey = true
+    val obsoleteSecurePreferenceKeys = setOf(
+        "credential_openai",
+        "credential_google",
+        "credential_mistral",
+        "credential_deepseek",
+    )
 
-    fun providerForLegacyKey(key: String): CloudProvider? = when (key) {
-        "api_key" -> CloudProvider.OPENAI
-        "openrouter_key" -> CloudProvider.OPENROUTER
-        else -> null
-    }
-
-    /** Attempts encryption first, then always schedules every historical plaintext slot for deletion. */
-    fun migrate(
-        legacyValues: Map<String, String?>,
-        attemptSave: (CloudProvider, String) -> Unit,
-    ): Set<String> {
-        legacyKeys.forEach { key ->
-            val provider = providerForLegacyKey(key) ?: return@forEach
-            legacyValues[key]?.takeIf { it.isNotBlank() }?.let { value ->
-                runCatching { attemptSave(provider, value) }
-            }
-        }
-        return legacyKeys.toSet()
+    fun migrateOpenRouter(
+        plaintext: String?,
+        hasSecureValue: Boolean,
+        save: (String) -> CredentialSaveResult,
+    ): Boolean {
+        if (plaintext.isNullOrBlank()) return true
+        return hasSecureValue || save(plaintext) == CredentialSaveResult.Saved
     }
 }
 
-/** Credentials are encrypted at rest with an Android Keystore AES-256-GCM key. */
+/** OpenRouter-only credential encrypted at rest with the shared Android Keystore AES-256-GCM alias. */
 class SecureCredentialStore(context: Context) {
     private val app = context.applicationContext
     private val securePrefs = app.getSharedPreferences(SECURE_PREFS, Context.MODE_PRIVATE)
 
     init { migrateLegacyCredentials() }
 
-    fun has(provider: CloudProvider): Boolean = load(provider) != null
+    fun has(): Boolean = load() != null
 
-    fun load(provider: CloudProvider): String? {
-        val stored = securePrefs.getString(storageKey(provider), null) ?: return null
-        val clearText = runCatching { AesGcmCodec.decrypt(key(), stored) }.getOrNull()
-        if (clearText.isNullOrBlank()) securePrefs.edit().remove(storageKey(provider)).apply()
-        return clearText?.takeIf { it.isNotBlank() }
+    fun load(): String? {
+        val stored = securePrefs.getString(CREDENTIAL_KEY, null) ?: return null
+        val clearText = runCatching { AesGcmCodec.decrypt(key(), stored) }
+            .onFailure { logFailure("load", it) }
+            .getOrNull()
+        if (clearText.isNullOrBlank()) {
+            logCategory("load_decrypt_failed")
+            return null
+        }
+        return clearText
     }
 
-    fun save(provider: CloudProvider, credential: String): Boolean {
+    fun save(credential: String): CredentialSaveResult {
         val value = credential.trim()
-        if (value.isBlank()) return delete(provider)
+        if (value.isBlank()) return CredentialSaveResult.Rejected
         return try {
-            securePrefs.edit().putString(storageKey(provider), AesGcmCodec.encrypt(key(), value)).commit()
-        } catch (_: Throwable) {
-            false
+            val committed = securePrefs.edit().putString(CREDENTIAL_KEY, AesGcmCodec.encrypt(key(), value)).commit()
+            if (!committed) {
+                logCategory("save_commit_false")
+                return CredentialSaveResult.Failed
+            }
+            if (load() == value) CredentialSaveResult.Saved else {
+                logCategory("save_readback_mismatch")
+                CredentialSaveResult.Failed
+            }
+        } catch (error: Throwable) {
+            logFailure("save", error)
+            CredentialSaveResult.Failed
         }
     }
 
-    fun delete(provider: CloudProvider): Boolean = securePrefs.edit().remove(storageKey(provider)).commit()
+    fun delete(): Boolean {
+        val legacyDeleted = app.getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
+            .edit().remove(LEGACY_OPENROUTER_KEY).commit()
+        if (!legacyDeleted) logCategory("delete_legacy_commit_false")
+        val secureDeleted = securePrefs.edit().remove(CREDENTIAL_KEY).commit()
+        if (!secureDeleted) logCategory("delete_secure_commit_false")
+        return legacyDeleted && secureDeleted
+    }
 
     private fun migrateLegacyCredentials() {
         val legacy = app.getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
-        val values = mapOf(
-            "api_key" to legacy.getString("api_key", null),
-            "openrouter_key" to legacy.getString("openrouter_key", null),
+        val removeOpenRouterPlaintext = CredentialMigration.migrateOpenRouter(
+            legacy.getString(LEGACY_OPENROUTER_KEY, null),
+            hasSecureValue = has(),
+            save = ::save,
         )
-        val keysToRemove = CredentialMigration.migrate(values) { provider, value ->
-            if (!has(provider)) save(provider, value)
-        }
         legacy.edit().apply {
-            keysToRemove.forEach(::remove)
+            if (CredentialMigration.purgeLegacyApiKey) remove(LEGACY_API_KEY)
+            if (removeOpenRouterPlaintext) remove(LEGACY_OPENROUTER_KEY)
+        }.apply()
+        securePrefs.edit().apply {
+            CredentialMigration.obsoleteSecurePreferenceKeys.forEach(::remove)
         }.apply()
     }
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        val existing = runCatching { store.getKey(KEY_ALIAS, null) as? SecretKey }.getOrNull()
+        val existing = store.getKey(KEY_ALIAS, null) as? SecretKey
         if (existing != null) return existing
-        runCatching { store.deleteEntry(KEY_ALIAS) }
+        check(!store.containsAlias(KEY_ALIAS)) { "Shared AndroidKeyStore alias is not an AES secret key" }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        generator.init(KeyGenParameterSpec.Builder(
-            KEY_ALIAS,
-            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-        ).setKeySize(256).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .build())
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            ).setKeySize(256)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build(),
+        )
         return generator.generateKey()
     }
 
-    private fun storageKey(provider: CloudProvider) = "credential_${provider.preferenceValue}"
+    private fun logFailure(category: String, error: Throwable) {
+        Log.w(TAG, "credential category=$category exception=${error.javaClass.simpleName}")
+    }
 
-    companion object {
-        private const val SECURE_PREFS = "whisperpin_secure"
-        private const val LEGACY_PREFS = "phonewhisper"
-        private const val KEY_ALIAS = "whisperpin.cloud.cleanup.aes.v1"
+    private fun logCategory(category: String) {
+        Log.w(TAG, "credential category=$category")
+    }
+
+    private companion object {
+        const val TAG = "SecureCredentialStore"
+        const val SECURE_PREFS = "whisperpin_secure"
+        const val LEGACY_PREFS = "phonewhisper"
+        const val CREDENTIAL_KEY = "credential_openrouter"
+        const val LEGACY_API_KEY = "api_key"
+        const val LEGACY_OPENROUTER_KEY = "openrouter_key"
+        const val KEY_ALIAS = "whisperpin.cloud.cleanup.aes.v1"
     }
 }

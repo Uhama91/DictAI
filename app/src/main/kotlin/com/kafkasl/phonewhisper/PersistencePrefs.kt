@@ -5,6 +5,8 @@ import android.content.Context
 class PersistencePrefs(ctx: Context) {
     private val p = ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE)
 
+    init { migrateCloudCleanupPreferences() }
+
     var buttonX: Int
         get() = p.getInt("btn_x", -1)
         set(v) { p.edit().putInt("btn_x", v).apply() }
@@ -50,20 +52,30 @@ class PersistencePrefs(ctx: Context) {
         get() = p.getBoolean("cloud_cleanup_enabled", false)
         set(v) { p.edit().putBoolean("cloud_cleanup_enabled", v).apply() }
 
-    var cloudProvider: CloudProvider
-        get() = CloudProvider.fromPreference(p.getString("cloud_cleanup_provider", null))
-        set(v) { p.edit().putString("cloud_cleanup_provider", v.preferenceValue).apply() }
-
-    fun cloudModel(provider: CloudProvider = cloudProvider): CuratedCloudModel =
-        CloudModelCatalog.selected(provider, p.getString(CloudModelPreferences.key(provider), null))
+    fun cloudModel(): CuratedCloudModel =
+        CloudModelCatalog.selected(p.getString(CloudModelPreferences.KEY, null))
 
     fun setCloudModel(model: CuratedCloudModel) {
-        p.edit().putString(CloudModelPreferences.key(model.provider), model.preferenceValue).apply()
+        p.edit().putString(CloudModelPreferences.KEY, model.preferenceValue).apply()
+    }
+
+    private fun migrateCloudCleanupPreferences() {
+        val migratedModel = if (p.contains(CloudModelPreferences.KEY)) null else {
+            CloudCleanupPreferencesMigration.modelValue(
+                currentValue = null,
+                legacyOpenRouterValue = p.getString(LEGACY_OPENROUTER_MODEL_KEY, null),
+            )
+        }
+        p.edit().apply {
+            migratedModel?.let { putString(CloudModelPreferences.KEY, it) }
+            CloudCleanupPreferencesMigration.obsoleteKeys.forEach(::remove)
+        }.apply()
     }
 
     companion object {
         private const val KEY_ANCHOR_EDGE = "btn_anchor_edge"
         private const val KEY_ANCHOR_OFFSET = "btn_anchor_offset"
+        private const val LEGACY_OPENROUTER_MODEL_KEY = "cloud_cleanup_model_openrouter"
 
         fun clampX(x: Int, w: Int, screenW: Int) = x.coerceIn(0, (screenW - w).coerceAtLeast(0))
         fun clampY(y: Int, h: Int, screenH: Int) = y.coerceIn(0, (screenH - h).coerceAtLeast(0))
@@ -80,5 +92,22 @@ class PersistencePrefs(ctx: Context) {
             )
             return OverlayPlacement.snap(legacy, pill, screen)
         }
+    }
+}
+
+object CloudCleanupPreferencesMigration {
+    val obsoleteKeys = setOf(
+        "cloud_cleanup_provider",
+        "cloud_cleanup_model_openai",
+        "cloud_cleanup_model_openrouter",
+        "cloud_cleanup_model_google",
+        "cloud_cleanup_model_mistral",
+        "cloud_cleanup_model_deepseek",
+    )
+
+    fun modelValue(currentValue: String?, legacyOpenRouterValue: String?): String? = currentValue ?: when (legacyOpenRouterValue) {
+        "openrouter-mistral-small-3-2" -> "mistral-small-3-2"
+        "openrouter-gpt-5-4-nano" -> "gpt-5-4-nano"
+        else -> null
     }
 }

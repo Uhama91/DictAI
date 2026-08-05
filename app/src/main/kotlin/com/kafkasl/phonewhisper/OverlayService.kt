@@ -346,7 +346,6 @@ class OverlayService : Service() {
             language = prefs.dictationLanguage,
             cloudCleanupEnabled = cloudPolicy.cloudAllowed,
             cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
-            cloudProvider = prefs.cloudProvider,
             cloudModel = prefs.cloudModel(),
         )
         val selectedModel = TranscriptionEngine.selectedModelName(this)
@@ -440,8 +439,7 @@ class OverlayService : Service() {
                         language = DictationLanguage.FRENCH,
                         cloudCleanupEnabled = false,
                         cloudSuppressedForSensitiveTarget = false,
-                        cloudProvider = CloudProvider.OPENAI,
-                        cloudModel = CloudModelCatalog.forProvider(CloudProvider.OPENAI).first(),
+                        cloudModel = CloudModelCatalog.default,
                     ),
                 )
                 pcm = null
@@ -458,8 +456,7 @@ class OverlayService : Service() {
                             DictationLanguage.FRENCH,
                             false,
                             false,
-                            CloudProvider.OPENAI,
-                            CloudModelCatalog.forProvider(CloudProvider.OPENAI).first(),
+                            CloudModelCatalog.default,
                         ),
                     )
                     processStoppedRecording(stoppedCapture)
@@ -490,7 +487,6 @@ class OverlayService : Service() {
         val language: DictationLanguage,
         val cloudCleanupEnabled: Boolean,
         val cloudSuppressedForSensitiveTarget: Boolean,
-        val cloudProvider: CloudProvider,
         val cloudModel: CuratedCloudModel,
     )
 
@@ -518,9 +514,9 @@ class OverlayService : Service() {
         val transcribeMs = System.currentTimeMillis() - t0
         val localText = r.text?.let { Vocabulary.applyCorrections(this, it) }
         val cloudText = if (!localText.isNullOrBlank() && capture.options.cloudCleanupEnabled) {
-            val credential = SecureCredentialStore(this).load(capture.options.cloudProvider)
+            val credential = SecureCredentialStore(this).load()
             credential?.let {
-                CloudCleanup().clean(localText, capture.options.language, capture.options.cloudProvider, capture.options.cloudModel, it)
+                CloudCleanup().clean(localText, capture.options.language, capture.options.cloudModel, it)
             }
         } else null
         var finalText = cloudText ?: localText
