@@ -10,7 +10,6 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
 import android.provider.Settings
-import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.widget.*
@@ -29,25 +28,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusSubtitle: TextView
     private lateinit var audioRowSub: TextView
     private lateinit var accRowSub: TextView
-    private lateinit var keyRowSub: TextView
-    private lateinit var cleanupSub: TextView
-    private lateinit var cloudModelSub: TextView
-    private lateinit var orKeySub: TextView
     private lateinit var modelContainer: LinearLayout
 
     private val modelRows = mutableMapOf<String, ModelRowViews>()
-    private val promptRows = mutableMapOf<String, PromptRowViews>()
 
     private data class ModelRowViews(
         val radio: MaterialRadioButton,
         val progress: LinearProgressIndicator,
         val subtitle: TextView,
         val dlBtn: MaterialButton
-    )
-
-    private data class PromptRowViews(
-        val radio: MaterialRadioButton,
-        val subtitle: TextView
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,57 +117,14 @@ class MainActivity : AppCompatActivity() {
         accRowSub = accRow.findViewWithTag("subtitle")
         root.addView(accRow)
 
-        // --- Engine Section ---
-        
-        val isCloud = !prefs().getBoolean("use_local", true)
-        
-        val cloudSwitch = MaterialSwitch(this).apply {
-            isChecked = isCloud
-            isClickable = false
-            greenTint()
-        }
-        val cloudRow = settingsRow("Use cloud transcription", "Requires OpenAI API key", cloudSwitch) {
-            val newCloud = !cloudSwitch.isChecked
-            prefs().edit().putBoolean("use_local", !newCloud).apply()
-            cloudSwitch.isChecked = newCloud
-            refresh()
-        }
-        root.addView(cloudRow)
-
-        // Local Models section
+        // --- Modèles locaux ---
         modelContainer = vertical(0)
-        modelContainer.addView(sectionHeader("Local models"))
+        modelContainer.addView(sectionHeader("Modèles locaux"))
         for (m in MODEL_CATALOG) modelContainer.addView(buildModelRow(m))
         root.addView(modelContainer)
 
-        // --- Nettoyage (post-traitement) : Désactivé / Local (Qwen3) / Cloud (OpenRouter) ---
-        val cleanupRow = settingsRow("Nettoyage", cleanupEngineLabel()) { showCleanupEngineDialog() }
-        cleanupSub = cleanupRow.findViewWithTag("subtitle")
-        root.addView(cleanupRow)
-
-        val cloudModelRow = settingsRow("Modèle cloud", cloudModelSummary()) { showCloudModelDialog() }
-        cloudModelSub = cloudModelRow.findViewWithTag("subtitle")
-        root.addView(cloudModelRow)
-
-        val orKeyRow = settingsRow("Clé OpenRouter", openRouterKeySummary()) { promptOpenRouterKey() }
-        orKeySub = orKeyRow.findViewWithTag("subtitle")
-        root.addView(orKeyRow)
-
-        root.addView(settingsRow("Modèle local Qwen3-0.6B", if (LlmPostProcessor.ready) "Prêt" else "À préparer (mode Local)") {
-            android.widget.Toast.makeText(this@MainActivity, "Préparation du modèle…", android.widget.Toast.LENGTH_SHORT).show()
-            kotlin.concurrent.thread { LlmPostProcessor.ensureLoaded(this@MainActivity) }
-        })
-
-        root.addView(settingsRow("Prompt de nettoyage", "Choisir / éditer (utilise \${output})") {
-            showPromptManager()
-        })
-
-        // --- Settings Section ---
-        root.addView(sectionHeader("Settings"))
-        
-        val keyRow = settingsRow("OpenAI API Key", "Tap to set") { promptApiKey() }
-        keyRowSub = keyRow.findViewWithTag("subtitle")
-        root.addView(keyRow)
+        // --- Réglages ---
+        root.addView(sectionHeader("Réglages"))
 
         // Espace automatique en fin de dictée
         val spaceSwitch = MaterialSwitch(this).apply {
@@ -189,9 +135,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
         root.addView(settingsRow("Espace après chaque dictée",
-            "Ajoute une espace en fin de transcription", spaceSwitch))
+            "Ajoute un espace à la fin de la transcription", spaceSwitch))
 
-        val vocabRow = settingsRow("Mon vocabulaire", "Mots favorisés + corrections (un par ligne)") {
+        val vocabRow = settingsRow("Mon vocabulaire", "Corrections explicites (une par ligne)") {
             val et = EditText(this).apply {
                 setText(Vocabulary.getRaw(this@MainActivity))
                 isSingleLine = false
@@ -204,7 +150,7 @@ class MainActivity : AppCompatActivity() {
             }
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Mon vocabulaire")
-                .setMessage("Un par ligne :\n• \"entendu => voulu\" = correction automatique (marche partout, y compris Parakeet local)\n• un mot seul = favorisé pour la transcription cloud (Whisper)")
+                .setMessage("Une correction par ligne, au format « entendu => voulu ».")
                 .setView(et)
                 .setPositiveButton("Enregistrer") { _, _ ->
                     Vocabulary.setRaw(this, et.text.toString())
@@ -311,27 +257,27 @@ class MainActivity : AppCompatActivity() {
         views.dlBtn.isEnabled = false
         views.progress.visibility = View.VISIBLE
         views.progress.isIndeterminate = false
-        views.subtitle.text = "Starting download..."
+        views.subtitle.text = "Téléchargement en cours…"
 
         ModelDownloader.download(this, model) { state ->
             runOnUiThread {
                 when (state) {
                     is DownloadState.Downloading -> {
                         views.progress.progress = (state.progress * 100).toInt()
-                        views.subtitle.text = "Downloading: ${(state.progress * 100).toInt()}%"
+                        views.subtitle.text = "Téléchargement\u202F: ${(state.progress * 100).toInt()}\u202F%"
                     }
                     is DownloadState.Extracting -> {
                         views.progress.isIndeterminate = true
-                        views.subtitle.text = "Extracting..."
+                        views.subtitle.text = "Extraction…"
                     }
                     is DownloadState.Done -> {
                         views.progress.visibility = View.GONE
                         selectModel(model.archive)
-                        toast("${model.name} ready!")
+                        toast("${model.name} est prêt")
                     }
                     is DownloadState.Error -> {
                         views.progress.visibility = View.GONE
-                        views.subtitle.text = "Error: ${state.message}"
+                        views.subtitle.text = "Erreur : ${state.message}"
                         views.dlBtn.isEnabled = true
                     }
                 }
@@ -341,7 +287,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun selectModel(archive: String) {
         prefs().edit().putString("model_name", archive).apply()
-        refreshAllCards(); refresh()
+        refresh()
     }
 
     private fun refreshCard(model: Model) {
@@ -360,63 +306,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshAllCards() = MODEL_CATALOG.forEach { refreshCard(it) }
 
-    // --- Prompt Rows ---
-
-    private fun buildPromptRow(preset: PromptPreset): View {
-        val radio = MaterialRadioButton(this).apply {
-            isClickable = false
-            buttonTintList = ColorStateList.valueOf(attrColor(com.google.android.material.R.attr.colorPrimary))
-        }
-
-        val row = settingsRow(preset.title, preset.subtitle, radio) {
-            selectPrompt(preset.key)
-        }
-
-        promptRows[preset.key] = PromptRowViews(radio, row.findViewWithTag("subtitle"))
-        refreshPromptRow(preset)
-        return row
-    }
-
-    private fun selectPrompt(key: String) {
-        val prompt = when (key) {
-            "custom" -> customPrompt()
-            else -> promptPresets().firstOrNull { it.key == key }?.prompt
-        } ?: return
-        prefs().edit().putString("post_processing_prompt", prompt).apply()
-        refreshPromptRows(); refresh()
-    }
-
-    private fun refreshPromptRow(preset: PromptPreset) {
-        val views = promptRows[preset.key] ?: return
-        val current = currentPrompt()
-        val active = when (preset.key) {
-            "custom" -> current != PostProcessor.DEV_PROMPT && current != PostProcessor.SIMPLE_PROMPT
-            else -> current == preset.prompt
-        }
-        views.radio.isChecked = active
-        views.subtitle.text = if (preset.key == "custom") customPromptSummary() else preset.subtitle
-    }
-
-    private fun refreshPromptRows() = promptPresets().forEach { refreshPromptRow(it) }
-
     // --- State Updates ---
 
     private fun refresh() {
         val audio = hasPerm(Manifest.permission.RECORD_AUDIO)
         val acc = WhisperAccessibilityService.controller != null
-        val useLocal = prefs().getBoolean("use_local", true)
-        val hasKey = !prefs().getString("api_key", "").isNullOrBlank()
         val hasModel = LocalTranscriber.availableModels(this).isNotEmpty()
 
         audioRowSub.text = if (audio) "Granted" else "Tap to grant permission"
         accRowSub.text = if (acc) "Enabled" else "Tap to enable in settings"
-
-        modelContainer.visibility = if (useLocal) View.VISIBLE else View.GONE
-
-        val apiKey = prefs().getString("api_key", "") ?: ""
-        keyRowSub.text = if (apiKey.isBlank()) "Tap to set"
-                         else if (apiKey.length > 7) "sk-...${apiKey.takeLast(4)}"
-                         else "sk-...***"
 
         val cur = prefs().getString("model_name", "") ?: ""
         if (cur.isBlank() || !File(filesDir, "models/$cur").exists()) {
@@ -425,175 +323,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Ready logic
-        val localReady = useLocal && hasModel
-        val cloudReady = !useLocal && hasKey
-        val ready = audio && acc && (localReady || cloudReady)
+        val ready = audio && acc && hasModel
 
         statusSubtitle.text = if (ready) "Ready — tap the overlay dot to dictate" else "Setup required"
         statusSubtitle.setTextColor(if (ready) attrColor(com.google.android.material.R.attr.colorPrimary) else attrColor(android.R.attr.textColorSecondary))
         
         refreshAllCards()
-        refreshPromptRows()
-    }
-
-    private fun promptApiKey() {
-        val input = EditText(this).apply {
-            hint = "sk-..."
-            setText(prefs().getString("api_key", ""))
-            inkColors()
-        }
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("OpenAI API Key")
-            .setView(input.apply { setPadding(dp(24), dp(8), dp(24), dp(8)) })
-            .setPositiveButton("Save") { _, _ ->
-                prefs().edit().putString("api_key", input.text.toString().trim()).apply()
-                refresh()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    // --- Nettoyage : moteur (off/local/cloud), modèle cloud, clé OpenRouter ---
-
-    private fun cleanupEngineLabel() = when (PostProcessPrompts.engine(this)) {
-        "local" -> "Local (Qwen3, hors-ligne, gratuit)"
-        "cloud" -> "Cloud (OpenRouter)"
-        else -> "Désactivé"
-    }
-    private fun cloudModelSummary() = CloudCleanup.selectedModel(this).let { "${it.label} · ${it.price}" }
-    private fun openRouterKeySummary(): String {
-        val k = CloudCleanup.key(this)
-        return if (k.isBlank()) "Tap to set (requis pour le mode Cloud)" else "sk-or-...${k.takeLast(4)}"
-    }
-
-    private fun showCleanupEngineDialog() {
-        val labels = arrayOf("Désactivé", "Local (Qwen3, hors-ligne, gratuit)", "Cloud (OpenRouter, rapide)")
-        val vals = arrayOf("off", "local", "cloud")
-        val cur = vals.indexOf(PostProcessPrompts.engine(this)).coerceAtLeast(0)
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Moteur de nettoyage")
-            .setSingleChoiceItems(labels, cur) { d, which ->
-                val e = vals[which]
-                PostProcessPrompts.setEngine(this, e)
-                when (e) {
-                    "local" -> {
-                        Toast.makeText(this, "Préparation du modèle local (~378 Mo au 1er coup)…", Toast.LENGTH_LONG).show()
-                        kotlin.concurrent.thread { LlmPostProcessor.ensureLoaded(this) }
-                    }
-                    "cloud" -> {
-                        kotlin.concurrent.thread { LlmPostProcessor.unload() }
-                        // Pas de clé → on la demande tout de suite, sinon le nettoyage échouerait en silence.
-                        if (!CloudCleanup.hasKey(this)) {
-                            Toast.makeText(this, "Ajoute ta clé OpenRouter pour activer le mode Cloud", Toast.LENGTH_LONG).show()
-                            promptOpenRouterKey()
-                        }
-                    }
-                    else -> kotlin.concurrent.thread { LlmPostProcessor.unload() }
-                }
-                cleanupSub.text = cleanupEngineLabel()
-                d.dismiss()
-            }
-            .setNegativeButton("Fermer", null)
-            .show()
-    }
-
-    private fun showCloudModelDialog() {
-        val models = CloudCleanup.CLOUD_MODELS
-        val labels = models.map { "${it.label} · ${it.price}" }.toTypedArray()
-        val cur = models.indexOfFirst { it.id == CloudCleanup.selectedModel(this).id }.coerceAtLeast(0)
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Modèle de nettoyage cloud (OpenRouter)")
-            .setSingleChoiceItems(labels, cur) { d, which ->
-                CloudCleanup.setSelectedModel(this, models[which].id)
-                cloudModelSub.text = cloudModelSummary()
-                d.dismiss()
-            }
-            .setNegativeButton("Fermer", null)
-            .show()
-    }
-
-    private fun promptOpenRouterKey() {
-        val input = EditText(this).apply {
-            hint = "sk-or-..."
-            setText(CloudCleanup.key(this@MainActivity))
-            inkColors()
-        }
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Clé OpenRouter")
-            .setView(input.apply { setPadding(dp(24), dp(8), dp(24), dp(8)) })
-            .setPositiveButton("Save") { _, _ ->
-                CloudCleanup.setKey(this, input.text.toString())
-                orKeySub.text = openRouterKeySummary()
-            }
-            .setNegativeButton("Annuler", null)
-            .show()
-    }
-
-    private fun promptPostProcessing() {
-        val input = EditText(this).apply {
-            hint = "Prompt"
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            minLines = 3
-            gravity = Gravity.TOP or Gravity.START
-            setText(currentPrompt())
-            inkColors()
-        }
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Edit current prompt")
-            .setView(input.apply { setPadding(dp(24), dp(8), dp(24), dp(8)) })
-            .setPositiveButton("Save") { _, _ ->
-                val text = input.text.toString().trim()
-                val finalPrompt = if (text.isBlank()) PostProcessor.DEFAULT_PROMPT else text
-                prefs().edit()
-                    .putString("custom_post_processing_prompt", finalPrompt)
-                    .putString("post_processing_prompt", finalPrompt)
-                    .apply()
-                refresh()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun showPromptManager() {
-        val prompts = PostProcessPrompts.all(this).toMutableList()
-        val labels = prompts.map { it.label }.toTypedArray()
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Prompt sélectionné")
-            .setSingleChoiceItems(labels, PostProcessPrompts.selectedIndex(this)) { d, which ->
-                PostProcessPrompts.setSelectedIndex(this, which); d.dismiss()
-            }
-            .setPositiveButton("Éditer") { _, _ -> editPrompt(prompts, PostProcessPrompts.selectedIndex(this)) }
-            .setNeutralButton("Nouveau") { _, _ -> editPrompt(prompts, -1) }
-            .setNegativeButton("Fermer", null)
-            .show()
-    }
-
-    private fun editPrompt(prompts: MutableList<PostProcessPrompts.Prompt>, index: Int) {
-        val existing = prompts.getOrNull(index)
-        val labelEt = EditText(this).apply { hint = "Libellé"; setText(existing?.label ?: ""); inkColors() }
-        val tplEt = EditText(this).apply {
-            hint = "Instructions (utilise \${output})"; setText(existing?.template ?: "")
-            isSingleLine = false; minLines = 4
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            inkColors()
-        }
-        val box = vertical(dp(16), dp(8)).apply { addView(labelEt); addView(tplEt) }
-        val b = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(if (existing == null) "Nouveau prompt" else "Modifier le prompt")
-            .setView(box)
-            .setPositiveButton("Enregistrer") { _, _ ->
-                val p = PostProcessPrompts.Prompt(labelEt.text.toString().ifBlank { "Prompt" }, tplEt.text.toString())
-                if (index >= 0 && index < prompts.size) prompts[index] = p else prompts.add(p)
-                PostProcessPrompts.save(this, prompts)
-                Toast.makeText(this, "Enregistré", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Annuler", null)
-        if (existing != null && prompts.size > 1) b.setNeutralButton("Supprimer") { _, _ ->
-            prompts.removeAt(index); PostProcessPrompts.save(this, prompts)
-            PostProcessPrompts.setSelectedIndex(this, 0)
-            Toast.makeText(this, "Supprimé", Toast.LENGTH_SHORT).show()
-        }
-        b.show()
     }
 
     // --- UI Helpers ---
@@ -658,38 +393,6 @@ class MainActivity : AppCompatActivity() {
         orientation = LinearLayout.VERTICAL
         setPadding(padH, padV, padH, padV)
     }
-
-    private fun currentPrompt() = prefs().getString("post_processing_prompt", PostProcessor.DEFAULT_PROMPT) ?: PostProcessor.DEFAULT_PROMPT
-    private fun customPrompt() = prefs().getString("custom_post_processing_prompt", PostProcessor.DEFAULT_PROMPT) ?: PostProcessor.DEFAULT_PROMPT
-
-    private fun customPromptSummary(): String {
-        val prompt = customPrompt()
-        return if (prompt == PostProcessor.DEFAULT_PROMPT) "Your edited prompt"
-        else prompt.replace("\n", " ")
-    }
-
-    private data class PromptPreset(val key: String, val title: String, val subtitle: String, val prompt: String)
-
-    private fun promptPresets() = listOf(
-        PromptPreset(
-            key = "dev",
-            title = "Dev cleanup",
-            subtitle = "Best for coding, CLI, and project names",
-            prompt = PostProcessor.DEV_PROMPT
-        ),
-        PromptPreset(
-            key = "simple",
-            title = "Simple cleanup",
-            subtitle = "Grammar, punctuation, and light cleanup",
-            prompt = PostProcessor.SIMPLE_PROMPT
-        ),
-        PromptPreset(
-            key = "custom",
-            title = "Custom",
-            subtitle = customPromptSummary(),
-            prompt = customPrompt()
-        )
-    )
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
 

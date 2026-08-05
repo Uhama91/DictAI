@@ -12,7 +12,7 @@ import android.view.View
 
 /**
  * Bordure lumineuse colorée qui tourne autour de la pastille pendant le chargement
- * (transcription / post-traitement LLM). Une "comète" multicolore + halo flou parcourt
+ * (transcription). Une « comète » multicolore avec halo flou parcourt
  * le contour arrondi pour signaler que ça travaille.
  */
 class LoadingBorderView(context: Context) : View(context) {

@@ -1,8 +1,6 @@
 package com.kafkasl.phonewhisper
 
 import android.content.Context
-import android.content.SharedPreferences
-
 object TranscriptionEngine {
 
     private const val SAMPLE_RATE = 16000
@@ -21,32 +19,16 @@ object TranscriptionEngine {
 
     /** Bloquant — appeler hors thread principal. */
     fun transcribe(ctx: Context, pcm: ByteArray, local: LocalTranscriber?): Result {
-        val prefs = prefs(ctx)
-        val useLocal = prefs.getBoolean("use_local", true)
-        if (useLocal) {
-            // Mode local : modèle pas (encore) téléchargé → message explicite, pas de repli cloud trompeur.
-            if (local == null) return Result(null,
-                "Modèle local absent — télécharge-le dans l'app (Réglages → Local models → Parakeet 0.6B)")
-            return try {
-                val samples = pcm16ToFloat(pcm)
-                Result(local.transcribe(samples, SAMPLE_RATE))
-            } catch (t: Throwable) {
-                // Lib native sherpa absente / échec runtime → ne pas crasher
-                android.util.Log.w("WhisperPin", "transcription locale indisponible: ${t.javaClass.simpleName}")
-                Result(null, "Transcription locale indisponible (lib native absente)")
-            }
-        } else {
-            val apiKey = prefs.getString("api_key", "") ?: ""
-            if (apiKey.isBlank()) return Result(null, "Set API key")
-            val wav = WavWriter.encode(pcm)
-            var result: Result = Result(null, "timeout")
-            val latch = java.util.concurrent.CountDownLatch(1)
-            val prompt = Vocabulary.promptString(ctx)
-            TranscriberClient.transcribe(wav, apiKey, prompt) { r ->
-                result = Result(r.text, r.error); latch.countDown()
-            }
-            latch.await(60, java.util.concurrent.TimeUnit.SECONDS)
-            return result
+        // Modèle non téléchargé : afficher un message explicite, sans repli réseau.
+        if (local == null) return Result(null,
+            "Modèle local absent — téléchargez Parakeet ou Nemotron dans l’application")
+        return try {
+            val samples = pcm16ToFloat(pcm)
+            Result(local.transcribe(samples, SAMPLE_RATE))
+        } catch (t: Throwable) {
+            // UnsatisfiedLinkError et autres erreurs natives ne doivent jamais tuer l'overlay.
+            android.util.Log.w("WhisperPin", "transcription locale indisponible: ${t.javaClass.simpleName}")
+            Result(null, "Transcription locale indisponible.")
         }
     }
 
@@ -59,8 +41,8 @@ object TranscriptionEngine {
                 if (models.isNotEmpty()) LocalTranscriber.create(ctx, models.first()) else null
             } else LocalTranscriber.create(ctx, modelName)
         } catch (t: Throwable) {
-            // UnsatisfiedLinkError (libsherpa-onnx-jni.so absente du build) est une Error,
-            // pas une Exception → catch(Throwable) obligatoire pour ne pas crasher l'app.
+            // Une erreur native est une Error, pas nécessairement une Exception :
+            // catch(Throwable) évite que l’application plante.
             android.util.Log.w("WhisperPin", "modèle local indisponible: ${t.javaClass.simpleName} ${t.message}")
             null
         }
@@ -78,8 +60,6 @@ object TranscriptionEngine {
     }
 
     fun selectedModelName(ctx: Context): String =
-        prefs(ctx).getString("model_name", "") ?: ""
-
-    private fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences("phonewhisper", Context.MODE_PRIVATE)
+            .getString("model_name", "") ?: ""
 }

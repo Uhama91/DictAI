@@ -19,6 +19,7 @@ android {
         versionName = "0.4.0-wp"
 
         ndk { abiFilters += "arm64-v8a" }
+
     }
 
     signingConfigs {
@@ -53,11 +54,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("org.apache.commons:commons-compress:1.27.1")
 
-    // SPIKE: on-device LLM (llama.cpp prebuilt .so via Maven Central AAR)
-    implementation("io.github.fadizg.kmpai:llm:0.2.8")
-    implementation("io.github.fadizg.kmpai:llm-catalog-qwen:0.2.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
 }

@@ -20,14 +20,26 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android Build Tools 35.0.0
+        run: sdkmanager "build-tools;35.0.0"
+
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
+
+      - name: Run native alignment controller tests
+        run: python3 -m unittest scripts/test_check_apk_native_alignment.py -v
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
+
+      - name: Check native library alignment and denylist
+        run: python3 scripts/check_apk_native_alignment.py app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Verify 16 KB ZIP alignment
+        run: $ANDROID_HOME/build-tools/35.0.0/zipalign -c -P 16 -v 4 app/build/outputs/apk/debug/app-debug.apk
 
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk whisperpin-debug.apk

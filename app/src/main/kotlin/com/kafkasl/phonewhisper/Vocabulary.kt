@@ -2,7 +2,7 @@ package com.kafkasl.phonewhisper
 
 import android.content.Context
 
-/** Vocabulaire personnel : corrections "entendu => voulu" + mots favorisés (prompt Whisper cloud). */
+/** Vocabulaire personnel : corrections explicites au format "entendu => voulu". */
 object Vocabulary {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE)
 
@@ -21,16 +21,6 @@ object Vocabulary {
             val from = parts[0].trim(); val to = parts[1].trim()
             if (from.isEmpty()) null else from to to
         }
-
-    /** Lignes sans "=>" -> mots favorisés. */
-    fun boostWords(ctx: Context): List<String> =
-        getRaw(ctx).lines().mapNotNull { line ->
-            val t = line.trim()
-            if (t.isEmpty() || t.contains("=>")) null else t
-        }
-
-    /** Mots favorisés en une chaîne pour le prompt de l'API Whisper. */
-    fun promptString(ctx: Context): String = boostWords(ctx).joinToString(", ")
 
     fun applyCorrections(ctx: Context, text: String): String =
         applyCorrectionsTo(text, corrections(ctx))

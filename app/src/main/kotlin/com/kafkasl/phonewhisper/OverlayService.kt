@@ -45,7 +45,7 @@ class OverlayService : Service() {
             private set
     }
 
-    private enum class State { IDLE, RECORDING, TRANSCRIBING, MIC_UNARMED, LLM_PROCESSING }
+    private enum class State { IDLE, RECORDING, TRANSCRIBING, MIC_UNARMED }
 
     private val prefs by lazy { PersistencePrefs(this) }
     @Volatile private var state = State.MIC_UNARMED
@@ -79,8 +79,6 @@ class OverlayService : Service() {
         if (!startForegroundSpecialUse()) return
         showButton()
         ensureLocalLoaded()
-        if (PostProcessPrompts.engine(this) == "local" && LlmPostProcessor.isDownloaded(this))
-            thread { LlmPostProcessor.ensureLoaded(this) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -174,7 +172,7 @@ class OverlayService : Service() {
             State.MIC_UNARMED -> { toast("Ouvre WhisperPin pour activer le micro"); openApp() }
             State.IDLE -> startRec()
             State.RECORDING -> stopRec()
-            State.TRANSCRIBING, State.LLM_PROCESSING -> {}
+            State.TRANSCRIBING -> {}
         }
     }
 
@@ -191,10 +189,7 @@ class OverlayService : Service() {
         pcm = java.io.ByteArrayOutputStream()
         audioRecord!!.startRecording()
         val selectedModel = TranscriptionEngine.selectedModelName(this)
-        liveSession = if (getSharedPreferences("phonewhisper", MODE_PRIVATE)
-                .getBoolean("use_local", true) &&
-            LiveStreamingTranscriber.supports(selectedModel)
-        ) {
+        liveSession = if (LiveStreamingTranscriber.supports(selectedModel)) {
             streamingLocal?.start { committed, tentative ->
                 updateLivePreview(committed, tentative)
             }
@@ -254,38 +249,15 @@ class OverlayService : Service() {
             }
             val transcribeMs = System.currentTimeMillis() - t0
             var finalText = r.text?.let { Vocabulary.applyCorrections(this, it) }
-            var llmMs = 0L
-            var cleanupFailed = false
-            val engine = PostProcessPrompts.engine(this)
-            // On n'entre en état "traitement" que si le moteur peut VRAIMENT tourner
-            // (modèle local prêt, ou clé cloud présente) → pas de badge trompeur.
-            val canClean = !finalText.isNullOrBlank() && when (engine) {
-                "local" -> LlmPostProcessor.ready
-                "cloud" -> CloudCleanup.hasKey(this)
-                else -> false
-            }
-            if (canClean) {
-                setState(State.LLM_PROCESSING)
-                val t1 = System.currentTimeMillis()
-                val userPrompt = PostProcessPrompts.fill(this, finalText!!)
-                val pp = when (engine) {
-                    "local" -> LlmPostProcessor.rewrite(this, userPrompt)
-                    "cloud" -> CloudCleanup.rewrite(this, userPrompt)
-                    else -> null
-                }
-                llmMs = System.currentTimeMillis() - t1
-                if (!pp.isNullOrBlank()) finalText = pp else cleanupFailed = true
-            }
             if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
             val outText = finalText
-            val timing = if (llmMs > 0) "transcr ${transcribeMs}ms · LLM ${llmMs}ms" else "transcr ${transcribeMs}ms"
+            val timing = "transcr ${transcribeMs}ms"
             Log.i(TAG, "Pipeline: $timing")
             main.post {
                 if (!outText.isNullOrBlank()) {
                     copyToClipboard(outText)
                     val injected = WhisperAccessibilityService.controller?.inject(outText) ?: false
-                    toast((if (injected) "Inséré" else "Copié") + " · $timing" +
-                        if (cleanupFailed) " · nettoyage indispo" else "")
+                    toast((if (injected) "Inséré" else "Copié") + " · $timing")
                 } else toast("Erreur: ${r.error ?: "vide"}")
                 setLivePreviewVisible(false)
                 setState(State.IDLE)
@@ -319,8 +291,8 @@ class OverlayService : Service() {
                 if (s == State.MIC_UNARMED) 0xFFD9A441.toInt() else 0xFFE5E2DB.toInt()
             )
             showRecordingPill(s == State.RECORDING)
-            // Bordure lumineuse pendant le traitement (transcription + LLM).
-            if (s == State.TRANSCRIBING || s == State.LLM_PROCESSING) loader?.start() else loader?.stop()
+            // Bordure lumineuse pendant la transcription.
+            if (s == State.TRANSCRIBING) loader?.start() else loader?.stop()
             updateNotif()
             // Tant qu'une dictée est active, la pastille reste pleinement allumée (jamais de dim).
             if (s == State.IDLE || s == State.MIC_UNARMED) {
@@ -404,7 +376,7 @@ class OverlayService : Service() {
     private val collapse = Runnable { container?.animate()?.alpha(0.4f)?.setDuration(200)?.start() }
     private fun scheduleCollapse() {
         main.removeCallbacks(collapse)
-        // Dim auto seulement au repos : jamais pendant enregistrement / transcription / LLM.
+        // Dim auto seulement au repos : jamais pendant enregistrement / transcription.
         if (state == State.IDLE || state == State.MIC_UNARMED) main.postDelayed(collapse, 3000)
     }
     private fun wake() { container?.animate()?.alpha(1f)?.setDuration(120)?.start(); scheduleCollapse() }
