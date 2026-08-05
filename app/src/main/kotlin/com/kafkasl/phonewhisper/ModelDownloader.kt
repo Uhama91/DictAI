@@ -20,6 +20,8 @@ val MODEL_CATALOG = listOf(
     // Parakeet 0.6B v3 = SEUL modèle multilingue/français du catalogue → recommandé par défaut.
     Model("Parakeet 0.6B (FR)", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
         465, "★★★★ Français — recommandé", recommended = true),
+    Model("Nemotron 3.5 Live (FR)", "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11",
+        453, "★★★★ Français live — expérimental"),
     Model("Parakeet 110M (EN)", "sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000-int8",
         100, "★★★ Anglais uniquement"),
     Model("Whisper Base (EN)", "sherpa-onnx-whisper-base.en",

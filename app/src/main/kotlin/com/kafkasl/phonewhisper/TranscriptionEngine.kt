@@ -52,7 +52,8 @@ object TranscriptionEngine {
 
     fun loadLocal(ctx: Context): LocalTranscriber? {
         return try {
-            val modelName = prefs(ctx).getString("model_name", "") ?: ""
+            val modelName = selectedModelName(ctx)
+            if (LiveStreamingTranscriber.supports(modelName)) return null
             if (modelName.isBlank()) {
                 val models = LocalTranscriber.availableModels(ctx)
                 if (models.isNotEmpty()) LocalTranscriber.create(ctx, models.first()) else null
@@ -64,6 +65,20 @@ object TranscriptionEngine {
             null
         }
     }
+
+    fun loadStreamingLocal(ctx: Context): LiveStreamingTranscriber? {
+        return try {
+            val modelName = selectedModelName(ctx)
+            if (modelName.isBlank()) return null
+            LiveStreamingTranscriber.create(ctx, modelName)
+        } catch (t: Throwable) {
+            android.util.Log.w("WhisperPin", "modèle streaming indisponible: ${t.javaClass.simpleName} ${t.message}")
+            null
+        }
+    }
+
+    fun selectedModelName(ctx: Context): String =
+        prefs(ctx).getString("model_name", "") ?: ""
 
     private fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences("phonewhisper", Context.MODE_PRIVATE)

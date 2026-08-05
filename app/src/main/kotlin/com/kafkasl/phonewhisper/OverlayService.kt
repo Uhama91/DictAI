@@ -25,9 +25,12 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import kotlin.concurrent.thread
 import kotlin.math.abs
+import kotlin.math.min
 
 class OverlayService : Service() {
 
@@ -47,14 +50,23 @@ class OverlayService : Service() {
     private val prefs by lazy { PersistencePrefs(this) }
     @Volatile private var state = State.MIC_UNARMED
     private var recordThread: Thread? = null
-    private var container: FrameLayout? = null
+    private var container: View? = null
     private var pill: FrameLayout? = null
     private var wave: CursiveWaveView? = null
     private var loader: LoadingBorderView? = null
+    private var liveText: TextView? = null
     private var params: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
     private var pcm: java.io.ByteArrayOutputStream? = null
     private var local: LocalTranscriber? = null
+    private var streamingLocal: LiveStreamingTranscriber? = null
+    private var liveSession: LiveStreamingTranscriber.Session? = null
+    private var loadedModelName: String? = null
+    private var baseButtonW = 0
+    private var baseButtonH = 0
+    private var liveWindowW = 0
+    private var liveWindowH = 0
+    private var livePreviewVisible = false
     private val localLoading = java.util.concurrent.atomic.AtomicBoolean(false)
     private val main = Handler(Looper.getMainLooper())
 
@@ -83,10 +95,17 @@ class OverlayService : Service() {
 
     /** Charge le modèle local hors thread principal, garanti une seule fois à la fois. */
     private fun ensureLocalLoaded() {
-        if (local != null) return
+        val selectedModel = TranscriptionEngine.selectedModelName(this)
+        if (selectedModel == loadedModelName && (local != null || streamingLocal != null)) return
         if (!localLoading.compareAndSet(false, true)) return
         thread {
-            try { local = TranscriptionEngine.loadLocal(this) }
+            try {
+                val batch = TranscriptionEngine.loadLocal(this)
+                val streaming = TranscriptionEngine.loadStreamingLocal(this)
+                local = batch
+                streamingLocal = streaming
+                loadedModelName = selectedModel
+            }
             finally { localLoading.set(false) }
         }
     }
@@ -171,6 +190,16 @@ class OverlayService : Service() {
         } catch (e: SecurityException) { toast("Mic refuse"); return }
         pcm = java.io.ByteArrayOutputStream()
         audioRecord!!.startRecording()
+        val selectedModel = TranscriptionEngine.selectedModelName(this)
+        liveSession = if (getSharedPreferences("phonewhisper", MODE_PRIVATE)
+                .getBoolean("use_local", true) &&
+            LiveStreamingTranscriber.supports(selectedModel)
+        ) {
+            streamingLocal?.start { committed, tentative ->
+                updateLivePreview(committed, tentative)
+            }
+        } else null
+        setLivePreviewVisible(false)
         setState(State.RECORDING)
         vibrate(20)
         val ar = audioRecord!!
@@ -178,7 +207,11 @@ class OverlayService : Service() {
             val buf = ByteArray(bufSize)
             while (state == State.RECORDING) {
                 val n = ar.read(buf, 0, buf.size)
-                if (n > 0) { pcm?.write(buf, 0, n); wave?.setLevel(rmsLevel(buf, n)) }
+                if (n > 0) {
+                    pcm?.write(buf, 0, n)
+                    liveSession?.acceptPcm16(buf, n)
+                    wave?.setLevel(rmsLevel(buf, n))
+                }
             }
         }
     }
@@ -203,10 +236,22 @@ class OverlayService : Service() {
         recordThread = null
         audioRecord?.stop(); audioRecord?.release(); audioRecord = null
         val data = pcm?.toByteArray() ?: ByteArray(0); pcm = null
-        if (data.isEmpty()) { setState(State.IDLE); return }
+        val session = liveSession
+        liveSession = null
+        if (data.isEmpty()) {
+            session?.cancel()
+            setLivePreviewVisible(false)
+            setState(State.IDLE)
+            return
+        }
         thread {
             val t0 = System.currentTimeMillis()
-            val r = TranscriptionEngine.transcribe(this, data, local)
+            val liveText = session?.finish()
+            val r = if (!liveText.isNullOrBlank()) {
+                TranscriptionEngine.Result(liveText)
+            } else {
+                TranscriptionEngine.transcribe(this, data, local)
+            }
             val transcribeMs = System.currentTimeMillis() - t0
             var finalText = r.text?.let { Vocabulary.applyCorrections(this, it) }
             var llmMs = 0L
@@ -242,6 +287,7 @@ class OverlayService : Service() {
                     toast((if (injected) "Inséré" else "Copié") + " · $timing" +
                         if (cleanupFailed) " · nettoyage indispo" else "")
                 } else toast("Erreur: ${r.error ?: "vide"}")
+                setLivePreviewVisible(false)
                 setState(State.IDLE)
             }
         }
@@ -256,7 +302,10 @@ class OverlayService : Service() {
         recordThread?.join(300); recordThread = null
         try { audioRecord?.release() } catch (_: Exception) {}
         audioRecord = null
+        liveSession?.cancel()
+        liveSession = null
         pcm = null
+        setLivePreviewVisible(false)
     }
 
     private fun setState(s: State) {
@@ -274,9 +323,61 @@ class OverlayService : Service() {
             if (s == State.TRANSCRIBING || s == State.LLM_PROCESSING) loader?.start() else loader?.stop()
             updateNotif()
             // Tant qu'une dictée est active, la pastille reste pleinement allumée (jamais de dim).
-            if (s == State.IDLE || s == State.MIC_UNARMED) scheduleCollapse()
+            if (s == State.IDLE || s == State.MIC_UNARMED) {
+                setLivePreviewVisible(false)
+                scheduleCollapse()
+            }
             else { main.removeCallbacks(collapse); container?.animate()?.alpha(1f)?.setDuration(120)?.start() }
         }
+    }
+
+    private fun updateLivePreview(committed: String, tentative: String) {
+        val text = listOf(committed, tentative).filter { it.isNotBlank() }.joinToString(" ").trim()
+        if (text.isBlank()) return
+        main.post {
+            liveText?.text = if (text.length > 520) "..." + text.takeLast(520) else text
+            setLivePreviewVisible(true)
+        }
+    }
+
+    private fun setLivePreviewVisible(show: Boolean) {
+        val tv = liveText ?: return
+        if (livePreviewVisible == show && tv.visibility == if (show) View.VISIBLE else View.GONE) return
+        val wasVisible = livePreviewVisible
+        livePreviewVisible = show
+        tv.visibility = if (show) View.VISIBLE else View.GONE
+        resizeOverlay(
+            if (show) liveWindowW else baseButtonW,
+            if (show) liveWindowH else baseButtonH,
+            show,
+            wasVisible,
+        )
+    }
+
+    private fun resizeOverlay(width: Int, height: Int, showLive: Boolean, wasLive: Boolean) {
+        val lp = params ?: return
+        val view = container ?: return
+        if (width <= 0 || height <= 0) return
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        val wasRight = lp.x + (if (lp.width > 0) lp.width else width) / 2 >= screenW / 2
+        val liveDelta = liveWindowH - baseButtonH
+        if (showLive && !wasLive) lp.y -= liveDelta
+        if (!showLive && wasLive) lp.y += liveDelta
+        lp.width = width
+        lp.height = height
+        lp.x = if (wasRight) screenW - width else 0
+        lp.y = PersistencePrefs.clampY(lp.y, height, screenH)
+        updateFrameGravity()
+        try { wm.updateViewLayout(view, lp) } catch (_: Exception) {}
+    }
+
+    private fun updateFrameGravity() {
+        val frame = container as? LinearLayout ?: return
+        val lp = params ?: return
+        val screenW = resources.displayMetrics.widthPixels
+        frame.gravity = if (lp.x + lp.width / 2 >= screenW / 2) Gravity.END else Gravity.START
     }
 
     /** La pastille est permanente : on anime juste l'onde pendant l'enregistrement, calme sinon. */
@@ -321,6 +422,13 @@ class OverlayService : Service() {
         val pillH = (44 * dp).toInt()
         val screenW = resources.displayMetrics.widthPixels
         val screenH = resources.displayMetrics.heightPixels
+        val panelGap = (6 * dp).toInt()
+        val panelH = (118 * dp).toInt()
+        val panelW = min((312 * dp).toInt(), screenW - (16 * dp).toInt())
+        baseButtonW = pillW
+        baseButtonH = pillH
+        liveWindowW = panelW
+        liveWindowH = pillH + panelGap + panelH
 
         // Pastille : rounded-rect blanc cassé + onde cursive, TOUJOURS visible (= le bouton).
         // Au repos l'onde est calme (figée), pendant l'enregistrement elle réagit à la voix.
@@ -345,14 +453,37 @@ class OverlayService : Service() {
             }
             elevation = 4 * dp
             setPadding(0, 0, 0, 0)
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                pillW, pillH
             )
             addView(waveView)
             addView(loaderView)
         }
 
-        val frame = FrameLayout(this).apply {
+        val liveView = TextView(this).apply {
+            visibility = View.GONE
+            textSize = 14f
+            setTextColor(ThemeTokens.INK)
+            includeFontPadding = false
+            maxLines = 5
+            gravity = Gravity.BOTTOM or Gravity.START
+            setLineSpacing(2 * dp, 1.0f)
+            setPadding((12 * dp).toInt(), (10 * dp).toInt(), (12 * dp).toInt(), (10 * dp).toInt())
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 10 * dp
+                setColor(0xF21F1F25.toInt())
+                setStroke((1.2f * dp).toInt(), ThemeTokens.GREEN)
+            }
+            layoutParams = LinearLayout.LayoutParams(panelW, panelH).apply {
+                bottomMargin = panelGap
+            }
+        }
+
+        val frame = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+            addView(liveView)
             addView(pillView)
         }
 
@@ -394,6 +525,7 @@ class OverlayService : Service() {
                         moved = true; main.removeCallbacks(longPress)
                         lp.x = PersistencePrefs.clampX((downX + dx).toInt(), lp.width, screenW)
                         lp.y = PersistencePrefs.clampY((downY + dy).toInt(), lp.height, screenH)
+                        updateFrameGravity()
                         try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
                     }; true
                 }
@@ -402,6 +534,7 @@ class OverlayService : Service() {
                     if (moved) {
                         // Snap flush au bord le plus proche (collé, sans marge).
                         lp.x = if (lp.x + lp.width / 2 > screenW / 2) screenW - lp.width else 0
+                        updateFrameGravity()
                         try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
                         prefs.buttonX = lp.x; prefs.buttonY = lp.y
                     } else if (pttFired) {
@@ -431,7 +564,7 @@ class OverlayService : Service() {
             Log.e(TAG, "addView echec: ${e.javaClass.simpleName}")
             return
         }
-        container = frame; pill = pillView; wave = waveView; loader = loaderView; params = lp
+        container = frame; pill = pillView; wave = waveView; loader = loaderView; liveText = liveView; params = lp
         frame.post { waveView.settle() } // dessine l'onde calme au repos
         scheduleCollapse()
     }
@@ -450,13 +583,15 @@ class OverlayService : Service() {
     override fun onDestroy() {
         micArmed = false
         state = State.IDLE
+        liveSession?.cancel()
+        liveSession = null
         audioRecord?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
         audioRecord = null
         main.removeCallbacksAndMessages(null)
         try { wave?.stop() } catch (_: Exception) {}
         try { loader?.stop() } catch (_: Exception) {}
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
-        container = null; pill = null; wave = null; loader = null
+        container = null; pill = null; wave = null; loader = null; liveText = null
         super.onDestroy()
     }
 }
