@@ -35,13 +35,21 @@ val MODEL_CATALOG = listOf(
 
 sealed class DownloadState {
     data class Downloading(val progress: Float) : DownloadState()
-    object Extracting : DownloadState()
+    data class Extracting(val progress: Float) : DownloadState()
     object Done : DownloadState()
     data class Error(val message: String) : DownloadState()
 }
 
+/** Maps download and extraction into one monotone 0..1 installation indicator. */
+fun installationProgress(state: DownloadState): Float = when (state) {
+    is DownloadState.Downloading -> state.progress.coerceIn(0f, 1f) * 0.5f
+    is DownloadState.Extracting -> 0.5f + state.progress.coerceIn(0f, 1f) * 0.5f
+    else -> error("No installation progress for $state")
+}
+
 object ModelDownloader {
     private const val TAG = "ModelDownloader"
+    private const val EXTRACTION_BUFFER_SIZE = 64 * 1024
     private const val BASE_URL =
         "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
     private val client = OkHttpClient.Builder()
@@ -90,9 +98,10 @@ object ModelDownloader {
                 workspace.deleteRecursively()
                 if (!workspace.mkdirs()) throw IOException("Impossible de préparer le stockage")
                 downloadFile(url, partFile, archiveFile, onState)
-                onState(DownloadState.Extracting)
                 if (!staging.mkdirs()) throw IOException("Impossible de préparer l'extraction")
-                extractTarBz2(archiveFile, staging)
+                extractTarBz2(archiveFile, staging) { progress ->
+                    onState(DownloadState.Extracting(progress))
+                }
                 val extracted = ModelStorage.extractedModelRoot(staging, model)
                     ?: throw IOException("Structure du modèle invalide")
                 if (!ModelStorage.publishValidatedModel(extracted, finalDir, model.runtimeType)) {
@@ -144,22 +153,82 @@ object ModelDownloader {
     }
 
     /** Extract tar.bz2 to outDir. Validates paths to prevent traversal. */
-    fun extractTarBz2(archive: File, outDir: File) {
+    fun extractTarBz2(archive: File, outDir: File, onProgress: (Float) -> Unit = {}) {
         outDir.mkdirs()
-        val bzIn = BZip2CompressorInputStream(BufferedInputStream(FileInputStream(archive)))
-        TarArchiveInputStream(bzIn).use { tar ->
-            generateSequence { tar.nextEntry }.forEach { entry ->
-                val root = outDir.canonicalFile
-                val dest = File(root, entry.name).canonicalFile
-                require(dest.path == root.path || dest.path.startsWith(root.path + File.separator)) {
-                    "Path traversal: ${entry.name}"
-                }
-                if (entry.isDirectory) dest.mkdirs()
-                else {
-                    dest.parentFile?.mkdirs()
-                    FileOutputStream(dest).use { tar.copyTo(it) }
+        val totalCompressedBytes = archive.length()
+        var lastPercent = -1
+        fun emitPercent(percent: Int) {
+            val bounded = percent.coerceIn(0, 100)
+            if (bounded != lastPercent) {
+                lastPercent = bounded
+                onProgress(bounded / 100f)
+            }
+        }
+
+        emitPercent(0)
+        CountingInputStream(FileInputStream(archive)) { consumedCompressedBytes ->
+            if (totalCompressedBytes > 0) {
+                emitPercent(((consumedCompressedBytes * 100) / totalCompressedBytes).toInt())
+            }
+        }.use { compressedInput ->
+            val bzIn = BZip2CompressorInputStream(
+                BufferedInputStream(compressedInput, EXTRACTION_BUFFER_SIZE)
+            )
+            TarArchiveInputStream(bzIn).use { tar ->
+                generateSequence { tar.nextEntry }.forEach { entry ->
+                    val root = outDir.canonicalFile
+                    val dest = File(root, entry.name).canonicalFile
+                    require(dest.path == root.path || dest.path.startsWith(root.path + File.separator)) {
+                        "Path traversal: ${entry.name}"
+                    }
+                    if (isNonModelArtifact(entry)) return@forEach
+                    if (entry.isDirectory) dest.mkdirs()
+                    else {
+                        dest.parentFile?.mkdirs()
+                        FileOutputStream(dest).use { tar.copyTo(it, EXTRACTION_BUFFER_SIZE) }
+                    }
                 }
             }
+        }
+        emitPercent(100)
+    }
+
+    private fun isNonModelArtifact(entry: org.apache.commons.compress.archivers.ArchiveEntry): Boolean {
+        if (entry.isDirectory) return false
+        val name = entry.name.substringAfterLast('/')
+        return name.startsWith("README", ignoreCase = true) || name.endsWith(".wav", ignoreCase = true)
+    }
+
+    /** Counts bytes read from the compressed archive before any buffering or decompression. */
+    private class CountingInputStream(
+        input: InputStream,
+        private val onBytesConsumed: (Long) -> Unit,
+    ) : FilterInputStream(input) {
+        private var consumedBytes = 0L
+
+        override fun read(): Int {
+            val value = super.read()
+            if (value >= 0) count(1)
+            return value
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            val read = super.read(buffer, offset, length)
+            if (read > 0) count(read)
+            return read
+        }
+
+        override fun skip(byteCount: Long): Long {
+            val skipped = super.skip(byteCount)
+            if (skipped > 0) count(skipped)
+            return skipped
+        }
+
+        private fun count(amount: Int) = count(amount.toLong())
+
+        private fun count(amount: Long) {
+            consumedBytes += amount
+            onBytesConsumed(consumedBytes)
         }
     }
 }

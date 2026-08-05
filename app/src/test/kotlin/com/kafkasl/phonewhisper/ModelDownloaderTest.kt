@@ -8,10 +8,11 @@ import org.junit.Test
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
+import kotlin.math.roundToInt
 
 class ModelDownloaderTest {
 
-    @Test fun `extracts tar bz2 with nested files`() {
+    @Test fun `extracts model assets while skipping readme and test wav files`() {
         withTempDir { tmp ->
             val archive = File(tmp, "test.tar.bz2")
             val outDir = File(tmp, "out")
@@ -19,6 +20,8 @@ class ModelDownloaderTest {
             writeTarBz2(archive, mapOf(
                 "mymodel/tokens.txt" to "hello\nworld",
                 "mymodel/encoder.onnx" to "fake-onnx-data",
+                "mymodel/README.md" to "documentation",
+                "mymodel/test_wavs/sample.wav" to "test audio",
             ))
 
             ModelDownloader.extractTarBz2(archive, outDir)
@@ -26,6 +29,8 @@ class ModelDownloaderTest {
             assertTrue(File(outDir, "mymodel").isDirectory)
             assertEquals("hello\nworld", File(outDir, "mymodel/tokens.txt").readText())
             assertEquals("fake-onnx-data", File(outDir, "mymodel/encoder.onnx").readText())
+            assertFalse(File(outDir, "mymodel/README.md").exists())
+            assertFalse(File(outDir, "mymodel/test_wavs/sample.wav").exists())
         }
     }
 
@@ -51,6 +56,53 @@ class ModelDownloaderTest {
             }
 
             assertFalse(File(tmp, "out-sibling/evil.txt").exists())
+        }
+    }
+
+    @Test fun `reports monotone extraction progress at whole percent boundaries`() {
+        withTempDir { tmp ->
+            val archive = File(tmp, "progress.tar.bz2")
+            val reported = mutableListOf<Float>()
+            writeTarBz2(archive, mapOf(
+                "mymodel/tokens.txt" to "tokens",
+                "mymodel/encoder.onnx" to "x".repeat(128 * 1024),
+            ))
+
+            ModelDownloader.extractTarBz2(archive, File(tmp, "out")) { reported += it }
+
+            assertEquals(0f, reported.first())
+            assertEquals(1f, reported.last())
+            assertTrue(reported.zipWithNext().all { (previous, next) -> next >= previous })
+            assertTrue(reported.all { it in 0f..1f && it * 100 == (it * 100).roundToInt().toFloat() })
+            assertEquals(reported.size, reported.distinct().size)
+        }
+    }
+
+    @Test fun `maps installation progress monotonically across download and extraction`() {
+        val progress = listOf(
+            DownloadState.Downloading(-1f),
+            DownloadState.Downloading(0f),
+            DownloadState.Downloading(1f),
+            DownloadState.Extracting(0f),
+            DownloadState.Extracting(1f),
+            DownloadState.Extracting(2f),
+        ).map(::installationProgress)
+
+        assertEquals(0f, progress.first())
+        assertEquals(0.5f, progress[2])
+        assertEquals(0.5f, progress[3])
+        assertEquals(1f, progress.last())
+        assertTrue(progress.zipWithNext().all { (previous, next) -> next >= previous })
+    }
+
+    @Test fun `rejects a corrupted bz2 archive`() {
+        withTempDir { tmp ->
+            val archive = File(tmp, "corrupt.tar.bz2")
+            archive.writeText("not a bzip2 archive")
+
+            assertThrows(java.io.IOException::class.java) {
+                ModelDownloader.extractTarBz2(archive, File(tmp, "out"))
+            }
         }
     }
 

@@ -1,0 +1,60 @@
+package com.kafkasl.phonewhisper
+
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class OverlayRecordingStopCoordinatorTest {
+    @Test
+    fun completed_stop_joins_releases_then_snapshots_in_order() {
+        val events = mutableListOf<String>()
+        val coordinator = RecordingStopCoordinator(
+            recordThread = null,
+            stopRecorder = { events += "stop" },
+            releaseRecorder = { events += "release" },
+            snapshot = { events += "snapshot" },
+        )
+
+        val result = coordinator.stopJoinRelease(timeoutMs = 1)
+
+        assertEquals(RecordingStopCoordinator.Result.Stopped, result)
+        assertEquals(listOf("stop", "release", "snapshot"), events)
+    }
+
+    @Test
+    fun timed_out_join_defers_release_and_snapshot_until_the_blocked_reader_exits() {
+        val unblock = CountDownLatch(1)
+        val started = CountDownLatch(1)
+        val events = mutableListOf<String>()
+        val recordThread = Thread {
+            started.countDown()
+            unblock.await()
+        }.apply { start() }
+        assertTrue(started.await(1, TimeUnit.SECONDS))
+        val coordinator = RecordingStopCoordinator(
+            recordThread = recordThread,
+            stopRecorder = { events += "stop" },
+            releaseRecorder = { events += "release" },
+            snapshot = { events += "snapshot" },
+        )
+
+        val result = coordinator.stopJoinRelease(timeoutMs = 1)
+
+        assertEquals(RecordingStopCoordinator.Result.TimedOut, result)
+        assertEquals(listOf("stop"), events)
+        val cleanupResult = AtomicReference<RecordingStopCoordinator.Result>()
+        val cleanupDone = CountDownLatch(1)
+        Thread {
+            cleanupResult.set(coordinator.awaitExitThenRelease())
+            cleanupDone.countDown()
+        }.start()
+        assertEquals(listOf("stop"), events)
+        unblock.countDown()
+        assertTrue(cleanupDone.await(1, TimeUnit.SECONDS))
+        assertEquals(RecordingStopCoordinator.Result.Stopped, cleanupResult.get())
+        assertEquals(listOf("stop", "release", "snapshot"), events)
+    }
+}

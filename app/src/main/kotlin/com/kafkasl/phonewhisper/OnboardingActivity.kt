@@ -22,6 +22,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.progressindicator.LinearProgressIndicator
 
 /**
  * Assistant d'installation : checklist guidée des permissions/réglages nécessaires.
@@ -49,6 +50,8 @@ class OnboardingActivity : AppCompatActivity() {
     @Volatile private var modelDownloading = false
     private var modelMsg: String? = null
     private var modelStatusView: TextView? = null
+    private var modelProgressView: LinearProgressIndicator? = null
+    private var modelProgress = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -205,13 +208,24 @@ class OnboardingActivity : AppCompatActivity() {
         card.addView(texts)
 
         if (!done && s.id == "model" && modelDownloading) {
-            // Téléchargement en cours : on montre la progression au lieu du bouton.
+            // Installation en cours : on montre la progression déterminée au lieu du bouton.
+            val status = vertical(0).apply { gravity = Gravity.END }
             val tv = TextView(this).apply {
-                text = modelMsg ?: "Téléchargement…"
+                text = modelMsg ?: "Installation\u202F: 0\u202F%"
                 textSize = 13f; setTextColor(ThemeTokens.GREEN); gravity = Gravity.END
             }
+            val progress = LinearProgressIndicator(this).apply {
+                isIndeterminate = false
+                this.progress = (modelProgress * 100).toInt()
+                layoutParams = LinearLayout.LayoutParams(dp(104), dp(4)).apply {
+                    topMargin = dp(6)
+                }
+            }
             modelStatusView = tv
-            card.addView(tv)
+            modelProgressView = progress
+            status.addView(tv)
+            status.addView(progress)
+            card.addView(status)
         } else if (!done) {
             val actions = vertical(0).apply { gravity = Gravity.END }
             actions.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
@@ -246,6 +260,7 @@ class OnboardingActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         modelStatusView = null // éviter d'écrire sur une vue détachée depuis un callback de download
+        modelProgressView = null
         super.onDestroy()
     }
 
@@ -254,25 +269,26 @@ class OnboardingActivity : AppCompatActivity() {
     private fun startModelDownload() {
         val model = recommendedModel()
         if (modelDownloading || ModelDownloader.isInstalled(this, model)) return
-        modelDownloading = true; modelMsg = "Téléchargement…"; build()
+        modelDownloading = true; modelProgress = 0f; modelMsg = "Installation\u202F: 0\u202F%"; build()
         Toast.makeText(this, "Téléchargement du modèle (~${model.sizeMb} Mo)…", Toast.LENGTH_LONG).show()
         ModelDownloader.download(this, model) { st ->
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread // Activity partie → ne pas toucher l'UI
                 when (st) {
-                    is DownloadState.Downloading -> {
-                        modelMsg = "Téléchargement ${(st.progress * 100).toInt()} %"
-                        modelStatusView?.text = modelMsg // maj légère, sans tout reconstruire
+                    is DownloadState.Downloading, is DownloadState.Extracting -> {
+                        modelProgress = installationProgress(st)
+                        modelMsg = "Installation\u202F: ${(modelProgress * 100).toInt()}\u202F%"
+                        modelStatusView?.text = modelMsg
+                        modelProgressView?.progress = (modelProgress * 100).toInt()
                     }
-                    DownloadState.Extracting -> { modelMsg = "Décompression…"; build() }
                     DownloadState.Done -> {
-                        modelDownloading = false; modelMsg = null
+                        modelDownloading = false; modelProgress = 0f; modelMsg = null
                         getSharedPreferences("phonewhisper", MODE_PRIVATE)
                             .edit().putString("model_name", model.archive).apply()
                         build()
                     }
                     is DownloadState.Error -> {
-                        modelDownloading = false; modelMsg = null
+                        modelDownloading = false; modelProgress = 0f; modelMsg = null
                         Toast.makeText(this, "Échec du téléchargement : ${st.message}", Toast.LENGTH_LONG).show()
                         build()
                     }

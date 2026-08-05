@@ -33,6 +33,52 @@ import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.min
 
+/** Ensures AudioRecord is never released or read buffers snapshotted while its reader is alive. */
+internal class RecordingStopCoordinator(
+    private val recordThread: Thread?,
+    private val stopRecorder: () -> Unit,
+    private val releaseRecorder: () -> Unit,
+    private val snapshot: () -> Unit,
+) {
+    sealed class Result {
+        data object Stopped : Result()
+        data object TimedOut : Result()
+    }
+
+    fun stopJoinRelease(timeoutMs: Long): Result {
+        try { stopRecorder() } catch (_: Throwable) {}
+        if (!joinFor(timeoutMs)) return Result.TimedOut
+        releaseAndSnapshot()
+        return Result.Stopped
+    }
+
+    /** Used after a bounded wait: it keeps waiting off-main until release is safe. */
+    fun awaitExitThenRelease(): Result {
+        var interrupted = false
+        while (recordThread?.isAlive == true) {
+            try { recordThread.join() } catch (_: InterruptedException) { interrupted = true }
+        }
+        if (interrupted) Thread.currentThread().interrupt()
+        releaseAndSnapshot()
+        return Result.Stopped
+    }
+
+    private fun joinFor(timeoutMs: Long): Boolean {
+        return try {
+            recordThread?.join(timeoutMs)
+            recordThread?.isAlive != true
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        }
+    }
+
+    private fun releaseAndSnapshot() {
+        try { releaseRecorder() } catch (_: Throwable) {}
+        try { snapshot() } catch (_: Throwable) {}
+    }
+}
+
 class OverlayService : Service() {
 
     companion object {
@@ -42,6 +88,7 @@ class OverlayService : Service() {
         private const val SAMPLE_RATE = 16000
         const val ACTION_ARM_MIC = "com.uhama.whisperpin.ARM_MIC"
         private const val DOUBLE_TAP_MS = 280L
+        private const val RECORD_STOP_TIMEOUT_MS = 1_000L
         @Volatile var micArmed = false
             private set
     }
@@ -234,57 +281,122 @@ class OverlayService : Service() {
     private fun stopRec() {
         setState(State.TRANSCRIBING)
         vibrate(20)
-        recordThread?.join(800)
-        recordThread = null
-        audioRecord?.stop(); audioRecord?.release(); audioRecord = null
-        val data = pcm?.toByteArray() ?: ByteArray(0); pcm = null
-        val session = liveSession
-        liveSession = null
-        if (data.isEmpty()) {
-            session?.cancel()
-            setLivePreviewVisible(false)
-            setState(State.IDLE)
-            return
-        }
-        thread {
-            val t0 = System.currentTimeMillis()
-            val liveText = session?.finish()
-            val r = if (!liveText.isNullOrBlank()) {
-                TranscriptionEngine.Result(liveText)
-            } else {
-                TranscriptionEngine.transcribe(this, data, local)
+        val recorder = audioRecord
+        val recordingThread = recordThread
+        var capture: RecordingCapture? = null
+        val coordinator = RecordingStopCoordinator(
+            recordThread = recordingThread,
+            stopRecorder = { recorder?.stop() },
+            releaseRecorder = { recorder?.release() },
+            snapshot = {
+                if (audioRecord === recorder) audioRecord = null
+                if (recordThread === recordingThread) recordThread = null
+                capture = RecordingCapture(
+                    pcm = pcm?.toByteArray() ?: ByteArray(0),
+                    session = liveSession,
+                )
+                pcm = null
+                liveSession = null
+            },
+        )
+        thread(name = "dictai-stop-rec") {
+            when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
+                RecordingStopCoordinator.Result.Stopped -> {
+                    val stoppedCapture = capture ?: RecordingCapture(ByteArray(0), null)
+                    processStoppedRecording(stoppedCapture)
+                }
+                RecordingStopCoordinator.Result.TimedOut -> {
+                    // The reader can no longer feed a result, but release/snapshot still wait for it safely.
+                    liveSession?.cancel()
+                    Log.w(TAG, "event=audio_stop outcome=timeout")
+                    main.post {
+                        toast("Transcription locale indisponible.")
+                        setLivePreviewVisible(false)
+                    }
+                    coordinator.awaitExitThenRelease()
+                    main.post { setState(State.IDLE) }
+                }
             }
-            val transcribeMs = System.currentTimeMillis() - t0
-            var finalText = r.text?.let { Vocabulary.applyCorrections(this, it) }
-            if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
-            val outText = finalText
-            val timing = "transcr ${transcribeMs}ms"
-            Log.i(TAG, "Pipeline: $timing")
+        }
+    }
+
+    private data class RecordingCapture(
+        val pcm: ByteArray,
+        val session: LiveStreamingTranscriber.Session?,
+    )
+
+    private fun processStoppedRecording(capture: RecordingCapture) {
+        if (capture.pcm.isEmpty()) {
+            capture.session?.cancel()
             main.post {
-                if (!outText.isNullOrBlank()) {
-                    copyToClipboard(outText)
-                    val injected = WhisperAccessibilityService.controller?.inject(outText) ?: false
-                    toast((if (injected) "Inséré" else "Copié") + " · $timing")
-                } else toast("Erreur: ${r.error ?: "vide"}")
                 setLivePreviewVisible(false)
                 setState(State.IDLE)
             }
+            return
+        }
+        val t0 = System.currentTimeMillis()
+        val streamingResult = capture.session?.finish()
+        val r = when {
+            capture.session == null -> TranscriptionEngine.transcribe(this, capture.pcm, local)
+            streamingResult is LiveStreamingTranscriber.Finalization.Success ->
+                TranscriptionEngine.Result(streamingResult.text)
+            streamingResult is LiveStreamingTranscriber.Finalization.Empty ->
+                TranscriptionEngine.Result(null)
+            streamingResult is LiveStreamingTranscriber.Finalization.Timeout ->
+                TranscriptionEngine.Result(null, "Transcription locale expirée.")
+            else -> TranscriptionEngine.Result(null, "Transcription locale indisponible.")
+        }
+        val transcribeMs = System.currentTimeMillis() - t0
+        var finalText = r.text?.let { Vocabulary.applyCorrections(this, it) }
+        if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
+        val outText = finalText
+        val source = if (capture.session != null) "stream" else "batch"
+        val timing = "transcr ${transcribeMs}ms"
+        Log.i(TAG, "event=transcription source=$source outcome=${if (outText.isNullOrBlank()) "empty_or_failure" else "success"} elapsedMs=$transcribeMs")
+        main.post {
+            if (!outText.isNullOrBlank()) {
+                copyToClipboard(outText)
+                val injected = WhisperAccessibilityService.controller?.inject(outText) ?: false
+                toast((if (injected) "Inséré" else "Copié") + " · $timing")
+            } else if (streamingResult !is LiveStreamingTranscriber.Finalization.Empty) {
+                toast("Erreur: ${r.error ?: "vide"}")
+            }
+            setLivePreviewVisible(false)
+            setState(State.IDLE)
         }
     }
 
     /** Annule l'enregistrement en cours SANS transcrire (ex. 2e tap d'un double-tap). */
     private fun cancelRec() {
         if (state != State.RECORDING) return
-        setState(State.IDLE) // fait sortir la boucle (state est @Volatile)
-        // stop() AVANT le join : débloque immédiatement AudioRecord.read() → le thread sort vite.
-        try { audioRecord?.stop() } catch (_: Exception) {}
-        recordThread?.join(300); recordThread = null
-        try { audioRecord?.release() } catch (_: Exception) {}
-        audioRecord = null
+        // TRANSCRIBING blocks a second AudioRecord until the first reader has fully exited.
+        setState(State.TRANSCRIBING)
+        val recorder = audioRecord
+        val recordingThread = recordThread
         liveSession?.cancel()
-        liveSession = null
-        pcm = null
         setLivePreviewVisible(false)
+        val coordinator = RecordingStopCoordinator(
+            recordThread = recordingThread,
+            stopRecorder = { recorder?.stop() },
+            releaseRecorder = { recorder?.release() },
+            snapshot = {
+                if (audioRecord === recorder) audioRecord = null
+                if (recordThread === recordingThread) recordThread = null
+                // Discard only once AudioRecord.read() can no longer write to this session.
+                liveSession = null
+                pcm = null
+            },
+        )
+        thread(name = "dictai-cancel-rec") {
+            when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
+                RecordingStopCoordinator.Result.Stopped -> main.post { setState(State.IDLE) }
+                RecordingStopCoordinator.Result.TimedOut -> {
+                    Log.w(TAG, "event=audio_cancel outcome=timeout")
+                    coordinator.awaitExitThenRelease()
+                    main.post { setState(State.IDLE) }
+                }
+            }
+        }
     }
 
     private fun setState(s: State) {

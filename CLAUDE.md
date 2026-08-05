@@ -44,6 +44,7 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 ## Session Log
 | Date | Action | Fichiers/Config |
 |------|--------|-----------------|
+| 2026-08-05 | Nemotron : flux de dictée manuel unique, 400 ms de silence final et gestion structurée des cas vide/délai dépassé ; arrêt/annulation d’AudioRecord sûr face aux courses ; progression d’installation monotone au téléchargement/extraction ; spike de compilation GGUF ARM64 de `transcribe.cpp` réussi, benchmark Q8/Q6 sur appareil en attente. | `LiveStreamingTranscriber.kt`, `OverlayService.kt`, `ModelDownloader.kt`, `MainActivity.kt`, `OnboardingActivity.kt` ; `LiveStreamingTranscriberTest.kt`, `ModelDownloaderTest.kt`, `OverlayRecordingStopCoordinatorTest.kt` |
 | 2026-08-05 | Installation ASR durcie : workspace `filesDir`, archive `.part`, publication atomique ; l’UI ignore les modèles incomplets. | `ModelDownloader.kt`, `ModelStorage.kt`, `LocalTranscriber.kt`, UI |
 | 2026-08-05 | Nemotron : aperçu détaché sur trois lignes, non tactile ; pastille ancrée aux quatre bords avec migration et rotation. | `OverlayService.kt`, `LiveTranscriptBuffer.kt`, `LiveStreamingTranscriber.kt`, `OverlayPlacement.kt`, `PersistencePrefs.kt` |
 | 2026-08-05 | DictAI passe à la transcription 100 % locale : retrait complet des flux cloud/LLM, conservation de Parakeet batch et de Nemotron streaming, garde-fous APK 16 Ko validés. | UI/transcription, contrôleur natif, CI |

@@ -257,18 +257,17 @@ class MainActivity : AppCompatActivity() {
         views.dlBtn.isEnabled = false
         views.progress.visibility = View.VISIBLE
         views.progress.isIndeterminate = false
-        views.subtitle.text = "Téléchargement en cours…"
+        views.progress.progress = 0
+        views.subtitle.text = "Installation\u202F: 0\u202F%"
 
         ModelDownloader.download(this, model) { state ->
             runOnUiThread {
                 when (state) {
-                    is DownloadState.Downloading -> {
-                        views.progress.progress = (state.progress * 100).toInt()
-                        views.subtitle.text = "Téléchargement\u202F: ${(state.progress * 100).toInt()}\u202F%"
-                    }
-                    is DownloadState.Extracting -> {
-                        views.progress.isIndeterminate = true
-                        views.subtitle.text = "Extraction…"
+                    is DownloadState.Downloading, is DownloadState.Extracting -> {
+                        val progress = installationProgress(state)
+                        views.progress.isIndeterminate = false
+                        views.progress.progress = (progress * 100).toInt()
+                        views.subtitle.text = "Installation\u202F: ${(progress * 100).toInt()}\u202F%"
                     }
                     is DownloadState.Done -> {
                         views.progress.visibility = View.GONE
