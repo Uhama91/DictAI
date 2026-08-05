@@ -182,6 +182,7 @@ class OverlayService : Service() {
     @Volatile private var local: LocalTranscriber? = null
     @Volatile private var streamingLocal: LiveStreamingTranscriber? = null
     private var liveSession: LiveStreamingTranscriber.Session? = null
+    private var recordingOptions: RecordingOptions? = null
     @Volatile private var loadedModelName: String? = null
     private var baseButtonW = 0
     private var baseButtonH = 0
@@ -336,6 +337,18 @@ class OverlayService : Service() {
     }
 
     private fun startRec() {
+        val cloudRequested = prefs.cloudCleanupEnabled
+        val targetSensitive = runCatching {
+            WhisperAccessibilityService.controller?.isActiveTargetSensitive() ?: true
+        }.getOrDefault(true)
+        val cloudPolicy = CloudSensitiveTargetPolicy.snapshot(cloudRequested, targetSensitive)
+        val options = RecordingOptions(
+            language = prefs.dictationLanguage,
+            cloudCleanupEnabled = cloudPolicy.cloudAllowed,
+            cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
+            cloudProvider = prefs.cloudProvider,
+            cloudModel = prefs.cloudModel(),
+        )
         val selectedModel = TranscriptionEngine.selectedModelName(this)
         when (RecordingStartGate.decide(
             localLoading = localLoading.get(),
@@ -370,9 +383,10 @@ class OverlayService : Service() {
         } catch (e: SecurityException) { toast("Mic refuse"); return }
         pcm = java.io.ByteArrayOutputStream()
         audioRecord!!.startRecording()
+        recordingOptions = options
         liveTranscriptBuffer.clear()
         liveSession = if (LiveStreamingTranscriber.supports(selectedModel)) {
-            streamingLocal?.start { committed, tentative ->
+            streamingLocal?.start(options.language) { committed, tentative ->
                 updateLivePreview(committed, tentative)
             }
         } else null
@@ -422,15 +436,32 @@ class OverlayService : Service() {
                 capture = RecordingCapture(
                     pcm = pcm?.toByteArray() ?: ByteArray(0),
                     session = liveSession,
+                    options = recordingOptions ?: RecordingOptions(
+                        language = DictationLanguage.FRENCH,
+                        cloudCleanupEnabled = false,
+                        cloudSuppressedForSensitiveTarget = false,
+                        cloudProvider = CloudProvider.OPENAI,
+                        cloudModel = CloudModelCatalog.forProvider(CloudProvider.OPENAI).first(),
+                    ),
                 )
                 pcm = null
                 liveSession = null
+                recordingOptions = null
             },
         )
         thread(name = "dictai-stop-rec") {
             when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
                 RecordingStopCoordinator.Result.Stopped -> {
-                    val stoppedCapture = capture ?: RecordingCapture(ByteArray(0), null)
+                    val stoppedCapture = capture ?: RecordingCapture(
+                        ByteArray(0), null,
+                        RecordingOptions(
+                            DictationLanguage.FRENCH,
+                            false,
+                            false,
+                            CloudProvider.OPENAI,
+                            CloudModelCatalog.forProvider(CloudProvider.OPENAI).first(),
+                        ),
+                    )
                     processStoppedRecording(stoppedCapture)
                 }
                 RecordingStopCoordinator.Result.TimedOut -> {
@@ -451,6 +482,16 @@ class OverlayService : Service() {
     private data class RecordingCapture(
         val pcm: ByteArray,
         val session: LiveStreamingTranscriber.Session?,
+        val options: RecordingOptions,
+    )
+
+    /** Per-recording snapshot: changing settings while dictating cannot change that result. */
+    private data class RecordingOptions(
+        val language: DictationLanguage,
+        val cloudCleanupEnabled: Boolean,
+        val cloudSuppressedForSensitiveTarget: Boolean,
+        val cloudProvider: CloudProvider,
+        val cloudModel: CuratedCloudModel,
     )
 
     private fun processStoppedRecording(capture: RecordingCapture) {
@@ -475,7 +516,14 @@ class OverlayService : Service() {
             else -> TranscriptionEngine.Result(null, "Transcription locale indisponible.")
         }
         val transcribeMs = System.currentTimeMillis() - t0
-        var finalText = r.text?.let { Vocabulary.applyCorrections(this, it) }
+        val localText = r.text?.let { Vocabulary.applyCorrections(this, it) }
+        val cloudText = if (!localText.isNullOrBlank() && capture.options.cloudCleanupEnabled) {
+            val credential = SecureCredentialStore(this).load(capture.options.cloudProvider)
+            credential?.let {
+                CloudCleanup().clean(localText, capture.options.language, capture.options.cloudProvider, capture.options.cloudModel, it)
+            }
+        } else null
+        var finalText = cloudText ?: localText
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
         val outText = finalText
         val source = if (capture.session != null) "stream" else "batch"
@@ -485,7 +533,14 @@ class OverlayService : Service() {
             if (!outText.isNullOrBlank()) {
                 copyToClipboard(outText)
                 val injected = WhisperAccessibilityService.controller?.inject(outText) ?: false
-                toast((if (injected) "Inséré" else "Copié") + " · $timing")
+                val cleanupFeedback = when {
+                    capture.options.cloudSuppressedForSensitiveTarget ->
+                        " · cloud désactivé (champ sensible)"
+                    capture.options.cloudCleanupEnabled && cloudText != null -> " · nettoyage appliqué"
+                    capture.options.cloudCleanupEnabled -> " · texte local conservé"
+                    else -> ""
+                }
+                toast((if (injected) "Inséré" else "Copié") + cleanupFeedback + " · $timing")
             } else if (streamingResult !is LiveStreamingTranscriber.Finalization.Empty) {
                 toast("Erreur: ${r.error ?: "vide"}")
             }
@@ -513,6 +568,7 @@ class OverlayService : Service() {
                 // Discard only once AudioRecord.read() can no longer write to this session.
                 liveSession = null
                 pcm = null
+                recordingOptions = null
             },
         )
         thread(name = "dictai-cancel-rec") {

@@ -151,6 +151,18 @@ class LiveStreamingTranscriberTest {
         assertEquals(30_000L, LiveStreamingTranscriber.DEFAULT_FINALIZE_TIMEOUT_MS)
     }
 
+    @Test
+    fun `each stream snapshots its selected language without reopening the recognizer`() {
+        val native = FakeStreamingRecognizer(resultsAfterDecode = listOf("hello"))
+        val transcriber = LiveStreamingTranscriber.forTesting(native)
+
+        transcriber.start(DictationLanguage.ENGLISH) { _, _ -> }.finish(timeoutMs = 1_000)
+        transcriber.start(DictationLanguage.FRENCH) { _, _ -> }.finish(timeoutMs = 1_000)
+
+        assertEquals(listOf("en-US", "fr-FR"), native.transcribeCppLocales)
+        assertEquals(listOf("en", "fr"), native.stream.languages)
+    }
+
     private class FakeStreamingRecognizer(
         private val resultsAfterDecode: List<String>,
         private val usesNativeSnapshots: Boolean = false,
@@ -158,6 +170,7 @@ class LiveStreamingTranscriberTest {
         private val decodeDelayMs: Long = 0,
         private val decoded: CountDownLatch? = null,
     ) : LiveStreamingTranscriber.StreamingRecognizer {
+        val transcribeCppLocales = mutableListOf<String>()
         val stream = FakeStreamingStream(
             resultsAfterDecode,
             usesNativeSnapshots,
@@ -166,7 +179,10 @@ class LiveStreamingTranscriberTest {
             decoded,
         )
 
-        override fun createStream(): LiveStreamingTranscriber.StreamingStream = stream
+        override fun createStream(transcribeCppLanguage: String): LiveStreamingTranscriber.StreamingStream {
+            transcribeCppLocales += transcribeCppLanguage
+            return stream
+        }
 
         override fun close() = Unit
     }
@@ -181,11 +197,12 @@ class LiveStreamingTranscriberTest {
         override val finalSilenceSamples: Int = if (usesNativeSnapshots) 0 else LiveStreamingTranscriber.FINAL_SILENCE_SAMPLES
         override val emitsSnapshotOnAccept: Boolean = usesNativeSnapshots
         val accepted = mutableListOf<FloatArray>()
+        val languages = mutableListOf<String>()
         var inputFinished = false
         var decodeCalls = 0
         private var readyChecks = 0
 
-        override fun setLanguage(language: String) = Unit
+        override fun setLanguage(language: String) { languages += language }
 
         override fun acceptWaveform(samples: FloatArray, sampleRate: Int) {
             accepted += samples
@@ -235,7 +252,7 @@ class LiveStreamingTranscriberTest {
         private var getTextCalls = 0
 
         override fun open(modelPath: String): Long = 7L
-        override fun begin(handle: Long) { begins++ }
+        override fun begin(handle: Long, language: String) { begins++ }
         override fun feed(handle: Long, samples: FloatArray): Array<String> =
             arrayOf("bonjour", "bon", "jour")
         override fun getText(handle: Long): Array<String> {

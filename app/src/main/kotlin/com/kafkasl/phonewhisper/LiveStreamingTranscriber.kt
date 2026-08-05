@@ -24,14 +24,16 @@ import kotlin.concurrent.thread
  */
 class LiveStreamingTranscriber private constructor(
     private val recognizer: StreamingRecognizer,
-    private val language: String,
 ) : Closeable {
     private val closed = AtomicBoolean(false)
     private val activeSession = AtomicReference<Session?>(null)
 
-    fun start(onText: (committed: String, tentative: String) -> Unit): Session {
+    fun start(
+        language: DictationLanguage = DictationLanguage.FRENCH,
+        onText: (committed: String, tentative: String) -> Unit,
+    ): Session {
         check(!closed.get()) { "Streaming recognizer is closed" }
-        val session = Session(recognizer, language, onText) {
+        val session = Session(recognizer, language.nemotronLanguage, language.transcribeCppLanguage, onText) {
             activeSession.compareAndSet(it, null)
         }
         check(activeSession.compareAndSet(null, session)) { "A streaming session is already active" }
@@ -52,7 +54,8 @@ class LiveStreamingTranscriber private constructor(
 
     class Session internal constructor(
         private val recognizer: StreamingRecognizer,
-        private val language: String,
+        private val nemotronLanguage: String,
+        private val transcribeCppLanguage: String,
         private val onText: (committed: String, tentative: String) -> Unit,
         private val onClosed: (Session) -> Unit,
     ) {
@@ -103,9 +106,9 @@ class LiveStreamingTranscriber private constructor(
         private fun runWorker() {
             var stream: StreamingStream? = null
             try {
-                stream = recognizer.createStream()
+                stream = recognizer.createStream(transcribeCppLanguage)
                 try {
-                    stream.setLanguage(language)
+                    stream.setLanguage(nemotronLanguage)
                 } catch (t: Throwable) {
                     LiveStreamingTranscriber.logWarning(
                         "event=stream_language outcome=failure type=${t.javaClass.simpleName}",
@@ -218,7 +221,7 @@ class LiveStreamingTranscriber private constructor(
 
     /** Minimal seam around the native API so finalization behavior remains unit-testable. */
     internal interface StreamingRecognizer : Closeable {
-        fun createStream(): StreamingStream
+        fun createStream(transcribeCppLanguage: String): StreamingStream
     }
 
     internal interface StreamingStream {
@@ -272,12 +275,11 @@ class LiveStreamingTranscriber private constructor(
                 when (layout.type) {
                     RuntimeModelType.GGUF -> LiveStreamingTranscriber(
                         TranscribeCppStreamingRecognizer(TranscribeCppNative.open(layout.model!!.absolutePath)),
-                        language = "fr-FR",
                     )
                     RuntimeModelType.TRANSDUCER -> {
                         val config = detectConfig(layout) ?: return null
                         val recognizer = OnlineRecognizer(assetManager = null, config = config)
-                        LiveStreamingTranscriber(SherpaStreamingRecognizer(recognizer), language = "fr")
+                        LiveStreamingTranscriber(SherpaStreamingRecognizer(recognizer))
                     }
                     else -> null
                 }?.also { Log.i(TAG, "Loaded streaming model: $modelName") }
@@ -288,10 +290,10 @@ class LiveStreamingTranscriber private constructor(
         }
 
         internal fun forTesting(recognizer: StreamingRecognizer): LiveStreamingTranscriber =
-            LiveStreamingTranscriber(recognizer, language = "fr")
+            LiveStreamingTranscriber(recognizer)
 
         internal fun forTesting(native: TranscribeCppNative): LiveStreamingTranscriber =
-            LiveStreamingTranscriber(TranscribeCppStreamingRecognizer(native), language = "fr-FR")
+            LiveStreamingTranscriber(TranscribeCppStreamingRecognizer(native))
 
         private fun detectConfig(layout: ValidatedModelLayout): OnlineRecognizerConfig? {
             if (layout.type != RuntimeModelType.TRANSDUCER) return null
@@ -318,7 +320,7 @@ class LiveStreamingTranscriber private constructor(
 private class SherpaStreamingRecognizer(
     private val recognizer: OnlineRecognizer,
 ) : LiveStreamingTranscriber.StreamingRecognizer {
-    override fun createStream(): LiveStreamingTranscriber.StreamingStream =
+    override fun createStream(transcribeCppLanguage: String): LiveStreamingTranscriber.StreamingStream =
         SherpaStreamingStream(recognizer, recognizer.createStream())
 
     override fun close() {
@@ -366,10 +368,10 @@ private class TranscribeCppStreamingRecognizer(
 ) : LiveStreamingTranscriber.StreamingRecognizer {
     private val streamActive = AtomicBoolean(false)
 
-    override fun createStream(): LiveStreamingTranscriber.StreamingStream {
+    override fun createStream(transcribeCppLanguage: String): LiveStreamingTranscriber.StreamingStream {
         check(streamActive.compareAndSet(false, true)) { "A transcribe.cpp stream is already active" }
         return try {
-            native.begin()
+            native.begin(transcribeCppLanguage)
             TranscribeCppStreamingStream(native) { streamActive.set(false) }
         } catch (t: Throwable) {
             try { native.reset() } catch (_: Throwable) {}
@@ -391,7 +393,7 @@ private class TranscribeCppStreamingStream(
     private var latest = native.getText().asStreamingSnapshot()
     private var released = false
 
-    override fun setLanguage(language: String) = Unit // begin() configures transcribe.cpp with fr-FR.
+    override fun setLanguage(language: String) = Unit // begin() configures transcribe.cpp per stream.
 
     override fun acceptWaveform(samples: FloatArray, sampleRate: Int) {
         latest = native.feed(samples).asStreamingSnapshot()

@@ -19,6 +19,7 @@ constexpr char kNativeExceptionClass[] = "com/kafkasl/phonewhisper/TranscribeCpp
 struct NativeSession {
     std::mutex mutex;
     transcribe_session * session = nullptr;
+    std::string language;
     bool closed = false;
 
     ~NativeSession() {
@@ -187,8 +188,20 @@ jlong native_open(JNIEnv * env, jobject, jstring model_path) {
     }
 }
 
-void native_begin(JNIEnv * env, jobject, jlong handle) {
+void native_begin(JNIEnv * env, jobject, jlong handle, jstring language) {
     try {
+        if (language == nullptr) {
+            throw_exception(env, "java/lang/IllegalArgumentException", "language must not be null");
+            return;
+        }
+        const char * language_chars = env->GetStringUTFChars(language, nullptr);
+        if (language_chars == nullptr) return;
+        const std::string language_copy(language_chars);
+        env->ReleaseStringUTFChars(language, language_chars);
+        if (language_copy != "fr-FR" && language_copy != "en-US") {
+            throw_exception(env, "java/lang/IllegalArgumentException", "Unsupported transcription language");
+            return;
+        }
         const auto native_session = acquire_session(env, handle);
         if (native_session == nullptr) return;
         std::lock_guard<std::mutex> lock(native_session->mutex);
@@ -197,7 +210,8 @@ void native_begin(JNIEnv * env, jobject, jlong handle) {
         transcribe_run_params run_params;
         transcribe_run_params_init(&run_params);
         run_params.task = TRANSCRIBE_TASK_TRANSCRIBE;
-        run_params.language = "fr-FR";
+        native_session->language = language_copy;
+        run_params.language = native_session->language.c_str();
 
         transcribe_stream_params stream_params;
         transcribe_stream_params_init(&stream_params);
@@ -340,7 +354,7 @@ void native_free(JNIEnv * env, jobject, jlong handle) {
 
 const JNINativeMethod kMethods[] = {
     {const_cast<char *>("open"), const_cast<char *>("(Ljava/lang/String;)J"), reinterpret_cast<void *>(native_open)},
-    {const_cast<char *>("begin"), const_cast<char *>("(J)V"), reinterpret_cast<void *>(native_begin)},
+    {const_cast<char *>("begin"), const_cast<char *>("(JLjava/lang/String;)V"), reinterpret_cast<void *>(native_begin)},
     {const_cast<char *>("feed"), const_cast<char *>("(J[F)[Ljava/lang/String;"), reinterpret_cast<void *>(native_feed)},
     {const_cast<char *>("getText"), const_cast<char *>("(J)[Ljava/lang/String;"), reinterpret_cast<void *>(native_get_text)},
     {const_cast<char *>("finish"), const_cast<char *>("(J)[Ljava/lang/String;"), reinterpret_cast<void *>(native_finish)},

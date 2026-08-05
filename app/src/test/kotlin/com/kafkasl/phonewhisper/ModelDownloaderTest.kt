@@ -155,7 +155,9 @@ class ModelDownloaderTest {
     }
 
     @Test fun `downloader marks progress as direct only when an artifact is direct`() {
-        val directArtifact = MODEL_CATALOG.single { it.runtimeType == RuntimeModelType.GGUF }.directArtifact
+        val directArtifact = MODEL_CATALOG.single {
+            it.archive == "nemotron-3.5-asr-streaming-0.6b-Q6_K"
+        }.directArtifact
 
         val directState = ModelDownloader.downloadingState(0.75f, directArtifact)
         val archiveState = ModelDownloader.downloadingState(0.75f, null)
@@ -175,20 +177,30 @@ class ModelDownloaderTest {
         }
     }
 
-    @Test fun `catalog includes the experimental Nemotron GGUF model`() {
-        assertEquals(6, MODEL_CATALOG.size)
+    @Test fun `catalog lists Handy Q8 and compact Q6 as direct GGUF models`() {
+        assertEquals(7, MODEL_CATALOG.size)
         assertTrue(MODEL_CATALOG.any { it.recommended })
-        assertTrue(MODEL_CATALOG.any {
-            it.name == "Nemotron 3.5 GGUF (FR)" && it.runtimeType.name == "GGUF"
-        })
+        val ggufModels = MODEL_CATALOG.filter { it.runtimeType == RuntimeModelType.GGUF }
+        assertEquals(
+            setOf(
+                "nemotron-3.5-asr-streaming-0.6b-Q8_0",
+                "nemotron-3.5-asr-streaming-0.6b-Q6_K",
+            ),
+            ggufModels.map { it.archive }.toSet(),
+        )
+        assertTrue(ggufModels.all { it.directArtifact != null })
         assertTrue(MODEL_CATALOG.all { it.sizeMb > 0 })
     }
 
-    @Test fun `catalog pins the Nemotron GGUF direct artifact`() {
-        val model = MODEL_CATALOG.single { it.name == "Nemotron 3.5 GGUF (FR)" }
+    @Test fun `catalog pins the compact Nemotron Q6 GGUF direct artifact`() {
+        val model = MODEL_CATALOG.single {
+            it.archive == "nemotron-3.5-asr-streaming-0.6b-Q6_K"
+        }
         val artifact = model.directArtifact
 
         assertNotNull("Le modèle GGUF doit utiliser un artefact direct.", artifact)
+        assertEquals("Nemotron 3.5 Compact (FR/EN)", model.name)
+        assertEquals("★★★★ Français/anglais — compact", model.quality)
         assertEquals(
             "https://huggingface.co/handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf/resolve/6d44e540bc31b0de1dbe174a3cea87f53a7f22fb/nemotron-3.5-asr-streaming-0.6b-Q6_K.gguf",
             artifact!!.url,
@@ -199,6 +211,39 @@ class ModelDownloaderTest {
             "4ff802c6207c4a7df23242003fd2aa849a1ab02bba6bc80c3db02e7e82606c28",
             artifact.sha256,
         )
+    }
+
+    @Test fun `catalog pins the Handy Nemotron Q8 GGUF direct artifact`() {
+        val model = MODEL_CATALOG.single {
+            it.archive == "nemotron-3.5-asr-streaming-0.6b-Q8_0"
+        }
+        val artifact = model.directArtifact
+
+        assertNotNull("Le modèle GGUF doit utiliser un artefact direct.", artifact)
+        assertEquals("Nemotron 3.5 Handy (FR/EN)", model.name)
+        assertEquals("★★★★ Français/anglais — réglage Handy", model.quality)
+        assertEquals(751, model.sizeMb)
+        assertEquals(
+            "https://huggingface.co/handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf/resolve/6d44e540bc31b0de1dbe174a3cea87f53a7f22fb/nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf",
+            artifact!!.url,
+        )
+        assertEquals("nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf", artifact.fileName)
+        assertEquals(751094240L, artifact.expectedSizeBytes)
+        assertEquals(
+            "b94545b313b3223fda7b2857a52681da813935c2127643d1e9ff0c23d988089c",
+            artifact.sha256,
+        )
+    }
+
+    @Test fun `runtime labels distinguish GGUF quantizations and ONNX runtime`() {
+        val q8 = MODEL_CATALOG.single { it.archive.endsWith("Q8_0") }
+        val q6 = MODEL_CATALOG.single { it.archive.endsWith("Q6_K") }
+        val parakeet = MODEL_CATALOG.single { it.recommended }
+
+        assertEquals("transcribe.cpp · GGUF Q8_0", q8.runtimeLabel)
+        assertEquals("transcribe.cpp · GGUF Q6_K", q6.runtimeLabel)
+        assertEquals("sherpa-onnx · ONNX Transducer", parakeet.runtimeLabel)
+        assertNotEquals(q8.runtimeLabel, q6.runtimeLabel)
     }
 
     @Test fun `direct publication verifies size and SHA before atomically exposing the GGUF`() {
@@ -248,7 +293,9 @@ class ModelDownloaderTest {
     }
 
     private fun directTestModel(content: ByteArray): Model {
-        val catalogModel = MODEL_CATALOG.single { it.runtimeType == RuntimeModelType.GGUF }
+        val catalogModel = MODEL_CATALOG.single {
+            it.archive == "nemotron-3.5-asr-streaming-0.6b-Q6_K"
+        }
         return catalogModel.copy(
             directArtifact = catalogModel.directArtifact!!.copy(
                 expectedSizeBytes = content.size.toLong(),

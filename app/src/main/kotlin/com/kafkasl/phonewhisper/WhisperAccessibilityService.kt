@@ -46,6 +46,16 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         return injected
     }
 
+    override fun isActiveTargetSensitive(): Boolean {
+        val candidates = findInjectionCandidates()
+        return try {
+            val target = candidates.firstOrNull() ?: return true
+            SensitiveInputPolicy.isSensitive(target.isPassword, target.inputType)
+        } finally {
+            candidates.forEach { it.recycle() }
+        }
+    }
+
     // --- Injection target discovery ---
 
     private fun findInjectionCandidates(): List<AccessibilityNodeInfo> {

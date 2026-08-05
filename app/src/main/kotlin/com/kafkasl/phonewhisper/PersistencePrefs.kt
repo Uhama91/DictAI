@@ -41,6 +41,26 @@ class PersistencePrefs(ctx: Context) {
         get() = p.getBoolean("trailing_space", false)
         set(v) { p.edit().putBoolean("trailing_space", v).apply() }
 
+    /** Global preference; an active recording snapshots this value at its start. */
+    var dictationLanguage: DictationLanguage
+        get() = DictationLanguage.fromPreference(p.getString("dictation_language", null))
+        set(v) { p.edit().putString("dictation_language", v.preferenceValue).apply() }
+
+    var cloudCleanupEnabled: Boolean
+        get() = p.getBoolean("cloud_cleanup_enabled", false)
+        set(v) { p.edit().putBoolean("cloud_cleanup_enabled", v).apply() }
+
+    var cloudProvider: CloudProvider
+        get() = CloudProvider.fromPreference(p.getString("cloud_cleanup_provider", null))
+        set(v) { p.edit().putString("cloud_cleanup_provider", v.preferenceValue).apply() }
+
+    fun cloudModel(provider: CloudProvider = cloudProvider): CuratedCloudModel =
+        CloudModelCatalog.selected(provider, p.getString(CloudModelPreferences.key(provider), null))
+
+    fun setCloudModel(model: CuratedCloudModel) {
+        p.edit().putString(CloudModelPreferences.key(model.provider), model.preferenceValue).apply()
+    }
+
     companion object {
         private const val KEY_ANCHOR_EDGE = "btn_anchor_edge"
         private const val KEY_ANCHOR_OFFSET = "btn_anchor_offset"

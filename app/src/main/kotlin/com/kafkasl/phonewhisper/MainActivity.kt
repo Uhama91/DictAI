@@ -126,6 +126,11 @@ class MainActivity : AppCompatActivity() {
         // --- Réglages ---
         root.addView(sectionHeader("Réglages"))
 
+        val languagePrefs = PersistencePrefs(this)
+        root.addView(settingsRow("Langue de dictée", languageLabel(languagePrefs.dictationLanguage)) {
+            showLanguageDialog()
+        })
+
         // Espace automatique en fin de dictée
         val spaceSwitch = MaterialSwitch(this).apply {
             isChecked = PersistencePrefs(this@MainActivity).trailingSpace
@@ -160,6 +165,35 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
         root.addView(vocabRow)
+
+        val cleanupSwitch = MaterialSwitch(this).apply {
+            isChecked = languagePrefs.cloudCleanupEnabled
+            greenTint()
+            setOnCheckedChangeListener { _, on -> languagePrefs.cloudCleanupEnabled = on }
+        }
+        root.addView(settingsRow(
+            "Nettoyage cloud (optionnel)",
+            "Si activé, la transcription finale est envoyée au fournisseur choisi.",
+            cleanupSwitch,
+        ))
+
+        val cleanupProvider = languagePrefs.cloudProvider
+        root.addView(settingsRow(
+            "Fournisseur cloud",
+            "${cleanupProvider.label} · ${cleanupProvider.privacyNotice}",
+        ) {
+            showCloudProviderDialog()
+        })
+        root.addView(settingsRow("Modèle cloud", languagePrefs.cloudModel(cleanupProvider).label) {
+            showCloudModelDialog(cleanupProvider)
+        })
+        val credentialStore = SecureCredentialStore(this)
+        root.addView(settingsRow(
+            "Clé du fournisseur",
+            if (credentialStore.has(cleanupProvider)) "Clé enregistrée (masquée)" else "Aucune clé enregistrée",
+        ) {
+            showCredentialDialog(cleanupProvider)
+        })
 
         // Fond "page de carnet" : contenu à droite du filet de marge vert (~30dp)
         root.background = NotebookBackgroundDrawable(this)
@@ -229,7 +263,7 @@ class MainActivity : AppCompatActivity() {
 
         val row = settingsRow(
             if (model.recommended) model.name else model.name,
-            "${model.quality} · ${model.sizeMb} MB",
+            modelCardSubtitle(model),
             rightContainer
         ) {
             onModelAction(model)
@@ -258,7 +292,7 @@ class MainActivity : AppCompatActivity() {
         views.progress.visibility = View.VISIBLE
         views.progress.isIndeterminate = false
         views.progress.progress = 0
-        views.subtitle.text = "Installation\u202F: 0\u202F%"
+        views.subtitle.text = "Installation\u202F: 0\u202F% · ${model.runtimeLabel}"
 
         ModelDownloader.download(this, model) { state ->
             runOnUiThread {
@@ -267,7 +301,7 @@ class MainActivity : AppCompatActivity() {
                         val progress = installationProgress(state)
                         views.progress.isIndeterminate = false
                         views.progress.progress = (progress * 100).toInt()
-                        views.subtitle.text = "Installation\u202F: ${(progress * 100).toInt()}\u202F%"
+                        views.subtitle.text = "Installation\u202F: ${(progress * 100).toInt()}\u202F% · ${model.runtimeLabel}"
                     }
                     is DownloadState.Done -> {
                         views.progress.visibility = View.GONE
@@ -276,7 +310,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     is DownloadState.Error -> {
                         views.progress.visibility = View.GONE
-                        views.subtitle.text = "Erreur : ${state.message}"
+                        views.subtitle.text = "Erreur : ${state.message} · ${model.runtimeLabel}"
                         views.dlBtn.isEnabled = true
                     }
                 }
@@ -304,11 +338,14 @@ class MainActivity : AppCompatActivity() {
         views.dlBtn.visibility = if (installed) View.GONE else View.VISIBLE
         
         if (views.progress.visibility == View.GONE) {
-            views.subtitle.text = "${model.quality} · ${model.sizeMb} MB"
+            views.subtitle.text = modelCardSubtitle(model)
         }
     }
 
     private fun refreshAllCards() = MODEL_CATALOG.forEach { refreshCard(it) }
+
+    private fun modelCardSubtitle(model: Model) =
+        "${model.quality} · ${model.sizeMb} MB · ${model.runtimeLabel}"
 
     // --- State Updates ---
 
@@ -316,6 +353,7 @@ class MainActivity : AppCompatActivity() {
         val audio = hasPerm(Manifest.permission.RECORD_AUDIO)
         val acc = WhisperAccessibilityService.controller != null
         val selectedModel = ModelDownloader.reconcileSelectedModel(this)
+        val activeModel = MODEL_CATALOG.firstOrNull { it.archive == selectedModel }
         val hasModel = selectedModel != null
 
         audioRowSub.text = if (audio) "Granted" else "Tap to grant permission"
@@ -324,7 +362,11 @@ class MainActivity : AppCompatActivity() {
         // Ready logic
         val ready = audio && acc && hasModel
 
-        statusSubtitle.text = if (ready) "Ready — tap the overlay dot to dictate" else "Setup required"
+        statusSubtitle.text = if (ready) {
+            "Prêt — ${activeModel?.runtimeLabel} — touchez la pastille pour dicter"
+        } else {
+            "Configuration requise"
+        }
         statusSubtitle.setTextColor(if (ready) attrColor(com.google.android.material.R.attr.colorPrimary) else attrColor(android.R.attr.textColorSecondary))
         
         refreshAllCards()
@@ -413,6 +455,79 @@ class MainActivity : AppCompatActivity() {
         )
         trackTintList = track
         thumbTintList = thumb
+    }
+
+    private fun showLanguageDialog() {
+        val prefs = PersistencePrefs(this)
+        val choices = arrayOf("Français", "English")
+        val checked = DictationLanguage.entries.indexOf(prefs.dictationLanguage)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Langue de dictée")
+            .setSingleChoiceItems(choices, checked) { dialog, which ->
+                prefs.dictationLanguage = DictationLanguage.entries[which]
+                dialog.dismiss()
+                recreate()
+            }
+            .show()
+    }
+
+    private fun showCloudProviderDialog() {
+        val prefs = PersistencePrefs(this)
+        val choices = CloudProvider.entries.map { it.label }.toTypedArray()
+        val checked = CloudProvider.entries.indexOf(prefs.cloudProvider)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Fournisseur cloud")
+            .setSingleChoiceItems(choices, checked) { dialog, which ->
+                prefs.cloudProvider = CloudProvider.entries[which]
+                dialog.dismiss()
+                recreate()
+            }
+            .show()
+    }
+
+    private fun showCloudModelDialog(provider: CloudProvider) {
+        val prefs = PersistencePrefs(this)
+        val models = CloudModelCatalog.forProvider(provider)
+        val checked = models.indexOf(prefs.cloudModel(provider))
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Modèle ${provider.label}")
+            .setSingleChoiceItems(models.map { it.label }.toTypedArray(), checked) { dialog, which ->
+                prefs.setCloudModel(models[which])
+                dialog.dismiss()
+                recreate()
+            }
+            .show()
+    }
+
+    private fun showCredentialDialog(provider: CloudProvider) {
+        val field = EditText(this).apply {
+            hint = "Clé API"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setTextColor(ThemeTokens.INK)
+            setHintTextColor(ThemeTokens.INK_MUTED)
+        }
+        val store = SecureCredentialStore(this)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Clé ${provider.label}")
+            .setMessage("La clé est chiffrée sur cet appareil et n’est jamais affichée à nouveau.")
+            .setView(field)
+            .setPositiveButton("Enregistrer") { _, _ ->
+                val saved = store.save(provider, field.text.toString())
+                toast(if (saved) "Clé enregistrée" else "Enregistrement impossible")
+                recreate()
+            }
+            .setNeutralButton("Supprimer") { _, _ ->
+                store.delete(provider)
+                toast("Clé supprimée")
+                recreate()
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    private fun languageLabel(language: DictationLanguage) = when (language) {
+        DictationLanguage.FRENCH -> "Français"
+        DictationLanguage.ENGLISH -> "English"
     }
 
     private fun hasPerm(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED

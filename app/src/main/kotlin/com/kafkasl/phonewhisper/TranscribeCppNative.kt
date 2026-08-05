@@ -13,7 +13,8 @@ class TranscribeCppNative private constructor(
         val tentative: String,
     )
 
-    fun begin() = withOpenHandle { bindings.begin(it) }
+    fun begin(language: String = DictationLanguage.FRENCH.transcribeCppLanguage) =
+        withOpenHandle { bindings.begin(it, language) }
 
     fun feed(samples: FloatArray): Text {
         require(samples.isNotEmpty()) { "samples must not be empty" }
@@ -48,7 +49,7 @@ class TranscribeCppNative private constructor(
 
     internal interface Bindings {
         fun open(modelPath: String): Long
-        fun begin(handle: Long)
+        fun begin(handle: Long, language: String)
         fun feed(handle: Long, samples: FloatArray): Array<String>
         fun getText(handle: Long): Array<String>
         fun finish(handle: Long): Array<String>
@@ -62,7 +63,7 @@ class TranscribeCppNative private constructor(
         }
 
         external override fun open(modelPath: String): Long
-        external override fun begin(handle: Long)
+        external override fun begin(handle: Long, language: String)
         external override fun feed(handle: Long, samples: FloatArray): Array<String>
         external override fun getText(handle: Long): Array<String>
         external override fun finish(handle: Long): Array<String>

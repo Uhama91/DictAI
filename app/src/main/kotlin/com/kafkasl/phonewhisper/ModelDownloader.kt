@@ -25,16 +25,43 @@ data class Model(
     val recommended: Boolean = false,
     val runtimeType: RuntimeModelType,
     val directArtifact: DirectModelArtifact? = null,
-)
+) {
+    val runtimeLabel: String
+        get() = when (runtimeType) {
+            RuntimeModelType.GGUF -> buildString {
+                append("transcribe.cpp · GGUF")
+                ggufQuantization(directArtifact?.fileName)?.let { append(" $it") }
+            }
+            RuntimeModelType.TRANSDUCER -> "sherpa-onnx · ONNX Transducer"
+            RuntimeModelType.WHISPER -> "sherpa-onnx · ONNX Whisper"
+            RuntimeModelType.MOONSHINE -> "sherpa-onnx · ONNX Moonshine"
+            RuntimeModelType.CTC -> "sherpa-onnx · ONNX CTC"
+        }
+}
+
+private fun ggufQuantization(fileName: String?): String? = fileName
+    ?.let { Regex("""-(Q\d+(?:_[A-Za-z0-9]+)?)\.gguf$""", RegexOption.IGNORE_CASE).find(it) }
+    ?.groupValues
+    ?.get(1)
+    ?.uppercase()
 
 val MODEL_CATALOG = listOf(
-    // Parakeet 0.6B v3 est le modèle français batch recommandé ; Nemotron fournit le streaming français.
-    Model("Parakeet 0.6B (FR)", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
-        465, "★★★★ Français — recommandé", recommended = true, runtimeType = RuntimeModelType.TRANSDUCER),
-    Model("Nemotron 3.5 Live (FR)", "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11",
-        453, "★★★★ Français en direct — expérimental", runtimeType = RuntimeModelType.TRANSDUCER),
-    Model("Nemotron 3.5 GGUF (FR)", "nemotron-3.5-asr-streaming-0.6b-Q6_K",
-        621, "★★★★ Français — expérimental (GGUF Q6_K)", runtimeType = RuntimeModelType.GGUF,
+    // Parakeet 0.6B v3 remains auto-detect; Nemotron receives the language per stream.
+    Model("Parakeet 0.6B (FR/EN)", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+        465, "★★★★ Français/anglais — recommandé", recommended = true, runtimeType = RuntimeModelType.TRANSDUCER),
+    Model("Nemotron 3.5 Live (FR/EN)", "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11",
+        453, "★★★★ Français/anglais en direct — expérimental", runtimeType = RuntimeModelType.TRANSDUCER),
+    Model("Nemotron 3.5 Handy (FR/EN)", "nemotron-3.5-asr-streaming-0.6b-Q8_0",
+        751, "★★★★ Français/anglais — réglage Handy", runtimeType = RuntimeModelType.GGUF,
+        directArtifact = DirectModelArtifact(
+            url = "https://huggingface.co/handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf/resolve/6d44e540bc31b0de1dbe174a3cea87f53a7f22fb/nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf",
+            fileName = "nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf",
+            expectedSizeBytes = 751094240L,
+            sha256 = "b94545b313b3223fda7b2857a52681da813935c2127643d1e9ff0c23d988089c",
+        ),
+    ),
+    Model("Nemotron 3.5 Compact (FR/EN)", "nemotron-3.5-asr-streaming-0.6b-Q6_K",
+        621, "★★★★ Français/anglais — compact", runtimeType = RuntimeModelType.GGUF,
         directArtifact = DirectModelArtifact(
             url = "https://huggingface.co/handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf/resolve/6d44e540bc31b0de1dbe174a3cea87f53a7f22fb/nemotron-3.5-asr-streaming-0.6b-Q6_K.gguf",
             fileName = "nemotron-3.5-asr-streaming-0.6b-Q6_K.gguf",

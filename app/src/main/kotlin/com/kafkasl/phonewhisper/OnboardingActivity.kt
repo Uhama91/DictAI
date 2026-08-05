@@ -112,8 +112,8 @@ class OnboardingActivity : AppCompatActivity() {
             { hasPerm(Manifest.permission.RECORD_AUDIO) }, "Autoriser",
             { ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1) }),
 
-        Step("model", "Modèle de transcription (français)",
-            "Télécharge Parakeet 0.6B (~465 Mo, WiFi conseillé) pour dicter en français hors-ligne. Le téléchargement continue pendant que tu fais les autres étapes.",
+        Step("model", "Modèle de transcription (FR/EN)",
+            "Télécharge Parakeet 0.6B (~465 Mo, WiFi conseillé) pour dicter hors-ligne en français ou en anglais. Le téléchargement continue pendant que tu fais les autres étapes.",
             { ModelDownloader.isInstalled(this, recommendedModel()) }, "Télécharger (~465 Mo)",
             { startModelDownload() }),
 

@@ -34,7 +34,7 @@ class ModelStorageTest {
     }
 
     @Test fun `accepts exactly one non-empty GGUF without tokens`() = withTempDir { tmp ->
-        val artifact = MODEL_CATALOG.single { it.runtimeType == RuntimeModelType.GGUF }.directArtifact!!
+        val artifact = compactGgufModel().directArtifact!!
         val valid = gguf(File(tmp, "valid"), artifact.fileName)
         val multiple = gguf(File(tmp, "multiple"), artifact.fileName).also {
             File(it, "another.gguf").writeText("another model")
@@ -46,7 +46,7 @@ class ModelStorageTest {
     }
 
     @Test fun `GGUF requires the catalogued artifact name`() = withTempDir { tmp ->
-        val model = MODEL_CATALOG.single { it.runtimeType == RuntimeModelType.GGUF }
+        val model = compactGgufModel()
         val alternate = gguf(File(tmp, "alternate"), "nemotron-altered.gguf")
 
         assertFalse(ModelStorage.isValidModelDirectory(alternate, model))
@@ -139,7 +139,7 @@ class ModelStorageTest {
     }
 
     private fun directTestModel(contents: String): Model {
-        val catalogModel = MODEL_CATALOG.single { it.runtimeType == RuntimeModelType.GGUF }
+        val catalogModel = compactGgufModel()
         return catalogModel.copy(
             directArtifact = catalogModel.directArtifact!!.copy(
                 expectedSizeBytes = contents.toByteArray().size.toLong(),
@@ -162,6 +162,10 @@ class ModelStorageTest {
     private fun ByteArray.sha256(): String = MessageDigest.getInstance("SHA-256")
         .digest(this)
         .joinToString("") { byte -> "%02x".format(byte) }
+
+    private fun compactGgufModel(): Model = MODEL_CATALOG.single {
+        it.archive == "nemotron-3.5-asr-streaming-0.6b-Q6_K"
+    }
 
     private fun withTempDir(block: (File) -> Unit) {
         val tmp = Files.createTempDirectory("model-storage-test").toFile()

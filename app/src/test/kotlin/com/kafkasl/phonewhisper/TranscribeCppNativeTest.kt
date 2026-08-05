@@ -32,11 +32,22 @@ class TranscribeCppNativeTest {
         )
     }
 
+    @Test
+    fun begin_passes_the_requested_BCP47_locale_to_JNI() {
+        val bindings = FakeBindings()
+        val session = TranscribeCppNative.forTesting(handle = 7L, bindings = bindings)
+
+        session.begin(DictationLanguage.ENGLISH.transcribeCppLanguage)
+
+        assertEquals(listOf("en-US"), bindings.beginLanguages)
+    }
+
     private class FakeBindings : TranscribeCppNative.Bindings {
         val freed = mutableListOf<Long>()
+        val beginLanguages = mutableListOf<String>()
 
         override fun open(modelPath: String): Long = 7L
-        override fun begin(handle: Long) = Unit
+        override fun begin(handle: Long, language: String) { beginLanguages += language }
         override fun feed(handle: Long, samples: FloatArray): Array<String> =
             arrayOf("bonjour le monde", "bonjour", " le monde")
 
