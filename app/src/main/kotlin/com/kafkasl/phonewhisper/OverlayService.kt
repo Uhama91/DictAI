@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -25,7 +26,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import kotlin.concurrent.thread
@@ -55,7 +56,9 @@ class OverlayService : Service() {
     private var wave: CursiveWaveView? = null
     private var loader: LoadingBorderView? = null
     private var liveText: TextView? = null
+    private var livePanel: ScrollView? = null
     private var params: WindowManager.LayoutParams? = null
+    private var liveParams: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
     private var pcm: java.io.ByteArrayOutputStream? = null
     private var local: LocalTranscriber? = null
@@ -64,9 +67,12 @@ class OverlayService : Service() {
     private var loadedModelName: String? = null
     private var baseButtonW = 0
     private var baseButtonH = 0
-    private var liveWindowW = 0
-    private var liveWindowH = 0
+    private var livePanelW = 0
+    private var livePanelH = 0
+    private var currentAnchor: Anchor? = null
+    private var livePanelAdded = false
     private var livePreviewVisible = false
+    private val liveTranscriptBuffer = LiveTranscriptBuffer()
     private val localLoading = java.util.concurrent.atomic.AtomicBoolean(false)
     private val main = Handler(Looper.getMainLooper())
 
@@ -189,6 +195,7 @@ class OverlayService : Service() {
         pcm = java.io.ByteArrayOutputStream()
         audioRecord!!.startRecording()
         val selectedModel = TranscriptionEngine.selectedModelName(this)
+        liveTranscriptBuffer.clear()
         liveSession = if (LiveStreamingTranscriber.supports(selectedModel)) {
             streamingLocal?.start { committed, tentative ->
                 updateLivePreview(committed, tentative)
@@ -304,52 +311,74 @@ class OverlayService : Service() {
     }
 
     private fun updateLivePreview(committed: String, tentative: String) {
-        val text = listOf(committed, tentative).filter { it.isNotBlank() }.joinToString(" ").trim()
+        val text = liveTranscriptBuffer.render(committed, tentative)
         if (text.isBlank()) return
         main.post {
-            liveText?.text = if (text.length > 520) "..." + text.takeLast(520) else text
+            liveText?.text = text
+            livePanel?.post { livePanel?.fullScroll(View.FOCUS_DOWN) }
             setLivePreviewVisible(true)
         }
     }
 
     private fun setLivePreviewVisible(show: Boolean) {
-        val tv = liveText ?: return
-        if (livePreviewVisible == show && tv.visibility == if (show) View.VISIBLE else View.GONE) return
-        val wasVisible = livePreviewVisible
+        val panel = livePanel ?: return
+        if (livePreviewVisible == show && panel.visibility == if (show) View.VISIBLE else View.GONE) return
         livePreviewVisible = show
-        tv.visibility = if (show) View.VISIBLE else View.GONE
-        resizeOverlay(
-            if (show) liveWindowW else baseButtonW,
-            if (show) liveWindowH else baseButtonH,
-            show,
-            wasVisible,
-        )
+        panel.visibility = if (show) View.VISIBLE else View.GONE
+        if (!show) return
+
+        val panelParams = liveParams ?: return
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        if (!livePanelAdded) {
+            try {
+                wm.addView(panel, panelParams)
+                livePanelAdded = true
+            } catch (e: Exception) {
+                Log.w(TAG, "add live panel echec: ${e.javaClass.simpleName}")
+                livePreviewVisible = false
+                panel.visibility = View.GONE
+                return
+            }
+        }
+        positionLivePanel(currentAnchor ?: return)
     }
 
-    private fun resizeOverlay(width: Int, height: Int, showLive: Boolean, wasLive: Boolean) {
+    private fun screenRect(): Rect = try {
+        val metrics = (getSystemService(WINDOW_SERVICE) as WindowManager).currentWindowMetrics
+        val bounds = metrics.bounds
+        val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+            android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout(),
+        )
+        Rect(
+            bounds.left + insets.left,
+            bounds.top + insets.top,
+            (bounds.width() - insets.left - insets.right).coerceAtLeast(1),
+            (bounds.height() - insets.top - insets.bottom).coerceAtLeast(1),
+        )
+    } catch (_: Exception) {
+        Rect(0, 0, resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
+    }
+
+    private fun pillRect(lp: WindowManager.LayoutParams): Rect = Rect(lp.x, lp.y, lp.width, lp.height)
+
+    private fun positionLivePanel(anchor: Anchor) {
+        val panel = livePanel ?: return
+        val panelParams = liveParams ?: return
+        if (!livePanelAdded) return
+        val point = OverlayPlacement.panelPosition(
+            anchor.edge, pillRect(params ?: return), Rect(0, 0, panelParams.width, panelParams.height),
+            screenRect(), (6 * resources.displayMetrics.density).toInt(),
+        )
+        panelParams.x = point.x
+        panelParams.y = point.y
+        try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, panelParams) } catch (_: Exception) {}
+    }
+
+    private fun updatePillLayout(anchorForPanel: Anchor? = currentAnchor) {
         val lp = params ?: return
         val view = container ?: return
-        if (width <= 0 || height <= 0) return
-        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        val screenW = resources.displayMetrics.widthPixels
-        val screenH = resources.displayMetrics.heightPixels
-        val wasRight = lp.x + (if (lp.width > 0) lp.width else width) / 2 >= screenW / 2
-        val liveDelta = liveWindowH - baseButtonH
-        if (showLive && !wasLive) lp.y -= liveDelta
-        if (!showLive && wasLive) lp.y += liveDelta
-        lp.width = width
-        lp.height = height
-        lp.x = if (wasRight) screenW - width else 0
-        lp.y = PersistencePrefs.clampY(lp.y, height, screenH)
-        updateFrameGravity()
-        try { wm.updateViewLayout(view, lp) } catch (_: Exception) {}
-    }
-
-    private fun updateFrameGravity() {
-        val frame = container as? LinearLayout ?: return
-        val lp = params ?: return
-        val screenW = resources.displayMetrics.widthPixels
-        frame.gravity = if (lp.x + lp.width / 2 >= screenW / 2) Gravity.END else Gravity.START
+        try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(view, lp) } catch (_: Exception) {}
+        anchorForPanel?.let(::positionLivePanel)
     }
 
     /** La pastille est permanente : on anime juste l'onde pendant l'enregistrement, calme sinon. */
@@ -392,16 +421,8 @@ class OverlayService : Service() {
         // Le bouton EST la pastille d'ondulation (plus aucun logo micro). Court horizontalement.
         val pillW = (74 * dp).toInt()
         val pillH = (44 * dp).toInt()
-        val screenW = resources.displayMetrics.widthPixels
-        val screenH = resources.displayMetrics.heightPixels
-        val panelGap = (6 * dp).toInt()
-        val panelH = (118 * dp).toInt()
-        val panelW = min((312 * dp).toInt(), screenW - (16 * dp).toInt())
         baseButtonW = pillW
         baseButtonH = pillH
-        liveWindowW = panelW
-        liveWindowH = pillH + panelGap + panelH
-
         // Pastille : rounded-rect blanc cassé + onde cursive, TOUJOURS visible (= le bouton).
         // Au repos l'onde est calme (figée), pendant l'enregistrement elle réagit à la voix.
         // Onde : pleine largeur, SANS padding → les ondulations touchent les bords blancs.
@@ -425,50 +446,57 @@ class OverlayService : Service() {
             }
             elevation = 4 * dp
             setPadding(0, 0, 0, 0)
-            layoutParams = LinearLayout.LayoutParams(
-                pillW, pillH
-            )
             addView(waveView)
             addView(loaderView)
         }
 
         val liveView = TextView(this).apply {
-            visibility = View.GONE
             textSize = 14f
             setTextColor(ThemeTokens.INK)
             includeFontPadding = false
-            maxLines = 5
-            gravity = Gravity.BOTTOM or Gravity.START
+            gravity = Gravity.START
             setLineSpacing(2 * dp, 1.0f)
+        }
+        val panelHPadding = (20 * dp).toInt()
+        val safeScreen = screenRect()
+        livePanelW = min((312 * dp).toInt(), (safeScreen.width - (16 * dp).toInt()).coerceAtLeast(1))
+        livePanelH = liveView.lineHeight * 3 + panelHPadding
+        val livePanel = ScrollView(this).apply {
+            visibility = View.GONE
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            isVerticalFadingEdgeEnabled = true
+            setFadingEdgeLength((18 * dp).toInt())
             setPadding((12 * dp).toInt(), (10 * dp).toInt(), (12 * dp).toInt(), (10 * dp).toInt())
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 10 * dp
-                setColor(0xF21F1F25.toInt())
+                setColor(0xFF1F1F25.toInt())
                 setStroke((1.2f * dp).toInt(), ThemeTokens.GREEN)
             }
-            layoutParams = LinearLayout.LayoutParams(panelW, panelH).apply {
-                bottomMargin = panelGap
-            }
+            addView(liveView, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT
+            ))
         }
 
-        val frame = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.END
-            addView(liveView)
-            addView(pillView)
-        }
-
-        // La fenêtre démarre à la taille du bouton rond (56dp).
+        // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
             pillW, pillH, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            // Toujours plaqué contre un bord (jamais au centre) : on re-colle au bord le plus proche.
-            val rawX = if (prefs.buttonX >= 0) PersistencePrefs.clampX(prefs.buttonX, pillW, screenW) else screenW - pillW
-            x = if (rawX + pillW / 2 >= screenW / 2) screenW - pillW else 0
-            y = if (prefs.buttonY >= 0) PersistencePrefs.clampY(prefs.buttonY, pillH, screenH) else screenH / 2
+        }
+        val initialAnchor = prefs.loadAnchor(pillW, pillH, resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
+        val initialPosition = OverlayPlacement.pillPosition(initialAnchor, Rect(0, 0, pillW, pillH), screenRect())
+        lp.x = initialPosition.x
+        lp.y = initialPosition.y
+        val panelParams = WindowManager.LayoutParams(
+            livePanelW, livePanelH, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            alpha = 0.8f
         }
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
@@ -482,8 +510,20 @@ class OverlayService : Service() {
                 startRec()
             }
         }
+        fun finishDrag() {
+            val screen = screenRect()
+            val anchor = OverlayPlacement.snap(Point(lp.x, lp.y), Rect(0, 0, lp.width, lp.height), screen)
+            val snapped = OverlayPlacement.pillPosition(anchor, Rect(0, 0, lp.width, lp.height), screen)
+            currentAnchor = anchor
+            lp.x = snapped.x
+            lp.y = snapped.y
+            updatePillLayout()
+            prefs.buttonX = lp.x
+            prefs.buttonY = lp.y
+            prefs.saveAnchor(anchor)
+        }
 
-        frame.setOnTouchListener { _, ev ->
+        pillView.setOnTouchListener { _, ev ->
             when (ev.action) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
@@ -495,20 +535,22 @@ class OverlayService : Service() {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     if (abs(dx) + abs(dy) > 10 * dp) {
                         moved = true; main.removeCallbacks(longPress)
-                        lp.x = PersistencePrefs.clampX((downX + dx).toInt(), lp.width, screenW)
-                        lp.y = PersistencePrefs.clampY((downY + dy).toInt(), lp.height, screenH)
-                        updateFrameGravity()
-                        try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
+                        val screen = screenRect()
+                        val clamped = OverlayPlacement.clampPill(
+                            Point((downX + dx).toInt(), (downY + dy).toInt()),
+                            Rect(0, 0, lp.width, lp.height),
+                            screen,
+                        )
+                        lp.x = clamped.x
+                        lp.y = clamped.y
+                        val dragAnchor = OverlayPlacement.snap(Point(lp.x, lp.y), Rect(0, 0, lp.width, lp.height), screen)
+                        updatePillLayout(dragAnchor)
                     }; true
                 }
                 MotionEvent.ACTION_UP -> {
                     main.removeCallbacks(longPress)
                     if (moved) {
-                        // Snap flush au bord le plus proche (collé, sans marge).
-                        lp.x = if (lp.x + lp.width / 2 > screenW / 2) screenW - lp.width else 0
-                        updateFrameGravity()
-                        try { wm.updateViewLayout(container, lp) } catch (_: Exception) {}
-                        prefs.buttonX = lp.x; prefs.buttonY = lp.y
+                        finishDrag()
                     } else if (pttFired) {
                         // Relâchement du push-to-talk → on arrête + transcrit
                         if (state == State.RECORDING) stopRec()
@@ -527,18 +569,50 @@ class OverlayService : Service() {
                         }
                     }; true
                 }
+                MotionEvent.ACTION_CANCEL -> {
+                    main.removeCallbacks(longPress)
+                    if (moved) finishDrag()
+                    if (pttFired && state == State.RECORDING) stopRec()
+                    true
+                }
                 else -> false
             }
         }
         try {
-            wm.addView(frame, lp)
+            wm.addView(pillView, lp)
         } catch (e: Exception) {
             Log.e(TAG, "addView echec: ${e.javaClass.simpleName}")
             return
         }
-        container = frame; pill = pillView; wave = waveView; loader = loaderView; liveText = liveView; params = lp
-        frame.post { waveView.settle() } // dessine l'onde calme au repos
+        container = pillView; pill = pillView; wave = waveView; loader = loaderView
+        liveText = liveView; this.livePanel = livePanel; params = lp; liveParams = panelParams; currentAnchor = initialAnchor
+        pillView.post { waveView.settle() } // dessine l'onde calme au repos
         scheduleCollapse()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val lp = params ?: return
+        val dp = resources.displayMetrics.density
+        baseButtonW = (74 * dp).toInt()
+        baseButtonH = (44 * dp).toInt()
+        lp.width = baseButtonW
+        lp.height = baseButtonH
+        val panelParams = liveParams
+        val text = liveText
+        if (panelParams != null && text != null) {
+            val safeScreen = screenRect()
+            livePanelW = min((312 * dp).toInt(), (safeScreen.width - (16 * dp).toInt()).coerceAtLeast(1))
+            livePanelH = text.lineHeight * 3 + (20 * dp).toInt()
+            panelParams.width = livePanelW
+            panelParams.height = livePanelH
+        }
+        val anchor = currentAnchor ?: prefs.loadAnchor(baseButtonW, baseButtonH, resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
+        currentAnchor = anchor
+        val point = OverlayPlacement.pillPosition(anchor, Rect(0, 0, lp.width, lp.height), screenRect())
+        lp.x = point.x
+        lp.y = point.y
+        updatePillLayout()
     }
 
     private fun openApp() = startActivity(
@@ -562,8 +636,10 @@ class OverlayService : Service() {
         main.removeCallbacksAndMessages(null)
         try { wave?.stop() } catch (_: Exception) {}
         try { loader?.stop() } catch (_: Exception) {}
+        try { if (livePanelAdded) livePanel?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
-        container = null; pill = null; wave = null; loader = null; liveText = null
+        livePanelAdded = false
+        container = null; pill = null; wave = null; loader = null; liveText = null; livePanel = null; liveParams = null
         super.onDestroy()
     }
 }

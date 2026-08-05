@@ -36,10 +36,7 @@ object TranscriptionEngine {
         return try {
             val modelName = selectedModelName(ctx)
             if (LiveStreamingTranscriber.supports(modelName)) return null
-            if (modelName.isBlank()) {
-                val models = LocalTranscriber.availableModels(ctx)
-                if (models.isNotEmpty()) LocalTranscriber.create(ctx, models.first()) else null
-            } else LocalTranscriber.create(ctx, modelName)
+            if (modelName.isBlank()) null else LocalTranscriber.create(ctx, modelName)
         } catch (t: Throwable) {
             // Une erreur native est une Error, pas nécessairement une Exception :
             // catch(Throwable) évite que l’application plante.
@@ -60,6 +57,5 @@ object TranscriptionEngine {
     }
 
     fun selectedModelName(ctx: Context): String =
-        ctx.getSharedPreferences("phonewhisper", Context.MODE_PRIVATE)
-            .getString("model_name", "") ?: ""
+        ModelDownloader.reconcileSelectedModel(ctx) ?: ""
 }

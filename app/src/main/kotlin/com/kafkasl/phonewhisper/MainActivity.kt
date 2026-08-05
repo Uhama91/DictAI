@@ -286,14 +286,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectModel(archive: String) {
-        prefs().edit().putString("model_name", archive).apply()
+        val model = MODEL_CATALOG.firstOrNull { it.archive == archive }
+        if (model != null && ModelDownloader.isInstalled(this, model)) {
+            prefs().edit().putString("model_name", archive).apply()
+        } else {
+            ModelDownloader.reconcileSelectedModel(this)
+        }
         refresh()
     }
 
     private fun refreshCard(model: Model) {
         val views = modelRows[model.archive] ?: return
-        val active = prefs().getString("model_name", "") == model.archive
         val installed = ModelDownloader.isInstalled(this, model)
+        val active = installed && ModelDownloader.reconcileSelectedModel(this) == model.archive
         
         views.radio.isChecked = active
         views.radio.visibility = if (installed) View.VISIBLE else View.GONE
@@ -311,16 +316,11 @@ class MainActivity : AppCompatActivity() {
     private fun refresh() {
         val audio = hasPerm(Manifest.permission.RECORD_AUDIO)
         val acc = WhisperAccessibilityService.controller != null
-        val hasModel = LocalTranscriber.availableModels(this).isNotEmpty()
+        val selectedModel = ModelDownloader.reconcileSelectedModel(this)
+        val hasModel = selectedModel != null
 
         audioRowSub.text = if (audio) "Granted" else "Tap to grant permission"
         accRowSub.text = if (acc) "Enabled" else "Tap to enable in settings"
-
-        val cur = prefs().getString("model_name", "") ?: ""
-        if (cur.isBlank() || !File(filesDir, "models/$cur").exists()) {
-            MODEL_CATALOG.firstOrNull { ModelDownloader.isInstalled(this, it) }
-                ?.let { selectModel(it.archive) }
-        }
 
         // Ready logic
         val ready = audio && acc && hasModel

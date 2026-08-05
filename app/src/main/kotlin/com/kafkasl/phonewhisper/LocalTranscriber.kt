@@ -28,17 +28,17 @@ class LocalTranscriber private constructor(private val recognizer: OfflineRecogn
         fun availableModels(ctx: Context): List<String> {
             val modelsDir = File(ctx.filesDir, "models")
             if (!modelsDir.exists()) return emptyList()
-            return modelsDir.listFiles()?.filter { it.isDirectory }?.map { it.name } ?: emptyList()
+            return MODEL_CATALOG.filter { ModelDownloader.isInstalled(ctx, it) }.map { it.archive }
         }
 
         /** Create a LocalTranscriber for the given model directory name. Returns null on failure. */
         fun create(ctx: Context, modelName: String): LocalTranscriber? {
             val modelDir = File(ctx.filesDir, "models/$modelName")
-            if (!modelDir.exists()) {
-                Log.e(TAG, "Model dir not found: $modelDir")
+            val model = MODEL_CATALOG.firstOrNull { it.archive == modelName }
+            if (model == null || !ModelDownloader.isInstalled(ctx, model)) {
+                Log.e(TAG, "Model dir is invalid: $modelDir")
                 return null
             }
-
             val config = detectModelConfig(modelDir) ?: run {
                 Log.e(TAG, "Could not detect model type in $modelDir")
                 return null
@@ -56,87 +56,51 @@ class LocalTranscriber private constructor(private val recognizer: OfflineRecogn
 
         /** Auto-detect model type from files present in the directory. */
         private fun detectModelConfig(dir: File): OfflineRecognizerConfig? {
-            val p = dir.absolutePath
-            val tokens = "$p/tokens.txt"
-            if (!File(tokens).exists()) return null
-
-            // Moonshine (has preprocess.onnx)
-            if (File("$p/preprocess.onnx").exists()) {
-                return OfflineRecognizerConfig(
+            val layout = ModelStorage.inspectModelDirectory(dir) ?: return null
+            return when (layout.type) {
+                RuntimeModelType.MOONSHINE -> OfflineRecognizerConfig(
                     modelConfig = OfflineModelConfig(
                         moonshine = OfflineMoonshineModelConfig(
-                            preprocessor = "$p/preprocess.onnx",
-                            encoder = findFile(p, "encode") ?: return null,
-                            uncachedDecoder = findFile(p, "uncached_decode") ?: return null,
-                            cachedDecoder = findFile(p, "cached_decode") ?: return null,
+                            preprocessor = layout.preprocess!!.absolutePath,
+                            encoder = layout.encoder!!.absolutePath,
+                            uncachedDecoder = layout.uncachedDecoder!!.absolutePath,
+                            cachedDecoder = layout.cachedDecoder!!.absolutePath,
                         ),
-                        tokens = tokens,
+                        tokens = layout.tokens.absolutePath,
                         numThreads = 2,
                     )
                 )
-            }
-
-            // Whisper (has encoder + decoder, no joiner)
-            val whisperEncoder = findFile(p, "encoder")
-            val whisperDecoder = findFile(p, "decoder")
-            if (whisperEncoder != null && whisperDecoder != null && findFile(p, "joiner") == null) {
-                return OfflineRecognizerConfig(
+                RuntimeModelType.WHISPER -> OfflineRecognizerConfig(
                     modelConfig = OfflineModelConfig(
                         whisper = OfflineWhisperModelConfig(
-                            encoder = whisperEncoder,
-                            decoder = whisperDecoder,
+                            encoder = layout.encoder!!.absolutePath,
+                            decoder = layout.decoder!!.absolutePath,
                         ),
-                        tokens = tokens,
+                        tokens = layout.tokens.absolutePath,
                         numThreads = 2,
                         modelType = "whisper",
                     )
                 )
-            }
-
-            // NeMo transducer / Parakeet TDT (has encoder + decoder + joiner)
-            val encoder = findFile(p, "encoder")
-            val decoder = findFile(p, "decoder")
-            val joiner = findFile(p, "joiner")
-            if (encoder != null && decoder != null && joiner != null) {
-                return OfflineRecognizerConfig(
+                RuntimeModelType.TRANSDUCER -> OfflineRecognizerConfig(
                     modelConfig = OfflineModelConfig(
                         transducer = OfflineTransducerModelConfig(
-                            encoder = encoder,
-                            decoder = decoder,
-                            joiner = joiner,
+                            encoder = layout.encoder!!.absolutePath,
+                            decoder = layout.decoder!!.absolutePath,
+                            joiner = layout.joiner!!.absolutePath,
                         ),
-                        tokens = tokens,
+                        tokens = layout.tokens.absolutePath,
                         numThreads = 2,
                         modelType = "nemo_transducer",
                     )
                 )
-            }
-
-            // NeMo CTC (single model.onnx / model.int8.onnx)
-            val ctcModel = findFile(p, "model")
-            if (ctcModel != null) {
-                return OfflineRecognizerConfig(
+                RuntimeModelType.CTC -> OfflineRecognizerConfig(
                     modelConfig = OfflineModelConfig(
-                        nemo = OfflineNemoEncDecCtcModelConfig(model = ctcModel),
-                        tokens = tokens,
+                        nemo = OfflineNemoEncDecCtcModelConfig(model = layout.model!!.absolutePath),
+                        tokens = layout.tokens.absolutePath,
                         numThreads = 2,
                     )
                 )
             }
-
-            return null
-        }
-
-        /** Find first file matching prefix (prefer int8 quantized). */
-        private fun findFile(dir: String, prefix: String): String? {
-            val d = File(dir)
-            // Prefer int8 quantized
-            d.listFiles()?.firstOrNull { it.name.startsWith(prefix) && it.name.contains("int8") }
-                ?.let { return it.absolutePath }
-            // Fallback to any onnx/ort
-            return d.listFiles()?.firstOrNull {
-                it.name.startsWith(prefix) && (it.name.endsWith(".onnx") || it.name.endsWith(".ort"))
-            }?.absolutePath
         }
     }
 }

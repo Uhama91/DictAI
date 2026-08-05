@@ -101,7 +101,7 @@ class LiveStreamingTranscriber private constructor(
         }
 
         private fun handleSamples(stream: OnlineStream, samples: FloatArray) {
-            stream.acceptWaveform(samples, SAMPLE_RATE)
+            stream.acceptWaveform(samples, SAMPLE_RATE_HZ)
             var decoded = false
             while (recognizer.isReady(stream)) {
                 recognizer.decode(stream)
@@ -175,7 +175,8 @@ class LiveStreamingTranscriber private constructor(
 
     companion object {
         private const val TAG = "LiveStreamingTranscriber"
-        private const val SAMPLE_RATE = 16000
+        const val SAMPLE_RATE_HZ = 16000
+        const val NEMOTRON_FEATURE_DIM = 80
 
         fun supports(modelName: String): Boolean =
             modelName.contains("nemotron-3.5-asr-streaming", ignoreCase = true)
@@ -183,7 +184,8 @@ class LiveStreamingTranscriber private constructor(
         fun create(ctx: Context, modelName: String): LiveStreamingTranscriber? {
             if (!supports(modelName)) return null
             val dir = File(ctx.filesDir, "models/$modelName")
-            if (!dir.exists()) return null
+            val model = MODEL_CATALOG.firstOrNull { it.archive == modelName }
+            if (model == null || !ModelDownloader.isInstalled(ctx, model)) return null
             val config = detectConfig(dir) ?: return null
 
             return try {
@@ -197,22 +199,18 @@ class LiveStreamingTranscriber private constructor(
         }
 
         private fun detectConfig(dir: File): OnlineRecognizerConfig? {
-            val p = dir.absolutePath
-            val tokens = "$p/tokens.txt"
-            val encoder = findFile(p, "encoder") ?: return null
-            val decoder = findFile(p, "decoder") ?: return null
-            val joiner = findFile(p, "joiner") ?: return null
-            if (!File(tokens).exists()) return null
+            val layout = ModelStorage.inspectModelDirectory(dir) ?: return null
+            if (layout.type != RuntimeModelType.TRANSDUCER) return null
 
             return OnlineRecognizerConfig(
-                featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 128),
+                featConfig = FeatureConfig(sampleRate = SAMPLE_RATE_HZ, featureDim = NEMOTRON_FEATURE_DIM),
                 modelConfig = OnlineModelConfig(
                     transducer = OnlineTransducerModelConfig(
-                        encoder = encoder,
-                        decoder = decoder,
-                        joiner = joiner,
+                        encoder = layout.encoder!!.absolutePath,
+                        decoder = layout.decoder!!.absolutePath,
+                        joiner = layout.joiner!!.absolutePath,
                     ),
-                    tokens = tokens,
+                    tokens = layout.tokens.absolutePath,
                     numThreads = 2,
                 ),
                 endpointConfig = EndpointConfig(
@@ -225,13 +223,5 @@ class LiveStreamingTranscriber private constructor(
             )
         }
 
-        private fun findFile(dir: String, prefix: String): String? {
-            val d = File(dir)
-            d.listFiles()?.firstOrNull { it.name.startsWith(prefix) && it.name.contains("int8") }
-                ?.let { return it.absolutePath }
-            return d.listFiles()?.firstOrNull {
-                it.name.startsWith(prefix) && (it.name.endsWith(".onnx") || it.name.endsWith(".ort"))
-            }?.absolutePath
-        }
     }
 }

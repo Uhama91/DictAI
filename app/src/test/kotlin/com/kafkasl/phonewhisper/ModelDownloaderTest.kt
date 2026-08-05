@@ -40,6 +40,20 @@ class ModelDownloaderTest {
         }
     }
 
+    @Test fun `rejects traversal into a sibling whose path shares the output prefix`() {
+        withTempDir { tmp ->
+            val archive = File(tmp, "prefix-sibling.tar.bz2")
+            val outDir = File(tmp, "out")
+            writeTarBz2(archive, mapOf("../out-sibling/evil.txt" to "gotcha"))
+
+            assertThrows(IllegalArgumentException::class.java) {
+                ModelDownloader.extractTarBz2(archive, outDir)
+            }
+
+            assertFalse(File(tmp, "out-sibling/evil.txt").exists())
+        }
+    }
+
     @Test fun `catalog has expected structure`() {
         assertEquals(5, MODEL_CATALOG.size)
         assertTrue(MODEL_CATALOG.any { it.recommended })
