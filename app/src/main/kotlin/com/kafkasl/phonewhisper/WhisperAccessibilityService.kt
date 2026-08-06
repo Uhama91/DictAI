@@ -36,11 +36,15 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         val candidates = findInjectionCandidates()
         return try {
             val fallbackTarget = candidates.firstOrNull(::isKnownFallbackTarget)
+            var preparedFallbackTarget: PreparedTarget? = null
             orchestrateInjection(
                 directInsert = { candidates.any { tryDirectSetText(it, text) } },
-                targetSafety = { targetSafety(fallbackTarget) },
-                prepareClipboard = { SensitiveClipboard.copy(this, text) },
-                paste = { fallbackTarget?.let(::tryPaste) == true },
+                targetSafety = {
+                    preparedFallbackTarget = fallbackTarget?.let(::focusAndReadTarget)
+                    targetSafety(preparedFallbackTarget)
+                },
+                prepareClipboard = { DictationClipboard.copy(this, text) },
+                paste = { preparedFallbackTarget?.node?.let(::tryPaste) == true },
             )
         } finally {
             candidates.forEach { it.recycle() }
@@ -50,7 +54,9 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
     override fun isActiveTargetSensitive(): Boolean {
         val candidates = findInjectionCandidates()
         return try {
-            targetSafety(candidates.firstOrNull(::isKnownFallbackTarget)) != InjectionTargetSafety.Safe
+            val focusedTarget = candidates.firstOrNull { it.isFocused }
+            targetSafety(focusedTarget?.let { focusAndReadTarget(it, allowFocus = false) }) !=
+                InjectionTargetSafety.Safe
         } finally {
             candidates.forEach { it.recycle() }
         }
@@ -120,17 +126,16 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
 
     private fun candidateScore(node: AccessibilityNodeInfo): Int {
         val className = node.className?.toString().orEmpty()
-        var score = 0
-        if (findCustomPasteAction(node) != null) score += 100
-        if (className.contains("TerminalView")) score += 80
-        if (node.isEditable) score += 60
-        if (node.isFocused) score += 40
-        if (className.contains("EditText")) score += 20
-        return score
+        return injectionCandidateScore(
+            isFocused = node.isFocused,
+            isEditable = node.isEditable,
+            isEditText = className.contains("EditText"),
+            isTerminalView = className.contains("TerminalView"),
+            hasCustomPasteAction = findCustomPasteAction(node) != null,
+        )
     }
 
     private fun isKnownFallbackTarget(node: AccessibilityNodeInfo): Boolean {
-        if (!node.isFocused) return false
         val className = node.className?.toString().orEmpty()
         return node.isEditable ||
             className.contains("EditText") ||
@@ -139,27 +144,59 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
             node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_PASTE }
     }
 
-    private fun targetSafety(node: AccessibilityNodeInfo?): InjectionTargetSafety = when {
-        node == null -> InjectionTargetSafety.Unknown
-        SensitiveInputPolicy.isSensitive(node.isPassword, node.inputType) ->
-            InjectionTargetSafety.Sensitive
-        else -> InjectionTargetSafety.Safe
+    private fun targetSafety(target: PreparedTarget?): InjectionTargetSafety = when {
+        target == null -> InjectionTargetSafety.Unknown
+        else -> freshFallbackTargetSafety(
+            isKnownFallbackTarget = target.isKnownFallbackTarget,
+            isPassword = target.isPassword,
+            inputType = target.inputType,
+        )
+    }
+
+    private data class PreparedTarget(
+        val node: AccessibilityNodeInfo,
+        val isKnownFallbackTarget: Boolean,
+        val isEditable: Boolean,
+        val isPassword: Boolean,
+        val inputType: Int,
+    )
+
+    private fun focusAndReadTarget(
+        node: AccessibilityNodeInfo,
+        allowFocus: Boolean = true,
+    ): PreparedTarget? {
+        val initiallyFocused = node.isFocused
+        if (!allowFocus && !initiallyFocused) return null
+        return focusAndReadFresh(
+            initiallyFocused = initiallyFocused,
+            requestFocus = {
+                if (allowFocus) node.performAction(AccessibilityNodeInfo.ACTION_FOCUS) else false
+            },
+            refresh = { node.refresh() },
+            readFresh = read@{
+                if (!node.isFocused) return@read null
+                PreparedTarget(
+                    node = node,
+                    isKnownFallbackTarget = isKnownFallbackTarget(node),
+                    isEditable = node.isEditable,
+                    isPassword = node.isPassword,
+                    inputType = node.inputType,
+                )
+            },
+        )
     }
 
     private fun tryDirectSetText(node: AccessibilityNodeInfo, text: String): Boolean {
-        val updated = readAfterSuccessfulRefresh(
-            refresh = { node.refresh() },
-            read = read@{
-                if (!node.isFocused || !node.isEditable) return@read null
-                if (SensitiveInputPolicy.isSensitive(node.isPassword, node.inputType)) return@read null
-                composeDirectSetText(
-                    currentText = node.text,
-                    selectionStart = node.textSelectionStart,
-                    selectionEnd = node.textSelectionEnd,
-                    dictatedText = text,
-                )
-            },
-        ) ?: return false
+        val updated = focusAndReadTarget(node)?.let { target ->
+            if (!target.isEditable) return@let null
+            if (SensitiveInputPolicy.isSensitive(target.isPassword, target.inputType)) return@let null
+            composeDirectSetText(
+                currentText = node.text,
+                selectionStart = node.textSelectionStart,
+                selectionEnd = node.textSelectionEnd,
+                dictatedText = text,
+            )
+        } ?: return false
 
         logNode("Trying direct node", node)
         val args = Bundle().apply {
@@ -174,6 +211,12 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
     }
 
     private fun tryPaste(node: AccessibilityNodeInfo): Boolean {
+        if (!node.refresh()) return false
+        if (!node.isFocused || !isKnownFallbackTarget(node)) return false
+        val isPassword = node.isPassword
+        val inputType = node.inputType
+        if (SensitiveInputPolicy.isSensitive(isPassword, inputType)) return false
+
         logNode("Trying paste node", node)
         findCustomPasteAction(node)?.let { action ->
             val ok = node.performAction(action.id)

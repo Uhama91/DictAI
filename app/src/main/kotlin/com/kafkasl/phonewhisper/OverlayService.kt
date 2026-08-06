@@ -529,7 +529,7 @@ class OverlayService : Service() {
                 val result = injectOrCopy(
                     controller = WhisperAccessibilityService.controller,
                     text = outText,
-                    copyToClipboard = { SensitiveClipboard.copy(this, it) },
+                    copyToClipboard = { DictationClipboard.copy(this, it) },
                 )
                 injectionFeedbackMessage(result)?.let(::toast)
             } else if (streamingResult !is LiveStreamingTranscriber.Finalization.Empty) {

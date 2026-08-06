@@ -68,12 +68,41 @@ internal fun composeDirectSetText(
     )
 }
 
-internal fun <T> readAfterSuccessfulRefresh(
+internal fun <T> focusAndReadFresh(
+    initiallyFocused: Boolean,
+    requestFocus: () -> Boolean,
     refresh: () -> Boolean,
-    read: () -> T,
+    readFresh: () -> T?,
 ): T? {
+    if (!initiallyFocused && !requestFocus()) return null
     if (!refresh()) return null
-    return read()
+    return readFresh()
+}
+
+internal fun injectionCandidateScore(
+    isFocused: Boolean,
+    isEditable: Boolean,
+    isEditText: Boolean,
+    isTerminalView: Boolean,
+    hasCustomPasteAction: Boolean,
+): Int {
+    var score = 0
+    if (isFocused) score += 1_000
+    if (hasCustomPasteAction) score += 100
+    if (isTerminalView) score += 80
+    if (isEditable) score += 60
+    if (isEditText) score += 20
+    return score
+}
+
+internal fun freshFallbackTargetSafety(
+    isKnownFallbackTarget: Boolean,
+    isPassword: Boolean,
+    inputType: Int,
+): InjectionTargetSafety = when {
+    !isKnownFallbackTarget -> InjectionTargetSafety.Unknown
+    SensitiveInputPolicy.isSensitive(isPassword, inputType) -> InjectionTargetSafety.Sensitive
+    else -> InjectionTargetSafety.Safe
 }
 
 object SensitiveInputPolicy {

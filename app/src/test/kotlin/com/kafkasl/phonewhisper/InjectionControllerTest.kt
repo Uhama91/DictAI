@@ -1,7 +1,9 @@
 package com.kafkasl.phonewhisper
 
+import android.text.InputType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InjectionControllerTest {
@@ -94,32 +96,122 @@ class InjectionControllerTest {
         }
     }
 
-    @Test fun `sensitive clipboard key uses platform constant from API 33`() {
-        assertEquals(
-            "platform-sensitive-key",
-            sensitiveClipboardExtraKey(apiLevel = 33, platformKey = "platform-sensitive-key"),
+    @Test fun `unfocused target requests focus then refreshes before reading fresh state`() {
+        val events = mutableListOf<String>()
+
+        val result = focusAndReadFresh(
+            initiallyFocused = false,
+            requestFocus = { events += "focus"; true },
+            refresh = { events += "refresh"; true },
+            readFresh = { events += "read"; "focused" },
         )
+
+        assertEquals("focused", result)
+        assertEquals(listOf("focus", "refresh", "read"), events)
+    }
+
+    @Test fun `refused focus stops before refresh and fresh read`() {
+        val events = mutableListOf<String>()
+
+        val result = focusAndReadFresh(
+            initiallyFocused = false,
+            requestFocus = { events += "focus"; false },
+            refresh = { events += "refresh"; true },
+            readFresh = { events += "read"; "stale" },
+        )
+
+        assertNull(result)
+        assertEquals(listOf("focus"), events)
+    }
+
+    @Test fun `refused refresh stops before fresh read`() {
+        val events = mutableListOf<String>()
+
+        val result = focusAndReadFresh(
+            initiallyFocused = false,
+            requestFocus = { events += "focus"; true },
+            refresh = { events += "refresh"; false },
+            readFresh = { events += "read"; "stale" },
+        )
+
+        assertNull(result)
+        assertEquals(listOf("focus", "refresh"), events)
+    }
+
+    @Test fun `focused target refreshes without requesting focus`() {
+        val events = mutableListOf<String>()
+
+        val result = focusAndReadFresh(
+            initiallyFocused = true,
+            requestFocus = { events += "focus"; true },
+            refresh = { events += "refresh"; true },
+            readFresh = { events += "read"; "focused" },
+        )
+
+        assertEquals("focused", result)
+        assertEquals(listOf("refresh", "read"), events)
+    }
+
+    @Test fun `focused candidate scores ahead of unfocused custom paste candidate`() {
+        val focusedScore = injectionCandidateScore(
+            isFocused = true,
+            isEditable = false,
+            isEditText = false,
+            isTerminalView = false,
+            hasCustomPasteAction = false,
+        )
+        val unfocusedCustomPasteScore = injectionCandidateScore(
+            isFocused = false,
+            isEditable = false,
+            isEditText = false,
+            isTerminalView = false,
+            hasCustomPasteAction = true,
+        )
+
+        assertTrue(focusedScore > unfocusedCustomPasteScore)
+    }
+
+    @Test fun `fresh fallback that is no longer known is unknown and never prepares clipboard`() {
+        val events = mutableListOf<String>()
+
+        val result = orchestrateInjection(
+            directInsert = { events += "direct"; false },
+            targetSafety = {
+                events += "safety"
+                freshFallbackTargetSafety(
+                    isKnownFallbackTarget = false,
+                    isPassword = false,
+                    inputType = InputType.TYPE_CLASS_TEXT,
+                )
+            },
+            prepareClipboard = { events += "clipboard"; true },
+            paste = { events += "paste"; true },
+        )
+
+        assertEquals(InjectionResult.Failed, result)
+        assertEquals(listOf("direct", "safety"), events)
+    }
+
+    @Test fun `fresh known ordinary fallback is safe`() {
         assertEquals(
-            "android.content.extra.IS_SENSITIVE",
-            sensitiveClipboardExtraKey(apiLevel = 32, platformKey = "platform-sensitive-key"),
+            InjectionTargetSafety.Safe,
+            freshFallbackTargetSafety(
+                isKnownFallbackTarget = true,
+                isPassword = false,
+                inputType = InputType.TYPE_CLASS_TEXT,
+            ),
         )
     }
 
-    @Test fun `failed refresh prevents reading the direct text snapshot`() {
-        var snapshotReads = 0
-
-        val rejected = readAfterSuccessfulRefresh(
-            refresh = { false },
-            read = { snapshotReads += 1; "stale" },
+    @Test fun `fresh known password fallback is sensitive`() {
+        assertEquals(
+            InjectionTargetSafety.Sensitive,
+            freshFallbackTargetSafety(
+                isKnownFallbackTarget = true,
+                isPassword = true,
+                inputType = InputType.TYPE_CLASS_TEXT,
+            ),
         )
-        val accepted = readAfterSuccessfulRefresh(
-            refresh = { true },
-            read = { snapshotReads += 1; "fresh" },
-        )
-
-        assertNull(rejected)
-        assertEquals("fresh", accepted)
-        assertEquals(1, snapshotReads)
     }
 
     @Test fun `clipboard preparation failure returns failed without paste`() {
