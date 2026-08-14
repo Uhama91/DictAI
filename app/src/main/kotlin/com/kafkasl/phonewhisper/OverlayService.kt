@@ -131,25 +131,6 @@ internal fun dispatchResidentClose(
     launch(close)
 }
 
-/** Pure guard so the overlay never starts AudioRecord while its selected engine is loading or absent. */
-internal object RecordingStartGate {
-    enum class Decision { START, LOADING, RELOAD_REQUIRED, UNAVAILABLE }
-
-    fun decide(
-        localLoading: Boolean,
-        selectedModel: String,
-        loadedModel: String?,
-        hasBatchEngine: Boolean,
-        hasStreamingEngine: Boolean,
-    ): Decision = when {
-        localLoading -> Decision.LOADING
-        selectedModel != loadedModel -> Decision.RELOAD_REQUIRED
-        LiveStreamingTranscriber.supports(selectedModel) && !hasStreamingEngine -> Decision.UNAVAILABLE
-        !LiveStreamingTranscriber.supports(selectedModel) && !hasBatchEngine -> Decision.UNAVAILABLE
-        else -> Decision.START
-    }
-}
-
 class OverlayService : Service() {
 
     companion object {
@@ -179,9 +160,8 @@ class OverlayService : Service() {
     private var liveParams: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
     private var pcm: java.io.ByteArrayOutputStream? = null
-    @Volatile private var local: LocalTranscriber? = null
-    @Volatile private var streamingLocal: LiveStreamingTranscriber? = null
-    private var liveSession: LiveStreamingTranscriber.Session? = null
+    @Volatile private var asrEngine: DictationAsrEngine? = null
+    @Volatile private var asrSession: DictationAsrSession? = null
     private var recordingOptions: RecordingOptions? = null
     @Volatile private var loadedModelName: String? = null
     private var baseButtonW = 0
@@ -194,7 +174,7 @@ class OverlayService : Service() {
     private val liveTranscriptBuffer = LiveTranscriptBuffer()
     private val localLoading = java.util.concurrent.atomic.AtomicBoolean(false)
     private val localEngineLifecycle = LocalEngineLifecycle()
-    private val residentLocalEngine = ResidentEngine<LoadedLocalEngine>()
+    private val residentAsrEngine = ResidentEngine<DictationAsrEngine>()
     private val main = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -218,30 +198,13 @@ class OverlayService : Service() {
         return START_STICKY
     }
 
-    private class LoadedLocalEngine(
-        val batch: LocalTranscriber?,
-        val streaming: LiveStreamingTranscriber?,
-    ) : java.io.Closeable {
-        override fun close() {
-            try {
-                streaming?.close()
-            } finally {
-                localClose()
-            }
-        }
-
-        private fun localClose() {
-            batch?.close()
-        }
-    }
-
     /** Charge le modèle local hors thread principal; l'ancien moteur est fermé avant toute nouvelle ouverture. */
     private fun ensureLocalLoaded() {
         val selectedModel = TranscriptionEngine.selectedModelName(this)
         when (LocalLoadStartGate.acquire(
             localLoading = localLoading,
             isDestroyed = localEngineLifecycle::isDestroyed,
-            isLoaded = { residentLocalEngine.isLoaded(selectedModel) },
+            isLoaded = { residentAsrEngine.isLoaded(selectedModel) },
         )) {
             LocalLoadStartGate.Decision.START -> Unit
             LocalLoadStartGate.Decision.BUSY,
@@ -250,19 +213,16 @@ class OverlayService : Service() {
         }
         thread {
             try {
-                liveSession?.cancelAndAwait()
-                liveSession = null
-                val loaded = residentLocalEngine.replace(selectedModel) {
-                    val batch = TranscriptionEngine.loadLocal(this, selectedModel)
-                    val streaming = TranscriptionEngine.loadStreamingLocal(this, selectedModel)
-                    LoadedLocalEngine(batch, streaming).takeIf { batch != null || streaming != null }
+                asrSession?.cancelAndAwait()
+                asrSession = null
+                val loaded = residentAsrEngine.replace(selectedModel) {
+                    DictationAsrEngineFactory.create(this, selectedModel)
                 }
                 val published = localEngineLifecycle.publishIfAlive {
-                    local = loaded?.batch
-                    streamingLocal = loaded?.streaming
+                    asrEngine = loaded
                     loadedModelName = selectedModel
                 }
-                if (!published) residentLocalEngine.close()
+                if (!published) residentAsrEngine.close()
             }
             finally { localLoading.set(false) }
         }
@@ -339,22 +299,15 @@ class OverlayService : Service() {
     private fun startRec() {
         val cloudRequested = prefs.cloudCleanupEnabled
         val targetSensitive = runCatching {
-            WhisperAccessibilityService.controller?.isActiveTargetSensitive() ?: true
+            InjectionGateway.current()?.isActiveTargetSensitive() ?: true
         }.getOrDefault(true)
         val cloudPolicy = CloudSensitiveTargetPolicy.snapshot(cloudRequested, targetSensitive)
-        val options = RecordingOptions(
-            language = prefs.dictationLanguage,
-            cloudCleanupEnabled = cloudPolicy.cloudAllowed,
-            cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
-            cloudModel = prefs.cloudModel(),
-        )
         val selectedModel = TranscriptionEngine.selectedModelName(this)
         when (RecordingStartGate.decide(
             localLoading = localLoading.get(),
             selectedModel = selectedModel,
             loadedModel = loadedModelName,
-            hasBatchEngine = local != null,
-            hasStreamingEngine = streamingLocal != null,
+            hasAsrEngine = asrEngine != null,
         )) {
             RecordingStartGate.Decision.START -> Unit
             RecordingStartGate.Decision.LOADING -> {
@@ -371,38 +324,90 @@ class OverlayService : Service() {
                 return
             }
         }
+        val engine = asrEngine ?: return
+        val options = RecordingOptions(
+            language = prefs.dictationLanguage,
+            asrMode = engine.mode,
+            cloudCleanupEnabled = cloudPolicy.cloudAllowed,
+            cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
+            cloudModel = prefs.cloudModel(),
+        )
         val bufSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
         )
-        audioRecord = try {
-            AudioRecord(
-                MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufSize
-            )
-        } catch (e: SecurityException) { toast("Mic refuse"); return }
-        pcm = java.io.ByteArrayOutputStream()
-        audioRecord!!.startRecording()
-        recordingOptions = options
-        liveTranscriptBuffer.clear()
-        liveSession = if (LiveStreamingTranscriber.supports(selectedModel)) {
-            streamingLocal?.start(options.language) { committed, tentative ->
-                updateLivePreview(committed, tentative)
-            }
-        } else null
-        setLivePreviewVisible(false)
-        setState(State.RECORDING)
-        vibrate(20)
-        val ar = audioRecord!!
-        recordThread = thread {
-            val buf = ByteArray(bufSize)
-            while (state == State.RECORDING) {
-                val n = ar.read(buf, 0, buf.size)
-                if (n > 0) {
-                    pcm?.write(buf, 0, n)
-                    liveSession?.acceptPcm16(buf, n)
-                    wave?.setLevel(rmsLevel(buf, n))
+        val transaction = RecordingStartupTransaction(
+            bufferSize = bufSize,
+            createRecorder = {
+                AndroidRecordingRecorder(
+                    AudioRecord(
+                        MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
+                        AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufSize,
+                    ),
+                )
+            },
+            openSession = {
+                engine.start(options.language) { committed, tentative ->
+                    updateLivePreview(committed, tentative)
                 }
+            },
+        )
+        val started = when (val result = transaction.start()) {
+            is RecordingStartupTransaction.Result.Started -> result
+            is RecordingStartupTransaction.Result.Failed -> {
+                val message = when (result.reason) {
+                    RecordingStartupTransaction.Failure.CONSTRUCTION_FAILED,
+                    RecordingStartupTransaction.Failure.START_FAILED -> "Accès au micro refusé"
+                    RecordingStartupTransaction.Failure.SESSION_FAILED -> "Transcription locale indisponible."
+                    else -> "Mic indisponible."
+                }
+                toast(message)
+                Log.w(TAG, "event=audio_start outcome=${result.reason}")
+                return
             }
+        }
+        val recorder = started.recorder as? AndroidRecordingRecorder
+        if (recorder == null) {
+            started.session.cancel()
+            toast("Mic indisponible.")
+            Log.w(TAG, "event=audio_start outcome=unexpected_recorder")
+            return
+        }
+        val ar = recorder.audioRecord
+        val recordingPcm = java.io.ByteArrayOutputStream()
+        try {
+            audioRecord = ar
+            pcm = recordingPcm
+            recordingOptions = options
+            asrSession = started.session
+            liveTranscriptBuffer.clear()
+            setLivePreviewVisible(false)
+            setState(State.RECORDING)
+            vibrate(20)
+            val reader = Thread({
+                val buf = ByteArray(bufSize)
+                while (state == State.RECORDING) {
+                    val n = ar.read(buf, 0, buf.size)
+                    if (n > 0) {
+                        recordingPcm.write(buf, 0, n)
+                        started.session.acceptPcm16(buf, n)
+                        wave?.setLevel(rmsLevel(buf, n))
+                    }
+                }
+            }, "dictai-audio-reader")
+            recordThread = reader
+            reader.start()
+        } catch (t: Throwable) {
+            if (asrSession === started.session) asrSession = null
+            if (audioRecord === ar) audioRecord = null
+            recordThread = null
+            pcm = null
+            recordingOptions = null
+            started.session.cancel()
+            try { ar.stop() } catch (_: Throwable) {}
+            try { ar.release() } catch (_: Throwable) {}
+            setLivePreviewVisible(false)
+            setState(State.IDLE)
+            Log.w(TAG, "event=audio_start outcome=publication_failure type=${t.javaClass.simpleName}")
         }
     }
 
@@ -434,16 +439,17 @@ class OverlayService : Service() {
                 if (recordThread === recordingThread) recordThread = null
                 capture = RecordingCapture(
                     pcm = pcm?.toByteArray() ?: ByteArray(0),
-                    session = liveSession,
+                    session = asrSession,
                     options = recordingOptions ?: RecordingOptions(
                         language = DictationLanguage.FRENCH,
+                        asrMode = DictationAsrMode.BATCH,
                         cloudCleanupEnabled = false,
                         cloudSuppressedForSensitiveTarget = false,
                         cloudModel = CloudModelCatalog.default,
                     ),
                 )
                 pcm = null
-                liveSession = null
+                asrSession = null
                 recordingOptions = null
             },
         )
@@ -454,6 +460,7 @@ class OverlayService : Service() {
                         ByteArray(0), null,
                         RecordingOptions(
                             DictationLanguage.FRENCH,
+                            DictationAsrMode.BATCH,
                             false,
                             false,
                             CloudModelCatalog.default,
@@ -463,7 +470,7 @@ class OverlayService : Service() {
                 }
                 RecordingStopCoordinator.Result.TimedOut -> {
                     // The reader can no longer feed a result, but release/snapshot still wait for it safely.
-                    liveSession?.cancel()
+                    asrSession?.cancel()
                     Log.w(TAG, "event=audio_stop outcome=timeout")
                     main.post {
                         toast("Transcription locale indisponible.")
@@ -478,13 +485,14 @@ class OverlayService : Service() {
 
     private data class RecordingCapture(
         val pcm: ByteArray,
-        val session: LiveStreamingTranscriber.Session?,
+        val session: DictationAsrSession?,
         val options: RecordingOptions,
     )
 
     /** Per-recording snapshot: changing settings while dictating cannot change that result. */
     private data class RecordingOptions(
         val language: DictationLanguage,
+        val asrMode: DictationAsrMode,
         val cloudCleanupEnabled: Boolean,
         val cloudSuppressedForSensitiveTarget: Boolean,
         val cloudModel: CuratedCloudModel,
@@ -500,17 +508,8 @@ class OverlayService : Service() {
             return
         }
         val t0 = System.currentTimeMillis()
-        val streamingResult = capture.session?.finish()
-        val r = when {
-            capture.session == null -> TranscriptionEngine.transcribe(this, capture.pcm, local)
-            streamingResult is LiveStreamingTranscriber.Finalization.Success ->
-                TranscriptionEngine.Result(streamingResult.text)
-            streamingResult is LiveStreamingTranscriber.Finalization.Empty ->
-                TranscriptionEngine.Result(null)
-            streamingResult is LiveStreamingTranscriber.Finalization.Timeout ->
-                TranscriptionEngine.Result(null, "Transcription locale expirée.")
-            else -> TranscriptionEngine.Result(null, "Transcription locale indisponible.")
-        }
+        val r = capture.session?.finish(capture.pcm)
+            ?: TranscriptionEngine.Result(null, "Transcription locale indisponible.")
         val transcribeMs = System.currentTimeMillis() - t0
         val localText = r.text?.let { Vocabulary.applyCorrections(this, it) }
         val cloudText = if (!localText.isNullOrBlank() && capture.options.cloudCleanupEnabled) {
@@ -522,17 +521,17 @@ class OverlayService : Service() {
         var finalText = cloudText ?: localText
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
         val outText = finalText
-        val source = if (capture.session != null) "stream" else "batch"
+        val source = if (capture.options.asrMode == DictationAsrMode.STREAMING) "stream" else "batch"
         Log.i(TAG, "event=transcription source=$source outcome=${if (outText.isNullOrBlank()) "empty_or_failure" else "success"} elapsedMs=$transcribeMs")
         main.post {
             if (!outText.isNullOrBlank()) {
                 val result = injectOrCopy(
-                    controller = WhisperAccessibilityService.controller,
+                    controller = InjectionGateway.current(),
                     text = outText,
                     copyToClipboard = { DictationClipboard.copy(this, it) },
                 )
                 injectionFeedbackMessage(result)?.let(::toast)
-            } else if (streamingResult !is LiveStreamingTranscriber.Finalization.Empty) {
+            } else if (capture.options.asrMode != DictationAsrMode.STREAMING || r.error != null) {
                 toast("Erreur: ${r.error ?: "vide"}")
             }
             setLivePreviewVisible(false)
@@ -547,7 +546,7 @@ class OverlayService : Service() {
         setState(State.TRANSCRIBING)
         val recorder = audioRecord
         val recordingThread = recordThread
-        liveSession?.cancel()
+        asrSession?.cancel()
         setLivePreviewVisible(false)
         val coordinator = RecordingStopCoordinator(
             recordThread = recordingThread,
@@ -557,7 +556,7 @@ class OverlayService : Service() {
                 if (audioRecord === recorder) audioRecord = null
                 if (recordThread === recordingThread) recordThread = null
                 // Discard only once AudioRecord.read() can no longer write to this session.
-                liveSession = null
+                asrSession = null
                 pcm = null
                 recordingOptions = null
             },
@@ -908,18 +907,36 @@ class OverlayService : Service() {
 
     private fun toast(s: String) { main.post { Toast.makeText(this, s, Toast.LENGTH_SHORT).show() } }
 
+    private class AndroidRecordingRecorder(
+        val audioRecord: AudioRecord,
+    ) : RecordingRecorder {
+        override val isInitialized: Boolean
+            get() = audioRecord.state == AudioRecord.STATE_INITIALIZED
+
+        override val isRecording: Boolean
+            get() = audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING
+
+        override fun startRecording() = audioRecord.startRecording()
+        override fun stop() = audioRecord.stop()
+        override fun release() = audioRecord.release()
+    }
+
     override fun onDestroy() {
         micArmed = false
         state = State.IDLE
         val releaseResident = localEngineLifecycle.destroy {
-            local = null
-            streamingLocal = null
+            asrEngine = null
             loadedModelName = null
         }
-        liveSession?.cancel()
-        liveSession = null
+        val sessionToCancel = asrSession
+        asrSession = null
         if (releaseResident) {
-            dispatchResidentClose(close = { residentLocalEngine.close() })
+            dispatchResidentClose(close = {
+                sessionToCancel?.cancelAndAwait()
+                residentAsrEngine.close()
+            })
+        } else {
+            sessionToCancel?.cancel()
         }
         audioRecord?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
         audioRecord = null

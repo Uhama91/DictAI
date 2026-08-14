@@ -128,7 +128,7 @@ class OnboardingActivity : AppCompatActivity() {
             { null }, "Ouvrir la fiche", { openAppDetails() }, visible = { isXiaomi() }),
 
         Step("accessibility", "Service d'accessibilité", "Pour insérer le texte transcrit dans n'importe quel champ.",
-            { WhisperAccessibilityService.controller != null }, "Ouvrir",
+            { InjectionGateway.current() != null }, "Ouvrir",
             { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }),
 
         Step("interrupt", "Désactiver « Interrompre si non utilisée »",

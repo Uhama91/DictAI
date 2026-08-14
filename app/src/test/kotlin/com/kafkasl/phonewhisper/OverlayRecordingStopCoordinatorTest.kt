@@ -67,20 +67,6 @@ class OverlayRecordingStopCoordinatorTest {
     }
 
     @Test
-    fun recording_start_is_blocked_with_a_loading_decision_while_the_local_engine_loads() {
-        assertEquals(
-            RecordingStartGate.Decision.LOADING,
-            RecordingStartGate.decide(
-                localLoading = true,
-                selectedModel = "model",
-                loadedModel = "model",
-                hasBatchEngine = true,
-                hasStreamingEngine = true,
-            ),
-        )
-    }
-
-    @Test
     fun completed_stop_joins_releases_then_snapshots_in_order() {
         val events = mutableListOf<String>()
         val coordinator = RecordingStopCoordinator(

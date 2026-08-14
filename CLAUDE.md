@@ -44,6 +44,7 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 ## Session Log
 | Date | Action | Fichiers/Config |
 |------|--------|-----------------|
+| 2026-08-14 | Durcissement de l’exécution : interface ASR unifiée, démarrage transactionnel d’AudioRecord, registre d’injection sûr sur tout le cycle de vie et retour de l’overlay au démarrage sans armement du micro ; version 0.5.5-wp, 130 tests et build de débogage vérifiés. | `DictationAsrEngine.kt`, `RecordingStartupTransaction.kt`, `InjectionGateway.kt`, `BootReceiver.kt`, APK `~/Downloads/dictai-runtime-hardening-2026-08-14.apk` |
 | 2026-08-06 | Correctif des régressions d’accessibilité et de presse-papiers : dictées de repli lisibles sans marqueur sensible, focus automatique restauré et cibles revalidées après rafraîchissement. | Injection, presse-papiers, tests, version 0.5.4-wp |
 | 2026-08-05 | Catalogue ASR recentré sur quatre modèles avec Handy Q8 par défaut ; injection directe prioritaire, fallback presse-papiers unique et feedback de succès silencieux. | Catalogue, onboarding, accessibilité, overlay, tests, version 0.5.3-wp |
 | 2026-08-05 | Nettoyage cloud OpenRouter unique : correctif AndroidKeyStore AES-GCM, migration du modèle historique, credential unique vérifié par commit/relecture, suppression anti-résurrection et conservation du ciphertext corrompu, catalogue de cinq modèles et tests ciblés. | `CloudCleanup.kt`, `PersistencePrefs.kt`, `MainActivity.kt`, `OverlayService.kt`, tests, version 0.5.2-wp |

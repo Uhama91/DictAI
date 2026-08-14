@@ -203,7 +203,7 @@ class MainActivity : AppCompatActivity() {
         val onbDone = getSharedPreferences("whisperpin", MODE_PRIVATE).getBoolean("onb_complete", false)
         val coreMissing = !hasPerm(Manifest.permission.RECORD_AUDIO) ||
             !android.provider.Settings.canDrawOverlays(this) ||
-            WhisperAccessibilityService.controller == null
+            InjectionGateway.current() == null
         if (!onbDone && coreMissing) {
             startActivity(Intent(this, OnboardingActivity::class.java))
         } else if (!hasPerm(Manifest.permission.RECORD_AUDIO)) {
@@ -344,7 +344,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refresh() {
         val audio = hasPerm(Manifest.permission.RECORD_AUDIO)
-        val acc = WhisperAccessibilityService.controller != null
+        val acc = InjectionGateway.current() != null
         val selectedModel = ModelDownloader.reconcileSelectedModel(this)
         val activeModel = MODEL_CATALOG.firstOrNull { it.archive == selectedModel }
         val hasModel = selectedModel != null

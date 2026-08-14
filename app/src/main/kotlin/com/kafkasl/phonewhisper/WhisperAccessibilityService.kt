@@ -11,12 +11,11 @@ import android.view.accessibility.AccessibilityNodeInfo
 class WhisperAccessibilityService : AccessibilityService(), InjectionController {
 
     companion object {
-        @Volatile var controller: InjectionController? = null
         private const val TAG = "WhisperPin"
     }
 
     override fun onServiceConnected() {
-        controller = this
+        InjectionGateway.register(this)
         try {
             startForegroundService(Intent(this, OverlayService::class.java))
         } catch (e: Exception) {
@@ -28,7 +27,7 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
     override fun onInterrupt() {}
 
     override fun onDestroy() {
-        controller = null
+        InjectionGateway.unregister(this)
         super.onDestroy()
     }
 
