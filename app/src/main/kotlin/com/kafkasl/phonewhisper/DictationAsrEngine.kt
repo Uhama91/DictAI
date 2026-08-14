@@ -158,6 +158,8 @@ internal fun mapStreamingFinalization(
         TranscriptionEngine.Result(finalization.text)
     LiveStreamingTranscriber.Finalization.Empty ->
         TranscriptionEngine.Result(null)
+    LiveStreamingTranscriber.Finalization.Cancelled ->
+        TranscriptionEngine.Result(null)
     LiveStreamingTranscriber.Finalization.Timeout ->
         TranscriptionEngine.Result(null, "Transcription locale expirée.")
     is LiveStreamingTranscriber.Finalization.Failure ->

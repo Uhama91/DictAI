@@ -267,11 +267,22 @@ class CloudCleanup(
         language: DictationLanguage,
         model: CuratedCloudModel,
         credential: String,
+    ): String? = clean(transcript, language, model, credential, null)
+
+    internal fun clean(
+        transcript: String,
+        language: DictationLanguage,
+        model: CuratedCloudModel,
+        credential: String,
+        cancellation: DictationCancellationCoordinator?,
     ): String? {
         if (transcript.isBlank() || transcript.length > MAX_TRANSCRIPT_CHARS || credential.isBlank() ||
             model !in CloudModelCatalog.all) return null
+        if (cancellation?.isCancelled == true) return null
         return try {
-            val response = client.newCall(request(transcript, language, model, credential)).execute().use {
+            val call = client.newCall(request(transcript, language, model, credential))
+            cancellation?.onCancel { call.cancel() }
+            val response = call.execute().use {
                 if (!it.isSuccessful) return null
                 it.body?.string() ?: return null
             }

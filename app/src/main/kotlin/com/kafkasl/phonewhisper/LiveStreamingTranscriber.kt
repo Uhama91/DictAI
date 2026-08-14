@@ -24,6 +24,7 @@ import kotlin.concurrent.thread
  */
 class LiveStreamingTranscriber private constructor(
     private val recognizer: StreamingRecognizer,
+    private val afterTimeoutCancellationRequested: (() -> Unit)? = null,
 ) : Closeable {
     private val closed = AtomicBoolean(false)
     private val activeSession = AtomicReference<Session?>(null)
@@ -33,9 +34,14 @@ class LiveStreamingTranscriber private constructor(
         onText: (committed: String, tentative: String) -> Unit,
     ): Session {
         check(!closed.get()) { "Streaming recognizer is closed" }
-        val session = Session(recognizer, language.nemotronLanguage, language.transcribeCppLanguage, onText) {
-            activeSession.compareAndSet(it, null)
-        }
+        val session = Session(
+            recognizer,
+            language.nemotronLanguage,
+            language.transcribeCppLanguage,
+            onText,
+            { activeSession.compareAndSet(it, null) },
+            afterTimeoutCancellationRequested,
+        )
         check(activeSession.compareAndSet(null, session)) { "A streaming session is already active" }
         if (closed.get()) {
             session.cancel()
@@ -58,10 +64,12 @@ class LiveStreamingTranscriber private constructor(
         private val transcribeCppLanguage: String,
         private val onText: (committed: String, tentative: String) -> Unit,
         private val onClosed: (Session) -> Unit,
+        private val afterTimeoutCancellationRequested: (() -> Unit)?,
     ) {
         private val queue = LinkedBlockingQueue<Command>()
         private val done = CountDownLatch(1)
         private val closed = AtomicBoolean(false)
+        private val cancellationRequested = AtomicBoolean(false)
         private val finalization = AtomicReference<Finalization?>(null)
         private val acceptedSamples = AtomicLong(0)
         private val decodeCalls = AtomicLong(0)
@@ -85,22 +93,27 @@ class LiveStreamingTranscriber private constructor(
             queue.offer(Command.Finish)
             val awaitStartedAt = System.currentTimeMillis()
             if (!done.await(timeoutMs, TimeUnit.MILLISECONDS)) {
-                queue.offer(Command.Cancel)
-                return publishFinalization(Finalization.Timeout, awaitStartedAt)
+                val timedOut = publishFinalization(Finalization.Timeout, awaitStartedAt)
+                requestCancellation(afterTimeoutCancellationRequested)
+                return timedOut
             }
             return finalization.get() ?: Finalization.Failure("finalizer_stopped")
         }
 
         fun cancel() {
-            if (closed.compareAndSet(false, true)) {
-                queue.offer(Command.Cancel)
-            }
+            requestCancellation()
         }
 
         internal fun cancelAndAwait(timeoutMs: Long = DEFAULT_FINALIZE_TIMEOUT_MS): Boolean {
+            requestCancellation()
+            return done.await(timeoutMs, TimeUnit.MILLISECONDS)
+        }
+
+        private fun requestCancellation(afterRequested: (() -> Unit)? = null) {
+            cancellationRequested.set(true)
             closed.set(true)
             queue.offer(Command.Cancel)
-            return done.await(timeoutMs, TimeUnit.MILLISECONDS)
+            afterRequested?.invoke()
         }
 
         private fun runWorker() {
@@ -118,17 +131,35 @@ class LiveStreamingTranscriber private constructor(
                 var running = true
                 while (running) {
                     when (val cmd = queue.take()) {
-                        is Command.Samples -> handleSamples(stream, cmd.samples)
+                        is Command.Samples -> {
+                            if (cancellationRequested.get()) {
+                                publishFinalization(Finalization.Cancelled, System.currentTimeMillis())
+                                running = false
+                            } else {
+                                handleSamples(stream, cmd.samples)
+                            }
+                        }
                         Command.Finish -> {
-                            finalizeStream(stream)
+                            if (cancellationRequested.get()) {
+                                publishFinalization(Finalization.Cancelled, System.currentTimeMillis())
+                            } else {
+                                finalizeStream(stream)
+                            }
                             running = false
                         }
-                        Command.Cancel -> running = false
+                        Command.Cancel -> {
+                            publishFinalization(Finalization.Cancelled, System.currentTimeMillis())
+                            running = false
+                        }
                     }
                 }
             } catch (t: Throwable) {
                 publishFinalization(
-                    Finalization.Failure("native_${t.javaClass.simpleName}"),
+                    if (cancellationRequested.get()) {
+                        Finalization.Cancelled
+                    } else {
+                        Finalization.Failure("native_${t.javaClass.simpleName}")
+                    },
                     System.currentTimeMillis(),
                 )
                 LiveStreamingTranscriber.logWarning(
@@ -142,22 +173,46 @@ class LiveStreamingTranscriber private constructor(
         }
 
         private fun handleSamples(stream: StreamingStream, samples: FloatArray) {
+            if (cancellationRequested.get()) return
             stream.acceptWaveform(samples, SAMPLE_RATE_HZ)
             acceptedSamples.addAndGet(samples.size.toLong())
+            if (cancellationRequested.get()) return
             val decoded = drain(stream)
-            if (decoded > 0 || stream.emitsSnapshotOnAccept) emitLivePreview(stream.snapshot())
+            if (!cancellationRequested.get() && (decoded > 0 || stream.emitsSnapshotOnAccept)) {
+                emitLivePreview(stream.snapshot())
+            }
         }
 
         private fun finalizeStream(stream: StreamingStream) {
             val startedAt = System.currentTimeMillis()
+            if (cancellationRequested.get()) {
+                publishFinalization(Finalization.Cancelled, startedAt)
+                return
+            }
             if (stream.finalSilenceSamples > 0) {
                 val trailingSilence = FloatArray(stream.finalSilenceSamples)
                 stream.acceptWaveform(trailingSilence, SAMPLE_RATE_HZ)
                 acceptedSamples.addAndGet(trailingSilence.size.toLong())
             }
+            if (cancellationRequested.get()) {
+                publishFinalization(Finalization.Cancelled, startedAt)
+                return
+            }
             stream.inputFinished()
+            if (cancellationRequested.get()) {
+                publishFinalization(Finalization.Cancelled, startedAt)
+                return
+            }
             drain(stream)
+            if (cancellationRequested.get()) {
+                publishFinalization(Finalization.Cancelled, startedAt)
+                return
+            }
             val text = stream.snapshot().full.trim()
+            if (cancellationRequested.get()) {
+                publishFinalization(Finalization.Cancelled, startedAt)
+                return
+            }
             val outcome = if (text.isBlank()) {
                 Finalization.Empty
             } else {
@@ -168,7 +223,12 @@ class LiveStreamingTranscriber private constructor(
 
         /** Atomically returns the terminal outcome that won, including at the timeout boundary. */
         private fun publishFinalization(candidate: Finalization, startedAt: Long): Finalization {
-            finalization.compareAndSet(null, candidate)
+            val publication = if (cancellationRequested.get() && candidate != Finalization.Timeout) {
+                Finalization.Cancelled
+            } else {
+                candidate
+            }
+            finalization.compareAndSet(null, publication)
             val actual = finalization.get() ?: candidate
             logMetric("finalize", actual.metricName(), startedAt)
             return actual
@@ -176,7 +236,8 @@ class LiveStreamingTranscriber private constructor(
 
         private fun drain(stream: StreamingStream): Int {
             var decoded = 0
-            while (stream.isReady()) {
+            while (!cancellationRequested.get() && stream.isReady()) {
+                if (cancellationRequested.get()) break
                 stream.decode()
                 decoded++
                 decodeCalls.incrementAndGet()
@@ -185,6 +246,7 @@ class LiveStreamingTranscriber private constructor(
         }
 
         private fun emitLivePreview(snapshot: TextSnapshot) {
+            if (cancellationRequested.get()) return
             val preview = snapshot.committed to snapshot.tentative
             if (preview == lastEmitted) return
             lastEmitted = preview
@@ -202,12 +264,14 @@ class LiveStreamingTranscriber private constructor(
     sealed class Finalization {
         data class Success(val text: String) : Finalization()
         data object Empty : Finalization()
+        data object Cancelled : Finalization()
         data class Failure(val reason: String) : Finalization()
         data object Timeout : Finalization()
 
         internal fun metricName(): String = when (this) {
             is Success -> "success"
             Empty -> "empty"
+            Cancelled -> "cancelled"
             is Failure -> "failure"
             Timeout -> "timeout"
         }
@@ -291,6 +355,14 @@ class LiveStreamingTranscriber private constructor(
 
         internal fun forTesting(recognizer: StreamingRecognizer): LiveStreamingTranscriber =
             LiveStreamingTranscriber(recognizer)
+
+        internal fun forTesting(
+            recognizer: StreamingRecognizer,
+            afterTimeoutCancellationRequested: () -> Unit,
+        ): LiveStreamingTranscriber = LiveStreamingTranscriber(
+            recognizer,
+            afterTimeoutCancellationRequested,
+        )
 
         internal fun forTesting(native: TranscribeCppNative): LiveStreamingTranscriber =
             LiveStreamingTranscriber(TranscribeCppStreamingRecognizer(native))
