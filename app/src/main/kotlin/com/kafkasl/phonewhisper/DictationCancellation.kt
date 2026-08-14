@@ -172,3 +172,119 @@ internal class DoubleTapDetector(private val windowMs: Long = 280L) {
 
     enum class Tap { SINGLE, DOUBLE }
 }
+
+/**
+ * Keeps tap recognition independent from the overlay touch listener.
+ *
+ * A recording tap cannot stop immediately: doing so turns the first tap into a
+ * TRANSCRIBING state and loses the opportunity to recognize the second tap.
+ * Instead, the coordinator returns a timeout token.  Only that exact token may
+ * later resolve the deferred stop, so a double-tap cancellation makes its stale
+ * timeout harmless.
+ */
+internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L) {
+    init { require(windowMs > 0) }
+
+    enum class SurfaceState { IDLE, RECORDING, TRANSCRIBING, CANCELLING, MIC_UNARMED }
+
+    enum class Action {
+        NONE,
+        START_RECORDING,
+        STOP_RECORDING,
+        CANCEL_RECORDING,
+        CANCEL_RECORDING_AND_OPEN_APP,
+        ARM_PROCESSING_WINDOW,
+        CANCEL_PROCESSING,
+        PROMPT_MIC_SETUP_AND_OPEN_APP,
+    }
+
+    class Timeout internal constructor(
+        val token: Long,
+        val deadlineMs: Long,
+    )
+
+    data class Decision(
+        val action: Action,
+        val timeout: Timeout? = null,
+    )
+
+    private enum class Origin { IDLE, RECORDING, PROCESSING }
+
+    private data class Sequence(
+        val origin: Origin,
+        val atMs: Long,
+        val timeout: Timeout?,
+    )
+
+    private var nextToken = 0L
+    private var sequence: Sequence? = null
+
+    fun onTap(state: SurfaceState, atMs: Long): Decision = when (state) {
+        SurfaceState.IDLE -> {
+            sequence = Sequence(Origin.IDLE, atMs, timeout = null)
+            Decision(Action.START_RECORDING)
+        }
+        SurfaceState.RECORDING -> onRecordingTap(atMs)
+        SurfaceState.TRANSCRIBING -> onProcessingTap(atMs)
+        SurfaceState.MIC_UNARMED -> {
+            reset()
+            Decision(Action.PROMPT_MIC_SETUP_AND_OPEN_APP)
+        }
+        SurfaceState.CANCELLING -> Decision(Action.NONE)
+    }
+
+    private fun onRecordingTap(atMs: Long): Decision {
+        val previous = sequence
+        if (previous != null && isInsideWindow(previous.atMs, atMs)) {
+            sequence = null
+            return Decision(
+                if (previous.origin == Origin.IDLE) {
+                    Action.CANCEL_RECORDING_AND_OPEN_APP
+                } else {
+                    Action.CANCEL_RECORDING
+                },
+            )
+        }
+
+        // If the main looper delivered a later tap before its timeout callback,
+        // resolve the old single tap now.  At exactly 280 ms it is deliberately
+        // not a double-tap; the strict comparison is the boundary contract.
+        if (previous?.origin == Origin.RECORDING && previous.timeout != null &&
+            atMs >= previous.timeout.deadlineMs
+        ) {
+            sequence = null
+            return Decision(Action.STOP_RECORDING)
+        }
+
+        val timeout = Timeout(++nextToken, atMs + windowMs)
+        sequence = Sequence(Origin.RECORDING, atMs, timeout)
+        return Decision(Action.NONE, timeout)
+    }
+
+    private fun onProcessingTap(atMs: Long): Decision {
+        val previous = sequence
+        if (previous?.origin == Origin.PROCESSING && isInsideWindow(previous.atMs, atMs)) {
+            sequence = null
+            return Decision(Action.CANCEL_PROCESSING)
+        }
+        sequence = Sequence(Origin.PROCESSING, atMs, timeout = null)
+        return Decision(Action.ARM_PROCESSING_WINDOW)
+    }
+
+    fun onTimeout(timeout: Timeout, atMs: Long): Decision {
+        val current = sequence
+        if (current?.origin != Origin.RECORDING || current.timeout != timeout) {
+            return Decision(Action.NONE)
+        }
+        if (atMs < timeout.deadlineMs) return Decision(Action.NONE)
+        sequence = null
+        return Decision(Action.STOP_RECORDING)
+    }
+
+    fun reset() {
+        sequence = null
+    }
+
+    private fun isInsideWindow(previousAtMs: Long, atMs: Long): Boolean =
+        atMs >= previousAtMs && atMs - previousAtMs < windowMs
+}

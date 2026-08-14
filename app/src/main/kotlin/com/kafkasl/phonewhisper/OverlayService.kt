@@ -186,7 +186,7 @@ class OverlayService : Service() {
     private val localEngineLifecycle = LocalEngineLifecycle()
     private val residentAsrEngine = ResidentEngine<DictationAsrEngine>()
     private val main = Handler(Looper.getMainLooper())
-    private val tapDetector = DoubleTapDetector(DOUBLE_TAP_MS)
+    private val tapCoordinator = DictationTapGestureCoordinator(DOUBLE_TAP_MS)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -298,16 +298,6 @@ class OverlayService : Service() {
 
     private fun updateNotif() {
         getSystemService(NotificationManager::class.java).notify(NOTIF_ID, buildNotification())
-    }
-
-    private fun onTap() {
-        when (state) {
-            State.MIC_UNARMED -> { toast("Ouvre WhisperPin pour activer le micro"); openApp() }
-            State.IDLE -> startRec()
-            State.RECORDING -> stopRec()
-            State.TRANSCRIBING -> {}
-            State.CANCELLING -> {}
-        }
     }
 
     private fun startRec() {
@@ -649,6 +639,43 @@ class OverlayService : Service() {
         activeRun?.let(::requestCancellation)
     }
 
+    private fun handleTapDecision(
+        decision: DictationTapGestureCoordinator.Decision,
+        atMs: Long,
+    ) {
+        when (decision.action) {
+            DictationTapGestureCoordinator.Action.START_RECORDING -> startRec()
+            DictationTapGestureCoordinator.Action.STOP_RECORDING -> stopRec()
+            DictationTapGestureCoordinator.Action.CANCEL_RECORDING -> cancelRec()
+            DictationTapGestureCoordinator.Action.CANCEL_RECORDING_AND_OPEN_APP -> {
+                cancelRec()
+                openApp()
+            }
+            DictationTapGestureCoordinator.Action.ARM_PROCESSING_WINDOW -> {
+                activeRun?.let { armFinalPublicationWindow(it, atMs) }
+            }
+            DictationTapGestureCoordinator.Action.CANCEL_PROCESSING -> cancelProcessing()
+            DictationTapGestureCoordinator.Action.PROMPT_MIC_SETUP_AND_OPEN_APP -> {
+                toast("Ouvre WhisperPin pour activer le micro")
+                openApp()
+            }
+            DictationTapGestureCoordinator.Action.NONE -> Unit
+        }
+
+        decision.timeout?.let { timeout ->
+            main.postAtTime(
+                {
+                    // A Handler callback can be delivered a fraction early on a
+                    // busy looper; resolving at the advertised deadline keeps
+                    // the single-tap contract deterministic.
+                    val now = SystemClock.uptimeMillis().coerceAtLeast(timeout.deadlineMs)
+                    handleTapDecision(tapCoordinator.onTimeout(timeout, now), now)
+                },
+                timeout.deadlineMs,
+            )
+        }
+    }
+
     private fun requestCancellation(run: ActiveDictationRun): Boolean {
         if (!isCurrentRun(run)) return false
         run.finalPublication.cancel()
@@ -680,7 +707,7 @@ class OverlayService : Service() {
         if (localEngineLifecycle.isDestroyed() || activeRun !== run) return
         activeRun = null
         if (asrSession === run.session) asrSession = null
-        tapDetector.reset()
+        tapCoordinator.reset()
         setLivePreviewVisible(false)
         setState(State.IDLE)
     }
@@ -952,7 +979,7 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     if (abs(dx) + abs(dy) > 10 * dp) {
-                        moved = true; tapDetector.reset(); main.removeCallbacks(longPress)
+                        moved = true; tapCoordinator.reset(); main.removeCallbacks(longPress)
                         val screen = screenRect()
                         val clamped = OverlayPlacement.clampPill(
                             Point((downX + dx).toInt(), (downY + dy).toInt()),
@@ -971,40 +998,25 @@ class OverlayService : Service() {
                         finishDrag()
                     } else if (pttFired) {
                         // Relâchement du push-to-talk → on arrête + transcrit
-                        tapDetector.reset()
+                        tapCoordinator.reset()
                         if (state == State.RECORDING) stopRec()
                     } else {
                         val now = SystemClock.uptimeMillis()
-                        val stateAtTap = state
-                        val tap = tapDetector.registerTap(now)
-                        when {
-                            tap == DoubleTapDetector.Tap.DOUBLE && stateAtTap == State.RECORDING -> {
-                                // 2e tap rapide : l'enregistrement vient d'être lancé par le 1er tap → ouvrir l'app
-                                cancelRec()
-                                openApp()
-                            }
-                            tap == DoubleTapDetector.Tap.DOUBLE && stateAtTap == State.TRANSCRIBING -> {
-                                // 2e tap rapide pendant le traitement → annulation explicite, sans injection.
-                                cancelProcessing()
-                            }
-                            else -> {
-                                // Un tap isolé pendant le traitement ne fait rien et arme seulement le double-tap.
-                                if (tap == DoubleTapDetector.Tap.SINGLE && stateAtTap == State.TRANSCRIBING) {
-                                    activeRun?.let { armFinalPublicationWindow(it, now) }
-                                }
-                                onTap()
-                                if (stateAtTap != State.IDLE && stateAtTap != State.TRANSCRIBING) {
-                                    tapDetector.reset()
-                                }
-                            }
+                        val surfaceState = when (state) {
+                            State.IDLE -> DictationTapGestureCoordinator.SurfaceState.IDLE
+                            State.RECORDING -> DictationTapGestureCoordinator.SurfaceState.RECORDING
+                            State.TRANSCRIBING -> DictationTapGestureCoordinator.SurfaceState.TRANSCRIBING
+                            State.CANCELLING -> DictationTapGestureCoordinator.SurfaceState.CANCELLING
+                            State.MIC_UNARMED -> DictationTapGestureCoordinator.SurfaceState.MIC_UNARMED
                         }
+                        handleTapDecision(tapCoordinator.onTap(surfaceState, now), now)
                     }; true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     main.removeCallbacks(longPress)
                     if (moved) finishDrag()
                     if (pttFired) {
-                        tapDetector.reset()
+                        tapCoordinator.reset()
                         if (state == State.RECORDING) stopRec()
                     }
                     true
@@ -1072,7 +1084,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         micArmed = false
         state = State.IDLE
-        tapDetector.reset()
+        tapCoordinator.reset()
         val runToCancel = activeRun
         runToCancel?.finalPublication?.cancel()
         runToCancel?.cancellation?.cancel()

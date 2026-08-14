@@ -15,8 +15,8 @@ android {
         applicationId = "com.uhama.whisperpin"
         minSdk = 30
         targetSdk = 34
-        versionCode = 10
-        versionName = "0.5.7-wp"
+        versionCode = 11
+        versionName = "0.5.8-wp"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }
