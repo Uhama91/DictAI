@@ -2,6 +2,8 @@ package com.kafkasl.phonewhisper
 
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.concurrent.thread
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -147,6 +149,46 @@ class LiveStreamingTranscriberTest {
     }
 
     @Test
+    fun timeout_wins_before_its_cancellation_can_publish_cancelled() {
+        val releaseFinalization = CountDownLatch(1)
+        lateinit var session: LiveStreamingTranscriber.Session
+        val transcriber = LiveStreamingTranscriber.forTesting(
+            BlockingFinalizationRecognizer(CountDownLatch(1), releaseFinalization),
+        ) {
+            releaseFinalization.countDown()
+            assertTrue(session.cancelAndAwait(timeoutMs = 1_000))
+        }
+        session = transcriber.start { _, _ -> }
+
+        val result = session.finish(timeoutMs = 0)
+
+        assertEquals(LiveStreamingTranscriber.Finalization.Timeout, result)
+    }
+
+    @Test
+    fun cancellation_after_finish_begins_suppresses_final_text_and_finish_exits_promptly() {
+        val finalizationStarted = CountDownLatch(1)
+        val releaseFinalization = CountDownLatch(1)
+        val session = LiveStreamingTranscriber.forTesting(
+            BlockingFinalizationRecognizer(finalizationStarted, releaseFinalization),
+        ).start { _, _ -> }
+        val result = AtomicReference<LiveStreamingTranscriber.Finalization>()
+
+        val finishThread = thread(start = true, name = "test-stream-finish") {
+            result.set(session.finish(timeoutMs = 5_000))
+        }
+
+        assertTrue(finalizationStarted.await(1, TimeUnit.SECONDS))
+        session.cancel()
+        releaseFinalization.countDown()
+
+        finishThread.join(1_000)
+        assertFalse(finishThread.isAlive)
+        assertEquals(LiveStreamingTranscriber.Finalization.Cancelled, result.get())
+        assertTrue(session.cancelAndAwait(timeoutMs = 1_000))
+    }
+
+    @Test
     fun default_finalization_timeout_is_30_seconds() {
         assertEquals(30_000L, LiveStreamingTranscriber.DEFAULT_FINALIZE_TIMEOUT_MS)
     }
@@ -183,6 +225,29 @@ class LiveStreamingTranscriberTest {
             transcribeCppLocales += transcribeCppLanguage
             return stream
         }
+
+        override fun close() = Unit
+    }
+
+    private class BlockingFinalizationRecognizer(
+        private val finalizationStarted: CountDownLatch,
+        private val releaseFinalization: CountDownLatch,
+    ) : LiveStreamingTranscriber.StreamingRecognizer {
+        override fun createStream(transcribeCppLanguage: String): LiveStreamingTranscriber.StreamingStream =
+            object : LiveStreamingTranscriber.StreamingStream {
+                override fun setLanguage(language: String) = Unit
+                override fun acceptWaveform(samples: FloatArray, sampleRate: Int) = Unit
+                override fun isReady(): Boolean = false
+                override fun decode() = Unit
+                override fun snapshot() = LiveStreamingTranscriber.TextSnapshot("final text", "", "")
+
+                override fun inputFinished() {
+                    finalizationStarted.countDown()
+                    releaseFinalization.await()
+                }
+
+                override fun release() = Unit
+            }
 
         override fun close() = Unit
     }

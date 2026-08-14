@@ -6,6 +6,9 @@ import java.security.Key
 import java.security.Provider
 import java.security.SecureRandom
 import java.security.spec.AlgorithmParameterSpec
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.crypto.Cipher
 import javax.crypto.CipherSpi
 import javax.crypto.KeyGenerator
@@ -16,6 +19,7 @@ import okhttp3.mockwebserver.SocketPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -131,6 +135,34 @@ class CloudCleanupTest {
         repeat(4) {
             assertEquals(original, cleanup.cleanupOrOriginal(original, DictationLanguage.FRENCH, CloudModelCatalog.default, "dummy-key"))
         }
+    }
+
+    @Test fun `cancelling an in-flight cleanup aborts the okhttp call`() = withServer { server ->
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        val cleanup = CloudCleanup(
+            OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS).build(),
+            CloudEndpoints.forTests(server.url("/")),
+        )
+        val cancellation = DictationCancellationCoordinator()
+        val result = AtomicReference<String?>("unexpected")
+        val finished = CountDownLatch(1)
+        Thread {
+            result.set(
+                cleanup.clean(
+                    "bonjour Ada",
+                    DictationLanguage.FRENCH,
+                    CloudModelCatalog.default,
+                    "dummy-key",
+                    cancellation,
+                ),
+            )
+            finished.countDown()
+        }.start()
+
+        assertNotNull(server.takeRequest(1, TimeUnit.SECONDS))
+        assertTrue(cancellation.cancel())
+        assertTrue(finished.await(1, TimeUnit.SECONDS))
+        assertNull(result.get())
     }
 
     @Test fun `blank credential and oversize transcript make no request`() = withServer { server ->

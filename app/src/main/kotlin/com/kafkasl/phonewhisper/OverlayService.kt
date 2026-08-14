@@ -145,7 +145,16 @@ class OverlayService : Service() {
             private set
     }
 
-    private enum class State { IDLE, RECORDING, TRANSCRIBING, MIC_UNARMED }
+    private enum class State { IDLE, RECORDING, TRANSCRIBING, CANCELLING, MIC_UNARMED }
+
+    private class ActiveDictationRun(
+        val session: DictationAsrSession,
+        val cancellation: DictationCancellationCoordinator = DictationCancellationCoordinator(),
+    ) {
+        val finalPublication = DictationFinalPublicationGate(DOUBLE_TAP_MS)
+        val completion = DictationRunCompletionGate()
+        val cancellationWaitStarted = java.util.concurrent.atomic.AtomicBoolean(false)
+    }
 
     private val prefs by lazy { PersistencePrefs(this) }
     @Volatile private var state = State.MIC_UNARMED
@@ -162,6 +171,7 @@ class OverlayService : Service() {
     private var pcm: java.io.ByteArrayOutputStream? = null
     @Volatile private var asrEngine: DictationAsrEngine? = null
     @Volatile private var asrSession: DictationAsrSession? = null
+    @Volatile private var activeRun: ActiveDictationRun? = null
     private var recordingOptions: RecordingOptions? = null
     @Volatile private var loadedModelName: String? = null
     private var baseButtonW = 0
@@ -176,6 +186,7 @@ class OverlayService : Service() {
     private val localEngineLifecycle = LocalEngineLifecycle()
     private val residentAsrEngine = ResidentEngine<DictationAsrEngine>()
     private val main = Handler(Looper.getMainLooper())
+    private val tapDetector = DoubleTapDetector(DOUBLE_TAP_MS)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -200,6 +211,7 @@ class OverlayService : Service() {
 
     /** Charge le modèle local hors thread principal; l'ancien moteur est fermé avant toute nouvelle ouverture. */
     private fun ensureLocalLoaded() {
+        if (activeRun != null) return
         val selectedModel = TranscriptionEngine.selectedModelName(this)
         when (LocalLoadStartGate.acquire(
             localLoading = localLoading,
@@ -243,6 +255,7 @@ class OverlayService : Service() {
                     State.MIC_UNARMED -> "Ouvre l'app pour activer le micro"
                     State.RECORDING -> "Enregistrement..."
                     State.TRANSCRIBING -> "Transcription..."
+                    State.CANCELLING -> "Annulation de la dictée…"
                     else -> "Appuie sur le bouton pour dicter"
                 }
             )
@@ -293,6 +306,7 @@ class OverlayService : Service() {
             State.IDLE -> startRec()
             State.RECORDING -> stopRec()
             State.TRANSCRIBING -> {}
+            State.CANCELLING -> {}
         }
     }
 
@@ -372,6 +386,13 @@ class OverlayService : Service() {
             Log.w(TAG, "event=audio_start outcome=unexpected_recorder")
             return
         }
+        if (activeRun != null) {
+            started.session.cancel()
+            toast("Dictée déjà en cours.")
+            return
+        }
+        val run = ActiveDictationRun(started.session)
+        run.cancellation.onCancel { started.session.cancel() }
         val ar = recorder.audioRecord
         val recordingPcm = java.io.ByteArrayOutputStream()
         try {
@@ -379,6 +400,7 @@ class OverlayService : Service() {
             pcm = recordingPcm
             recordingOptions = options
             asrSession = started.session
+            activeRun = run
             liveTranscriptBuffer.clear()
             setLivePreviewVisible(false)
             setState(State.RECORDING)
@@ -402,7 +424,8 @@ class OverlayService : Service() {
             recordThread = null
             pcm = null
             recordingOptions = null
-            started.session.cancel()
+            run.cancellation.cancel()
+            if (activeRun === run) activeRun = null
             try { ar.stop() } catch (_: Throwable) {}
             try { ar.release() } catch (_: Throwable) {}
             setLivePreviewVisible(false)
@@ -425,6 +448,8 @@ class OverlayService : Service() {
     }
 
     private fun stopRec() {
+        if (state != State.RECORDING) return
+        val run = activeRun ?: return
         setState(State.TRANSCRIBING)
         vibrate(20)
         val recorder = audioRecord
@@ -438,8 +463,9 @@ class OverlayService : Service() {
                 if (audioRecord === recorder) audioRecord = null
                 if (recordThread === recordingThread) recordThread = null
                 capture = RecordingCapture(
+                    run = run,
                     pcm = pcm?.toByteArray() ?: ByteArray(0),
-                    session = asrSession,
+                    session = asrSession ?: run.session,
                     options = recordingOptions ?: RecordingOptions(
                         language = DictationLanguage.FRENCH,
                         asrMode = DictationAsrMode.BATCH,
@@ -453,37 +479,46 @@ class OverlayService : Service() {
                 recordingOptions = null
             },
         )
+        run.completion.markWorkerStarted()
         thread(name = "dictai-stop-rec") {
-            when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
-                RecordingStopCoordinator.Result.Stopped -> {
-                    val stoppedCapture = capture ?: RecordingCapture(
-                        ByteArray(0), null,
-                        RecordingOptions(
-                            DictationLanguage.FRENCH,
-                            DictationAsrMode.BATCH,
-                            false,
-                            false,
-                            CloudModelCatalog.default,
-                        ),
-                    )
-                    processStoppedRecording(stoppedCapture)
-                }
-                RecordingStopCoordinator.Result.TimedOut -> {
-                    // The reader can no longer feed a result, but release/snapshot still wait for it safely.
-                    asrSession?.cancel()
-                    Log.w(TAG, "event=audio_stop outcome=timeout")
-                    main.post {
-                        toast("Transcription locale indisponible.")
-                        setLivePreviewVisible(false)
+            try {
+                when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
+                    RecordingStopCoordinator.Result.Stopped -> {
+                        val stoppedCapture = capture ?: RecordingCapture(
+                            run,
+                            ByteArray(0), null,
+                            RecordingOptions(
+                                DictationLanguage.FRENCH,
+                                DictationAsrMode.BATCH,
+                                false,
+                                false,
+                                CloudModelCatalog.default,
+                            ),
+                        )
+                        processStoppedRecording(stoppedCapture)
                     }
-                    coordinator.awaitExitThenRelease()
-                    main.post { setState(State.IDLE) }
+                    RecordingStopCoordinator.Result.TimedOut -> {
+                        // The reader can no longer feed a result, but release/snapshot still wait for it safely.
+                        run.session.cancel()
+                        Log.w(TAG, "event=audio_stop outcome=timeout")
+                        coordinator.awaitExitThenRelease()
+                        awaitSessionExit(run)
+                        main.post {
+                            if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                                toast("Transcription locale indisponible.")
+                            }
+                            completeRunOnMain(run)
+                        }
+                    }
                 }
+            } finally {
+                run.completion.markWorkerDone()
             }
         }
     }
 
     private data class RecordingCapture(
+        val run: ActiveDictationRun,
         val pcm: ByteArray,
         val session: DictationAsrSession?,
         val options: RecordingOptions,
@@ -499,55 +534,87 @@ class OverlayService : Service() {
     )
 
     private fun processStoppedRecording(capture: RecordingCapture) {
+        val run = capture.run
+        if (run.cancellation.isCancelled) {
+            return
+        }
         if (capture.pcm.isEmpty()) {
             capture.session?.cancel()
-            main.post {
-                setLivePreviewVisible(false)
-                setState(State.IDLE)
-            }
+            awaitSessionExit(run)
+            main.post { completeRunOnMain(run) }
             return
         }
         val t0 = System.currentTimeMillis()
-        val r = capture.session?.finish(capture.pcm)
-            ?: TranscriptionEngine.Result(null, "Transcription locale indisponible.")
+        val r = runCatching {
+            capture.session?.finish(capture.pcm)
+                ?: TranscriptionEngine.Result(null, "Transcription locale indisponible.")
+        }.getOrElse { TranscriptionEngine.Result(null, "Transcription locale indisponible.") }
         val transcribeMs = System.currentTimeMillis() - t0
+        awaitSessionExit(run)
+        if (run.cancellation.isCancelled) {
+            return
+        }
         val localText = r.text?.let { Vocabulary.applyCorrections(this, it) }
+        if (run.cancellation.isCancelled) {
+            return
+        }
         val cloudText = if (!localText.isNullOrBlank() && capture.options.cloudCleanupEnabled) {
             val credential = SecureCredentialStore(this).load()
             credential?.let {
-                CloudCleanup().clean(localText, capture.options.language, capture.options.cloudModel, it)
+                CloudCleanup().clean(
+                    localText,
+                    capture.options.language,
+                    capture.options.cloudModel,
+                    it,
+                    run.cancellation,
+                )
             }
         } else null
+        if (run.cancellation.isCancelled) {
+            return
+        }
         var finalText = cloudText ?: localText
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
         val outText = finalText
         val source = if (capture.options.asrMode == DictationAsrMode.STREAMING) "stream" else "batch"
         Log.i(TAG, "event=transcription source=$source outcome=${if (outText.isNullOrBlank()) "empty_or_failure" else "success"} elapsedMs=$transcribeMs")
         main.post {
-            if (!outText.isNullOrBlank()) {
-                val result = injectOrCopy(
-                    controller = InjectionGateway.current(),
-                    text = outText,
-                    copyToClipboard = { DictationClipboard.copy(this, it) },
-                )
-                injectionFeedbackMessage(result)?.let(::toast)
-            } else if (capture.options.asrMode != DictationAsrMode.STREAMING || r.error != null) {
-                toast("Erreur: ${r.error ?: "vide"}")
+            if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed()) return@post
+            run.finalPublication.submit(SystemClock.uptimeMillis()) {
+                val published = run.cancellation.publishIfActive {
+                    if (!outText.isNullOrBlank()) {
+                        val result = runCatching {
+                            injectOrCopy(
+                                controller = InjectionGateway.current(),
+                                text = outText,
+                                copyToClipboard = { DictationClipboard.copy(this, it) },
+                            )
+                        }.getOrElse {
+                            Log.w(TAG, "event=injection outcome=failure type=${it.javaClass.simpleName}")
+                            InjectionResult.Failed
+                        }
+                        injectionFeedbackMessage(result)?.let(::toast)
+                    } else if (capture.options.asrMode != DictationAsrMode.STREAMING || r.error != null) {
+                        toast("Erreur: ${r.error ?: "vide"}")
+                    }
+                }
+                if (published) completeRunOnMain(run)
             }
-            setLivePreviewVisible(false)
-            setState(State.IDLE)
         }
     }
 
     /** Annule l'enregistrement en cours SANS transcrire (ex. 2e tap d'un double-tap). */
     private fun cancelRec() {
         if (state != State.RECORDING) return
-        // TRANSCRIBING blocks a second AudioRecord until the first reader has fully exited.
-        setState(State.TRANSCRIBING)
+        val run = activeRun ?: return
+        // CANCELLING blocks a second AudioRecord until the current reader has fully exited.
+        run.completion.markWorkerStarted()
+        if (!requestCancellation(run)) {
+            run.completion.markWorkerDone()
+            return
+        }
         val recorder = audioRecord
         val recordingThread = recordThread
-        asrSession?.cancel()
-        setLivePreviewVisible(false)
         val coordinator = RecordingStopCoordinator(
             recordThread = recordingThread,
             stopRecorder = { recorder?.stop() },
@@ -562,15 +629,74 @@ class OverlayService : Service() {
             },
         )
         thread(name = "dictai-cancel-rec") {
-            when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
-                RecordingStopCoordinator.Result.Stopped -> main.post { setState(State.IDLE) }
-                RecordingStopCoordinator.Result.TimedOut -> {
-                    Log.w(TAG, "event=audio_cancel outcome=timeout")
-                    coordinator.awaitExitThenRelease()
-                    main.post { setState(State.IDLE) }
+            try {
+                when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
+                    RecordingStopCoordinator.Result.Stopped -> awaitSessionExit(run)
+                    RecordingStopCoordinator.Result.TimedOut -> {
+                        Log.w(TAG, "event=audio_cancel outcome=timeout")
+                        coordinator.awaitExitThenRelease()
+                        awaitSessionExit(run)
+                    }
                 }
+            } finally {
+                run.completion.markWorkerDone()
             }
         }
+    }
+
+    private fun cancelProcessing() {
+        if (state != State.TRANSCRIBING) return
+        activeRun?.let(::requestCancellation)
+    }
+
+    private fun requestCancellation(run: ActiveDictationRun): Boolean {
+        if (!isCurrentRun(run)) return false
+        run.finalPublication.cancel()
+        if (!run.cancellation.cancel()) return false
+        setLivePreviewVisible(false)
+        setState(State.CANCELLING)
+        toast("Dictée annulée")
+        awaitCancellationCompletion(run)
+        return true
+    }
+
+    private fun awaitSessionExit(run: ActiveDictationRun) {
+        while (!localEngineLifecycle.isDestroyed() && !run.session.cancelAndAwait()) {
+            // A cancellation timeout keeps the run busy; retry until the native worker exits.
+        }
+    }
+
+    private fun awaitCancellationCompletion(run: ActiveDictationRun) {
+        if (!run.cancellationWaitStarted.compareAndSet(false, true)) return
+        thread(name = "dictai-await-cancel") {
+            run.completion.awaitWorkerIfStarted()
+            awaitSessionExit(run)
+            if (!localEngineLifecycle.isDestroyed()) main.post { completeRunOnMain(run) }
+        }
+    }
+
+    /** Only the current run may release the busy state; an old worker cannot reset a newer run. */
+    private fun completeRunOnMain(run: ActiveDictationRun) {
+        if (localEngineLifecycle.isDestroyed() || activeRun !== run) return
+        activeRun = null
+        if (asrSession === run.session) asrSession = null
+        tapDetector.reset()
+        setLivePreviewVisible(false)
+        setState(State.IDLE)
+    }
+
+    private fun isCurrentRun(run: ActiveDictationRun): Boolean = activeRun === run
+
+    private fun armFinalPublicationWindow(run: ActiveDictationRun, atMs: Long) {
+        val window = run.finalPublication.armProcessingTap(atMs)
+        main.postAtTime(
+            {
+                if (isCurrentRun(run) && !localEngineLifecycle.isDestroyed()) {
+                    run.finalPublication.release(window, SystemClock.uptimeMillis())
+                }
+            },
+            window.deadlineMs,
+        )
     }
 
     private fun setState(s: State) {
@@ -599,10 +725,17 @@ class OverlayService : Service() {
     private fun updateLivePreview(committed: String, tentative: String) {
         val text = liveTranscriptBuffer.render(committed, tentative)
         if (text.isBlank()) return
+        val run = activeRun ?: return
         main.post {
-            liveText?.text = text
-            livePanel?.post { livePanel?.fullScroll(View.FOCUS_DOWN) }
-            setLivePreviewVisible(true)
+            DictationPreviewPublicationGate.publishIfAllowed(
+                isCurrentRun = isCurrentRun(run),
+                isRecording = state == State.RECORDING,
+                cancellation = run.cancellation,
+            ) {
+                liveText?.text = text
+                livePanel?.post { livePanel?.fullScroll(View.FOCUS_DOWN) }
+                setLivePreviewVisible(true)
+            }
         }
     }
 
@@ -787,7 +920,6 @@ class OverlayService : Service() {
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
         var pttFired = false
-        var lastTapAt = 0L
         val longPress = Runnable {
             // Maintenu 250ms, pas bougé, toujours IDLE → push-to-talk
             if (!moved && state == State.IDLE) {
@@ -820,7 +952,7 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     if (abs(dx) + abs(dy) > 10 * dp) {
-                        moved = true; main.removeCallbacks(longPress)
+                        moved = true; tapDetector.reset(); main.removeCallbacks(longPress)
                         val screen = screenRect()
                         val clamped = OverlayPlacement.clampPill(
                             Point((downX + dx).toInt(), (downY + dy).toInt()),
@@ -839,26 +971,42 @@ class OverlayService : Service() {
                         finishDrag()
                     } else if (pttFired) {
                         // Relâchement du push-to-talk → on arrête + transcrit
+                        tapDetector.reset()
                         if (state == State.RECORDING) stopRec()
                     } else {
                         val now = SystemClock.uptimeMillis()
-                        if (state == State.RECORDING && now - lastTapAt < DOUBLE_TAP_MS) {
-                            // 2e tap rapide : l'enregistrement vient d'être lancé par le 1er tap → ouvrir l'app
-                            lastTapAt = 0L
-                            cancelRec()
-                            openApp()
-                        } else {
-                            // tap normal ; on ne mémorise l'instant que si CE tap démarre un enregistrement
-                            val starting = state == State.IDLE
-                            onTap()
-                            lastTapAt = if (starting) now else 0L
+                        val stateAtTap = state
+                        val tap = tapDetector.registerTap(now)
+                        when {
+                            tap == DoubleTapDetector.Tap.DOUBLE && stateAtTap == State.RECORDING -> {
+                                // 2e tap rapide : l'enregistrement vient d'être lancé par le 1er tap → ouvrir l'app
+                                cancelRec()
+                                openApp()
+                            }
+                            tap == DoubleTapDetector.Tap.DOUBLE && stateAtTap == State.TRANSCRIBING -> {
+                                // 2e tap rapide pendant le traitement → annulation explicite, sans injection.
+                                cancelProcessing()
+                            }
+                            else -> {
+                                // Un tap isolé pendant le traitement ne fait rien et arme seulement le double-tap.
+                                if (tap == DoubleTapDetector.Tap.SINGLE && stateAtTap == State.TRANSCRIBING) {
+                                    activeRun?.let { armFinalPublicationWindow(it, now) }
+                                }
+                                onTap()
+                                if (stateAtTap != State.IDLE && stateAtTap != State.TRANSCRIBING) {
+                                    tapDetector.reset()
+                                }
+                            }
                         }
                     }; true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     main.removeCallbacks(longPress)
                     if (moved) finishDrag()
-                    if (pttFired && state == State.RECORDING) stopRec()
+                    if (pttFired) {
+                        tapDetector.reset()
+                        if (state == State.RECORDING) stopRec()
+                    }
                     true
                 }
                 else -> false
@@ -924,22 +1072,35 @@ class OverlayService : Service() {
     override fun onDestroy() {
         micArmed = false
         state = State.IDLE
+        tapDetector.reset()
+        val runToCancel = activeRun
+        runToCancel?.finalPublication?.cancel()
+        runToCancel?.cancellation?.cancel()
+        activeRun = null
+        val recorderToRelease = audioRecord
+        val recordingThreadToJoin = recordThread
+        try { recorderToRelease?.stop() } catch (_: Throwable) {}
+        audioRecord = null
         val releaseResident = localEngineLifecycle.destroy {
             asrEngine = null
             loadedModelName = null
         }
-        val sessionToCancel = asrSession
+        val sessionToCancel = asrSession ?: runToCancel?.session
         asrSession = null
         if (releaseResident) {
             dispatchResidentClose(close = {
-                sessionToCancel?.cancelAndAwait()
+                joinUninterruptibly(recordingThreadToJoin)
+                runToCancel?.completion?.awaitWorkerIfStarted()
+                try { recorderToRelease?.release() } catch (_: Throwable) {}
+                while (sessionToCancel != null && !sessionToCancel.cancelAndAwait()) {
+                    // Keep the resident engine alive until the cancelled native session really exits.
+                }
                 residentAsrEngine.close()
             })
         } else {
             sessionToCancel?.cancel()
+            try { recorderToRelease?.release() } catch (_: Throwable) {}
         }
-        audioRecord?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
-        audioRecord = null
         main.removeCallbacksAndMessages(null)
         try { wave?.stop() } catch (_: Exception) {}
         try { loader?.stop() } catch (_: Exception) {}
@@ -948,5 +1109,17 @@ class OverlayService : Service() {
         livePanelAdded = false
         container = null; pill = null; wave = null; loader = null; liveText = null; livePanel = null; liveParams = null
         super.onDestroy()
+    }
+
+    private fun joinUninterruptibly(thread: Thread?) {
+        var interrupted = false
+        while (thread?.isAlive == true) {
+            try {
+                thread.join()
+            } catch (_: InterruptedException) {
+                interrupted = true
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt()
     }
 }

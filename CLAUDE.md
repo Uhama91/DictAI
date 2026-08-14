@@ -44,6 +44,7 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 ## Session Log
 | Date | Action | Fichiers/Config |
 |------|--------|-----------------|
+| 2026-08-14 | Annulation des dictées actives : double-tap pendant le traitement, garde contre l’injection tardive, annulation streaming/OkHttp et état CANCELLING ; version 0.5.7-wp, 147 tests JVM et build debug vérifiés. | `OverlayService.kt`, `DictationCancellation.kt`, `CloudCleanup.kt`, tests |
 | 2026-08-14 | Correctif Keep : sélection d’une cible d’injection unique, priorité au corps focalisé et conservation de cette même cible pour l’insertion directe comme pour le repli vers le presse-papiers ; version 0.5.6-wp, 133 tests et APK vérifiés. | `InjectionController.kt`, `WhisperAccessibilityService.kt`, tests, APK `~/Downloads/dictai-keep-injection-fix-0.5.6-wp.apk` |
 | 2026-08-14 | Durcissement de l’exécution : interface ASR unifiée, démarrage transactionnel d’AudioRecord, registre d’injection sûr sur tout le cycle de vie et retour de l’overlay au démarrage sans armement du micro ; version 0.5.5-wp, 130 tests et build de débogage vérifiés. | `DictationAsrEngine.kt`, `RecordingStartupTransaction.kt`, `InjectionGateway.kt`, `BootReceiver.kt`, APK `~/Downloads/dictai-runtime-hardening-2026-08-14.apk` |
 | 2026-08-06 | Correctif des régressions d’accessibilité et de presse-papiers : dictées de repli lisibles sans marqueur sensible, focus automatique restauré et cibles revalidées après rafraîchissement. | Injection, presse-papiers, tests, version 0.5.4-wp |
