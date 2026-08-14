@@ -79,6 +79,19 @@ internal fun <T> focusAndReadFresh(
     return readFresh()
 }
 
+internal fun <T> selectInjectionTarget(
+    candidates: List<T>,
+    isFocused: (T) -> Boolean,
+    isKnownEditable: (T) -> Boolean,
+    isKnownFallback: (T) -> Boolean,
+): T? = candidates.firstOrNull { candidate ->
+    isFocused(candidate) && isKnownEditable(candidate)
+} ?: candidates.firstOrNull { candidate ->
+    isFocused(candidate)
+} ?: candidates.firstOrNull { candidate ->
+    isKnownFallback(candidate)
+}
+
 internal fun injectionCandidateScore(
     isFocused: Boolean,
     isEditable: Boolean,
@@ -86,7 +99,12 @@ internal fun injectionCandidateScore(
     isTerminalView: Boolean,
     hasCustomPasteAction: Boolean,
 ): Int {
-    var score = 0
+    var score = when {
+        isFocused && isEditable -> 3_000
+        isFocused -> 2_000
+        isEditable || isEditText || isTerminalView || hasCustomPasteAction -> 1_000
+        else -> 0
+    }
     if (isFocused) score += 1_000
     if (hasCustomPasteAction) score += 100
     if (isTerminalView) score += 80

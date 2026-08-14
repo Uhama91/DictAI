@@ -33,17 +33,22 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
 
     override fun inject(text: String): InjectionResult {
         val candidates = findInjectionCandidates()
+        val selectedTarget = selectInjectionTarget(
+            candidates = candidates,
+            isFocused = { it.isFocused },
+            isKnownEditable = { it.isEditable },
+            isKnownFallback = ::isKnownFallbackTarget,
+        )
         return try {
-            val fallbackTarget = candidates.firstOrNull(::isKnownFallbackTarget)
-            var preparedFallbackTarget: PreparedTarget? = null
+            var preparedTarget: PreparedTarget? = null
             orchestrateInjection(
-                directInsert = { candidates.any { tryDirectSetText(it, text) } },
-                targetSafety = {
-                    preparedFallbackTarget = fallbackTarget?.let(::focusAndReadTarget)
-                    targetSafety(preparedFallbackTarget)
+                directInsert = {
+                    preparedTarget = selectedTarget?.let(::focusAndReadTarget)
+                    preparedTarget?.let { tryDirectSetText(it, text) } == true
                 },
+                targetSafety = { targetSafety(preparedTarget) },
                 prepareClipboard = { DictationClipboard.copy(this, text) },
-                paste = { preparedFallbackTarget?.node?.let(::tryPaste) == true },
+                paste = { preparedTarget?.node?.let(::tryPaste) == true },
             )
         } finally {
             candidates.forEach { it.recycle() }
@@ -185,17 +190,16 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         )
     }
 
-    private fun tryDirectSetText(node: AccessibilityNodeInfo, text: String): Boolean {
-        val updated = focusAndReadTarget(node)?.let { target ->
-            if (!target.isEditable) return@let null
-            if (SensitiveInputPolicy.isSensitive(target.isPassword, target.inputType)) return@let null
-            composeDirectSetText(
-                currentText = node.text,
-                selectionStart = node.textSelectionStart,
-                selectionEnd = node.textSelectionEnd,
-                dictatedText = text,
-            )
-        } ?: return false
+    private fun tryDirectSetText(target: PreparedTarget, text: String): Boolean {
+        if (!target.isEditable) return false
+        if (SensitiveInputPolicy.isSensitive(target.isPassword, target.inputType)) return false
+        val node = target.node
+        val updated = composeDirectSetText(
+            currentText = node.text,
+            selectionStart = node.textSelectionStart,
+            selectionEnd = node.textSelectionEnd,
+            dictatedText = text,
+        ) ?: return false
 
         logNode("Trying direct node", node)
         val args = Bundle().apply {

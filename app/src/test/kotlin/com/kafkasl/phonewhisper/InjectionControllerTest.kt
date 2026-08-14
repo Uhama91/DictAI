@@ -3,6 +3,7 @@ package com.kafkasl.phonewhisper
 import android.text.InputType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -171,6 +172,76 @@ class InjectionControllerTest {
         assertTrue(focusedScore > unfocusedCustomPasteScore)
     }
 
+    @Test fun `focused editable target outranks focused custom paste target`() {
+        val focusedEditableScore = injectionCandidateScore(
+            isFocused = true,
+            isEditable = true,
+            isEditText = false,
+            isTerminalView = false,
+            hasCustomPasteAction = false,
+        )
+        val focusedCustomPasteScore = injectionCandidateScore(
+            isFocused = true,
+            isEditable = false,
+            isEditText = false,
+            isTerminalView = false,
+            hasCustomPasteAction = true,
+        )
+
+        assertTrue(focusedEditableScore > focusedCustomPasteScore)
+    }
+
+    @Test fun `focused Keep-like body is selected instead of unfocused title`() {
+        val title = TestInjectionTarget(
+            name = "title",
+            isFocused = false,
+            isKnownEditable = true,
+            isKnownFallback = true,
+        )
+        val body = TestInjectionTarget(
+            name = "body",
+            isFocused = true,
+            isKnownEditable = true,
+            isKnownFallback = true,
+        )
+
+        val selected = selectInjectionTarget(
+            candidates = listOf(title, body),
+            isFocused = { it.isFocused },
+            isKnownEditable = { it.isKnownEditable },
+            isKnownFallback = { it.isKnownFallback },
+        )
+
+        assertSame(body, selected)
+    }
+
+    @Test fun `target selection returns one original candidate for direct and fallback`() {
+        val body = TestInjectionTarget(
+            name = "body",
+            isFocused = true,
+            isKnownEditable = true,
+            isKnownFallback = true,
+        )
+        val title = TestInjectionTarget(
+            name = "title",
+            isFocused = false,
+            isKnownEditable = true,
+            isKnownFallback = true,
+        )
+
+        val selected = selectInjectionTarget(
+            candidates = listOf(title, body),
+            isFocused = { it.isFocused },
+            isKnownEditable = { it.isKnownEditable },
+            isKnownFallback = { it.isKnownFallback },
+        )
+        val directTarget = selected
+        val fallbackTarget = selected
+
+        assertSame(body, directTarget)
+        assertSame(directTarget, fallbackTarget)
+    }
+
     @Test fun `fresh fallback that is no longer known is unknown and never prepares clipboard`() {
         val events = mutableListOf<String>()
 
@@ -268,4 +339,11 @@ class InjectionControllerTest {
         )
         assertEquals("Insertion impossible", injectionFeedbackMessage(InjectionResult.Failed))
     }
+
+    private data class TestInjectionTarget(
+        val name: String,
+        val isFocused: Boolean,
+        val isKnownEditable: Boolean,
+        val isKnownFallback: Boolean,
+    )
 }
