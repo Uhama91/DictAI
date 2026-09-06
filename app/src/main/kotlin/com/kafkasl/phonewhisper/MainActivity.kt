@@ -39,6 +39,69 @@ class MainActivity : AppCompatActivity() {
         val dlBtn: MaterialButton
     )
 
+    private fun showFormatsDialog() {
+        val store = PostProcessingFormats(this)
+        val formats = store.all()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Formats · ${store.selected().name}")
+            .setItems((formats.map { it.name } + "＋ Créer un format").toTypedArray()) { _, index ->
+                if (index == formats.size) editFormat(null)
+                else {
+                    val format = formats[index]
+                    val custom = store.custom().any { it.id == format.id }
+                    val options = if (custom) arrayOf("Utiliser", "Modifier", "Supprimer") else arrayOf("Utiliser")
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle(format.name)
+                        .setItems(options) { _, action ->
+                            when (action) {
+                                0 -> { store.select(format); Toast.makeText(this, "Format : ${format.name}", Toast.LENGTH_SHORT).show() }
+                                1 -> editFormat(format)
+                                2 -> androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("Supprimer ${format.name} ?")
+                                    .setPositiveButton("Supprimer") { _, _ -> store.delete(format.id) }
+                                    .setNegativeButton("Annuler", null).show()
+                            }
+                        }.show()
+                }
+            }
+            .setNegativeButton("Fermer", null)
+            .show()
+    }
+
+    private fun editFormat(format: PostProcessingFormat?) {
+        val name = EditText(this).apply {
+            hint = "Nom du format"; setSingleLine(true); setText(format?.name.orEmpty())
+            filters = arrayOf(android.text.InputFilter.LengthFilter(60))
+        }
+        val instructions = EditText(this).apply {
+            hint = "Ex. : organise mes idées en liste à puces, sans ajouter d'information."
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            minLines = 4; setText(format?.instructions.orEmpty())
+            filters = arrayOf(android.text.InputFilter.LengthFilter(4000))
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(8))
+            addView(name); addView(instructions)
+        }
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(if (format == null) "Créer un format" else "Modifier le format")
+            .setMessage("Décrivez la mise en forme souhaitée. Nécessite le nettoyage cloud et une clé OpenRouter ; le texte y est envoyé après la dictée.")
+            .setView(content).setPositiveButton("Enregistrer", null).setNegativeButton("Annuler", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                when {
+                    name.text.isNullOrBlank() -> name.error = "Indiquez un nom"
+                    instructions.text.isNullOrBlank() -> instructions.error = "Indiquez les consignes"
+                    else -> {
+                        PostProcessingFormats(this).save(format?.id, name.text.toString(), instructions.text.toString())
+                        dialog.dismiss(); showFormatsDialog()
+                    }
+                }
+            }
+        }
+        dialog.show()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -179,6 +242,9 @@ class MainActivity : AppCompatActivity() {
 
         root.addView(settingsRow("Modèle de nettoyage", languagePrefs.cloudModel().label) {
             showCloudModelDialog()
+        })
+        root.addView(settingsRow("Formats de post-traitement", "Texte, liste, mail et formats personnalisés · maintenir le micro puis glisser vers le haut") {
+            showFormatsDialog()
         })
         val credentialStore = SecureCredentialStore(this)
         root.addView(settingsRow(

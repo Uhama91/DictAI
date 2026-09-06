@@ -25,6 +25,12 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.EditText
+import android.text.Editable
+import android.text.TextWatcher
+import android.text.InputType
+import android.view.inputmethod.InputMethodManager
+import android.app.AlertDialog
 import android.widget.FrameLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -163,7 +169,10 @@ class OverlayService : Service() {
     private var pill: FrameLayout? = null
     private var wave: CursiveWaveView? = null
     private var loader: LoadingBorderView? = null
-    private var liveText: TextView? = null
+    private var liveText: EditText? = null
+    private var updatingLiveText = false
+    private val editableTranscript = EditableTranscript()
+    private var formatDialog: AlertDialog? = null
     private var livePanel: ScrollView? = null
     private var params: WindowManager.LayoutParams? = null
     private var liveParams: WindowManager.LayoutParams? = null
@@ -181,7 +190,6 @@ class OverlayService : Service() {
     private var currentAnchor: Anchor? = null
     private var livePanelAdded = false
     private var livePreviewVisible = false
-    private val liveTranscriptBuffer = LiveTranscriptBuffer()
     private val localLoading = java.util.concurrent.atomic.AtomicBoolean(false)
     private val localEngineLifecycle = LocalEngineLifecycle()
     private val residentAsrEngine = ResidentEngine<DictationAsrEngine>()
@@ -335,6 +343,7 @@ class OverlayService : Service() {
             cloudCleanupEnabled = cloudPolicy.cloudAllowed,
             cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
             cloudModel = prefs.cloudModel(),
+            format = PostProcessingFormats(this).selected(),
         )
         val bufSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
@@ -391,7 +400,11 @@ class OverlayService : Service() {
             recordingOptions = options
             asrSession = started.session
             activeRun = run
-            liveTranscriptBuffer.clear()
+            editableTranscript.clear()
+            updatingLiveText = true
+            liveText?.setText("")
+            updatingLiveText = false
+            liveText?.isEnabled = true
             setLivePreviewVisible(false)
             setState(State.RECORDING)
             vibrate(20)
@@ -440,6 +453,9 @@ class OverlayService : Service() {
     private fun stopRec() {
         if (state != State.RECORDING) return
         val run = activeRun ?: return
+        formatDialog?.dismiss()
+        liveText?.isEnabled = false
+        setLivePreviewVisible(false)
         setState(State.TRANSCRIBING)
         vibrate(20)
         val recorder = audioRecord
@@ -521,6 +537,7 @@ class OverlayService : Service() {
         val cloudCleanupEnabled: Boolean,
         val cloudSuppressedForSensitiveTarget: Boolean,
         val cloudModel: CuratedCloudModel,
+        val format: PostProcessingFormat = PostProcessingFormats.builtins.first(),
     )
 
     private fun processStoppedRecording(capture: RecordingCapture) {
@@ -544,7 +561,7 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        val localText = r.text?.let { Vocabulary.applyCorrections(this, it) }
+        val localText = r.text?.let { editableTranscript.update(Vocabulary.applyCorrections(this, it)) }
         if (run.cancellation.isCancelled) {
             return
         }
@@ -557,11 +574,15 @@ class OverlayService : Service() {
                     capture.options.cloudModel,
                     it,
                     run.cancellation,
+                    capture.options.format.instructions,
                 )
             }
         } else null
         if (run.cancellation.isCancelled) {
             return
+        }
+        if (capture.options.format.instructions.isNotBlank() && cloudText == null && !localText.isNullOrBlank()) {
+            toast("Mise en forme indisponible : texte conservé sans format.")
         }
         var finalText = cloudText ?: localText
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
@@ -750,7 +771,7 @@ class OverlayService : Service() {
     }
 
     private fun updateLivePreview(committed: String, tentative: String) {
-        val text = liveTranscriptBuffer.render(committed, tentative)
+        val text = listOf(committed.trim(), tentative.trim()).filter { it.isNotEmpty() }.joinToString(" ")
         if (text.isBlank()) return
         val run = activeRun ?: return
         main.post {
@@ -759,8 +780,21 @@ class OverlayService : Service() {
                 isRecording = state == State.RECORDING,
                 cancellation = run.cancellation,
             ) {
-                liveText?.text = text
-                livePanel?.post { livePanel?.fullScroll(View.FOCUS_DOWN) }
+                val display = editableTranscript.update(text)
+                val editor = liveText ?: return@publishIfAllowed
+                if (editor.text.toString() != display) {
+                    val start = editor.selectionStart.coerceAtLeast(0)
+                    val end = editor.selectionEnd.coerceAtLeast(0)
+                    updatingLiveText = true
+                    // Replace only the changed range to preserve selection and IME composition elsewhere.
+                    val old = editor.text.toString()
+                    val prefix = old.commonPrefixWith(display).length
+                    val suffix = old.drop(prefix).commonSuffixWith(display.drop(prefix)).length
+                    editor.text.replace(prefix, old.length - suffix, display.substring(prefix, display.length - suffix))
+                    if (editor.hasFocus()) editor.setSelection(start.coerceAtMost(display.length), end.coerceAtMost(display.length))
+                    updatingLiveText = false
+                }
+                if (!editor.hasFocus()) livePanel?.post { livePanel?.fullScroll(View.FOCUS_DOWN) }
                 setLivePreviewVisible(true)
             }
         }
@@ -771,7 +805,15 @@ class OverlayService : Service() {
         if (livePreviewVisible == show && panel.visibility == if (show) View.VISIBLE else View.GONE) return
         livePreviewVisible = show
         panel.visibility = if (show) View.VISIBLE else View.GONE
-        if (!show) return
+        if (!show) {
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(panel.windowToken, 0)
+            liveText?.clearFocus()
+            liveParams?.let { it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE }
+            if (livePanelAdded) runCatching {
+                (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, liveParams)
+            }
+            return
+        }
 
         val panelParams = liveParams ?: return
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -896,9 +938,33 @@ class OverlayService : Service() {
             addView(loaderView)
         }
 
-        val liveView = TextView(this).apply {
+        val liveView = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setTextColor(0xFFF4F4F4.toInt())
+            background = null
+            setPadding(0, 0, 0, 0)
+            hint = "Touchez pour corriger pendant la dictée"
+            setHintTextColor(0xFFBBBBBB.toInt())
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    if (!updatingLiveText && state == State.RECORDING) editableTranscript.edit(s.toString())
+                }
+                override fun afterTextChanged(s: Editable?) = Unit
+            })
+            setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_DOWN && state == State.RECORDING) {
+                    liveParams?.let { layout ->
+                        layout.flags = layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                        (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(this@OverlayService.livePanel, layout)
+                    }
+                    requestFocus()
+                    post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(this, InputMethodManager.SHOW_IMPLICIT) }
+                }
+                false
+            }
             textSize = 14f
-            setTextColor(ThemeTokens.INK)
+            setTextColor(0xFFF4F4F4.toInt())
             includeFontPadding = false
             gravity = Gravity.START
             setLineSpacing(2 * dp, 1.0f)
@@ -938,15 +1004,17 @@ class OverlayService : Service() {
         lp.y = initialPosition.y
         val panelParams = WindowManager.LayoutParams(
             livePanelW, livePanelH, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            alpha = 0.8f
+            alpha = 0.96f
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
         var pttFired = false
+        var formatGesture = false
         val longPress = Runnable {
             // Maintenu 250ms, pas bougé, toujours IDLE → push-to-talk
             if (!moved && state == State.IDLE) {
@@ -972,13 +1040,21 @@ class OverlayService : Service() {
             when (ev.action) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
-                    moved = false; pttFired = false
+                    moved = false; pttFired = false; formatGesture = false
                     wake()
                     if (state == State.IDLE) main.postDelayed(longPress, 250); true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
-                    if (abs(dx) + abs(dy) > 10 * dp) {
+                    if (pttFired) {
+                        if (!formatGesture && dy < -48 * dp && abs(dy) > abs(dx)) {
+                            formatGesture = true
+                            tapCoordinator.reset()
+                            showFormatPicker()
+                        }
+                        return@setOnTouchListener true
+                    }
+                    if (abs(dx) + abs(dy) > android.view.ViewConfiguration.get(this).scaledTouchSlop) {
                         moved = true; tapCoordinator.reset(); main.removeCallbacks(longPress)
                         val screen = screenRect()
                         val clamped = OverlayPlacement.clampPill(
@@ -994,7 +1070,9 @@ class OverlayService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     main.removeCallbacks(longPress)
-                    if (moved) {
+                    if (formatGesture) {
+                        tapCoordinator.reset()
+                    } else if (moved) {
                         finishDrag()
                     } else if (pttFired) {
                         // Relâchement du push-to-talk → on arrête + transcrit
@@ -1015,7 +1093,7 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_CANCEL -> {
                     main.removeCallbacks(longPress)
                     if (moved) finishDrag()
-                    if (pttFired) {
+                    if (pttFired && !formatGesture) {
                         tapCoordinator.reset()
                         if (state == State.RECORDING) stopRec()
                     }
@@ -1061,6 +1139,28 @@ class OverlayService : Service() {
         updatePillLayout()
     }
 
+    private fun showFormatPicker() {
+        if (formatDialog?.isShowing == true) return
+        val store = PostProcessingFormats(this)
+        val formats = store.all()
+        val selected = recordingOptions?.format ?: store.selected()
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Format de la dictée")
+            .setSingleChoiceItems(formats.map { it.name }.toTypedArray(), formats.indexOfFirst { it.id == selected.id }) { dialog, index ->
+                val format = formats[index]
+                store.select(format)
+                recordingOptions = recordingOptions?.copy(format = format)
+                dialog.dismiss()
+                toast(if (prefs.cloudCleanupEnabled) "${format.name} · touchez le micro pour terminer" else "Activez le nettoyage cloud dans les réglages pour appliquer ce format.")
+            }
+            .setNegativeButton("Continuer la dictée", null)
+            .create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        dialog.setOnDismissListener { formatDialog = null }
+        formatDialog = dialog
+        dialog.show()
+    }
+
     private fun openApp() = startActivity(
         Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     )
@@ -1082,6 +1182,7 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        formatDialog?.dismiss()
         micArmed = false
         state = State.IDLE
         tapCoordinator.reset()

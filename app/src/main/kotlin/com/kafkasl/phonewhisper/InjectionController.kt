@@ -45,8 +45,13 @@ internal fun injectOrCopy(
     text: String,
     copyToClipboard: (String) -> Boolean,
 ): InjectionResult {
-    if (controller != null) return controller.inject(text)
-    return if (copyToClipboard(text)) InjectionResult.Copied else InjectionResult.Failed
+    val copied = runCatching { copyToClipboard(text) }.getOrDefault(false)
+    val insertion = runCatching { controller?.inject(text) }.getOrNull()
+    return when {
+        insertion == InjectionResult.Inserted -> InjectionResult.Inserted
+        copied || insertion == InjectionResult.Copied -> InjectionResult.Copied
+        else -> InjectionResult.Failed
+    }
 }
 
 internal fun composeDirectSetText(

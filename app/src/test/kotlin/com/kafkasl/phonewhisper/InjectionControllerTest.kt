@@ -80,7 +80,7 @@ class InjectionControllerTest {
         }
     }
 
-    @Test fun `present controller never uses external clipboard fallback`() {
+    @Test fun `present controller always copies even when insertion succeeds or fails`() {
         InjectionResult.values().forEach { controllerResult ->
             var externalClipboardWrites = 0
             val controller = object : InjectionController {
@@ -92,9 +92,23 @@ class InjectionControllerTest {
                 true
             }
 
-            assertEquals(controllerResult, result)
-            assertEquals(0, externalClipboardWrites)
+            assertEquals(if (controllerResult == InjectionResult.Inserted) InjectionResult.Inserted else InjectionResult.Copied, result)
+            assertEquals(1, externalClipboardWrites)
         }
+    }
+
+    @Test fun `throwing controller keeps recoverable clipboard text`() {
+        val controller = object : InjectionController {
+            override fun inject(text: String): InjectionResult = error("Disconnected")
+        }
+        assertEquals(InjectionResult.Copied, injectOrCopy(controller, "bonjour") { true })
+    }
+
+    @Test fun `clipboard failure does not prevent successful insertion`() {
+        val controller = object : InjectionController {
+            override fun inject(text: String): InjectionResult = InjectionResult.Inserted
+        }
+        assertEquals(InjectionResult.Inserted, injectOrCopy(controller, "bonjour") { false })
     }
 
     @Test fun `unfocused target requests focus then refreshes before reading fresh state`() {
