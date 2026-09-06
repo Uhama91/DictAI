@@ -68,3 +68,7 @@ internal class EditableTranscript {
 /** Follow incoming words unless the user is editing or selecting an earlier passage. */
 internal fun shouldFollowTranscriptTail(hasFocus: Boolean, start: Int, end: Int, length: Int): Boolean =
     !hasFocus || (start == length && end == length)
+
+/** Upward intent wins over button dragging, both before and after the hold timeout. */
+internal fun isFormatSelectionSwipe(dx: Float, dy: Float, touchSlop: Float): Boolean =
+    dy < -touchSlop && kotlin.math.abs(dy) > kotlin.math.abs(dx)

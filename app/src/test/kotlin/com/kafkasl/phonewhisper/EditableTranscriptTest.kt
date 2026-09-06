@@ -4,6 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class EditableTranscriptTest {
+    @Test fun `upward swipe selects formats while jitter and other drags do not`() {
+        org.junit.Assert.assertTrue(isFormatSelectionSwipe(2f, -20f, 8f))
+        org.junit.Assert.assertFalse(isFormatSelectionSwipe(0f, -5f, 8f))
+        org.junit.Assert.assertFalse(isFormatSelectionSwipe(0f, 20f, 8f))
+        org.junit.Assert.assertFalse(isFormatSelectionSwipe(30f, -20f, 8f))
+    }
+
     @Test fun `tail following works with keyboard focus and resumes at end`() {
         org.junit.Assert.assertTrue(shouldFollowTranscriptTail(false, 0, 0, 20))
         org.junit.Assert.assertTrue(shouldFollowTranscriptTail(true, 0, 0, 0))

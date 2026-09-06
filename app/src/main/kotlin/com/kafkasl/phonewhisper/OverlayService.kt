@@ -616,12 +616,12 @@ class OverlayService : Service() {
     }
 
     /** Annule l'enregistrement en cours SANS transcrire (ex. 2e tap d'un double-tap). */
-    private fun cancelRec() {
+    private fun cancelRec(showFeedback: Boolean = true) {
         if (state != State.RECORDING) return
         val run = activeRun ?: return
         // CANCELLING blocks a second AudioRecord until the current reader has fully exited.
         run.completion.markWorkerStarted()
-        if (!requestCancellation(run)) {
+        if (!requestCancellation(run, showFeedback)) {
             run.completion.markWorkerDone()
             return
         }
@@ -698,13 +698,13 @@ class OverlayService : Service() {
         }
     }
 
-    private fun requestCancellation(run: ActiveDictationRun): Boolean {
+    private fun requestCancellation(run: ActiveDictationRun, showFeedback: Boolean = true): Boolean {
         if (!isCurrentRun(run)) return false
         run.finalPublication.cancel()
         if (!run.cancellation.cancel()) return false
         setLivePreviewVisible(false)
         setState(State.CANCELLING)
-        toast("Dictée annulée")
+        if (showFeedback) toast("Dictée annulée")
         awaitCancellationCompletion(run)
         return true
     }
@@ -1028,12 +1028,12 @@ class OverlayService : Service() {
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
         var pttFired = false
         var formatGesture = false
+        var canChooseFormat = false
         val longPress = Runnable {
             // Maintenu 250ms, pas bougé, toujours IDLE → push-to-talk
             if (!moved && state == State.IDLE) {
-                pttFired = true
-                vibrate(20)
                 startRec()
+                pttFired = state == State.RECORDING
             }
         }
         fun finishDrag() {
@@ -1054,19 +1054,25 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_DOWN -> {
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
                     moved = false; pttFired = false; formatGesture = false
+                    canChooseFormat = state == State.IDLE || state == State.MIC_UNARMED
                     wake()
                     if (state == State.IDLE) main.postDelayed(longPress, 250); true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
-                    if (pttFired) {
-                        if (!formatGesture && dy < -48 * dp && abs(dy) > abs(dx)) {
-                            formatGesture = true
-                            tapCoordinator.reset()
-                            showFormatPicker()
-                        }
+                    if (formatGesture) return@setOnTouchListener true
+                    val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+                    if (canChooseFormat && !moved && isFormatSelectionSwipe(dx, dy, slop)) {
+                        // A quick swipe prevents microphone startup; a swipe after a hold
+                        // discards that capture before opening a settings-only picker.
+                        formatGesture = true
+                        main.removeCallbacks(longPress)
+                        tapCoordinator.reset()
+                        if (pttFired && state == State.RECORDING) cancelRec(showFeedback = false)
+                        showFormatPicker()
                         return@setOnTouchListener true
                     }
+                    if (pttFired) return@setOnTouchListener true
                     if (abs(dx) + abs(dy) > android.view.ViewConfiguration.get(this).scaledTouchSlop) {
                         moved = true; tapCoordinator.reset(); main.removeCallbacks(longPress)
                         val screen = screenRect()
@@ -1108,7 +1114,7 @@ class OverlayService : Service() {
                     if (moved) finishDrag()
                     if (pttFired && !formatGesture) {
                         tapCoordinator.reset()
-                        if (state == State.RECORDING) stopRec()
+                        if (state == State.RECORDING) cancelRec()
                     }
                     true
                 }
@@ -1156,17 +1162,16 @@ class OverlayService : Service() {
         if (formatDialog?.isShowing == true) return
         val store = PostProcessingFormats(this)
         val formats = store.all()
-        val selected = recordingOptions?.format ?: store.selected()
+        val selected = store.selected()
         val dialog = AlertDialog.Builder(this)
             .setTitle("Format de la dictée")
             .setSingleChoiceItems(formats.map { it.name }.toTypedArray(), formats.indexOfFirst { it.id == selected.id }) { dialog, index ->
                 val format = formats[index]
                 store.select(format)
-                recordingOptions = recordingOptions?.copy(format = format)
                 dialog.dismiss()
-                toast(if (prefs.cloudCleanupEnabled) "${format.name} · touchez le micro pour terminer" else "Activez le nettoyage cloud dans les réglages pour appliquer ce format.")
+                toast(if (prefs.cloudCleanupEnabled) "Format sélectionné : ${format.name}" else "Activez le nettoyage cloud dans les réglages pour appliquer ce format.")
             }
-            .setNegativeButton("Continuer la dictée", null)
+            .setNegativeButton("Fermer", null)
             .create()
         dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
         dialog.setOnDismissListener { formatDialog = null }

@@ -163,7 +163,7 @@ Personal project. Do whatever you want with it.
 
 - Le résultat final est copié dans le presse-papiers, même si l’insertion réussit ou si aucun champ n’est sélectionné.
 - Pendant une dictée en streaming, toucher le texte ouvre le clavier. Les corrections manuelles restent présentes pendant l’arrivée des mots suivants et dans le résultat final. Une ponctuation finale ou un retour à la ligne commence la suite par une majuscule.
-- Maintenir le micro pendant 250 ms puis glisser vers le haut de 48 dp ouvre les formats. La dictée reste active après le relâchement : choisir le format, continuer à parler, puis toucher le micro pour terminer. Un déplacement immédiat continue à repositionner le bouton.
+- Maintenir le micro pendant 250 ms enregistre ; relâcher termine la dictée et publie le résultat. Glisser vers le haut ouvre uniquement le choix du format : un glissement rapide empêche le démarrage du micro, et un glissement après un appui maintenu annule la capture sans insertion ni copie. Le choix du format ne lance pas de dictée. Déplacer le bouton horizontalement ou vers le bas permet de le repositionner.
 - Dans **Formats de post-traitement**, choisir Texte corrigé, Liste à puces ou Mail. Créer, modifier ou supprimer des formats personnels avec un nom et des consignes. Le choix est mémorisé.
 - La mise en forme utilise le nettoyage cloud existant : activer cette option et configurer une clé OpenRouter. Les restrictions existantes sur les champs sensibles restent applicables. En cas d’indisponibilité, le texte corrigé manuellement est conservé et un message signale l’absence de mise en forme.
 
@@ -172,7 +172,9 @@ Personal project. Do whatever you want with it.
 1. Dicter dans un champ sélectionné, puis coller ailleurs : les deux textes doivent être identiques.
 2. Dicter sans champ sélectionné : récupérer le résultat avec Coller.
 3. Corriger un nom, ajouter un point puis continuer à parler : vérifier la conservation de la correction, la majuscule et la position du curseur. Tester aussi une sélection, une suppression et le clavier en paysage.
-4. Maintenir puis glisser vers le haut : sélectionner Liste ou Mail, poursuivre la dictée puis arrêter. Vérifier aussi Annuler/Continuer, le déplacement immédiat du bouton et le double tap d’annulation.
+4. Maintenir puis glisser vers le haut : sélectionner Liste ou Mail et vérifier qu’aucune dictée n’est publiée. Démarrer ensuite une nouvelle dictée par appui maintenu, puis relâcher. Vérifier aussi Fermer, le déplacement immédiat du bouton et le double tap d’annulation.
 5. Créer un format personnalisé, relancer l’application, le modifier puis le supprimer. Tester sans réseau et sans clé : le texte doit rester récupérable.
 
 L’APK de chaque branche est disponible dans **Actions → Build WhisperPin APK → Artifacts → whisperpin-debug-apk** une fois la compilation réussie.
+
+Le curseur et le défilement suivent les derniers mots, même avec le clavier ouvert. Une sélection ou un curseur déplacé dans un passage précédent suspend le suivi ; revenir à la fin le réactive.
