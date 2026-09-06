@@ -4,6 +4,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class EditableTranscriptTest {
+    @Test fun `tail following works with keyboard focus and resumes at end`() {
+        org.junit.Assert.assertTrue(shouldFollowTranscriptTail(false, 0, 0, 20))
+        org.junit.Assert.assertTrue(shouldFollowTranscriptTail(true, 0, 0, 0))
+        org.junit.Assert.assertTrue(shouldFollowTranscriptTail(true, 20, 20, 20))
+        org.junit.Assert.assertFalse(shouldFollowTranscriptTail(true, 5, 5, 20))
+        org.junit.Assert.assertFalse(shouldFollowTranscriptTail(true, 5, 20, 20))
+        org.junit.Assert.assertFalse(shouldFollowTranscriptTail(true, 20, 5, 20))
+    }
+
     @Test fun `uncorrected preview and final retain all text`() {
         val buffer = EditableTranscript()
         val long = "bonjour ".repeat(1000)

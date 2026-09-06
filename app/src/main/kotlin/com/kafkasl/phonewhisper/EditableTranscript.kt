@@ -64,3 +64,7 @@ internal class EditableTranscript {
         return common + j
     }
 }
+
+/** Follow incoming words unless the user is editing or selecting an earlier passage. */
+internal fun shouldFollowTranscriptTail(hasFocus: Boolean, start: Int, end: Int, length: Int): Boolean =
+    !hasFocus || (start == length && end == length)

@@ -1,6 +1,7 @@
 package com.kafkasl.phonewhisper
 
 import android.app.Notification
+import androidx.core.view.doOnLayout
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -782,20 +783,32 @@ class OverlayService : Service() {
             ) {
                 val display = editableTranscript.update(text)
                 val editor = liveText ?: return@publishIfAllowed
-                if (editor.text.toString() != display) {
+                val old = editor.text.toString()
+                val followTail = shouldFollowTranscriptTail(editor.hasFocus(), editor.selectionStart, editor.selectionEnd, old.length)
+                if (old != display) {
                     val start = editor.selectionStart.coerceAtLeast(0)
                     val end = editor.selectionEnd.coerceAtLeast(0)
                     updatingLiveText = true
                     // Replace only the changed range to preserve selection and IME composition elsewhere.
-                    val old = editor.text.toString()
                     val prefix = old.commonPrefixWith(display).length
                     val suffix = old.drop(prefix).commonSuffixWith(display.drop(prefix)).length
                     editor.text.replace(prefix, old.length - suffix, display.substring(prefix, display.length - suffix))
-                    if (editor.hasFocus()) editor.setSelection(start.coerceAtMost(display.length), end.coerceAtMost(display.length))
+                    if (followTail) editor.setSelection(display.length)
+                    else editor.setSelection(start.coerceAtMost(display.length), end.coerceAtMost(display.length))
                     updatingLiveText = false
                 }
-                if (!editor.hasFocus()) livePanel?.post { livePanel?.fullScroll(View.FOCUS_DOWN) }
                 setLivePreviewVisible(true)
+                if (followTail) editor.doOnLayout {
+                    if (isCurrentRun(run) && state == State.RECORDING &&
+                        shouldFollowTranscriptTail(editor.hasFocus(), editor.selectionStart, editor.selectionEnd, editor.length())) {
+                        // Scroll after layout without requesting focus: fullScroll can focus EditText
+                        // and inadvertently disable following on the next streamed update.
+                        editor.setSelection(editor.length())
+                        livePanel?.let { panel ->
+                            panel.scrollTo(0, (editor.bottom + panel.paddingBottom - panel.height).coerceAtLeast(0))
+                        }
+                    }
+                }
             }
         }
     }
