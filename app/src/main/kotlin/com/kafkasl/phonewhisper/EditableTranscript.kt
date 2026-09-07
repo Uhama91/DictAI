@@ -6,6 +6,8 @@ internal class EditableTranscript {
     private var protectedWords = 0
     private var edited: String? = null
 
+    @Synchronized fun hasUserEdits(): Boolean = edited != null
+
     @Synchronized fun clear() {
         raw = emptyList()
         protectedWords = 0

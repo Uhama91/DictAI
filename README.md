@@ -194,8 +194,18 @@ Vérifier sur **Xiaomi Pad 7** et **Poco F7**, avec le micro intégré puis les 
 5. Appuyer à nouveau pour terminer : vérifier les ajouts manuels et les deux portions dictées dans le presse-papiers et le champ cible.
 6. Répéter plusieurs pauses ; tester une reprise immédiate pendant la fermeture du micro, une interruption du Bluetooth, la rotation, le double tap d’annulation et l’arrêt du service pendant la pause.
 
-La pause conserve la session en mémoire ; elle ne constitue pas une sauvegarde durable si Android arrête le service.
+Le texte est sauvegardé localement pendant la dictée et les corrections. Après destruction du service, il est restauré en pause ; la reprise ouvre une nouvelle session audio et ajoute la suite au brouillon protégé. L’audio de l’ancienne session n’est pas conservé. Le brouillon est supprimé après la fin ou l’annulation de la dictée.
 
 Les gestes de format et de pause affichent une indication progressive sur la pastille et un retour haptique au seuil. Ils ne déplacent jamais le bouton. Le maintien immobile jusqu’à la vibration affiche « Déplacer » et réserve tout le mouvement suivant au positionnement.
 
 Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute en cours… », sans attendre les premiers mots du modèle. Il est déjà éditable. Les lectures audio sont limitées à 20 ms par bloc ; le tampon matériel conserve sa taille minimale requise. Le délai de reconnaissance dépend toujours du modèle et de l’appareil.
+
+### Panneau de texte et brouillon (0.6.5)
+
+- « Agrandir / Réduire » passe de trois lignes à un panneau pouvant occuper 65 % de la hauteur disponible, ajusté au bord de la pastille et au clavier.
+- « Masquer » cache le texte et le clavier sans arrêter la dictée. Glisser vers le haut pendant une dictée ou une pause réaffiche le panneau.
+- Le réglage « Afficher le texte pendant la dictée » définit le comportement au démarrage de la prochaine dictée.
+- Les corrections manuelles restent prioritaires. Dès qu’un texte est modifié ou restauré, le nettoyage cloud et la mise en forme automatique sont ignorés pour empêcher toute reformulation du brouillon.
+- Le brouillon est privé, stocké dans les données locales de l’application, exclues des sauvegardes Android. Après un arrêt du service, le micro peut nécessiter une réactivation depuis l’application avant la reprise. Effacer les données ou désinstaller l’application supprime ce brouillon.
+
+À vérifier sur appareil : agrandir aux quatre bords, ouvrir le clavier en portrait/paysage, masquer puis réafficher, modifier en pause, verrouiller/déverrouiller puis reprendre ; enfin arrêter puis relancer le service pour vérifier la restauration du texte et l’ajout de la suite sans reformulation.

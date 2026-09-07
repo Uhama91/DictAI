@@ -1,9 +1,19 @@
 package com.kafkasl.phonewhisper
 
-import org.junit.Assert.assertEquals
+import org.junit.Assert.*
 import org.junit.Test
 
 class EditableTranscriptTest {
+    @Test fun `restored draft remains verbatim before a new recognition session`() {
+        val buffer = EditableTranscript()
+        buffer.edit("Mon argument corrigé.\n\n")
+        assertTrue(buffer.hasUserEdits())
+        assertEquals("Mon argument corrigé.\n\nNouvelle idée", buffer.update("nouvelle idée"))
+        assertEquals("Mon argument corrigé.\n\nNouvelle idée précise", buffer.resolveFinal("nouvelle idée précise"))
+        buffer.clear()
+        assertFalse(buffer.hasUserEdits())
+    }
+
     @Test fun `manual-only draft survives an empty recognition result`() {
         val buffer = EditableTranscript()
         buffer.edit("Texte rédigé en pause.\nDeuxième ligne.")

@@ -60,6 +60,24 @@ object OverlayPlacement {
         )
     }
 
+    /** Fit beside the pill, then clamp along its edge; never cover its touch target. */
+    fun panelBounds(edge: Edge, pill: Rect, screen: Rect, desiredWidth: Int, desiredHeight: Int, margin: Int): Rect {
+        val m = margin.coerceAtLeast(0)
+        val availableWidth = when (edge) {
+            Edge.LEFT -> screen.right - pill.right - 2 * m
+            Edge.RIGHT -> pill.x - screen.x - 2 * m
+            else -> screen.width - 2 * m
+        }.coerceAtLeast(1)
+        val availableHeight = when (edge) {
+            Edge.TOP -> screen.bottom - pill.bottom - 2 * m
+            Edge.BOTTOM -> pill.y - screen.y - 2 * m
+            else -> screen.height - 2 * m
+        }.coerceAtLeast(1)
+        val size = Rect(0, 0, desiredWidth.coerceIn(1, availableWidth), desiredHeight.coerceIn(1, availableHeight))
+        val position = panelPosition(edge, pill, size, screen, m)
+        return Rect(position.x, position.y, size.width, size.height)
+    }
+
     fun clampPill(point: Point, pill: Rect, screen: Rect): Point = Point(
         point.x.coerceIn(screen.x, (screen.right - pill.width).coerceAtLeast(screen.x)),
         point.y.coerceIn(screen.y, (screen.bottom - pill.height).coerceAtLeast(screen.y)),

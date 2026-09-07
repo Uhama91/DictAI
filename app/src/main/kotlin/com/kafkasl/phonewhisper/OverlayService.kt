@@ -26,6 +26,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.LinearLayout
 import android.widget.EditText
 import android.text.Editable
 import android.text.TextWatcher
@@ -179,7 +180,14 @@ class OverlayService : Service() {
     private var updatingLiveText = false
     private val editableTranscript = EditableTranscript()
     private var formatDialog: AlertDialog? = null
-    private var livePanel: ScrollView? = null
+    private var livePanel: FrameLayout? = null
+    private var liveScroll: ScrollView? = null
+    private var panelExpandButton: TextView? = null
+    private var keyboardInset = 0
+    private var panelExpanded = false
+    private var panelHidden = false
+    private val draftStore by lazy { DictationDraftStore(this) }
+    private var recoveredDraft: String? = null
     private var params: WindowManager.LayoutParams? = null
     private var liveParams: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
@@ -210,6 +218,16 @@ class OverlayService : Service() {
         createChannel()
         if (!startForegroundSpecialUse()) return
         showButton()
+        recoveredDraft = draftStore.load()
+        recoveredDraft?.let { text ->
+            editableTranscript.edit(text)
+            updatingLiveText = true
+            liveText?.setText(text)
+            updatingLiveText = false
+            panelHidden = !prefs.showTranscript
+            setState(State.PAUSED)
+            setLivePreviewVisible(true)
+        }
         ensureLocalLoaded()
     }
 
@@ -303,7 +321,7 @@ class OverlayService : Service() {
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
             )
             micArmed = true
-            setState(State.IDLE)
+            setState(if (recoveredDraft != null) State.PAUSED else State.IDLE)
             Log.i(TAG, "Mic arme")
         } catch (e: Exception) {
             Log.e(TAG, "promoteMic echec: ${e.javaClass.simpleName}")
@@ -409,12 +427,17 @@ class OverlayService : Service() {
             recordingOptions = options
             asrSession = started.session
             activeRun = run
+            val restored = recoveredDraft
             editableTranscript.clear()
+            if (restored != null) editableTranscript.edit(restored)
             updatingLiveText = true
-            liveText?.setText("")
+            liveText?.setText(restored.orEmpty())
             updatingLiveText = false
             liveText?.isEnabled = true
             liveText?.hint = "Écoute en cours…"
+            if (restored == null) { panelHidden = !prefs.showTranscript; panelExpanded = false }
+            recoveredDraft = null
+            draftStore.save(liveText?.text?.toString().orEmpty())
             setState(State.RECORDING)
             setLivePreviewVisible(true)
             vibrate(20)
@@ -473,6 +496,7 @@ class OverlayService : Service() {
         val run = activeRun ?: return
         tapCoordinator.reset()
         run.captureGate.pause()
+        draftStore.save(liveText?.text?.toString().orEmpty())
         setState(State.PAUSING)
         setLivePreviewVisible(true)
         val recorder = audioRecord
@@ -506,6 +530,11 @@ class OverlayService : Service() {
     }
 
     private fun resumeRec() {
+        if (state == State.PAUSED && activeRun == null && recoveredDraft != null) {
+            if (!micArmed) { toast("Ouvrez l’application pour réactiver le micro et reprendre le brouillon."); openApp(); return }
+            startRec()
+            return
+        }
         val run = activeRun ?: return
         if (state == State.PAUSING) {
             run.resumeAfterPause = true
@@ -675,7 +704,7 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        val cloudText = if (!localText.isNullOrBlank() && capture.options.cloudCleanupEnabled) {
+        val cloudText = if (!localText.isNullOrBlank() && capture.options.cloudCleanupEnabled && !editableTranscript.hasUserEdits()) {
             val credential = SecureCredentialStore(this).load()
             credential?.let {
                 CloudCleanup().clean(
@@ -691,7 +720,7 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        if (capture.options.format.instructions.isNotBlank() && cloudText == null && !localText.isNullOrBlank()) {
+        if (!editableTranscript.hasUserEdits() && capture.options.format.instructions.isNotBlank() && cloudText == null && !localText.isNullOrBlank()) {
             toast("Mise en forme indisponible : texte conservé sans format.")
         }
         var finalText = cloudText ?: localText
@@ -838,6 +867,8 @@ class OverlayService : Service() {
     private fun completeRunOnMain(run: ActiveDictationRun) {
         if (localEngineLifecycle.isDestroyed() || activeRun !== run) return
         activeRun = null
+        recoveredDraft = null
+        draftStore.clear()
         if (asrSession === run.session) asrSession = null
         tapCoordinator.reset()
         setLivePreviewVisible(false)
@@ -907,6 +938,7 @@ class OverlayService : Service() {
             cancellation = run.cancellation,
         ) {
             val display = editableTranscript.update(text)
+            draftStore.save(display)
             val editor = liveText ?: return@publishIfAllowed
             if (display.isNotEmpty()) editor.hint = "Touchez pour corriger pendant la dictée"
             val old = editor.text.toString()
@@ -931,19 +963,21 @@ class OverlayService : Service() {
         editor.doOnLayout {
             if (isCurrentRun(run) && state == State.RECORDING) {
                 editor.setSelection(editor.length())
-                livePanel?.let { panel ->
+                liveScroll?.let { panel ->
                     panel.scrollTo(0, (editor.bottom + panel.paddingBottom - panel.height).coerceAtLeast(0))
                 }
             }
         }
     }
 
-    private fun setLivePreviewVisible(show: Boolean) {
+    private fun setLivePreviewVisible(requested: Boolean) {
+        val show = requested && !panelHidden
         val panel = livePanel ?: return
         if (livePreviewVisible == show && panel.visibility == if (show) View.VISIBLE else View.GONE) return
         livePreviewVisible = show
         panel.visibility = if (show) View.VISIBLE else View.GONE
         if (!show) {
+            keyboardInset = 0
             (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(panel.windowToken, 0)
             liveText?.clearFocus()
             liveParams?.let { it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE }
@@ -991,12 +1025,23 @@ class OverlayService : Service() {
         val panel = livePanel ?: return
         val panelParams = liveParams ?: return
         if (!livePanelAdded) return
-        val point = OverlayPlacement.panelPosition(
-            anchor.edge, pillRect(params ?: return), Rect(0, 0, panelParams.width, panelParams.height),
-            screenRect(), (6 * resources.displayMetrics.density).toInt(),
+        val dp = resources.displayMetrics.density
+        val fullScreen = screenRect()
+        val screen = fullScreen.copy(height = (fullScreen.height - keyboardInset).coerceAtLeast(1))
+        panelExpandButton?.text = if (panelExpanded) "Réduire" else "Agrandir"
+        val bounds = OverlayPlacement.panelBounds(
+            anchor.edge,
+            pillRect(params ?: return).let { rect ->
+                if (rect.bottom > screen.bottom) rect.copy(y = (screen.bottom - rect.height).coerceAtLeast(screen.y)) else rect
+            }, screen,
+            ((if (panelExpanded) 520 else 312) * dp).toInt(),
+            if (panelExpanded) (screen.height * 0.65f).toInt() else (liveText?.lineHeight ?: 20) * 3 + (64 * dp).toInt(),
+            (6 * dp).toInt(),
         )
-        panelParams.x = point.x
-        panelParams.y = point.y
+        panelParams.x = bounds.x
+        panelParams.y = bounds.y
+        panelParams.width = bounds.width
+        panelParams.height = bounds.height
         try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, panelParams) } catch (_: Exception) {}
     }
 
@@ -1110,7 +1155,11 @@ class OverlayService : Service() {
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    if (!updatingLiveText && isTranscriptEditable()) editableTranscript.edit(s.toString())
+                    if (!updatingLiveText && isTranscriptEditable()) {
+                        editableTranscript.edit(s.toString())
+                        if (recoveredDraft != null) recoveredDraft = s.toString()
+                        draftStore.save(s.toString())
+                    }
                 }
                 override fun afterTextChanged(s: Editable?) = Unit
             })
@@ -1135,23 +1184,56 @@ class OverlayService : Service() {
         val safeScreen = screenRect()
         livePanelW = min((312 * dp).toInt(), (safeScreen.width - (16 * dp).toInt()).coerceAtLeast(1))
         livePanelH = liveView.lineHeight * 3 + panelHPadding
-        val livePanel = ScrollView(this).apply {
-            visibility = View.GONE
-            isVerticalScrollBarEnabled = false
+        val scroll = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = true
             overScrollMode = View.OVER_SCROLL_NEVER
-            isVerticalFadingEdgeEnabled = true
-            setFadingEdgeLength((18 * dp).toInt())
-            setPadding((12 * dp).toInt(), (10 * dp).toInt(), (12 * dp).toInt(), (10 * dp).toInt())
+            setPadding((12 * dp).toInt(), 0, (12 * dp).toInt(), (10 * dp).toInt())
+            addView(liveView, FrameLayout.LayoutParams(-1, -2))
+        }
+        val livePanel = FrameLayout(this).apply {
+            visibility = View.GONE
             background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
                 cornerRadius = 10 * dp
                 setColor(0xFF1F1F25.toInt())
                 setStroke((1.2f * dp).toInt(), ThemeTokens.GREEN)
             }
-            addView(liveView, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT
-            ))
+            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (44 * dp).toInt() })
         }
+        livePanel.setOnApplyWindowInsetsListener { _, insets ->
+            val nextInset = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
+            if (keyboardInset != nextInset) {
+                keyboardInset = nextInset
+                currentAnchor?.let(::positionLivePanel)
+            }
+            insets
+        }
+        val toolbar = LinearLayout(this).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        val expand = TextView(this).apply {
+            text = "Agrandir"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(ThemeTokens.GREEN)
+            setOnClickListener {
+                panelExpanded = !panelExpanded
+                text = if (panelExpanded) "Réduire" else "Agrandir"
+                currentAnchor?.let(::positionLivePanel)
+            }
+        }
+        panelExpandButton = expand
+        val hide = TextView(this).apply {
+            text = "Masquer"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFF4F4F4.toInt())
+            setOnClickListener {
+                panelHidden = true
+                setLivePreviewVisible(false)
+                toast("Texte masqué. Glissez vers le haut sur la pastille pour le revoir.")
+            }
+        }
+        toolbar.addView(expand, LinearLayout.LayoutParams(0, -1, 1f))
+        toolbar.addView(hide, LinearLayout.LayoutParams(0, -1, 1f))
+        livePanel.addView(toolbar, FrameLayout.LayoutParams(-1, (44 * dp).toInt(), Gravity.TOP))
 
         // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
@@ -1193,7 +1275,7 @@ class OverlayService : Service() {
             val down = pauseGesture.progress(dx, dy)
             val progress = maxOf(up, down)
             gestureHint.visibility = if (progress > 0f) View.VISIBLE else View.GONE
-            gestureHint.text = if (up > 0f) "↑ Format" else "↓ Pause"
+            gestureHint.text = if (up > 0f) { if (isTranscriptEditable()) "↑ Texte" else "↑ Format" } else "↓ Pause"
             gestureHint.alpha = 0.35f + 0.65f * progress
             val ready = progress >= 1f
             if (ready && !gestureReady) pillView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
@@ -1247,7 +1329,7 @@ class OverlayService : Service() {
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
                     moved = false; touchInterrupted = false
                     gestureMode.begin()
-                    formatGesture.begin(state == State.IDLE || state == State.MIC_UNARMED)
+                    formatGesture.begin(state == State.IDLE || state == State.MIC_UNARMED || isTranscriptEditable())
                     pauseGesture.begin(state == State.RECORDING)
                     wake()
                     main.removeCallbacks(longPress)
@@ -1293,6 +1375,9 @@ class OverlayService : Service() {
                         val pauseRecording = pauseGesture.release(dx, dy)
                         if (pauseRecording && state == State.RECORDING) {
                             pauseRec()
+                        } else if (selectFormat && isTranscriptEditable()) {
+                            panelHidden = false
+                            setLivePreviewVisible(true)
                         } else if (selectFormat && (state == State.IDLE || state == State.MIC_UNARMED)) {
                             showFormatPicker()
                         }
@@ -1331,7 +1416,7 @@ class OverlayService : Service() {
             return
         }
         container = pillView; pill = pillView; wave = waveView; loader = loaderView
-        liveText = liveView; this.livePanel = livePanel; params = lp; liveParams = panelParams; currentAnchor = initialAnchor
+        liveText = liveView; liveScroll = scroll; this.livePanel = livePanel; params = lp; liveParams = panelParams; currentAnchor = initialAnchor
         pillView.post { waveView.settle() } // dessine l'onde calme au repos
         scheduleCollapse()
     }
@@ -1443,7 +1528,7 @@ class OverlayService : Service() {
         try { if (livePanelAdded) livePanel?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         livePanelAdded = false
-        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; liveText = null; livePanel = null; liveParams = null
+        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; livePanel = null; liveParams = null
         super.onDestroy()
     }
 

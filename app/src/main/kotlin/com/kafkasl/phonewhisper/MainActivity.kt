@@ -195,6 +195,14 @@ class MainActivity : AppCompatActivity() {
         })
 
         // Espace automatique en fin de dictée
+        val transcriptSwitch = MaterialSwitch(this).apply {
+            isChecked = languagePrefs.showTranscript
+            greenTint()
+            setOnCheckedChangeListener { _, on -> languagePrefs.showTranscript = on }
+        }
+        root.addView(settingsRow("Afficher le texte pendant la dictée",
+            "À la prochaine dictée. Glisser vers le haut pendant l’écoute pour réafficher le panneau.", transcriptSwitch))
+
         val spaceSwitch = MaterialSwitch(this).apply {
             isChecked = PersistencePrefs(this@MainActivity).trailingSpace
             greenTint()

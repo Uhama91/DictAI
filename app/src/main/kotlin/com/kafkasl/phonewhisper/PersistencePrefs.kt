@@ -7,6 +7,10 @@ class PersistencePrefs(ctx: Context) {
 
     init { migrateCloudCleanupPreferences() }
 
+    var showTranscript: Boolean
+        get() = p.getBoolean("show_transcript", true)
+        set(value) { p.edit().putBoolean("show_transcript", value).apply() }
+
     var buttonX: Int
         get() = p.getInt("btn_x", -1)
         set(v) { p.edit().putInt("btn_x", v).apply() }
