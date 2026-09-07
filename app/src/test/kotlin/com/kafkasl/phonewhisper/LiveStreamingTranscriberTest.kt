@@ -10,6 +10,45 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LiveStreamingTranscriberTest {
+    @Test fun finalization_waits_until_session_ownership_is_released() {
+        val closing = CountDownLatch(1)
+        val releaseOwner = CountDownLatch(1)
+        val returned = CountDownLatch(1)
+        val result = AtomicReference<LiveStreamingTranscriber.Finalization>()
+        val session = LiveStreamingTranscriber.Session(
+            FakeStreamingRecognizer(resultsAfterDecode = listOf("bonjour")), "fr", "fr-FR",
+            { _, _ -> }, { closing.countDown(); releaseOwner.await() }, null,
+        )
+        session.start()
+        val finisher = thread { result.set(session.finish(2000)); returned.countDown() }
+        try {
+            assertTrue(closing.await(1, TimeUnit.SECONDS))
+            assertFalse(returned.await(50, TimeUnit.MILLISECONDS))
+        } finally { releaseOwner.countDown() }
+        finisher.join(2000)
+        assertFalse(finisher.isAlive)
+        assertEquals(LiveStreamingTranscriber.Finalization.Success("bonjour"), result.get())
+    }
+
+    @Test fun pause_resume_keeps_one_native_stream_and_only_final_stop_finalizes_it() {
+        val native = FakeStreamingRecognizer(resultsAfterDecode = listOf("bonjour", "bonjour monde", "bonjour monde final"))
+        val session = LiveStreamingTranscriber.forTesting(native).start { _, _ -> }
+        val gate = RecordingCaptureGate()
+        gate.deliver { session.acceptPcm16(byteArrayOf(1, 0), 2) }
+        gate.pause()
+        assertFalse(gate.deliver { session.acceptPcm16(byteArrayOf(99, 0), 2) })
+        assertFalse(native.stream.inputFinished)
+        gate.resume()
+        gate.deliver { session.acceptPcm16(byteArrayOf(2, 0), 2) }
+        val final = session.finish(1000)
+        assertEquals(LiveStreamingTranscriber.Finalization.Success("bonjour monde final"), final)
+        assertEquals(1, native.transcribeCppLocales.size)
+        assertEquals(3, native.stream.accepted.size)
+        assertEquals(1f / 32768f, native.stream.accepted[0].single(), 0f)
+        assertEquals(2f / 32768f, native.stream.accepted[1].single(), 0f)
+        assertTrue(native.stream.inputFinished)
+    }
+
     @Test
     fun supports_only_nemotron_streaming_models() {
         assertTrue(LiveStreamingTranscriber.supports("sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-int8"))

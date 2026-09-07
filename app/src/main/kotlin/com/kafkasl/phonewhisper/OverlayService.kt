@@ -152,12 +152,16 @@ class OverlayService : Service() {
             private set
     }
 
-    private enum class State { IDLE, RECORDING, TRANSCRIBING, CANCELLING, MIC_UNARMED }
+    private enum class State { IDLE, RECORDING, PAUSING, PAUSED, TRANSCRIBING, CANCELLING, MIC_UNARMED }
 
     private class ActiveDictationRun(
         val session: DictationAsrSession,
         val cancellation: DictationCancellationCoordinator = DictationCancellationCoordinator(),
     ) {
+        val captureGate = RecordingCaptureGate()
+        @Volatile var pauseWorker: Thread? = null
+        var resumeAfterPause = false
+        var pendingPreview: Pair<String, String>? = null
         val finalPublication = DictationFinalPublicationGate(DOUBLE_TAP_MS)
         val completion = DictationRunCompletionGate()
         val cancellationWaitStarted = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -169,6 +173,7 @@ class OverlayService : Service() {
     private var container: View? = null
     private var pill: FrameLayout? = null
     private var wave: CursiveWaveView? = null
+    private var pauseIndicator: TextView? = null
     private var loader: LoadingBorderView? = null
     private var liveText: EditText? = null
     private var updatingLiveText = false
@@ -263,6 +268,8 @@ class OverlayService : Service() {
                 when (state) {
                     State.MIC_UNARMED -> "Ouvre l'app pour activer le micro"
                     State.RECORDING -> "Enregistrement..."
+                    State.PAUSING -> "Mise en pause…"
+                    State.PAUSED -> "Dictée en pause — appuyez pour reprendre"
                     State.TRANSCRIBING -> "Transcription..."
                     State.CANCELLING -> "Annulation de la dictée…"
                     else -> "Appuie sur le bouton pour dicter"
@@ -409,19 +416,7 @@ class OverlayService : Service() {
             setLivePreviewVisible(false)
             setState(State.RECORDING)
             vibrate(20)
-            val reader = Thread({
-                val buf = ByteArray(bufSize)
-                while (state == State.RECORDING) {
-                    val n = ar.read(buf, 0, buf.size)
-                    if (n > 0) {
-                        recordingPcm.write(buf, 0, n)
-                        started.session.acceptPcm16(buf, n)
-                        wave?.setLevel(rmsLevel(buf, n))
-                    }
-                }
-            }, "dictai-audio-reader")
-            recordThread = reader
-            reader.start()
+            launchAudioReader(run, ar, recordingPcm, bufSize)
         } catch (t: Throwable) {
             if (asrSession === started.session) asrSession = null
             if (audioRecord === ar) audioRecord = null
@@ -438,6 +433,120 @@ class OverlayService : Service() {
         }
     }
 
+    private fun launchAudioReader(
+        run: ActiveDictationRun,
+        recorder: AudioRecord,
+        recordingPcm: java.io.ByteArrayOutputStream,
+        bufferSize: Int,
+    ) {
+        val reader = Thread({
+            val buf = ByteArray(bufferSize)
+            try {
+                while (state == State.RECORDING && isCurrentRun(run)) {
+                    val n = recorder.read(buf, 0, buf.size)
+                    if (n > 0) run.captureGate.deliver {
+                        recordingPcm.write(buf, 0, n)
+                        run.session.acceptPcm16(buf, n)
+                        wave?.setLevel(rmsLevel(buf, n))
+                    }
+                    if (n < 0 && state == State.RECORDING) error("audio_read_failed")
+                }
+            } catch (_: Throwable) {
+                main.post {
+                    if (isCurrentRun(run) && audioRecord === recorder && state == State.RECORDING) {
+                        pauseRec()
+                        toast("Micro interrompu : dictée conservée en pause.")
+                    }
+                }
+            }
+        }, "dictai-audio-reader")
+        recordThread = reader
+        reader.start()
+    }
+
+    private fun pauseRec() {
+        if (state != State.RECORDING) return
+        val run = activeRun ?: return
+        tapCoordinator.reset()
+        run.captureGate.pause()
+        setState(State.PAUSING)
+        setLivePreviewVisible(true)
+        val recorder = audioRecord
+        val reader = recordThread
+        // Transfer ownership to the pause worker. Destruction waits for it before closing ASR.
+        audioRecord = null
+        recordThread = null
+        val coordinator = RecordingStopCoordinator(
+            recordThread = reader,
+            stopRecorder = { recorder?.stop() },
+            releaseRecorder = { recorder?.release() },
+            snapshot = {},
+        )
+        val worker = Thread({
+            if (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS) == RecordingStopCoordinator.Result.TimedOut) {
+                Log.w(TAG, "event=audio_pause outcome=waiting_for_reader")
+                coordinator.awaitExitThenRelease()
+            }
+            main.post {
+                if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed() || state != State.PAUSING) return@post
+                setState(State.PAUSED)
+                vibrate(20)
+                if (run.resumeAfterPause) {
+                    run.resumeAfterPause = false
+                    resumeRec()
+                }
+            }
+        }, "dictai-pause-rec")
+        run.pauseWorker = worker
+        worker.start()
+    }
+
+    private fun resumeRec() {
+        val run = activeRun ?: return
+        if (state == State.PAUSING) {
+            run.resumeAfterPause = true
+            return
+        }
+        if (state != State.PAUSED || localEngineLifecycle.isDestroyed()) return
+        val recordingPcm = pcm ?: return
+        var recorder: AudioRecord? = null
+        try {
+            val bufferSize = AudioRecord.getMinBufferSize(
+                SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+            )
+            check(bufferSize > 0)
+            val resumed = AudioRecord(
+                MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT, bufferSize,
+            )
+            recorder = resumed
+            check(resumed.state == AudioRecord.STATE_INITIALIZED)
+            resumed.startRecording()
+            check(resumed.recordingState == AudioRecord.RECORDSTATE_RECORDING)
+            audioRecord = resumed
+            tapCoordinator.reset()
+            run.captureGate.resume()
+            setState(State.RECORDING)
+            launchAudioReader(run, resumed, recordingPcm, bufferSize)
+        } catch (_: Throwable) {
+            run.captureGate.pause()
+            try { recorder?.stop() } catch (_: Throwable) {}
+            try { recorder?.release() } catch (_: Throwable) {}
+            audioRecord = null
+            recordThread = null
+            setState(State.PAUSED)
+            toast("Reprise du micro impossible : texte conservé, réessayez.")
+            return
+        }
+        // Render synchronously on main so an old queued preview cannot overtake a newer one.
+        run.pendingPreview?.let { renderLivePreview(run, it.first, it.second) }
+        scrollTranscriptToEnd(run)
+        vibrate(20)
+    }
+
+    private fun isTranscriptEditable(): Boolean =
+        state == State.RECORDING || state == State.PAUSING || state == State.PAUSED
+
     private fun rmsLevel(buf: ByteArray, n: Int): Float {
         var sum = 0.0; var count = 0
         var i = 0
@@ -452,8 +561,9 @@ class OverlayService : Service() {
     }
 
     private fun stopRec() {
-        if (state != State.RECORDING) return
+        if (state != State.RECORDING && state != State.PAUSED) return
         val run = activeRun ?: return
+        run.captureGate.pause()
         formatDialog?.dismiss()
         liveText?.isEnabled = false
         setLivePreviewVisible(false)
@@ -546,14 +656,9 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        if (capture.pcm.isEmpty()) {
-            capture.session?.cancel()
-            awaitSessionExit(run)
-            main.post { completeRunOnMain(run) }
-            return
-        }
+        if (capture.pcm.isEmpty()) capture.session?.cancel()
         val t0 = System.currentTimeMillis()
-        val r = runCatching {
+        val r = if (capture.pcm.isEmpty()) TranscriptionEngine.Result(null) else runCatching {
             capture.session?.finish(capture.pcm)
                 ?: TranscriptionEngine.Result(null, "Transcription locale indisponible.")
         }.getOrElse { TranscriptionEngine.Result(null, "Transcription locale indisponible.") }
@@ -562,7 +667,7 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        val localText = r.text?.let { editableTranscript.update(Vocabulary.applyCorrections(this, it)) }
+        val localText = editableTranscript.resolveFinal(r.text?.let { Vocabulary.applyCorrections(this, it) })
         if (run.cancellation.isCancelled) {
             return
         }
@@ -619,6 +724,7 @@ class OverlayService : Service() {
     private fun cancelRec(showFeedback: Boolean = true) {
         if (state != State.RECORDING) return
         val run = activeRun ?: return
+        run.captureGate.pause()
         // CANCELLING blocks a second AudioRecord until the current reader has fully exited.
         run.completion.markWorkerStarted()
         if (!requestCancellation(run, showFeedback)) {
@@ -758,6 +864,15 @@ class OverlayService : Service() {
                 ((if (s == State.MIC_UNARMED) 2f else 1f) * px).toInt(),
                 if (s == State.MIC_UNARMED) 0xFFD9A441.toInt() else 0xFFE5E2DB.toInt()
             )
+            val paused = s == State.PAUSED || s == State.PAUSING
+            pauseIndicator?.visibility = if (paused) View.VISIBLE else View.GONE
+            wave?.visibility = if (paused) View.INVISIBLE else View.VISIBLE
+            pill?.contentDescription = when (s) {
+                State.PAUSED -> "Dictée en pause. Appuyer pour reprendre."
+                State.PAUSING -> "Mise en pause de la dictée."
+                State.RECORDING -> "Dictée en cours. Glisser brièvement vers le bas pour mettre en pause."
+                else -> "Dicter"
+            }
             showRecordingPill(s == State.RECORDING)
             // Bordure lumineuse pendant la transcription.
             if (s == State.TRANSCRIBING) loader?.start() else loader?.stop()
@@ -772,42 +887,46 @@ class OverlayService : Service() {
     }
 
     private fun updateLivePreview(committed: String, tentative: String) {
+        val run = activeRun ?: return
+        main.post { renderLivePreview(run, committed, tentative) }
+    }
+
+    private fun renderLivePreview(run: ActiveDictationRun, committed: String, tentative: String) {
+        if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed()) return
         val text = listOf(committed.trim(), tentative.trim()).filter { it.isNotEmpty() }.joinToString(" ")
         if (text.isBlank()) return
-        val run = activeRun ?: return
-        main.post {
-            DictationPreviewPublicationGate.publishIfAllowed(
-                isCurrentRun = isCurrentRun(run),
-                isRecording = state == State.RECORDING,
-                cancellation = run.cancellation,
-            ) {
-                val display = editableTranscript.update(text)
-                val editor = liveText ?: return@publishIfAllowed
-                val old = editor.text.toString()
-                val followTail = shouldFollowTranscriptTail(editor.hasFocus(), editor.selectionStart, editor.selectionEnd, old.length)
-                if (old != display) {
-                    val start = editor.selectionStart.coerceAtLeast(0)
-                    val end = editor.selectionEnd.coerceAtLeast(0)
-                    updatingLiveText = true
-                    // Replace only the changed range to preserve selection and IME composition elsewhere.
+        run.pendingPreview = committed to tentative
+        DictationPreviewPublicationGate.publishIfAllowed(
+            isCurrentRun = isCurrentRun(run),
+            isRecording = state == State.RECORDING,
+            cancellation = run.cancellation,
+        ) {
+            val display = editableTranscript.update(text)
+            val editor = liveText ?: return@publishIfAllowed
+            val old = editor.text.toString()
+            if (old != display) {
+                updatingLiveText = true
+                try {
+                    // Preserve unchanged spans; automatic transcription always follows the new tail.
                     val prefix = old.commonPrefixWith(display).length
                     val suffix = old.drop(prefix).commonSuffixWith(display.drop(prefix)).length
                     editor.text.replace(prefix, old.length - suffix, display.substring(prefix, display.length - suffix))
-                    if (followTail) editor.setSelection(display.length)
-                    else editor.setSelection(start.coerceAtMost(display.length), end.coerceAtMost(display.length))
-                    updatingLiveText = false
-                }
-                setLivePreviewVisible(true)
-                if (followTail) editor.doOnLayout {
-                    if (isCurrentRun(run) && state == State.RECORDING &&
-                        shouldFollowTranscriptTail(editor.hasFocus(), editor.selectionStart, editor.selectionEnd, editor.length())) {
-                        // Scroll after layout without requesting focus: fullScroll can focus EditText
-                        // and inadvertently disable following on the next streamed update.
-                        editor.setSelection(editor.length())
-                        livePanel?.let { panel ->
-                            panel.scrollTo(0, (editor.bottom + panel.paddingBottom - panel.height).coerceAtLeast(0))
-                        }
-                    }
+                } finally { updatingLiveText = false }
+            }
+            setLivePreviewVisible(true)
+            scrollTranscriptToEnd(run)
+        }
+    }
+
+    private fun scrollTranscriptToEnd(run: ActiveDictationRun) {
+        val editor = liveText ?: return
+        if (!isCurrentRun(run) || state != State.RECORDING) return
+        editor.setSelection(editor.length())
+        editor.doOnLayout {
+            if (isCurrentRun(run) && state == State.RECORDING) {
+                editor.setSelection(editor.length())
+                livePanel?.let { panel ->
+                    panel.scrollTo(0, (editor.bottom + panel.paddingBottom - panel.height).coerceAtLeast(0))
                 }
             }
         }
@@ -949,6 +1068,17 @@ class OverlayService : Service() {
             setPadding(0, 0, 0, 0)
             addView(waveView)
             addView(loaderView)
+            pauseIndicator = TextView(this@OverlayService).apply {
+                text = "Ⅱ"
+                textSize = 24f
+                gravity = Gravity.CENTER
+                setTextColor(0xFFD9A441.toInt())
+                visibility = View.GONE
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }
+            addView(pauseIndicator, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT,
+            ))
         }
 
         val liveView = EditText(this).apply {
@@ -961,12 +1091,12 @@ class OverlayService : Service() {
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    if (!updatingLiveText && state == State.RECORDING) editableTranscript.edit(s.toString())
+                    if (!updatingLiveText && isTranscriptEditable()) editableTranscript.edit(s.toString())
                 }
                 override fun afterTextChanged(s: Editable?) = Unit
             })
             setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_DOWN && state == State.RECORDING) {
+                if (event.actionMasked == MotionEvent.ACTION_DOWN && isTranscriptEditable()) {
                     liveParams?.let { layout ->
                         layout.flags = layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
                         (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(this@OverlayService.livePanel, layout)
@@ -1027,11 +1157,17 @@ class OverlayService : Service() {
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
         var pttFired = false
-        var formatGesture = false
-        var canChooseFormat = false
+        var touchInterrupted = false
+        val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+        val formatGesture = VerticalSwipeGesture(touchSlop, maxOf(56 * dp, 3 * touchSlop))
+        val pauseGesture = VerticalSwipeGesture(
+            touchSlop, maxOf(56 * dp, 3 * touchSlop), maxDurationMs = 350,
+            direction = VerticalSwipeGesture.Direction.DOWN,
+        )
         val longPress = Runnable {
             // Maintenu 250ms, pas bougé, toujours IDLE → push-to-talk
             if (!moved && state == State.IDLE) {
+                formatGesture.cancel()
                 startRec()
                 pttFired = state == State.RECORDING
             }
@@ -1049,70 +1185,98 @@ class OverlayService : Service() {
             prefs.saveAnchor(anchor)
         }
 
+        fun updateDrag(dx: Float, dy: Float) {
+            if (pttFired || (!moved && abs(dx) + abs(dy) <= touchSlop)) return
+            moved = true
+            tapCoordinator.reset()
+            main.removeCallbacks(longPress)
+            val clamped = OverlayPlacement.clampPill(
+                Point((downX + dx).toInt(), (downY + dy).toInt()),
+                Rect(0, 0, lp.width, lp.height), screenRect(),
+            )
+            lp.x = clamped.x
+            lp.y = clamped.y
+            val dragAnchor = OverlayPlacement.snap(
+                Point(lp.x, lp.y), Rect(0, 0, lp.width, lp.height), screenRect(),
+            )
+            updatePillLayout(dragAnchor)
+        }
+
         pillView.setOnTouchListener { _, ev ->
-            when (ev.action) {
+            when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
-                    moved = false; pttFired = false; formatGesture = false
-                    canChooseFormat = state == State.IDLE || state == State.MIC_UNARMED
+                    moved = false; pttFired = false; touchInterrupted = false
+                    formatGesture.begin(ev.eventTime, state == State.IDLE || state == State.MIC_UNARMED)
+                    pauseGesture.begin(ev.eventTime, state == State.RECORDING)
                     wake()
-                    if (state == State.IDLE) main.postDelayed(longPress, 250); true
+                    if (state == State.IDLE) main.postDelayed(longPress, 250)
+                    true
+                }
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    touchInterrupted = true
+                    formatGesture.cancel()
+                    pauseGesture.cancel()
+                    main.removeCallbacks(longPress)
+                    tapCoordinator.reset()
+                    if (moved) finishDrag()
+                    moved = false
+                    if (pttFired && state == State.RECORDING) cancelRec()
+                    pttFired = false
+                    true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    if (touchInterrupted) return@setOnTouchListener true
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
-                    if (formatGesture) return@setOnTouchListener true
-                    val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
-                    if (canChooseFormat && !moved && isFormatSelectionSwipe(dx, dy, slop)) {
-                        // A quick swipe prevents microphone startup; a swipe after a hold
-                        // discards that capture before opening a settings-only picker.
-                        formatGesture = true
-                        main.removeCallbacks(longPress)
-                        tapCoordinator.reset()
-                        if (pttFired && state == State.RECORDING) cancelRec(showFeedback = false)
-                        showFormatPicker()
-                        return@setOnTouchListener true
-                    }
-                    if (pttFired) return@setOnTouchListener true
-                    if (abs(dx) + abs(dy) > android.view.ViewConfiguration.get(this).scaledTouchSlop) {
-                        moved = true; tapCoordinator.reset(); main.removeCallbacks(longPress)
-                        val screen = screenRect()
-                        val clamped = OverlayPlacement.clampPill(
-                            Point((downX + dx).toInt(), (downY + dy).toInt()),
-                            Rect(0, 0, lp.width, lp.height),
-                            screen,
-                        )
-                        lp.x = clamped.x
-                        lp.y = clamped.y
-                        val dragAnchor = OverlayPlacement.snap(Point(lp.x, lp.y), Rect(0, 0, lp.width, lp.height), screen)
-                        updatePillLayout(dragAnchor)
-                    }; true
+                    formatGesture.move(dx, dy, ev.eventTime)
+                    pauseGesture.move(dx, dy, ev.eventTime)
+                    updateDrag(dx, dy)
+                    true
                 }
                 MotionEvent.ACTION_UP -> {
                     main.removeCallbacks(longPress)
-                    if (formatGesture) {
+                    if (touchInterrupted) return@setOnTouchListener true
+                    val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
+                    // Include the final coordinates, even when Android delivered few MOVE events.
+                    updateDrag(dx, dy)
+                    val selectFormat = formatGesture.release(dx, dy, ev.eventTime)
+                    val pauseRecording = pauseGesture.release(dx, dy, ev.eventTime)
+                    if (pauseRecording && state == State.RECORDING) {
+                        lp.x = downX; lp.y = downY
+                        updatePillLayout()
+                        pauseRec()
+                    } else if (!pttFired && selectFormat && (state == State.IDLE || state == State.MIC_UNARMED)) {
                         tapCoordinator.reset()
-                    } else if (moved) {
-                        finishDrag()
+                        // A shortcut keeps the original placement; only a completed drag saves it.
+                        lp.x = downX; lp.y = downY
+                        updatePillLayout()
+                        showFormatPicker()
                     } else if (pttFired) {
-                        // Relâchement du push-to-talk → on arrête + transcrit
                         tapCoordinator.reset()
                         if (state == State.RECORDING) stopRec()
+                    } else if (moved) {
+                        finishDrag()
+                    } else if (state == State.PAUSED || state == State.PAUSING) {
+                        resumeRec()
                     } else {
                         val now = SystemClock.uptimeMillis()
                         val surfaceState = when (state) {
                             State.IDLE -> DictationTapGestureCoordinator.SurfaceState.IDLE
                             State.RECORDING -> DictationTapGestureCoordinator.SurfaceState.RECORDING
                             State.TRANSCRIBING -> DictationTapGestureCoordinator.SurfaceState.TRANSCRIBING
-                            State.CANCELLING -> DictationTapGestureCoordinator.SurfaceState.CANCELLING
+                            State.CANCELLING, State.PAUSING, State.PAUSED -> DictationTapGestureCoordinator.SurfaceState.CANCELLING
                             State.MIC_UNARMED -> DictationTapGestureCoordinator.SurfaceState.MIC_UNARMED
                         }
                         handleTapDecision(tapCoordinator.onTap(surfaceState, now), now)
-                    }; true
+                    }
+                    true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     main.removeCallbacks(longPress)
+                    formatGesture.cancel()
+                    pauseGesture.cancel()
                     if (moved) finishDrag()
-                    if (pttFired && !formatGesture) {
+                    if (pttFired) {
                         tapCoordinator.reset()
                         if (state == State.RECORDING) cancelRec()
                     }
@@ -1205,6 +1369,7 @@ class OverlayService : Service() {
         state = State.IDLE
         tapCoordinator.reset()
         val runToCancel = activeRun
+        runToCancel?.captureGate?.pause()
         runToCancel?.finalPublication?.cancel()
         runToCancel?.cancellation?.cancel()
         activeRun = null
@@ -1221,6 +1386,7 @@ class OverlayService : Service() {
         if (releaseResident) {
             dispatchResidentClose(close = {
                 joinUninterruptibly(recordingThreadToJoin)
+                joinUninterruptibly(runToCancel?.pauseWorker)
                 runToCancel?.completion?.awaitWorkerIfStarted()
                 try { recorderToRelease?.release() } catch (_: Throwable) {}
                 while (sessionToCancel != null && !sessionToCancel.cancelAndAwait()) {
@@ -1238,7 +1404,7 @@ class OverlayService : Service() {
         try { if (livePanelAdded) livePanel?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         livePanelAdded = false
-        container = null; pill = null; wave = null; loader = null; liveText = null; livePanel = null; liveParams = null
+        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; liveText = null; livePanel = null; liveParams = null
         super.onDestroy()
     }
 

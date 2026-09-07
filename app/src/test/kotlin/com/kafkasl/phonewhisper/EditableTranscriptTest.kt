@@ -4,20 +4,23 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class EditableTranscriptTest {
-    @Test fun `upward swipe selects formats while jitter and other drags do not`() {
-        org.junit.Assert.assertTrue(isFormatSelectionSwipe(2f, -20f, 8f))
-        org.junit.Assert.assertFalse(isFormatSelectionSwipe(0f, -5f, 8f))
-        org.junit.Assert.assertFalse(isFormatSelectionSwipe(0f, 20f, 8f))
-        org.junit.Assert.assertFalse(isFormatSelectionSwipe(30f, -20f, 8f))
+    @Test fun `manual-only draft survives an empty recognition result`() {
+        val buffer = EditableTranscript()
+        buffer.edit("Texte rédigé en pause.\nDeuxième ligne.")
+        assertEquals("Texte rédigé en pause.\nDeuxième ligne.", buffer.resolveFinal(null))
+        assertEquals("Texte rédigé en pause.\nDeuxième ligne.", buffer.resolveFinal(""))
+        buffer.clear()
+        assertEquals(null, buffer.resolveFinal(null))
     }
 
-    @Test fun `tail following works with keyboard focus and resumes at end`() {
-        org.junit.Assert.assertTrue(shouldFollowTranscriptTail(false, 0, 0, 20))
-        org.junit.Assert.assertTrue(shouldFollowTranscriptTail(true, 0, 0, 0))
-        org.junit.Assert.assertTrue(shouldFollowTranscriptTail(true, 20, 20, 20))
-        org.junit.Assert.assertFalse(shouldFollowTranscriptTail(true, 5, 5, 20))
-        org.junit.Assert.assertFalse(shouldFollowTranscriptTail(true, 5, 20, 20))
-        org.junit.Assert.assertFalse(shouldFollowTranscriptTail(true, 20, 5, 20))
+    @Test fun `manual additions while paused survive resumed streaming and final revision`() {
+        val buffer = EditableTranscript()
+        buffer.update("bonjour mari")
+        buffer.edit("Bonjour Marie.\nTexte ajouté au clavier.")
+        assertEquals("Bonjour Marie.\nTexte ajouté au clavier. Voici la suite",
+            buffer.update("Bonjour Marie voici la suite"))
+        assertEquals("Bonjour Marie.\nTexte ajouté au clavier. Voici la suite.",
+            buffer.update("Bonjour Marie voici la suite."))
     }
 
     @Test fun `uncorrected preview and final retain all text`() {

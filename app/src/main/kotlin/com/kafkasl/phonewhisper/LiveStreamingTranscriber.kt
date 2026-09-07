@@ -167,8 +167,8 @@ class LiveStreamingTranscriber private constructor(
                 )
             } finally {
                 try { stream?.release() } catch (_: Throwable) {}
-                done.countDown()
-                onClosed(this)
+                // A waiter may immediately start another dictation: release ownership first.
+                try { onClosed(this) } finally { done.countDown() }
             }
         }
 
