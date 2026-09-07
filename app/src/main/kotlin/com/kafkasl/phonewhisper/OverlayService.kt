@@ -1,8 +1,6 @@
 package com.kafkasl.phonewhisper
 
 import android.app.Notification
-import android.animation.ValueAnimator
-import android.view.animation.DecelerateInterpolator
 import androidx.core.view.doOnLayout
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -319,6 +317,7 @@ class OverlayService : Service() {
     }
 
     private fun startRec() {
+        val requestedAt = SystemClock.uptimeMillis()
         val cloudRequested = prefs.cloudCleanupEnabled
         val targetSensitive = runCatching {
             InjectionGateway.current()?.isActiveTargetSensitive() ?: true
@@ -415,10 +414,12 @@ class OverlayService : Service() {
             liveText?.setText("")
             updatingLiveText = false
             liveText?.isEnabled = true
-            setLivePreviewVisible(false)
+            liveText?.hint = "Écoute en cours…"
             setState(State.RECORDING)
+            setLivePreviewVisible(true)
             vibrate(20)
             launchAudioReader(run, ar, recordingPcm, bufSize)
+            Log.i(TAG, "event=audio_start outcome=ready elapsed_ms=${SystemClock.uptimeMillis() - requestedAt}")
         } catch (t: Throwable) {
             if (asrSession === started.session) asrSession = null
             if (audioRecord === ar) audioRecord = null
@@ -442,7 +443,8 @@ class OverlayService : Service() {
         bufferSize: Int,
     ) {
         val reader = Thread({
-            val buf = ByteArray(bufferSize)
+            // Read 20 ms at a time; the recorder keeps its larger hardware buffer.
+            val buf = ByteArray(minOf(bufferSize, SAMPLE_RATE / 50 * 2))
             try {
                 while (state == State.RECORDING && isCurrentRun(run)) {
                     val n = recorder.read(buf, 0, buf.size)
@@ -859,6 +861,7 @@ class OverlayService : Service() {
     private fun setState(s: State) {
         state = s
         main.post {
+            if (state != s) return@post
             // Le micro a disparu : on signale l'état via la bordure de la pastille.
             // Ambre + plus épais si le micro n'est pas encore armé (setup requis), neutre sinon.
             val px = resources.displayMetrics.density
@@ -872,8 +875,8 @@ class OverlayService : Service() {
             pill?.contentDescription = when (s) {
                 State.PAUSED -> "Dictée en pause. Appuyer pour reprendre."
                 State.PAUSING -> "Mise en pause de la dictée."
-                State.RECORDING -> "Dictée en cours. Glisser brièvement vers le bas pour mettre en pause."
-                else -> "Dicter"
+                State.RECORDING -> "Dictée en cours. Glisser vers le bas pour mettre en pause. Maintenir jusqu’à la vibration pour déplacer."
+                else -> "Appuyer pour dicter. Glisser vers le haut pour les formats. Maintenir jusqu’à la vibration pour déplacer."
             }
             showRecordingPill(s == State.RECORDING)
             // Bordure lumineuse pendant la transcription.
@@ -905,6 +908,7 @@ class OverlayService : Service() {
         ) {
             val display = editableTranscript.update(text)
             val editor = liveText ?: return@publishIfAllowed
+            if (display.isNotEmpty()) editor.hint = "Touchez pour corriger pendant la dictée"
             val old = editor.text.toString()
             if (old != display) {
                 updatingLiveText = true
@@ -1171,33 +1175,22 @@ class OverlayService : Service() {
         }
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
-        var pttFired = false
         var touchInterrupted = false
         val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+        val gestureMode = PillGestureMode(touchSlop)
         val formatGesture = VerticalSwipeGesture(touchSlop, maxOf(56 * dp, 3 * touchSlop))
         val pauseGesture = VerticalSwipeGesture(
-            touchSlop, maxOf(56 * dp, 3 * touchSlop), maxDurationMs = 600,
+            touchSlop, maxOf(56 * dp, 3 * touchSlop),
             direction = VerticalSwipeGesture.Direction.DOWN,
         )
-        val longPress = Runnable {
-            // Maintenu 250ms, pas bougé, toujours IDLE → push-to-talk
-            if (!moved && state == State.IDLE) {
-                formatGesture.cancel()
-                startRec()
-                pttFired = state == State.RECORDING
-            }
-        }
-        var returnAnimation: ValueAnimator? = null
         var gestureReady = false
-        var latestDx = 0f
-        var latestDy = 0f
         fun hideGestureHint() {
             gestureHint.visibility = View.GONE
             gestureReady = false
         }
-        fun previewGesture(eventTime: Long) {
-            val up = formatGesture.progress(latestDx, latestDy, eventTime)
-            val down = pauseGesture.progress(latestDx, latestDy, eventTime)
+        fun previewGesture(dx: Float, dy: Float) {
+            val up = formatGesture.progress(dx, dy)
+            val down = pauseGesture.progress(dx, dy)
             val progress = maxOf(up, down)
             gestureHint.visibility = if (progress > 0f) View.VISIBLE else View.GONE
             gestureHint.text = if (up > 0f) "↑ Format" else "↓ Pause"
@@ -1206,21 +1199,15 @@ class OverlayService : Service() {
             if (ready && !gestureReady) pillView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
             gestureReady = ready
         }
-        val expireGestureHint = Runnable { previewGesture(SystemClock.uptimeMillis()) }
-        fun returnToOrigin() {
-            val fromX = lp.x
-            val fromY = lp.y
-            returnAnimation = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = 180
-                interpolator = DecelerateInterpolator()
-                addUpdateListener {
-                    if (container !== pillView) { cancel(); return@addUpdateListener }
-                    val fraction = it.animatedValue as Float
-                    lp.x = (fromX + (downX - fromX) * fraction).toInt()
-                    lp.y = (fromY + (downY - fromY) * fraction).toInt()
-                    updatePillLayout()
-                }
-                start()
+        val longPress = Runnable {
+            if (!touchInterrupted && gestureMode.hold()) {
+                formatGesture.cancel()
+                pauseGesture.cancel()
+                tapCoordinator.reset()
+                gestureHint.text = "↕ Déplacer"
+                gestureHint.alpha = 1f
+                gestureHint.visibility = View.VISIBLE
+                vibrate(35)
             }
         }
         fun finishDrag() {
@@ -1237,7 +1224,7 @@ class OverlayService : Service() {
         }
 
         fun updateDrag(dx: Float, dy: Float) {
-            if (pttFired || (!moved && abs(dx) + abs(dy) <= touchSlop)) return
+            if (!moved && abs(dx) + abs(dy) <= touchSlop) return
             moved = true
             tapCoordinator.reset()
             main.removeCallbacks(longPress)
@@ -1256,64 +1243,59 @@ class OverlayService : Service() {
         pillView.setOnTouchListener { _, ev ->
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    returnAnimation?.cancel()
-                    main.removeCallbacks(expireGestureHint)
                     hideGestureHint()
-                    latestDx = 0f; latestDy = 0f
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
-                    moved = false; pttFired = false; touchInterrupted = false
-                    formatGesture.begin(ev.eventTime, state == State.IDLE || state == State.MIC_UNARMED)
-                    pauseGesture.begin(ev.eventTime, state == State.RECORDING)
+                    moved = false; touchInterrupted = false
+                    gestureMode.begin()
+                    formatGesture.begin(state == State.IDLE || state == State.MIC_UNARMED)
+                    pauseGesture.begin(state == State.RECORDING)
                     wake()
-                    main.postDelayed(expireGestureHint, 601)
-                    if (state == State.IDLE) main.postDelayed(longPress, 250)
+                    main.removeCallbacks(longPress)
+                    main.postDelayed(longPress, 400)
                     true
                 }
-                MotionEvent.ACTION_POINTER_DOWN -> {
+                MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> {
                     touchInterrupted = true
-                    main.removeCallbacks(expireGestureHint)
+                    main.removeCallbacks(longPress)
                     hideGestureHint()
                     formatGesture.cancel()
                     pauseGesture.cancel()
-                    main.removeCallbacks(longPress)
                     tapCoordinator.reset()
-                    if (moved) finishDrag()
-                    moved = false
-                    if (pttFired && state == State.RECORDING) cancelRec()
-                    pttFired = false
+                    if (gestureMode.mode == PillGestureMode.Mode.DRAG && moved) finishDrag()
+                    gestureMode.cancel()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (touchInterrupted) return@setOnTouchListener true
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
-                    latestDx = dx; latestDy = dy
-                    previewGesture(ev.eventTime)
-                    updateDrag(dx, dy)
+                    gestureMode.move(dx, dy)
+                    if (gestureMode.mode == PillGestureMode.Mode.DRAG) {
+                        updateDrag(dx, dy)
+                    } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
+                        main.removeCallbacks(longPress)
+                        tapCoordinator.reset()
+                        previewGesture(dx, dy)
+                    }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     main.removeCallbacks(longPress)
-                    main.removeCallbacks(expireGestureHint)
                     hideGestureHint()
                     if (touchInterrupted) return@setOnTouchListener true
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
-                    // Include the final coordinates, even when Android delivered few MOVE events.
-                    updateDrag(dx, dy)
-                    val selectFormat = formatGesture.release(dx, dy, ev.eventTime)
-                    val pauseRecording = pauseGesture.release(dx, dy, ev.eventTime)
-                    if (pauseRecording && state == State.RECORDING) {
-                        returnToOrigin()
-                        pauseRec()
-                    } else if (!pttFired && selectFormat && (state == State.IDLE || state == State.MIC_UNARMED)) {
+                    gestureMode.move(dx, dy)
+                    if (gestureMode.mode == PillGestureMode.Mode.DRAG) {
+                        updateDrag(dx, dy)
+                        if (moved) finishDrag()
+                    } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         tapCoordinator.reset()
-                        // A shortcut keeps the original placement; only a completed drag saves it.
-                        returnToOrigin()
-                        showFormatPicker()
-                    } else if (pttFired) {
-                        tapCoordinator.reset()
-                        if (state == State.RECORDING) stopRec()
-                    } else if (moved) {
-                        finishDrag()
+                        val selectFormat = formatGesture.release(dx, dy)
+                        val pauseRecording = pauseGesture.release(dx, dy)
+                        if (pauseRecording && state == State.RECORDING) {
+                            pauseRec()
+                        } else if (selectFormat && (state == State.IDLE || state == State.MIC_UNARMED)) {
+                            showFormatPicker()
+                        }
                     } else if (state == State.PAUSED || state == State.PAUSING) {
                         resumeRec()
                     } else {
@@ -1327,24 +1309,21 @@ class OverlayService : Service() {
                         }
                         handleTapDecision(tapCoordinator.onTap(surfaceState, now), now)
                     }
-                    true
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    main.removeCallbacks(expireGestureHint)
-                    hideGestureHint()
-                    main.removeCallbacks(longPress)
                     formatGesture.cancel()
                     pauseGesture.cancel()
-                    if (moved) finishDrag()
-                    if (pttFired) {
-                        tapCoordinator.reset()
-                        if (state == State.RECORDING) cancelRec()
-                    }
+                    gestureMode.cancel()
                     true
                 }
                 else -> false
             }
         }
+        pillView.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) = Unit
+            override fun onViewDetachedFromWindow(view: View) {
+                main.removeCallbacks(longPress)
+                gestureMode.cancel()
+            }
+        })
         try {
             wm.addView(pillView, lp)
         } catch (e: Exception) {

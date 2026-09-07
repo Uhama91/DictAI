@@ -243,7 +243,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(settingsRow("Modèle de nettoyage", languagePrefs.cloudModel().label) {
             showCloudModelDialog()
         })
-        root.addView(settingsRow("Formats de post-traitement", "Texte, liste, mail et formats personnalisés · maintenir le micro puis glisser vers le haut") {
+        root.addView(settingsRow("Formats de post-traitement", "Texte, liste, mail et formats personnalisés · glisser directement vers le haut sur la pastille") {
             showFormatsDialog()
         })
         val credentialStore = SecureCredentialStore(this)

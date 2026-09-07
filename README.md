@@ -163,7 +163,7 @@ Personal project. Do whatever you want with it.
 
 - Le résultat final est copié dans le presse-papiers, même si l’insertion réussit ou si aucun champ n’est sélectionné.
 - Pendant une dictée en streaming, toucher le texte ouvre le clavier. Les corrections manuelles restent présentes pendant l’arrivée des mots suivants et dans le résultat final. Une ponctuation finale ou un retour à la ligne commence la suite par une majuscule.
-- Maintenir le micro immobile pendant 250 ms enregistre ; relâcher termine la dictée et publie le résultat. Pour déplacer la pastille dans toutes les directions, commencer à la faire glisser et garder le doigt posé jusqu’à la position souhaitée. Un déplacement vers le haut suivi d’une courte pause avant de relâcher reste un déplacement. Pour ouvrir les formats, effectuer un geste franchement vertical vers le haut et relâcher rapidement : au moins 56 dp, en 600 ms maximum, avec une distance verticale au moins double de l’horizontale. Le menu s’ouvre uniquement au relâchement et la pastille retrouve sa position initiale. Une fois l’appui maintenu déclenché, un mouvement ne sélectionne plus de format et n’annule plus la dictée. Ces seuils constituent un réglage initial à vérifier sur téléphone.
+- Un tap déclenche la dictée. Maintenir la pastille immobile 400 ms jusqu’à la vibration autorise son déplacement dans toutes les directions ; relâcher mémorise sa position. Cet appui maintenu remplace l’ancien push-to-talk. Un glissement direct vers le haut ouvre les formats au relâchement, sans déplacer la pastille : au moins 56 dp et une distance verticale au moins double de l’horizontale, sans limite de vitesse une fois le mouvement commencé.
 - Dans **Formats de post-traitement**, choisir Texte corrigé, Liste à puces ou Mail. Créer, modifier ou supprimer des formats personnels avec un nom et des consignes. Le choix est mémorisé.
 - La mise en forme utilise le nettoyage cloud existant : activer cette option et configurer une clé OpenRouter. Les restrictions existantes sur les champs sensibles restent applicables. En cas d’indisponibilité, le texte corrigé manuellement est conservé et un message signale l’absence de mise en forme.
 
@@ -172,7 +172,7 @@ Personal project. Do whatever you want with it.
 1. Dicter dans un champ sélectionné, puis coller ailleurs : les deux textes doivent être identiques.
 2. Dicter sans champ sélectionné : récupérer le résultat avec Coller.
 3. Corriger un nom, ajouter un point puis continuer à parler : vérifier la conservation de la correction, la majuscule et la position du curseur. Tester aussi une sélection, une suppression et le clavier en paysage.
-4. Repositionner la pastille lentement vers le haut, puis tester un déplacement rapide suivi d’une pause avant relâchement : aucun menu ne doit s’ouvrir. Faire un geste bref vers le haut et relâcher : le menu doit s’ouvrir seulement au relâchement, sans déplacement permanent ni dictée. Tester les diagonales, le retour après un déplacement latéral, les quatre bords et la rotation. Maintenir pour dicter puis bouger le doigt vers le haut : la dictée doit continuer et être publiée au relâchement. Vérifier aussi Fermer, le tap simple, le double tap d’annulation et une interruption tactile.
+4. Maintenir jusqu’à la vibration, puis déplacer dans les quatre directions : aucun format ni enregistrement ne doit se déclencher. Glisser directement vers le haut, vite ou lentement : la pastille reste fixe et le menu s’ouvre au relâchement. Revenir sous le seuil annule le raccourci. Tester aussi un maintien sans déplacement, les diagonales, les quatre bords, la rotation et une interruption tactile.
 5. Créer un format personnalisé, relancer l’application, le modifier puis le supprimer. Tester sans réseau et sans clé : le texte doit rester récupérable.
 
 L’APK de chaque branche est disponible dans **Actions → Build WhisperPin APK → Artifacts → whisperpin-debug-apk** une fois la compilation réussie.
@@ -181,7 +181,7 @@ Le curseur et le défilement suivent les dernières lignes à chaque mise à jou
 
 ## Pause et reprise de la dictée
 
-Pendant une dictée déjà en cours, un geste bref vers le bas sur la pastille met en pause au relâchement (56 dp minimum, 600 ms maximum, mouvement principalement vertical). Un déplacement plus lent reste un repositionnement du bouton.
+Pendant une dictée déjà en cours, un glissement direct vers le bas sur la pastille met en pause au relâchement (56 dp minimum, mouvement principalement vertical). La pastille reste fixe. Pour la déplacer, maintenir d’abord 400 ms jusqu’à la vibration. Un maintien seul ne termine pas la dictée.
 
 La pause coupe et libère le microphone, fige les mises à jour automatiques et garde le champ visible. Le symbole « Ⅱ » indique la pause. Le texte peut être corrigé, complété au clavier ou effacé. Un tap reprend la même session et conserve les ajouts. Le tap suivant termine normalement la dictée, copie le résultat dans le presse-papiers et tente l’insertion dans le champ de l’application.
 
@@ -196,4 +196,6 @@ Vérifier sur **Xiaomi Pad 7** et **Poco F7**, avec le micro intégré puis les 
 
 La pause conserve la session en mémoire ; elle ne constitue pas une sauvegarde durable si Android arrête le service.
 
-Les gestes de format et de pause affichent désormais une indication progressive sur la pastille et un retour haptique au seuil. Le retour à la position initiale est animé. Garder le doigt posé plus de 600 ms permet de repositionner la pastille ; l’indication disparaît lorsque le raccourci expire.
+Les gestes de format et de pause affichent une indication progressive sur la pastille et un retour haptique au seuil. Ils ne déplacent jamais le bouton. Le maintien immobile jusqu’à la vibration affiche « Déplacer » et réserve tout le mouvement suivant au positionnement.
+
+Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute en cours… », sans attendre les premiers mots du modèle. Il est déjà éditable. Les lectures audio sont limitées à 20 ms par bloc ; le tampon matériel conserve sa taille minimale requise. Le délai de reconnaissance dépend toujours du modèle et de l’appareil.
