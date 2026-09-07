@@ -96,6 +96,7 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         root: AccessibilityNodeInfo,
         out: MutableList<AccessibilityNodeInfo>
     ) {
+        if (root.packageName?.toString() == packageName) return
         root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.let { out += it }
         root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)?.let { out += it }
         collectPotentialTargets(root, out)

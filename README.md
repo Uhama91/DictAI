@@ -202,10 +202,22 @@ Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute
 
 ### Panneau de texte et brouillon (0.6.5)
 
-- « Agrandir / Réduire » passe de trois lignes à un panneau pouvant occuper 65 % de la hauteur disponible, ajusté au bord de la pastille et au clavier.
+- « Agrandir / Réduire » passe de trois lignes à un panneau pouvant occuper 82 % de la hauteur disponible, ajusté au bord de la pastille et au clavier.
 - « Masquer » cache le texte et le clavier sans arrêter la dictée. Glisser vers le haut pendant une dictée ou une pause réaffiche le panneau.
 - Le réglage « Afficher le texte pendant la dictée » définit le comportement au démarrage de la prochaine dictée.
 - Les corrections manuelles restent prioritaires. Dès qu’un texte est modifié ou restauré, le nettoyage cloud et la mise en forme automatique sont ignorés pour empêcher toute reformulation du brouillon.
 - Le brouillon est privé, stocké dans les données locales de l’application, exclues des sauvegardes Android. Après un arrêt du service, le micro peut nécessiter une réactivation depuis l’application avant la reprise. Effacer les données ou désinstaller l’application supprime ce brouillon.
 
 À vérifier sur appareil : agrandir aux quatre bords, ouvrir le clavier en portrait/paysage, masquer puis réafficher, modifier en pause, verrouiller/déverrouiller puis reprendre ; enfin arrêter puis relancer le service pour vérifier la restauration du texte et l’ajout de la suite sans reformulation.
+
+### Notes locales et menus flottants (0.6.6)
+
+- Glisser directement vers la gauche range la dictée ouverte en note, sans la coller, puis ouvre « Mes notes ». Au repos, le même geste ouvre la liste. Un accès « Mes notes » existe aussi dans les réglages ; « Ranger / Notes » est disponible dans le panneau.
+- Une nouvelle note s’ouvre sans activer le micro et peut être écrite au clavier. Tap sur la pastille : dicter. En pause, un tap reprend après la fenêtre de double tap de 280 ms ; deux taps annulent la dictée et ferment la note, sans supprimer les notes déjà enregistrées.
+- Les notes ouvertes sont sauvegardées automatiquement. Le rangement finalise les derniers mots localement. Les titres sont tirés de la première ligne (neuf mots, 60 caractères maximum), sans modèle ni réseau. Les titres renommés sont conservés.
+- Appuyer sur une note la rouvre en pause. Un appui maintenu ouvre Renommer / Supprimer. La liste affiche les notes récemment modifiées en premier.
+- « Coller » conserve la note, termine l’écoute si nécessaire, copie le texte et tente son insertion dans le champ de l’application. Si l’insertion n’est pas possible, utiliser Coller depuis le presse-papiers. La propre fenêtre de DictAI est exclue des cibles d’insertion.
+- Le menu des formats est une liste flottante au-dessus de la pastille, ou en dessous si l’espace manque. Les menus restent dans les limites de l’écran et se ferment au toucher extérieur.
+- Les icônes agrandir/réduire et masquer sont en haut à droite, avec des cibles tactiles de 48 dp. Le mode agrandi atteint 82 % de la hauteur disponible. La croix masque seulement le panneau.
+
+Essais sur appareil : écrire une note sans micro, la ranger, ouvrir une autre note et revenir à la première ; dicter/reprendre, annuler par double tap pendant la pause, renommer puis poursuivre, supprimer une seule note, coller dans une autre application ; vérifier les menus aux quatre bords et le verrouillage/redémarrage avec une note ouverte.

@@ -195,6 +195,11 @@ class MainActivity : AppCompatActivity() {
         })
 
         // Espace automatique en fin de dictée
+        root.addView(settingsRow("Mes notes", "Retrouver, créer et modifier vos notes locales") {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+            } else startForegroundService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_OPEN_NOTES))
+        })
         val transcriptSwitch = MaterialSwitch(this).apply {
             isChecked = languagePrefs.showTranscript
             greenTint()
