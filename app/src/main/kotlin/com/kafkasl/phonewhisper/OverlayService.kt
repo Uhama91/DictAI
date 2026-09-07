@@ -1,6 +1,8 @@
 package com.kafkasl.phonewhisper
 
 import android.app.Notification
+import android.animation.ValueAnimator
+import android.view.animation.DecelerateInterpolator
 import androidx.core.view.doOnLayout
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -1081,6 +1083,19 @@ class OverlayService : Service() {
             ))
         }
 
+        val gestureHint = TextView(this).apply {
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(0xFF76561B.toInt())
+            background = GradientDrawable().apply {
+                cornerRadius = 22 * dp
+                setColor(0xF2FFFFFF.toInt())
+            }
+            visibility = View.GONE
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        pillView.addView(gestureHint, FrameLayout.LayoutParams(-1, -1))
+
         val liveView = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             setTextColor(0xFFF4F4F4.toInt())
@@ -1161,7 +1176,7 @@ class OverlayService : Service() {
         val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
         val formatGesture = VerticalSwipeGesture(touchSlop, maxOf(56 * dp, 3 * touchSlop))
         val pauseGesture = VerticalSwipeGesture(
-            touchSlop, maxOf(56 * dp, 3 * touchSlop), maxDurationMs = 350,
+            touchSlop, maxOf(56 * dp, 3 * touchSlop), maxDurationMs = 600,
             direction = VerticalSwipeGesture.Direction.DOWN,
         )
         val longPress = Runnable {
@@ -1170,6 +1185,42 @@ class OverlayService : Service() {
                 formatGesture.cancel()
                 startRec()
                 pttFired = state == State.RECORDING
+            }
+        }
+        var returnAnimation: ValueAnimator? = null
+        var gestureReady = false
+        var latestDx = 0f
+        var latestDy = 0f
+        fun hideGestureHint() {
+            gestureHint.visibility = View.GONE
+            gestureReady = false
+        }
+        fun previewGesture(eventTime: Long) {
+            val up = formatGesture.progress(latestDx, latestDy, eventTime)
+            val down = pauseGesture.progress(latestDx, latestDy, eventTime)
+            val progress = maxOf(up, down)
+            gestureHint.visibility = if (progress > 0f) View.VISIBLE else View.GONE
+            gestureHint.text = if (up > 0f) "↑ Format" else "↓ Pause"
+            gestureHint.alpha = 0.35f + 0.65f * progress
+            val ready = progress >= 1f
+            if (ready && !gestureReady) pillView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+            gestureReady = ready
+        }
+        val expireGestureHint = Runnable { previewGesture(SystemClock.uptimeMillis()) }
+        fun returnToOrigin() {
+            val fromX = lp.x
+            val fromY = lp.y
+            returnAnimation = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 180
+                interpolator = DecelerateInterpolator()
+                addUpdateListener {
+                    if (container !== pillView) { cancel(); return@addUpdateListener }
+                    val fraction = it.animatedValue as Float
+                    lp.x = (fromX + (downX - fromX) * fraction).toInt()
+                    lp.y = (fromY + (downY - fromY) * fraction).toInt()
+                    updatePillLayout()
+                }
+                start()
             }
         }
         fun finishDrag() {
@@ -1205,16 +1256,23 @@ class OverlayService : Service() {
         pillView.setOnTouchListener { _, ev ->
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    returnAnimation?.cancel()
+                    main.removeCallbacks(expireGestureHint)
+                    hideGestureHint()
+                    latestDx = 0f; latestDy = 0f
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
                     moved = false; pttFired = false; touchInterrupted = false
                     formatGesture.begin(ev.eventTime, state == State.IDLE || state == State.MIC_UNARMED)
                     pauseGesture.begin(ev.eventTime, state == State.RECORDING)
                     wake()
+                    main.postDelayed(expireGestureHint, 601)
                     if (state == State.IDLE) main.postDelayed(longPress, 250)
                     true
                 }
                 MotionEvent.ACTION_POINTER_DOWN -> {
                     touchInterrupted = true
+                    main.removeCallbacks(expireGestureHint)
+                    hideGestureHint()
                     formatGesture.cancel()
                     pauseGesture.cancel()
                     main.removeCallbacks(longPress)
@@ -1228,13 +1286,15 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     if (touchInterrupted) return@setOnTouchListener true
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
-                    formatGesture.move(dx, dy, ev.eventTime)
-                    pauseGesture.move(dx, dy, ev.eventTime)
+                    latestDx = dx; latestDy = dy
+                    previewGesture(ev.eventTime)
                     updateDrag(dx, dy)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     main.removeCallbacks(longPress)
+                    main.removeCallbacks(expireGestureHint)
+                    hideGestureHint()
                     if (touchInterrupted) return@setOnTouchListener true
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     // Include the final coordinates, even when Android delivered few MOVE events.
@@ -1242,14 +1302,12 @@ class OverlayService : Service() {
                     val selectFormat = formatGesture.release(dx, dy, ev.eventTime)
                     val pauseRecording = pauseGesture.release(dx, dy, ev.eventTime)
                     if (pauseRecording && state == State.RECORDING) {
-                        lp.x = downX; lp.y = downY
-                        updatePillLayout()
+                        returnToOrigin()
                         pauseRec()
                     } else if (!pttFired && selectFormat && (state == State.IDLE || state == State.MIC_UNARMED)) {
                         tapCoordinator.reset()
                         // A shortcut keeps the original placement; only a completed drag saves it.
-                        lp.x = downX; lp.y = downY
-                        updatePillLayout()
+                        returnToOrigin()
                         showFormatPicker()
                     } else if (pttFired) {
                         tapCoordinator.reset()
@@ -1272,6 +1330,8 @@ class OverlayService : Service() {
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    main.removeCallbacks(expireGestureHint)
+                    hideGestureHint()
                     main.removeCallbacks(longPress)
                     formatGesture.cancel()
                     pauseGesture.cancel()

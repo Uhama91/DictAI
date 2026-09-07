@@ -6,7 +6,7 @@ import kotlin.math.abs
 internal class VerticalSwipeGesture(
     private val touchSlop: Float,
     private val minDistance: Float,
-    private val maxDurationMs: Long = 220,
+    private val maxDurationMs: Long = 600,
     private val direction: Direction = Direction.UP,
 ) {
     enum class Direction { UP, DOWN }
@@ -25,6 +25,11 @@ internal class VerticalSwipeGesture(
         if (eventTime - startedAt !in 0..maxDurationMs) eligible = false
         // Never steal a drag which first went sideways or in the opposite direction.
         if (abs(dx) + abs(dy) > touchSlop && distance(dy) < 2 * abs(dx)) eligible = false
+    }
+
+    fun progress(dx: Float, dy: Float, eventTime: Long): Float {
+        move(dx, dy, eventTime)
+        return if (eligible) (distance(dy) / minDistance).coerceIn(0f, 1f) else 0f
     }
 
     fun release(dx: Float, dy: Float, eventTime: Long): Boolean {

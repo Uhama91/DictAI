@@ -15,6 +15,17 @@ class VerticalSwipeGestureTest {
         assertTrue(gesture.release(5f, -70f, 1150))
         assertFalse(gesture.release(5f, -70f, 1160))
     }
+    @Test fun `preview follows pull and retract and expires before release`() {
+        val gesture = gesture()
+        assertEquals(0.5f, gesture.progress(0f, -28f, 1200), 0.001f)
+        assertEquals(1f, gesture.progress(0f, -70f, 1400), 0.001f)
+        assertEquals(0.5f, gesture.progress(0f, -28f, 1500), 0.001f)
+        assertEquals(0f, gesture.progress(0f, -70f, 1601), 0.001f)
+        assertFalse(gesture.release(0f, -70f, 1610))
+    }
+    @Test fun `comfortable half second pull selects`() {
+        assertTrue(gesture().release(4f, -70f, 1500))
+    }
     @Test fun `small upward adjustment does not select formats`() {
         assertFalse(gesture().release(0f, -20f, 1100))
         assertFalse(gesture().release(0f, -55f, 1100))
@@ -22,17 +33,17 @@ class VerticalSwipeGestureTest {
     @Test fun `slow upward repositioning remains a drag`() {
         val gesture = gesture()
         gesture.move(0f, -20f, 1100)
-        gesture.move(0f, -90f, 1300)
-        assertFalse(gesture.release(0f, -120f, 1500))
+        gesture.move(0f, -90f, 1700)
+        assertFalse(gesture.release(0f, -120f, 1800))
     }
     @Test fun `fast move then rest at destination stays a drag`() {
         val gesture = gesture()
         gesture.move(0f, -80f, 1100)
-        assertFalse(gesture.release(0f, -80f, 1350))
+        assertFalse(gesture.release(0f, -80f, 1700))
     }
     @Test fun `duration boundary excludes slower movement`() {
-        assertTrue(gesture().release(0f, -56f, 1220))
-        assertFalse(gesture().release(0f, -100f, 1221))
+        assertTrue(gesture().release(0f, -56f, 1600))
+        assertFalse(gesture().release(0f, -100f, 1601))
     }
     @Test fun `diagonal horizontal and downward drags do not select formats`() {
         for ((dx, dy) in listOf(60f to -70f, -60f to -70f, 80f to 0f, 0f to 80f)) {
@@ -79,11 +90,11 @@ class VerticalSwipeGestureTest {
         }
     }
     @Test fun `downward pause accepts brief descent but rejects slow drag and ascent`() {
-        val gesture = VerticalSwipeGesture(8f, 56f, 350, VerticalSwipeGesture.Direction.DOWN)
+        val gesture = VerticalSwipeGesture(8f, 56f, 600, VerticalSwipeGesture.Direction.DOWN)
         gesture.begin(1000, true)
-        assertTrue(gesture.release(5f, 80f, 1300))
+        assertTrue(gesture.release(5f, 80f, 1500))
         gesture.begin(2000, true)
-        assertFalse(gesture.release(0f, 80f, 2500))
+        assertFalse(gesture.release(0f, 80f, 2700))
         gesture.begin(3000, true)
         assertFalse(gesture.release(0f, -80f, 3200))
     }
