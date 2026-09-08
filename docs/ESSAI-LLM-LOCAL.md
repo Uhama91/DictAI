@@ -1,6 +1,9 @@
-# Essai du petit LLM local — DictAI 0.7.1
+# Essai du petit LLM local — DictAI 0.7.2
 
-APK : `app/build/outputs/apk/verified/app-local-layout-test.apk` (version `0.7.1-wp-local-test`, ARM64, Android 11 ou ultérieur). Le modèle 350M est déjà inclus ; il n’y a pas d’autre téléchargement de LLM à faire. L’APK utilise le même identifiant et la même signature de développement que les builds de ce dépôt. La compilation normale est conservée à côté dans `app-normal.apk`.
+**Version 0.7.2 en cours de publication : [versions téléchargeables sur GitHub](https://github.com/Uhama91/DictAI/releases).** Le fichier à installer est `dictai-local-layout-test.apk` (environ 290 Mo, ARM64, Android 11 ou ultérieur), avec le 350M inclus. Même identifiant et signature de développement que la version 0.7.1 : mise à jour par-dessus l’installation existante.
+
+**Le découpage local reste expérimental.** Cette mise à jour corrige l’overlay, les nombres et la ponctuation finale ; elle ne prétend pas avoir résolu les regroupements des listes et les fermetures des mails. Voir [les résultats comparatifs et les limites](2026-09-09-retour-essai-local.md).
+
 
 ## Mesurer le moteur sur le téléphone
 
@@ -24,6 +27,6 @@ La copie du texte et son insertion dans le champ ne déclenchent pas l’envoi d
 
 Le modèle choisit des puces et des paragraphes en conservant les mots source dans leur ordre. Il ne rédige pas un mail à partir d’une consigne telle que « écris à Julie pour lui dire… », n’enlève pas les hésitations et ne réalise pas les formats personnalisés. Le cloud reste disponible pour ces demandes.
 
-Les dix générations du corpus élargi conservent tous les mots. La mise en page n’est pas toujours satisfaisante : en-tête attaché à une puce, groupe coupé en deux, listes avec citations laissées sur une ligne, fins de mail irrégulières. Les aperçus gardent toute la fin de la source, même avant que le modèle ne l’ait parcourue. En cas d’échec ou d’attente supplémentaire au-delà de cinq secondes après l’ASR, la transcription source est conservée. La latence téléphone reste à mesurer.
+Les dix générations du corpus élargi conservent tous les mots. La mise en page n’est pas toujours satisfaisante : en-tête attaché à une puce, groupe coupé en deux, listes avec citations laissées sur une ligne, fins de mail irrégulières. Les aperçus gardent toute la fin de la source, même avant que le modèle ne l’ait parcourue. En cas d’échec ou d’attente supplémentaire au-delà de cinq secondes après l’ASR, la transcription source est conservée. Ullie juge la latence actuelle acceptable ; les mesures chiffrées sur appareil restent à relever.
 
-Les nombres et le vocabulaire personnel sont traités avant la mise en page. Les autres demandes (réactivité de l’écoute, envoi depuis la pause, modèles adaptés aux appareils) restent enregistrées dans [le suivi](SUIVI-DEVELOPPEMENT.md).
+Les nombres et le vocabulaire personnel sont traités avant la mise en page. En pause, glisser vers le haut insère et copie le texte sans relancer le micro. Pendant l’écoute, le même geste réaffiche le texte ; au repos, il choisit le format. Le statut indique le moteur prévu et confirme un résultat local effectivement obtenu. Les validations appareil et demandes restantes figurent dans [le suivi](SUIVI-DEVELOPPEMENT.md).

@@ -107,7 +107,9 @@ internal class NumberFormattingEngine(
             val nextNamed = nextToken != null && nextToken.value.first().isUpperCase() &&
                 numberGap.matches(text.substring(range.last + 1, nextToken.range.first))
             val replacement = if (isProtected(range, protected) || named || nextNamed ||
-                identifierContext(text, range.first) || ambiguousSingleton(text, range, parts)
+                identifierContext(text, range.first) ||
+                (ambiguousSingleton(text, range, parts) && !numberingContext(text, range.first) &&
+                    !(french && parts.singleOrNull() in setOf("un", "une", "neuf") && enumerationContext(text, range, protected)))
             ) null else parseWords(parts)
             if (replacement != null) {
                 result.append(text, copiedUntil, range.first).append(replacement)
@@ -201,6 +203,42 @@ internal class NumberFormattingEngine(
     private fun identifierContext(text: String, at: Int): Boolean =
         identifierLabel.containsMatchIn(text.substring(0, at).takeLast(64))
 
+    private fun numberingContext(text: String, at: Int): Boolean =
+        numberingLabel.containsMatchIn(text.substring(0, at).takeLast(64))
+
+    /** Three complete comma/semicolon-separated numbers disambiguate un/une/neuf. */
+    private fun enumerationContext(text: String, range: IntRange, protected: List<IntRange>): Boolean {
+        fun cardinal(segment: String, offset: Int): Boolean {
+            val value = segment.trim().removeSuffix(".").trimEnd()
+            if (value.isEmpty()) return false
+            val start = offset + segment.indexOfFirst { !it.isWhitespace() }
+            if (isProtected(start until start + value.length, protected) || identifierContext(text, start)) return false
+            if (Regex("[-−]?(?:0|[1-9][0-9]{0,8})").matches(value)) return true
+            if (!Regex("[\\p{L} \\t\\u00a0\\u202f\\-‐‑]+").matches(value) || value.any { it.isUpperCase() }) return false
+            val parts = splitWords(value)
+            return parts.isNotEmpty() && parts.all { it in numberWords } && parseWords(parts) != null
+        }
+        var count = 1
+        var afterOffset = range.last + 1
+        while (count < 3) {
+            // Spaces disambiguate separators from decimal commas (un,2,5 remains ambiguous).
+            val next = Regex("^[ \\t\\u00a0\\u202f]*[,;][ \\t\\u00a0\\u202f]+([^,;\\n]+)").find(text.substring(afterOffset)) ?: break
+            val group = next.groups[1]!!
+            if (!cardinal(group.value, afterOffset + group.range.first)) break
+            count++
+            afterOffset += next.range.last + 1
+        }
+        var before = text.substring(0, range.first)
+        while (count < 3) {
+            val previous = Regex("([^,;\\n]+)[,;][ \\t\\u00a0\\u202f]+$").find(before) ?: break
+            val group = previous.groups[1]!!
+            if (!cardinal(group.value, group.range.first)) break
+            count++
+            before = before.substring(0, previous.range.first)
+        }
+        return count >= 3
+    }
+
     private fun protectedRanges(text: String): List<IntRange> =
         protectedPatterns.flatMap { pattern -> pattern.findAll(text).map { it.range }.toList() }
 
@@ -215,8 +253,14 @@ internal class NumberFormattingEngine(
         private val numberGap = Regex("[ \\t\\u00a0\\u202f\\-‐‑]+")
         private val word = Regex("[\\p{L}]+(?:[\\-‐‑’'][\\p{L}]+)*")
         private val digits = Regex("(?<![\\p{L}\\p{N}_])[-−+]?(?:[0-9]{1,3}(?:[ \\u00a0\\u202f][0-9]{3})+|[0-9]+)(?:[.,][0-9]+)?(?![\\p{L}\\p{N}_])")
+        private const val NUMBER_LABEL = "(?:numéro|numero|number|n[°º])"
+        private val numberingLabel = Regex("\\b$NUMBER_LABEL\\s*[:#]?\\s*$", RegexOption.IGNORE_CASE)
         private val identifierLabel = Regex(
-            "(?:\\b(?:code|référence|reference|ref|numéro|numero|identifiant|téléphone|telephone|tél|tel|phone|id|pin|postcode|postal|version|modèle|model)|n°)\\s*[:#]?\\s*$",
+            "(?:\\b(?:code|référence|reference|réf|ref|identifiant|téléphone|telephone|tél|tel|phone|id|pin|postcode|postal|version|modèle|model)" +
+                "(?:\\s+$NUMBER_LABEL)?|" +
+                "\\b(?:serial|account|card|social\\s+security)\\s+$NUMBER_LABEL|" +
+                "\\b$NUMBER_LABEL\\s+(?:de\\s+(?:la\\s+)?|du\\s+|d[’']\\s*)" +
+                "(?:série|serie|compte|carte|sécurité\\s+sociale|securite\\s+sociale))\\s*[:#]?\\s*$",
             RegexOption.IGNORE_CASE,
         )
         private val protectedPatterns = listOf(

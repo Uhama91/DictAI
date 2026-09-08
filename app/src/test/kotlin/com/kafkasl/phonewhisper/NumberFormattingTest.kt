@@ -77,4 +77,41 @@ class NumberFormattingTest {
         assertEquals("septante trois élèves", fr.apply("septante trois élèves", NumberStyle.DIGITS))
         assertEquals("Studio 23 et deux élèves", fr.apply("Studio 23 et 2 élèves", NumberStyle.WORDS, listOf("Studio 23")))
     }
+    @Test fun itemNumbersAreNotSensitiveIdentifiers() {
+        assertEquals("C’est le test numéro 2.", fr.apply("C’est le test numéro deux.", NumberStyle.DIGITS))
+        assertEquals("essai numéro 1 ; test numéro 9 ; question n° 21 ; test numero 2",
+            fr.apply("essai numéro un ; test numéro neuf ; question n° vingt et un ; test numero deux", NumberStyle.DIGITS))
+        assertEquals("test number 2; sample number 1.", en.apply("test number two; sample number one.", NumberStyle.DIGITS))
+        assertEquals("test numéro deux ; question n° neuf.", fr.apply("test numéro 2 ; question n° 9.", NumberStyle.WORDS))
+        assertEquals("test number two", en.apply("test number 2", NumberStyle.WORDS))
+        val french = "téléphone numéro deux ; numéro de téléphone vingt trois ; code numéro neuf ; numéro de série vingt trois ; numéro de compte vingt trois ; numéro de la carte deux"
+        assertEquals(french, fr.apply(french, NumberStyle.DIGITS))
+        val english = "phone number twenty three; reference number two; account number twenty three; serial number two"
+        assertEquals(english, en.apply(english, NumberStyle.DIGITS))
+        assertEquals("test numéro deux ; numéro de téléphone 23 ; code numéro 2 ; numéro de compte 23 ; n° 0123",
+            fr.apply("test numéro 2 ; numéro de téléphone 23 ; code numéro 2 ; numéro de compte 23 ; n° 0123", NumberStyle.WORDS))
+        assertEquals("test numéro deux ; numéro 9", fr.apply("test numéro deux ; numéro neuf", NumberStyle.DIGITS, listOf("numéro deux")))
+    }
+
+    @Test fun explicitEnumerationDisambiguatesOneWithoutChangingArticles() {
+        assertEquals("1, 2, 3, 4, 5, 6", fr.apply("un, 2, trois, 4, cinq, 6", NumberStyle.DIGITS))
+        assertEquals("1, 2, 3.", fr.apply("Un, 2, 3.", NumberStyle.DIGITS))
+        assertEquals("Je teste 1, 2, 3, 4", fr.apply("Je teste un, 2, trois, 4", NumberStyle.DIGITS))
+        assertEquals("9 ; 10 ; 11", fr.apply("neuf ; 10 ; onze", NumberStyle.DIGITS))
+        assertEquals("1, -2, -3, 4", fr.apply("un, -2, moins trois, 4", NumberStyle.DIGITS))
+        assertEquals("1, -2, -3, 4", en.apply("one, -2, minus three, 4", NumberStyle.DIGITS))
+        listOf("Un livre neuf, 2 cahiers, 3 stylos.", "J’en veux un, 2 litres suffisent.", "un, 2", "un, 2,5").forEach {
+            assertEquals(it, fr.apply(it, NumberStyle.DIGITS))
+        }
+        assertEquals("No one, 2 witnesses and 3 files.", en.apply("No one, 2 witnesses and 3 files.", NumberStyle.DIGITS))
+        val protected = "un, 2, trois"
+        assertEquals(protected, fr.apply(protected, NumberStyle.DIGITS, listOf(protected)))
+    }
+    @Test fun enumerationEvidenceCannotUseProtectedIdentifiersOrNames() {
+        listOf("un, 12345678, 9", "un, Deux, Trois", "un,2,5").forEach {
+            assertEquals(it, fr.apply(it, NumberStyle.DIGITS))
+        }
+        assertEquals("un, 2, trois", fr.apply("un, 2, trois", NumberStyle.DIGITS, listOf("2", "trois")))
+        assertEquals("1 ;\u00a02 ;\u00a03", fr.apply("un ;\u00a02 ;\u00a03", NumberStyle.DIGITS))
+    }
 }

@@ -102,10 +102,10 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="local-layout-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'Essai Android ARM64 : petit LLM inclus pour les listes et paragraphes de mail FR/EN.' \
-            'Le modèle conserve les mots ; le découpage reste expérimental et la latence téléphone reste à mesurer.' \
+            'DictAI 0.7.2 Android ARM64 : overlay simplifié, format/moteur visibles, nombres et points finaux corrigés, envoi depuis la pause.' \
+            'Le 350M reste inclus pour comparaison. La qualité de son découpage listes/mails n’est pas encore validée ; cette version ne change pas le modèle.' \
             'Après installation : Tester le modèle local, puis Copier les résultats. Pour dicter : Moteur de post-traitement → Local, puis Liste ou Mail.' \
             'APK compilée et vérifiée par GitHub Actions. Le mode cloud reste disponible.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.7.1 — essai du LLM local' --notes-file release-notes.md
+            --title 'DictAI 0.7.2 — essai du LLM local' --notes-file release-notes.md

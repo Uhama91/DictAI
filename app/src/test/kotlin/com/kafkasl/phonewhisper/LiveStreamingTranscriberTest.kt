@@ -173,18 +173,24 @@ class LiveStreamingTranscriberTest {
 
     @Test
     fun finalization_timeout_is_structured_and_does_not_return_text() {
+        val enteredDecode = CountDownLatch(1)
+        val releaseDecode = CountDownLatch(1)
         val decoded = CountDownLatch(1)
         val native = FakeStreamingRecognizer(
             resultsAfterDecode = listOf("final tardif"),
-            decodeDelayMs = 100,
+            beforeDecode = { enteredDecode.countDown(); releaseDecode.await() },
             decoded = decoded,
         )
         val session = LiveStreamingTranscriber.forTesting(native).start { _, _ -> }
-
-        val result = session.finish(timeoutMs = 1)
-
-        assertEquals(LiveStreamingTranscriber.Finalization.Timeout, result)
-        assertTrue(decoded.await(1, TimeUnit.SECONDS))
+        // Establish a genuinely running decoder; a 1 ms finish could otherwise cancel
+        // the worker before it starts, in which case expecting a decode is incorrect.
+        session.acceptPcm16(byteArrayOf(1, 0), 2)
+        try {
+            assertTrue(enteredDecode.await(2, TimeUnit.SECONDS))
+            assertEquals(LiveStreamingTranscriber.Finalization.Timeout, session.finish(timeoutMs = 1))
+        } finally { releaseDecode.countDown() }
+        assertTrue(decoded.await(2, TimeUnit.SECONDS))
+        assertTrue(session.cancelAndAwait(timeoutMs = 1_000))
     }
 
     @Test
@@ -248,7 +254,7 @@ class LiveStreamingTranscriberTest {
         private val resultsAfterDecode: List<String>,
         private val usesNativeSnapshots: Boolean = false,
         private val failOnInputFinished: Boolean = false,
-        private val decodeDelayMs: Long = 0,
+        private val beforeDecode: () -> Unit = {},
         private val decoded: CountDownLatch? = null,
     ) : LiveStreamingTranscriber.StreamingRecognizer {
         val transcribeCppLocales = mutableListOf<String>()
@@ -256,7 +262,7 @@ class LiveStreamingTranscriberTest {
             resultsAfterDecode,
             usesNativeSnapshots,
             failOnInputFinished,
-            decodeDelayMs,
+            beforeDecode,
             decoded,
         )
 
@@ -295,7 +301,7 @@ class LiveStreamingTranscriberTest {
         private val resultsAfterDecode: List<String>,
         private val usesNativeSnapshots: Boolean,
         private val failOnInputFinished: Boolean,
-        private val decodeDelayMs: Long,
+        private val beforeDecode: () -> Unit,
         private val decoded: CountDownLatch?,
     ) : LiveStreamingTranscriber.StreamingStream {
         override val finalSilenceSamples: Int = if (usesNativeSnapshots) 0 else LiveStreamingTranscriber.FINAL_SILENCE_SAMPLES
@@ -320,7 +326,7 @@ class LiveStreamingTranscriberTest {
         }
 
         override fun decode() {
-            if (decodeDelayMs > 0) Thread.sleep(decodeDelayMs)
+            beforeDecode()
             decodeCalls++
             decoded?.countDown()
         }

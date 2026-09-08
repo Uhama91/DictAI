@@ -177,6 +177,7 @@ class OverlayService : Service() {
         var formatOptions: RecordingOptions? = null
         var stoppedAtMs = 0L
         var firstFormatVisible = false
+        var formatStage: String? = null
     }
 
     private val prefs by lazy { PersistencePrefs(this) }
@@ -201,6 +202,7 @@ class OverlayService : Service() {
     private var livePanel: FrameLayout? = null
     private var liveScroll: ScrollView? = null
     private var panelTitle: TextView? = null
+    private var panelFormat: TextView? = null
     private var panelExpandButton: ImageButton? = null
     private var keyboardInset = 0
     private var panelExpanded = false
@@ -362,7 +364,7 @@ class OverlayService : Service() {
         dismissFloatingMenu()
         val requestedAt = SystemClock.uptimeMillis()
         val cloudRequested = prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled
-        val targetSensitive = runCatching {
+        val targetSensitive = cloudRequested && runCatching {
             InjectionGateway.current()?.isActiveTargetSensitive() ?: true
         }.getOrDefault(true)
         val cloudPolicy = CloudSensitiveTargetPolicy.snapshot(cloudRequested, targetSensitive)
@@ -408,7 +410,7 @@ class OverlayService : Service() {
                 AndroidRecordingRecorder(
                     AudioRecord(
                         MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
-                        AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufSize,
+                        AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(bufSize, SAMPLE_RATE * 2),
                     ),
                 )
             },
@@ -645,7 +647,8 @@ class OverlayService : Service() {
         }
         setLivePreviewVisible(run.localFormatting != null)
         setState(State.TRANSCRIBING)
-        if (run.localFormatting != null) panelTitle?.text = "Mise en forme…"
+        run.formatStage = "Transcription…"
+        currentAnchor?.let(::positionLivePanel)
         vibrate(20)
         val recorder = audioRecord
         val recordingThread = recordThread
@@ -763,10 +766,22 @@ class OverlayService : Service() {
             return
         }
         val formatStarted = SystemClock.elapsedRealtime()
+        var localDirect = false
         val localFormatted = if (!localText.isNullOrBlank() && capture.options.localFormattingEnabled &&
             capture.options.format.instructions.isNotBlank()) {
             val request = localFormatRequest(localText, capture.options, applyVocabulary = false)
             val policy = request.layoutPolicy()
+            localDirect = policy?.directResult != null
+            main.post {
+                if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                    run.formatStage = when {
+                        run.localFormatting == null -> "Non disponible en local"
+                        localDirect -> "Traitement local rapide…"
+                        else -> "LLM local en cours…"
+                    }
+                    currentAnchor?.let(::positionLivePanel)
+                }
+            }
             run.localFormatting?.finish(request, 5_000L) { chunk ->
                 val preview = policy?.preview(chunk)?.takeIf { value -> request.protectedTerms.all { it in value } }
                 if (preview != null) main.post {
@@ -786,6 +801,12 @@ class OverlayService : Service() {
             (!editableTranscript.hasUserEdits() || capture.options.format.instructions.isNotBlank())) {
             val credential = SecureCredentialStore(this).load()
             credential?.let {
+                main.post {
+                    if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                        run.formatStage = "Cloud en cours…"
+                        currentAnchor?.let(::positionLivePanel)
+                    }
+                }
                 val request = localFormatRequest(localText, capture.options, applyVocabulary = false)
                 request.acceptOutput(CloudCleanup().clean(
                     localText,
@@ -802,6 +823,20 @@ class OverlayService : Service() {
             return
         }
         val formatted = localFormatted ?: cloudText
+        val formatOutcome = when {
+            localFormatted != null && localDirect -> "Local appliqué · sans appel LLM"
+            localFormatted != null -> "LLM local appliqué"
+            cloudText != null -> "Cloud appliqué"
+            capture.options.format.instructions.isNotBlank() -> "Format indisponible · texte conservé"
+            else -> "Sans appel LLM"
+        }
+        main.post {
+            if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                run.formatStage = formatOutcome
+                currentAnchor?.let(::positionLivePanel)
+                if (localFormatted != null) toast("${capture.options.format.name} : $formatOutcome")
+            }
+        }
         if (capture.options.format.instructions.isNotBlank() && formatted == null && !localText.isNullOrBlank()) {
             toast("Mise en forme indisponible : texte conservé sans format.")
         }
@@ -812,6 +847,9 @@ class OverlayService : Service() {
         var finalText = localFormatted ?: cloudText?.let {
             NumberFormatting.apply(it, capture.options.language, capture.options.numberStyle, protectedVocabularyTerms(it))
         } ?: localText
+        if (!finalText.isNullOrBlank() && !editableTranscript.hasUserEdits()) {
+            finalText = FinalPunctuation.apply(finalText, capture.options.format.id)
+        }
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
         val outText = finalText
         val source = if (capture.options.asrMode == DictationAsrMode.STREAMING) "stream" else "batch"
@@ -991,8 +1029,8 @@ class OverlayService : Service() {
 
     private fun setState(s: State) {
         state = s
-        main.post {
-            if (state != s) return@post
+        val render = Runnable {
+            if (state != s) return@Runnable
             // Le micro a disparu : on signale l'état via la bordure de la pastille.
             // Ambre + plus épais si le micro n'est pas encore armé (setup requis), neutre sinon.
             val px = resources.displayMetrics.density
@@ -1013,6 +1051,7 @@ class OverlayService : Service() {
             // Bordure lumineuse pendant la transcription.
             if (s == State.TRANSCRIBING) loader?.start() else loader?.stop()
             updateNotif()
+            currentAnchor?.let(::positionLivePanel)
             // Tant qu'une dictée est active, la pastille reste pleinement allumée (jamais de dim).
             if (s == State.IDLE || s == State.MIC_UNARMED) {
                 setLivePreviewVisible(false)
@@ -1020,6 +1059,7 @@ class OverlayService : Service() {
             }
             else { main.removeCallbacks(collapse); container?.animate()?.alpha(1f)?.setDuration(120)?.start() }
         }
+        if (Looper.myLooper() == main.looper) render.run() else main.post(render)
     }
 
     private fun updateLivePreview(committed: String, tentative: String) {
@@ -1127,7 +1167,7 @@ class OverlayService : Service() {
         val dp = resources.displayMetrics.density
         liveScroll?.let { scroll ->
             scroll.layoutParams = (scroll.layoutParams as FrameLayout.LayoutParams).apply {
-                topMargin = ((92 + if (visible) 64 else 0) * dp).toInt()
+                topMargin = ((72 + if (visible) 64 else 0) * dp).toInt()
             }
         }
         currentAnchor?.let(::positionLivePanel)
@@ -1241,8 +1281,28 @@ class OverlayService : Service() {
         val dp = resources.displayMetrics.density
         val fullScreen = screenRect()
         val screen = fullScreen.copy(height = (fullScreen.height - keyboardInset).coerceAtLeast(1))
-        panelTitle?.text = if (state == State.TRANSCRIBING && activeRun?.localFormatting != null) "Mise en forme…"
-            else notes.get(activeNoteId)?.title ?: "Dictée"
+        panelTitle?.text = when (state) {
+            State.RECORDING -> "Écoute en cours"
+            State.PAUSING, State.PAUSED -> "En pause · ↑ pour envoyer"
+            State.TRANSCRIBING -> "Traitement…"
+            else -> notes.get(activeNoteId)?.title ?: "Dictée"
+        }
+        val options = activeRun?.formatOptions
+        val format = options?.format ?: PostProcessingFormats(this).selected()
+        val engine = activeRun?.formatStage ?: when {
+            options?.cloudSuppressedForSensitiveTarget == true -> "Cloud suspendu"
+            options?.cloudCleanupEnabled == true -> "Cloud prévu"
+            options == null && prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled -> "Cloud prévu"
+            format.instructions.isBlank() -> "Sans LLM"
+            options?.localFormattingEnabled == true -> if (format.id in setOf("list", "email")) "Local prévu" else "Non disponible en local"
+            options?.cloudSuppressedForSensitiveTarget == true -> "Cloud suspendu"
+            options?.cloudCleanupEnabled == true -> "Cloud prévu"
+            options != null -> "Désactivé"
+            prefs.formattingEngine == "local" -> "Local prévu"
+            prefs.formattingEngine == "cloud" -> "Cloud prévu"
+            else -> "Désactivé"
+        }
+        panelFormat?.text = "${if (format.id == "cleanup") "Texte" else format.name} · $engine"
         panelExpandButton?.setImageResource(if (panelExpanded) R.drawable.ic_panel_restore else R.drawable.ic_panel_expand)
         panelExpandButton?.contentDescription = if (panelExpanded) "Réduire le panneau" else "Agrandir le panneau"
         val bounds = OverlayPlacement.panelBounds(
@@ -1438,7 +1498,7 @@ class OverlayService : Service() {
                 setColor(0xFF1F1F25.toInt())
                 setStroke((1.2f * dp).toInt(), ThemeTokens.GREEN)
             }
-            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (92 * dp).toInt() })
+            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (72 * dp).toInt() })
         }
         livePanel.setOnApplyWindowInsetsListener { _, insets ->
             val nextInset = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
@@ -1475,14 +1535,13 @@ class OverlayService : Service() {
         toolbar.addView(expand, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         toolbar.addView(hide, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         livePanel.addView(toolbar, FrameLayout.LayoutParams(-1, (48 * dp).toInt(), Gravity.TOP))
-        val noteActions = LinearLayout(this)
-        fun noteButton(label: String, action: () -> Unit) = TextView(this).apply {
-            text = label; textSize = 12f; gravity = Gravity.CENTER; setTextColor(ThemeTokens.GREEN)
-            setOnClickListener { action() }
+        panelFormat = TextView(this).apply {
+            textSize = 11f; setTextColor(ThemeTokens.GREEN)
+            gravity = Gravity.CENTER_VERTICAL
+            maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding((12 * dp).toInt(), 0, (12 * dp).toInt(), 0)
         }
-        noteActions.addView(noteButton("Ranger / Notes", ::archiveOrShowNotes), LinearLayout.LayoutParams(0, -1, 1f))
-        noteActions.addView(noteButton("Coller", ::exportOpenNote), LinearLayout.LayoutParams(0, -1, 1f))
-        livePanel.addView(noteActions, FrameLayout.LayoutParams(-1, (44 * dp).toInt()).apply { topMargin = (48 * dp).toInt() })
+        livePanel.addView(panelFormat, FrameLayout.LayoutParams(-1, (24 * dp).toInt()).apply { topMargin = (48 * dp).toInt() })
 
         val vocabRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -1505,7 +1564,7 @@ class OverlayService : Service() {
             setOnClickListener { resetVocabularyLearning() }
         }, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         vocabularyBanner = vocabRow
-        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (64 * dp).toInt()).apply { topMargin = (92 * dp).toInt() })
+        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (64 * dp).toInt()).apply { topMargin = (72 * dp).toInt() })
 
         // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
@@ -1549,7 +1608,7 @@ class OverlayService : Service() {
             val left = notesGesture.progress(dy, dx)
             val progress = maxOf(up, down, left)
             gestureHint.visibility = if (progress > 0f) View.VISIBLE else View.GONE
-            gestureHint.text = if (left > 0f) "← Notes" else if (up > 0f) { if (isTranscriptEditable()) "↑ Texte" else "↑ Format" } else "↓ Pause"
+            gestureHint.text = if (left > 0f) "← Notes" else if (up > 0f) { if (state == State.PAUSED || state == State.PAUSING) "↑ Envoyer" else if (isTranscriptEditable()) "↑ Texte" else "↑ Format" } else "↓ Pause"
             gestureHint.alpha = 0.35f + 0.65f * progress
             val ready = progress >= 1f
             if (ready && !gestureReady) pillView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
@@ -1656,6 +1715,13 @@ class OverlayService : Service() {
                             archiveOrShowNotes()
                         } else if (pauseRecording && state == State.RECORDING) {
                             pauseRec()
+                        } else if (selectFormat && (state == State.PAUSED || state == State.PAUSING)) {
+                            val run = activeRun
+                            if (run != null) {
+                                run.resumeAfterPause = false
+                                run.finishAfterPause = true
+                                if (state == State.PAUSED) stopRec()
+                            } else exportOpenNote()
                         } else if (selectFormat && isTranscriptEditable()) {
                             panelHidden = false
                             setLivePreviewVisible(true)
@@ -1698,6 +1764,14 @@ class OverlayService : Service() {
         }
         container = pillView; pill = pillView; wave = waveView; loader = loaderView
         liveText = liveView; liveScroll = scroll; this.livePanel = livePanel; params = lp; liveParams = panelParams; currentAnchor = initialAnchor
+        // Prepare the hidden editor window before the first microphone tap.
+        try {
+            wm.addView(livePanel, panelParams)
+            livePanelAdded = true
+            positionLivePanel(initialAnchor)
+        } catch (e: Exception) {
+            Log.w(TAG, "event=panel_prepare outcome=deferred type=${e.javaClass.simpleName}")
+        }
         pillView.post { waveView.settle() } // dessine l'onde calme au repos
         scheduleCollapse()
     }
@@ -1810,12 +1884,20 @@ class OverlayService : Service() {
         }
         panelHidden = true
         setLivePreviewVisible(false)
+        // Reserve export so a resume tap cannot race the delayed draft cleanup.
+        setState(State.TRANSCRIBING)
         // Let focus return to the underlying app before resolving its text field.
         main.post {
             val result = runCatching {
                 injectOrCopy(InjectionGateway.current(), text, { DictationClipboard.copy(this, it) })
             }.getOrDefault(InjectionResult.Failed)
             injectionFeedbackMessage(result)?.let(::toast)
+            if (result != InjectionResult.Failed) clearOpenDraft()
+            else {
+                setState(State.PAUSED)
+                panelHidden = false
+                setLivePreviewVisible(true)
+            }
         }
     }
 
@@ -1971,7 +2053,7 @@ class OverlayService : Service() {
         try { if (livePanelAdded) livePanel?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         livePanelAdded = false
-        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; livePanel = null; liveParams = null
+        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; panelFormat = null; livePanel = null; liveParams = null
         super.onDestroy()
     }
 

@@ -1,6 +1,12 @@
 # Suivi des demandes d’Ullie — DictAI
 
-Mis à jour le 8 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
+Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
+
+## Étape du 9 septembre — retour réel d’Ullie
+
+Qualité du 350M **non validée** : les regroupements de liste et fermetures de mail signalés sont reproduits. La latence est jugée satisfaisante par Ullie. Comparaison de quatre modèles avec le JNI réel et variantes de consigne : 84 générations archivées ; les alternatives améliorent certains cas mais restent irrégulières. Aucun remplacement de modèle ni variante de prompt n’est livré comme correction acquise. [Résultats et décision](2026-09-09-retour-essai-local.md).
+
+Version 0.7.2 : format/moteur visibles dans l’overlay, retrait Ranger/Coller, préparation du panneau avant premier tap, numérotation générique et énumération avec un corrigées, point final de prose, geste ↑Envoyer pendant la pause. Tests de cœur et compilation à vérifier dans [le rapport](VERIFICATION-POST-TRAITEMENT.md) ; gestes et gain au démarrage restent à confirmer sur téléphone. L’étape suivante du LLM reste ouverte et prioritaire.
 
 ## 1. Post-traitement et correction personnelle — priorité actuelle
 
@@ -19,6 +25,8 @@ Décision actualisée du 8 septembre : **le LLM local n’est pas abandonné**. 
 
 Fichiers de reprise : [essai sur appareil](ESSAI-LLM-LOCAL.md), [configuration et résultats](2026-09-08-comparatif-llm-local.md), [rapport de construction et contrôles](VERIFICATION-POST-TRAITEMENT.md). APK conservées dans `app/build/outputs/apk/verified/` : normale et `app-local-layout-test.apk`. La construction du prototype inclut un seul poids 350M ; les autres restent dans le cache de recherche. Attente additionnelle de mise en forme limitée à cinq secondes, sans garantie de latence globale avant mesure appareil. Le moteur retenu et le format sont capturés au début de la dictée ; changer le réglage prépare la suivante.
 
+Publication effectuée : [APK directe sur GitHub](https://github.com/Uhama91/DictAI/releases/download/local-layout-test-34280923002/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34280923002). Le modèle est inclus et l’asset est vérifié. La mesure sur téléphone reste à faire ; aucune installation sur appareil réalisée par Codex.
+
 ## 2. Réactivité et certitude au démarrage — après le lot LLM prioritaire
 
 Nouvelle demande d’Ullie : après appui, il ne sait pas toujours si l’écoute a réellement commencé ; l’overlay ou les premiers mots tardent, ce qui le pousse à répéter son message. Demande conservée. Le dernier message d’Ullie remet explicitement le LLM local et sa latence en priorité ; reprendre ensuite cette incertitude sans la considérer corrigée.
@@ -29,17 +37,17 @@ Nouvelle demande d’Ullie : après appui, il ne sait pas toujours si l’écout
 - [ ] Vérifier que les premiers mots d’un message très court sont conservés quand l’utilisateur parle immédiatement après appui. Ne pas masquer une éventuelle perte par un simple changement d’animation.
 - [ ] Tester les refus micro, modèle encore en chargement, double tap, annulation au démarrage et reprise après pause.
 
-Pistes vérifiées dans le code, sans diagnostic appareil établi : `RecordingStartupTransaction.start()` démarre AudioRecord avant `openSession()` ; le lecteur audio et le retour visuel complet sont lancés ensuite dans `OverlayService.startRec()`. La recherche de sensibilité du champ destinataire est aussi faite avant le démarrage, même lorsque le cloud est désactivé. Mesurer ces étapes avant de les réorganiser, en conservant les garanties d’annulation et de libération audio.
+Pistes vérifiées dans le code, sans diagnostic appareil établi : `RecordingStartupTransaction.start()` démarre AudioRecord avant `openSession()` ; le lecteur audio et le retour visuel complet sont lancés ensuite dans `OverlayService.startRec()`. Depuis 0.7.2, la recherche de sensibilité est évitée lorsque le cloud n’est pas demandé ; le panneau masqué est préattaché et les états sont rendus immédiatement sur main. Mesurer ces étapes avant de les réorganiser, en conservant les garanties d’annulation et de libération audio.
 
 ## 3. Envoyer depuis la pause — après la réactivité
 
 Demande exacte : après une pause et une éventuelle fin de saisie à la main dans l’overlay, glisser la pastille vers le haut doit terminer la dictée et insérer le texte courant dans le champ de l’application destinataire, en le copiant aussi dans le presse-papiers. Ne pas relancer le microphone.
 
-- [ ] En pause : afficher l’indication « ↑ Envoyer » et utiliser la finalisation existante qui préserve les retouches manuelles.
-- [ ] Même action pour un brouillon/note éditable en pause, sans session micro active.
-- [ ] Pendant une pause encore en cours de traitement, mémoriser la demande et envoyer une seule fois après arrêt effectif du lecteur audio.
+- [x] Implémenté, validation appareil restante : en pause, afficher l’indication « ↑ Envoyer » et utiliser la finalisation existante qui préserve les retouches manuelles.
+- [x] Implémenté, validation appareil restante : même action pour un brouillon/note éditable en pause, sans session micro active.
+- [x] Implémenté, validation appareil restante : pendant une pause encore en cours de traitement, mémoriser la demande et envoyer une seule fois après arrêt effectif du lecteur audio.
 - [ ] Vérifier absence de reprise micro, absence de double insertion, conservation des retouches, focus du champ destinataire et copie effective.
-- [ ] Conserver le choix de format par glissement vers le haut au repos et préciser le geste pour réafficher le texte pendant l’enregistrement.
+- [x] Conserver le choix de format par glissement vers le haut au repos et préciser le geste pour réafficher le texte pendant l’enregistrement.
 
 Repères : `OverlayService.kt` : gestion ACTION_UP / `exportOpenNote` / `stopRec` / `finishAfterPause`. `injectOrCopy` copie déjà le texte avant d’essayer l’insertion. Ne pas déclencher l’envoi réel d’un message dans l’application destinataire : seule l’insertion dans son champ est demandée.
 

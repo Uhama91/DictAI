@@ -279,7 +279,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(vocabRow)
 
         fun engineLabel() = when (languagePrefs.formattingEngine) {
-            "local" -> "Local · essai listes et mails"
+            "local" -> "Local · LFM2.5-350M · découpage expérimental"
             "cloud" -> "Cloud · le texte est envoyé à OpenRouter"
             else -> "Désactivé · vocabulaire et nombres conservés"
         }
