@@ -60,7 +60,7 @@ jobs:
         run: |
           args=(testDebugUnitTest assembleDebug --stacktrace)
           if [[ "$PROTOTYPE" == true ]]; then args+=(-PlocalFormatPrototype=true); fi
-          ./gradlew "${args[@]}"
+          ./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' "${args[@]}"
 
       - name: Check native library alignment and denylist
         run: python3 scripts/check_apk_native_alignment.py app/build/outputs/apk/debug/app-debug.apk
