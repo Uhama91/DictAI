@@ -64,8 +64,9 @@ if [[ "${1:-}" != "--prototype" ]]; then exit; fi
 verify_apk app/build/outputs/apk/debug/app-debug.apk
 python3 -B - <<'REPORT'
 from pathlib import Path
-import zipfile,hashlib,shutil
+import zipfile,hashlib,shutil,json
 apk=Path('app/build/outputs/apk/debug/app-debug.apk')
+version=json.loads((apk.parent/'output-metadata.json').read_text())['elements'][0]['versionName']
 with zipfile.ZipFile(apk) as archive:
  model='assets/local-format/LFM2.5-350M-Q4_K_M.gguf'
  assert [n for n in archive.namelist() if n.endswith('.gguf')]==[model]
@@ -78,7 +79,7 @@ destination=apk.parents[1]/'verified/app-local-layout-test.apk';shutil.copyfile(
 with destination.open('rb') as stream:checksum=hashlib.file_digest(stream,'sha256').hexdigest()
 with Path('docs/VERIFICATION-POST-TRAITEMENT.md').open('a') as report:
  report.write(f"""
-## Prototype de mise en page locale — 0.7.1-wp-local-test
+## Prototype de mise en page locale — {version}
 
 - APK construite et signature, alignement ELF/ZIP 16 Ko vérifiés.
 - Un seul GGUF inclus, LFM2.5-350M Q4_K_M : taille, SHA-256, stockage sans compression, licence et notice vérifiés dans l’APK finale.

@@ -6,7 +6,7 @@ Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche exis
 
 Qualité du 350M **non validée** : les regroupements de liste et fermetures de mail signalés sont reproduits. La latence est jugée satisfaisante par Ullie. Comparaison de quatre modèles avec le JNI réel et variantes de consigne : 84 générations archivées ; les alternatives améliorent certains cas mais restent irrégulières. Aucun remplacement de modèle ni variante de prompt n’est livré comme correction acquise. [Résultats et décision](2026-09-09-retour-essai-local.md).
 
-Version 0.7.2 : format/moteur visibles dans l’overlay, retrait Ranger/Coller, préparation du panneau avant premier tap, numérotation générique et énumération avec un corrigées, point final de prose, geste ↑Envoyer pendant la pause. Tests de cœur et compilation à vérifier dans [le rapport](VERIFICATION-POST-TRAITEMENT.md) ; gestes et gain au démarrage restent à confirmer sur téléphone. L’étape suivante du LLM reste ouverte et prioritaire.
+Version 0.7.2 : format/moteur visibles dans l’overlay, retrait Ranger/Coller, préparation du panneau avant premier tap, numérotation générique et énumération avec un corrigées, point final de prose, geste ↑Envoyer pendant la pause. 251 tests JVM et 18 tests Python réussis ; APK normale et prototype vérifiées dans [le rapport](VERIFICATION-POST-TRAITEMENT.md) ; gestes et gain au démarrage restent à confirmer sur téléphone. L’étape suivante du LLM reste ouverte et prioritaire.
 
 ## 1. Post-traitement et correction personnelle — priorité actuelle
 
@@ -25,7 +25,7 @@ Décision actualisée du 8 septembre : **le LLM local n’est pas abandonné**. 
 
 Fichiers de reprise : [essai sur appareil](ESSAI-LLM-LOCAL.md), [configuration et résultats](2026-09-08-comparatif-llm-local.md), [rapport de construction et contrôles](VERIFICATION-POST-TRAITEMENT.md). APK conservées dans `app/build/outputs/apk/verified/` : normale et `app-local-layout-test.apk`. La construction du prototype inclut un seul poids 350M ; les autres restent dans le cache de recherche. Attente additionnelle de mise en forme limitée à cinq secondes, sans garantie de latence globale avant mesure appareil. Le moteur retenu et le format sont capturés au début de la dictée ; changer le réglage prépare la suivante.
 
-Publication effectuée : [APK directe sur GitHub](https://github.com/Uhama91/DictAI/releases/download/local-layout-test-34280923002/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34280923002). Le modèle est inclus et l’asset est vérifié. La mesure sur téléphone reste à faire ; aucune installation sur appareil réalisée par Codex.
+Publication du 9 septembre effectuée : [APK 0.7.2 directe sur GitHub](https://github.com/Uhama91/DictAI/releases/download/local-layout-test-34290412481/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34290412481). Taille 290 036 185 octets, SHA-256 `97d9846ec1b2509084f9c2d8d4b81652dd5e4b375c660064a1f252cfe49e249d`. Le modèle 350M est inclus ; source compilée `0f157a708b4bc4016eaef17e49962f210b8d43e1`. Ullie juge la latence du précédent essai acceptable ; la qualité du découpage reste non validée. Aucune installation sur appareil réalisée par Codex.
 
 ## 2. Réactivité et certitude au démarrage — après le lot LLM prioritaire
 

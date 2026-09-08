@@ -1,6 +1,6 @@
 # Essai du petit LLM local — DictAI 0.7.2
 
-**Version 0.7.2 en cours de publication : [versions téléchargeables sur GitHub](https://github.com/Uhama91/DictAI/releases).** Le fichier à installer est `dictai-local-layout-test.apk` (environ 290 Mo, ARM64, Android 11 ou ultérieur), avec le 350M inclus. Même identifiant et signature de développement que la version 0.7.1 : mise à jour par-dessus l’installation existante.
+**Version 0.7.2 disponible : [télécharger directement l’APK](https://github.com/Uhama91/DictAI/releases/download/local-layout-test-34290412481/dictai-local-layout-test.apk).** [Page GitHub](https://github.com/Uhama91/DictAI/releases/tag/local-layout-test-34290412481) · [construction réussie](https://github.com/Uhama91/DictAI/actions/runs/34290412481). Le fichier à installer est `dictai-local-layout-test.apk` (environ 290 Mo, ARM64, Android 11 ou ultérieur), avec le 350M inclus. Même identifiant et signature de développement que la version 0.7.1 : mise à jour par-dessus l’installation existante.
 
 **Le découpage local reste expérimental.** Cette mise à jour corrige l’overlay, les nombres et la ponctuation finale ; elle ne prétend pas avoir résolu les regroupements des listes et les fermetures des mails. Voir [les résultats comparatifs et les limites](2026-09-09-retour-essai-local.md).
 
