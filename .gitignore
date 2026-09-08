@@ -6,3 +6,14 @@ local.properties
 *.apk
 app/src/main/jniLibs/
 __pycache__/
+# The pinned formatter is fetched and verified by scripts/fetch_local_format_model.py.
+app/src/main/assets/local-format/*.gguf
+app/src/main/assets/local-format/*.part
+
+.native-cache/
+
+app/src/localFormatPrototype/assets/local-format/*.gguf
+app/src/localFormatPrototype/assets/local-format/*.part
+
+# CI download staging
+dist/

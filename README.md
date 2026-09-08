@@ -165,7 +165,7 @@ Personal project. Do whatever you want with it.
 - Pendant une dictée en streaming, toucher le texte ouvre le clavier. Les corrections manuelles restent présentes pendant l’arrivée des mots suivants et dans le résultat final. Une ponctuation finale ou un retour à la ligne commence la suite par une majuscule.
 - Un tap déclenche la dictée. Maintenir la pastille immobile 400 ms jusqu’à la vibration autorise son déplacement dans toutes les directions ; relâcher mémorise sa position. Cet appui maintenu remplace l’ancien push-to-talk. Un glissement direct vers le haut ouvre les formats au relâchement, sans déplacer la pastille : au moins 56 dp et une distance verticale au moins double de l’horizontale, sans limite de vitesse une fois le mouvement commencé.
 - Dans **Formats de post-traitement**, choisir Texte corrigé, Liste à puces ou Mail. Créer, modifier ou supprimer des formats personnels avec un nom et des consignes. Le choix est mémorisé.
-- La mise en forme utilise le nettoyage cloud existant : activer cette option et configurer une clé OpenRouter. Les restrictions existantes sur les champs sensibles restent applicables. En cas d’indisponibilité, le texte corrigé manuellement est conservé et un message signale l’absence de mise en forme.
+- Dans **Moteur de post-traitement**, la version normale propose **Cloud** ou **Désactivé** ; Cloud nécessite une clé OpenRouter. L’APK d’essai **0.7.1-wp-local-test** ajoute **Local**, limité aux listes et aux paragraphes de mail avec un modèle inclus. Les formats personnels et Texte corrigé nécessitent le cloud. Le choix cloud existant est conservé lors d’une mise à jour. En cas d’indisponibilité, le texte reste récupérable et un message signale l’absence de mise en forme.
 
 ### Vérification sur téléphone / tablette
 
@@ -177,7 +177,7 @@ Personal project. Do whatever you want with it.
 
 L’APK de chaque branche est disponible dans **Actions → Build WhisperPin APK → Artifacts → whisperpin-debug-apk** une fois la compilation réussie.
 
-Le curseur et le défilement suivent les dernières lignes à chaque mise à jour automatique, même avec le clavier ouvert. En pause, le texte reste librement éditable et le défilement manuel est conservé. La reprise ramène immédiatement à la fin du texte.
+Le curseur et le défilement suivent les dernières lignes tant que l’éditeur n’est pas focalisé ; les mises à jour automatiques ne déplacent pas le curseur pendant une correction. En pause, le texte reste librement éditable et le défilement manuel est conservé. La reprise ramène immédiatement à la fin du texte.
 
 ## Pause et reprise de la dictée
 
@@ -205,7 +205,7 @@ Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute
 - « Agrandir / Réduire » passe de trois lignes à un panneau pouvant occuper 82 % de la hauteur disponible, ajusté au bord de la pastille et au clavier.
 - « Masquer » cache le texte et le clavier sans arrêter la dictée. Glisser vers le haut pendant une dictée ou une pause réaffiche le panneau.
 - Le réglage « Afficher le texte pendant la dictée » définit le comportement au démarrage de la prochaine dictée.
-- Les corrections manuelles restent prioritaires. Dès qu’un texte est modifié ou restauré, le nettoyage cloud et la mise en forme automatique sont ignorés pour empêcher toute reformulation du brouillon.
+- Les corrections manuelles restent prioritaires. Après une retouche manuelle, le nettoyage général est ignoré. Un format explicitement choisi peut toujours être appliqué au brouillon corrigé.
 - Le brouillon est privé, stocké dans les données locales de l’application, exclues des sauvegardes Android. Après un arrêt du service, le micro peut nécessiter une réactivation depuis l’application avant la reprise. Effacer les données ou désinstaller l’application supprime ce brouillon.
 
 À vérifier sur appareil : agrandir aux quatre bords, ouvrir le clavier en portrait/paysage, masquer puis réafficher, modifier en pause, verrouiller/déverrouiller puis reprendre ; enfin arrêter puis relancer le service pour vérifier la restauration du texte et l’ajout de la suite sans reformulation.
@@ -221,3 +221,5 @@ Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute
 - Les icônes agrandir/réduire et masquer sont en haut à droite, avec des cibles tactiles de 48 dp. Le mode agrandi atteint 82 % de la hauteur disponible. La croix masque seulement le panneau.
 
 Essais sur appareil : écrire une note sans micro, la ranger, ouvrir une autre note et revenir à la première ; dicter/reprendre, annuler par double tap pendant la pause, renommer puis poursuivre, supprimer une seule note, coller dans une autre application ; vérifier les menus aux quatre bords et le verrouillage/redémarrage avec une note ouverte.
+
+Suivi du développement par étapes : [demandes et validations](docs/SUIVI-DEVELOPPEMENT.md). Le 350M reste exclu de la compilation normale. Après l’échec de la réécriture libre, une configuration de copie contrainte est disponible dans un [prototype séparé à essayer sur téléphone](docs/ESSAI-LLM-LOCAL.md) : mots conservés sur le corpus, découpage encore imparfait, latence appareil à mesurer.

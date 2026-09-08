@@ -4,10 +4,26 @@ on:
   push:
     branches: [ "**" ]
   workflow_dispatch:
+    inputs:
+      local_format_prototype:
+        description: Build the experimental local lists/email formatter
+        type: boolean
+        default: false
+      publish_prerelease:
+        description: Publish the prototype APK as a downloadable prerelease
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[local-layout-test]')) }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -20,8 +36,8 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android Build Tools 35.0.0 and NDK 28.2.13676358
-        run: sdkmanager "build-tools;35.0.0" "ndk;28.2.13676358"
+      - name: Install pinned Android tools
+        run: sdkmanager "platforms;android-34" "build-tools;35.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
@@ -30,26 +46,66 @@ jobs:
         run: python3 -m unittest scripts/test_check_apk_native_alignment.py -v
 
       - name: Run transcribe.cpp native bundle contract
-        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" scripts/test_transcribe_cpp_bundle.sh
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" bash scripts/test_transcribe_cpp_bundle.sh
 
-      - name: Run unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Build isolated local formatter
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" DICTAI_CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake" bash scripts/build_local_format_android.sh
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Fetch verified bundled format model
+        if: env.PROTOTYPE == 'true'
+        run: python3 scripts/fetch_local_format_model.py
+
+      - name: Run unit tests and build selected APK
+        shell: bash
+        run: |
+          args=(testDebugUnitTest assembleDebug --stacktrace)
+          if [[ "$PROTOTYPE" == true ]]; then args+=(-PlocalFormatPrototype=true); fi
+          ./gradlew "${args[@]}"
 
       - name: Check native library alignment and denylist
         run: python3 scripts/check_apk_native_alignment.py app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Verify 16 KB ZIP alignment
-        run: $ANDROID_HOME/build-tools/35.0.0/zipalign -c -P 16 -v 4 app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify signature and 16 KB ZIP alignment
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk whisperpin-debug.apk
+      - name: Verify packaged model and prepare download
+        run: python3 scripts/prepare_ci_apk.py
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: whisperpin-debug-apk
-          path: whisperpin-debug.apk
+          name: ${{ env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'whisperpin-debug-apk' }}
+          path: dist/*
+          compression-level: 0
           if-no-files-found: error
+
+  publish-test:
+    needs: build
+    if: (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype && inputs.publish_prerelease) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[local-layout-test]'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dictai-local-layout-test
+          path: dist
+      - name: Publish downloadable test APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          cd dist
+          sha256sum -c SHA256SUMS
+          tag="local-layout-test-$GITHUB_RUN_ID"
+          printf '%s\n' \
+            'Essai Android ARM64 : petit LLM inclus pour les listes et paragraphes de mail FR/EN.' \
+            'Le modèle conserve les mots ; le découpage reste expérimental et la latence téléphone reste à mesurer.' \
+            'Après installation : Tester le modèle local, puis Copier les résultats. Pour dicter : Moteur de post-traitement → Local, puis Liste ou Mail.' \
+            'APK compilée et vérifiée par GitHub Actions. Le mode cloud reste disponible.' > release-notes.md
+          gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title 'DictAI 0.7.1 — essai du LLM local' --notes-file release-notes.md

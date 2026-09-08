@@ -33,6 +33,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.text.InputType
 import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.BaseInputConnection
 import android.app.AlertDialog
 import android.widget.FrameLayout
 import android.widget.ScrollView
@@ -170,6 +171,12 @@ class OverlayService : Service() {
         val finalPublication = DictationFinalPublicationGate(DOUBLE_TAP_MS)
         val completion = DictationRunCompletionGate()
         val cancellationWaitStarted = java.util.concurrent.atomic.AtomicBoolean(false)
+        var localFormatting: LocalFormattingSession? = null
+        var formatOffer: Runnable? = null
+        var formatOfferRequest: LocalFormatRequest? = null
+        var formatOptions: RecordingOptions? = null
+        var stoppedAtMs = 0L
+        var firstFormatVisible = false
     }
 
     private val prefs by lazy { PersistencePrefs(this) }
@@ -182,7 +189,14 @@ class OverlayService : Service() {
     private var loader: LoadingBorderView? = null
     private var liveText: EditText? = null
     private var updatingLiveText = false
+    private var liveEditorChanging = false
+    private val vocabularyTracker = VocabularyCorrectionTracker()
+    private var vocabularySuggestion: VocabularyCorrectionTracker.Suggestion? = null
+    private var vocabularyBanner: LinearLayout? = null
+    private var vocabularySuggestionText: TextView? = null
+    private var vocabularyOffer: Runnable? = null
     private val editableTranscript = EditableTranscript()
+    private val localFormatter by lazy { LocalFormatEngine(this) }
     private var formatDialog: AlertDialog? = null
     private var livePanel: FrameLayout? = null
     private var liveScroll: ScrollView? = null
@@ -347,7 +361,7 @@ class OverlayService : Service() {
     private fun startRec() {
         dismissFloatingMenu()
         val requestedAt = SystemClock.uptimeMillis()
-        val cloudRequested = prefs.cloudCleanupEnabled
+        val cloudRequested = prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled
         val targetSensitive = runCatching {
             InjectionGateway.current()?.isActiveTargetSensitive() ?: true
         }.getOrDefault(true)
@@ -382,6 +396,8 @@ class OverlayService : Service() {
             cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
             cloudModel = prefs.cloudModel(),
             format = PostProcessingFormats(this).selected(),
+            localFormattingEnabled = prefs.formattingEngine == "local",
+            numberStyle = prefs.numberStyle,
         )
         val bufSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
@@ -429,6 +445,12 @@ class OverlayService : Service() {
             return
         }
         val run = ActiveDictationRun(started.session)
+        run.formatOptions = options
+        if (options.localFormattingEnabled && options.format.id in setOf("list", "email")) {
+            localFormatter.warm()
+            run.localFormatting = LocalFormattingSession(localFormatter.backend())
+            run.cancellation.onCancel { run.localFormatting?.close() }
+        }
         run.cancellation.onCancel { started.session.cancel() }
         val ar = recorder.audioRecord
         val recordingPcm = java.io.ByteArrayOutputStream()
@@ -439,6 +461,7 @@ class OverlayService : Service() {
             asrSession = started.session
             activeRun = run
             val restored = recoveredDraft
+            resetVocabularyLearning()
             editableTranscript.clear()
             if (restored != null) editableTranscript.edit(restored)
             updatingLiveText = true
@@ -612,8 +635,17 @@ class OverlayService : Service() {
         run.captureGate.pause()
         formatDialog?.dismiss()
         liveText?.isEnabled = false
-        setLivePreviewVisible(false)
+        resetVocabularyLearning()
+        releaseTranscriptFocus()
+        activeRun?.let { run ->
+            run.stoppedAtMs = SystemClock.elapsedRealtime()
+            run.formatOffer?.let(main::removeCallbacks)
+            run.formatOffer = null
+            run.formatOfferRequest = null
+        }
+        setLivePreviewVisible(run.localFormatting != null)
         setState(State.TRANSCRIBING)
+        if (run.localFormatting != null) panelTitle?.text = "Mise en forme…"
         vibrate(20)
         val recorder = audioRecord
         val recordingThread = recordThread
@@ -695,6 +727,8 @@ class OverlayService : Service() {
         val cloudSuppressedForSensitiveTarget: Boolean,
         val cloudModel: CuratedCloudModel,
         val format: PostProcessingFormat = PostProcessingFormats.builtins.first(),
+        val localFormattingEnabled: Boolean = false,
+        val numberStyle: NumberStyle = NumberStyle.DIGITS,
     )
 
     private fun processStoppedRecording(capture: RecordingCapture) {
@@ -713,7 +747,7 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        val localText = editableTranscript.resolveFinal(r.text?.let { Vocabulary.applyCorrections(this, it) })
+        val localText = editableTranscript.resolveFinal(r.text?.let { normalizeRecognizedText(it, capture.options) })
         if (run.cancellation.isCancelled) {
             return
         }
@@ -728,26 +762,56 @@ class OverlayService : Service() {
             }
             return
         }
-        val cloudText = if (!localText.isNullOrBlank() && capture.options.cloudCleanupEnabled && !editableTranscript.hasUserEdits()) {
+        val formatStarted = SystemClock.elapsedRealtime()
+        val localFormatted = if (!localText.isNullOrBlank() && capture.options.localFormattingEnabled &&
+            capture.options.format.instructions.isNotBlank()) {
+            val request = localFormatRequest(localText, capture.options, applyVocabulary = false)
+            val policy = request.layoutPolicy()
+            run.localFormatting?.finish(request, 5_000L) { chunk ->
+                val preview = policy?.preview(chunk)?.takeIf { value -> request.protectedTerms.all { it in value } }
+                if (preview != null) main.post {
+                    if (isCurrentRun(run) && state == State.TRANSCRIBING && !run.cancellation.isCancelled) {
+                        updatingLiveText = true
+                        try { liveText?.setText(preview) } finally { updatingLiveText = false }
+                        setLivePreviewVisible(true)
+                        if (!run.firstFormatVisible && livePreviewVisible && liveText?.isShown == true) {
+                            run.firstFormatVisible = true
+                            Log.i(TAG, "event=format_first_visible stop_to_visible_ms=${SystemClock.elapsedRealtime() - run.stoppedAtMs}")
+                        }
+                    }
+                }
+            }
+        } else null
+        val cloudText = if (!capture.options.localFormattingEnabled && !localText.isNullOrBlank() && capture.options.cloudCleanupEnabled &&
+            (!editableTranscript.hasUserEdits() || capture.options.format.instructions.isNotBlank())) {
             val credential = SecureCredentialStore(this).load()
             credential?.let {
-                CloudCleanup().clean(
+                val request = localFormatRequest(localText, capture.options, applyVocabulary = false)
+                request.acceptOutput(CloudCleanup().clean(
                     localText,
                     capture.options.language,
                     capture.options.cloudModel,
                     it,
                     run.cancellation,
-                    capture.options.format.instructions,
-                )
+                    request.instructions + if (request.protectedTerms.isEmpty()) "" else
+                        " Preserve these spellings exactly: ${request.protectedTerms.joinToString(", ")}",
+                ))
             }
         } else null
         if (run.cancellation.isCancelled) {
             return
         }
-        if (!editableTranscript.hasUserEdits() && capture.options.format.instructions.isNotBlank() && cloudText == null && !localText.isNullOrBlank()) {
+        val formatted = localFormatted ?: cloudText
+        if (capture.options.format.instructions.isNotBlank() && formatted == null && !localText.isNullOrBlank()) {
             toast("Mise en forme indisponible : texte conservé sans format.")
         }
-        var finalText = cloudText ?: localText
+        run.localFormatting?.close()
+        Log.i(TAG, "event=postprocess engine=${if (capture.options.localFormattingEnabled) "local" else "cloud_or_off"} " +
+            "outcome=${if (formatted != null) "formatted" else "original"} elapsed_ms=${SystemClock.elapsedRealtime() - formatStarted}")
+        // Local layout already starts from normalized source; do not rewrite it after validation.
+        var finalText = localFormatted ?: cloudText?.let {
+            NumberFormatting.apply(it, capture.options.language, capture.options.numberStyle, protectedVocabularyTerms(it))
+        } ?: localText
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
         val outText = finalText
         val source = if (capture.options.asrMode == DictationAsrMode.STREAMING) "stream" else "batch"
@@ -758,6 +822,7 @@ class OverlayService : Service() {
                 val published = run.cancellation.publishIfActive {
                     if (!outText.isNullOrBlank()) {
                         activeNoteId?.let { notes.save(it, outText) }
+                        Log.i(TAG, "event=dictation_publish stop_to_text_ms=${if (run.stoppedAtMs > 0) SystemClock.elapsedRealtime() - run.stoppedAtMs else -1}")
                         val result = runCatching {
                             injectOrCopy(
                                 controller = InjectionGateway.current(),
@@ -768,6 +833,7 @@ class OverlayService : Service() {
                             Log.w(TAG, "event=injection outcome=failure type=${it.javaClass.simpleName}")
                             InjectionResult.Failed
                         }
+                        Log.i(TAG, "event=dictation_insert_complete stop_to_insert_ms=${if (run.stoppedAtMs > 0) SystemClock.elapsedRealtime() - run.stoppedAtMs else -1}")
                         injectionFeedbackMessage(result)?.let(::toast)
                     } else if (capture.options.asrMode != DictationAsrMode.STREAMING || r.error != null) {
                         toast("Erreur: ${r.error ?: "vide"}")
@@ -895,6 +961,10 @@ class OverlayService : Service() {
     /** Only the current run may release the busy state; an old worker cannot reset a newer run. */
     private fun completeRunOnMain(run: ActiveDictationRun) {
         if (localEngineLifecycle.isDestroyed() || activeRun !== run) return
+        run.formatOffer?.let(main::removeCallbacks)
+        run.formatOffer = null
+        run.formatOfferRequest = null
+        run.localFormatting?.close()
         activeRun = null
         recoveredDraft = null
         activeNoteId = null
@@ -967,7 +1037,8 @@ class OverlayService : Service() {
             isRecording = state == State.RECORDING,
             cancellation = run.cancellation,
         ) {
-            val display = editableTranscript.update(text)
+            val display = editableTranscript.update(run.formatOptions?.let { normalizeRecognizedText(text, it) } ?: text)
+            scheduleLocalFormatting(run, display)
             persistDraft(display)
             val editor = liveText ?: return@publishIfAllowed
             if (display.isNotEmpty()) editor.hint = "Touchez pour corriger pendant la dictée"
@@ -989,15 +1060,122 @@ class OverlayService : Service() {
     private fun scrollTranscriptToEnd(run: ActiveDictationRun) {
         val editor = liveText ?: return
         if (!isCurrentRun(run) || state != State.RECORDING) return
+        // A live ASR update must not move the caret while the user is correcting a word.
+        if (editor.hasFocus() || editor.selectionStart != editor.selectionEnd) return
         editor.setSelection(editor.length())
         editor.doOnLayout {
-            if (isCurrentRun(run) && state == State.RECORDING) {
+            if (isCurrentRun(run) && state == State.RECORDING && !editor.hasFocus() && editor.selectionStart == editor.selectionEnd) {
                 editor.setSelection(editor.length())
                 liveScroll?.let { panel ->
                     panel.scrollTo(0, (editor.bottom + panel.paddingBottom - panel.height).coerceAtLeast(0))
                 }
             }
         }
+    }
+
+    private fun localFormatRequest(text: String, options: RecordingOptions, applyVocabulary: Boolean = true): LocalFormatRequest {
+        val source = if (applyVocabulary) Vocabulary.applyCorrections(this, text).trim() else text.trim()
+        val spellings = protectedVocabularyTerms(source)
+        val numbers = when (options.numberStyle) {
+            NumberStyle.DIGITS -> " Write quantities with digits."
+            NumberStyle.WORDS -> " Spell out quantities in the transcript language."
+            NumberStyle.UNCHANGED -> " Preserve the original representation of numbers."
+        }
+        val layout = if (options.localFormattingEnabled) when (options.format.id) {
+            "list" -> LocalLayoutKind.LIST
+            "email" -> LocalLayoutKind.EMAIL
+            else -> null
+        } else null
+        return LocalFormatRequest(source, options.format.instructions + numbers, options.language.cleanupLanguageName, spellings, layout)
+    }
+
+    private fun protectedVocabularyTerms(text: String): List<String> = Vocabulary.corrections(this)
+        .map { it.second }.filter { it.isNotBlank() && it in text }.distinct().take(64)
+
+    private fun normalizeRecognizedText(text: String, options: RecordingOptions): String {
+        val corrected = Vocabulary.applyCorrections(this, text)
+        return NumberFormatting.apply(corrected, options.language, options.numberStyle, protectedVocabularyTerms(corrected))
+    }
+
+    private fun scheduleVocabularySuggestion(resetTimer: Boolean = true) {
+        if (!resetTimer && vocabularyOffer != null) return
+        vocabularyOffer?.let(main::removeCallbacks)
+        if (!isTranscriptEditable()) return
+        val offer = Runnable {
+            vocabularyOffer = null
+            val editor = liveText ?: return@Runnable
+            if (!isTranscriptEditable()) return@Runnable
+            val composing = BaseInputConnection.getComposingSpanStart(editor.text) >= 0
+            val suggestion = vocabularyTracker.suggestion(
+                editor.text.toString(), editor.selectionStart, editor.selectionEnd,
+                composing, SystemClock.elapsedRealtime(),
+            )
+            vocabularySuggestion = suggestion
+            vocabularySuggestionText?.text = suggestion?.let { "Mémoriser « ${it.from} » → « ${it.to} »" }.orEmpty()
+            setVocabularySuggestionVisible(suggestion != null)
+            if (composing) scheduleVocabularySuggestion()
+        }
+        vocabularyOffer = offer
+        main.postDelayed(offer, vocabularyTracker.settleDelayMillis)
+    }
+
+    private fun setVocabularySuggestionVisible(visible: Boolean) {
+        val banner = vocabularyBanner ?: return
+        val next = if (visible) View.VISIBLE else View.GONE
+        if (banner.visibility == next) return
+        banner.visibility = next
+        val dp = resources.displayMetrics.density
+        liveScroll?.let { scroll ->
+            scroll.layoutParams = (scroll.layoutParams as FrameLayout.LayoutParams).apply {
+                topMargin = ((92 + if (visible) 64 else 0) * dp).toInt()
+            }
+        }
+        currentAnchor?.let(::positionLivePanel)
+    }
+
+    private fun resetVocabularyLearning() {
+        vocabularyOffer?.let(main::removeCallbacks)
+        vocabularyOffer = null
+        vocabularyTracker.reset()
+        vocabularySuggestion = null
+        setVocabularySuggestionVisible(false)
+    }
+
+    private fun saveVocabularySuggestion() {
+        val suggestion = vocabularySuggestion ?: return
+        val editor = liveText ?: return
+        val current = vocabularyTracker.suggestion(editor.text.toString(), editor.selectionStart, editor.selectionEnd,
+            BaseInputConnection.getComposingSpanStart(editor.text) >= 0, SystemClock.elapsedRealtime())
+        if (current != suggestion || !vocabularyTracker.consume(suggestion, editor.text.toString())) {
+            resetVocabularyLearning()
+            return
+        }
+        when (Vocabulary.addCorrection(this, suggestion.from, suggestion.to)) {
+            Vocabulary.AddResult.ADDED -> toast("Correction enregistrée dans Mon vocabulaire.")
+            Vocabulary.AddResult.ALREADY_PRESENT -> toast("Cette correction est déjà enregistrée.")
+            Vocabulary.AddResult.CONFLICT -> toast("Une correction existe déjà pour ce mot. Modifiez-la dans Mon vocabulaire.")
+            Vocabulary.AddResult.INVALID -> toast("Cette correction ne peut pas être enregistrée.")
+        }
+        resetVocabularyLearning()
+    }
+
+    /** Prepare at natural pauses; an ASR revision or a user edit invalidates the old source key. */
+    private fun scheduleLocalFormatting(run: ActiveDictationRun, text: String) {
+        val formatter = run.localFormatting ?: return
+        val options = run.formatOptions ?: return
+        val request = text.takeIf { it.isNotBlank() }?.let {
+            localFormatRequest(it, options, applyVocabulary = false)
+        }
+        if (request == run.formatOfferRequest) return
+        run.formatOffer?.let(main::removeCallbacks)
+        run.formatOffer = null
+        run.formatOfferRequest = request
+        if (request == null) return
+        val offer = Runnable {
+            if (isCurrentRun(run) && isTranscriptEditable() && !run.cancellation.isCancelled) formatter.offer(request)
+        }
+        run.formatOffer = offer
+        main.postDelayed(offer, 1000L)
     }
 
     private fun setLivePreviewVisible(requested: Boolean) {
@@ -1007,13 +1185,7 @@ class OverlayService : Service() {
         livePreviewVisible = show
         panel.visibility = if (show) View.VISIBLE else View.GONE
         if (!show) {
-            keyboardInset = 0
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(panel.windowToken, 0)
-            liveText?.clearFocus()
-            liveParams?.let { it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE }
-            if (livePanelAdded) runCatching {
-                (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, liveParams)
-            }
+            releaseTranscriptFocus()
             return
         }
 
@@ -1031,6 +1203,17 @@ class OverlayService : Service() {
             }
         }
         positionLivePanel(currentAnchor ?: return)
+    }
+
+    private fun releaseTranscriptFocus() {
+        val panel = livePanel ?: return
+        keyboardInset = 0
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(panel.windowToken, 0)
+        liveText?.clearFocus()
+        liveParams?.let { it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE }
+        if (livePanelAdded) runCatching {
+            (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, liveParams)
+        }
     }
 
     private fun screenRect(): Rect = try {
@@ -1058,7 +1241,8 @@ class OverlayService : Service() {
         val dp = resources.displayMetrics.density
         val fullScreen = screenRect()
         val screen = fullScreen.copy(height = (fullScreen.height - keyboardInset).coerceAtLeast(1))
-        panelTitle?.text = notes.get(activeNoteId)?.title ?: "Dictée"
+        panelTitle?.text = if (state == State.TRANSCRIBING && activeRun?.localFormatting != null) "Mise en forme…"
+            else notes.get(activeNoteId)?.title ?: "Dictée"
         panelExpandButton?.setImageResource(if (panelExpanded) R.drawable.ic_panel_restore else R.drawable.ic_panel_expand)
         panelExpandButton?.contentDescription = if (panelExpanded) "Réduire le panneau" else "Agrandir le panneau"
         val bounds = OverlayPlacement.panelBounds(
@@ -1067,7 +1251,8 @@ class OverlayService : Service() {
                 if (rect.bottom > screen.bottom) rect.copy(y = (screen.bottom - rect.height).coerceAtLeast(screen.y)) else rect
             }, screen,
             ((if (panelExpanded) 600 else 312) * dp).toInt(),
-            if (panelExpanded) (screen.height * 0.82f).toInt() else (liveText?.lineHeight ?: 20) * 3 + (112 * dp).toInt(),
+            if (panelExpanded) (screen.height * 0.82f).toInt() else (liveText?.lineHeight ?: 20) * 3 +
+                ((112 + if (vocabularyBanner?.visibility == View.VISIBLE) 64 else 0) * dp).toInt(),
             (6 * dp).toInt(),
         )
         panelParams.x = bounds.x
@@ -1177,7 +1362,17 @@ class OverlayService : Service() {
         }
         pillView.addView(gestureHint, FrameLayout.LayoutParams(-1, -1))
 
-        val liveView = EditText(this).apply {
+        val liveView = object : EditText(this) {
+            override fun onSelectionChanged(start: Int, end: Int) {
+                super.onSelectionChanged(start, end)
+                if (liveText === this && !updatingLiveText && !liveEditorChanging && isTranscriptEditable()) {
+                    vocabularyTracker.onSelectionChanged(text.toString(), start, end)
+                    vocabularySuggestion = null
+                    setVocabularySuggestionVisible(false)
+                    scheduleVocabularySuggestion()
+                }
+            }
+        }.apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             setTextColor(0xFFF4F4F4.toInt())
             background = null
@@ -1185,15 +1380,29 @@ class OverlayService : Service() {
             hint = "Touchez pour corriger pendant la dictée"
             setHintTextColor(0xFFBBBBBB.toInt())
             addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                    liveEditorChanging = true
+                    if (!updatingLiveText && isTranscriptEditable()) {
+                        vocabularyTracker.beforeChange(s.toString(), start, count, after, selectionStart, selectionEnd)
+                        vocabularySuggestion = null
+                        setVocabularySuggestionVisible(false)
+                    }
+                }
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     if (!updatingLiveText && isTranscriptEditable()) {
                         editableTranscript.edit(s.toString())
+                        activeRun?.let { scheduleLocalFormatting(it, s.toString()) }
                         if (recoveredDraft != null) recoveredDraft = s.toString()
                         persistDraft(s.toString())
                     }
                 }
-                override fun afterTextChanged(s: Editable?) = Unit
+                override fun afterTextChanged(s: Editable?) {
+                    if (!updatingLiveText && isTranscriptEditable()) {
+                        vocabularyTracker.afterChange(s.toString(), SystemClock.elapsedRealtime())
+                    } else vocabularyTracker.onProgrammaticTextChanged(s.toString())
+                    liveEditorChanging = false
+                    scheduleVocabularySuggestion(resetTimer = !updatingLiveText)
+                }
             })
             setOnTouchListener { _, event ->
                 if (event.actionMasked == MotionEvent.ACTION_DOWN && isTranscriptEditable()) {
@@ -1274,6 +1483,29 @@ class OverlayService : Service() {
         noteActions.addView(noteButton("Ranger / Notes", ::archiveOrShowNotes), LinearLayout.LayoutParams(0, -1, 1f))
         noteActions.addView(noteButton("Coller", ::exportOpenNote), LinearLayout.LayoutParams(0, -1, 1f))
         livePanel.addView(noteActions, FrameLayout.LayoutParams(-1, (44 * dp).toInt()).apply { topMargin = (48 * dp).toInt() })
+
+        val vocabRow = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            setPadding((12 * dp).toInt(), 0, 0, 0)
+        }
+        vocabularySuggestionText = TextView(this).apply {
+            textSize = 12f
+            setTextColor(ThemeTokens.GREEN)
+            gravity = Gravity.CENTER_VERTICAL
+            maxLines = 3
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setOnClickListener { saveVocabularySuggestion() }
+        }
+        vocabRow.addView(vocabularySuggestionText, LinearLayout.LayoutParams(0, -1, 1f))
+        vocabRow.addView(TextView(this).apply {
+            text = "×"; textSize = 22f; gravity = Gravity.CENTER
+            setTextColor(0xFFBBBBBB.toInt())
+            contentDescription = "Ignorer cette suggestion de vocabulaire"
+            setOnClickListener { resetVocabularyLearning() }
+        }, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
+        vocabularyBanner = vocabRow
+        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (64 * dp).toInt()).apply { topMargin = (92 * dp).toInt() })
 
         // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
@@ -1545,6 +1777,7 @@ class OverlayService : Service() {
 
     private fun openNote(note: TranscriptNote) {
         if (activeRun != null) return
+        resetVocabularyLearning()
         dismissFloatingMenu()
         activeNoteId = note.id
         draftStore.noteId = note.id
@@ -1662,7 +1895,14 @@ class OverlayService : Service() {
             MenuEntry((if (format.id == selected.id) "✓ " else "") + format.name, {
                 store.select(format)
                 dismissFloatingMenu()
-                toast(if (prefs.cloudCleanupEnabled) "Format sélectionné : ${format.name}" else "Activez le nettoyage cloud dans les réglages pour appliquer ce format.")
+                val local = prefs.formattingEngine == "local"
+                val supported = format.id in setOf("list", "email")
+                if (local && supported) localFormatter.warm()
+                toast(when {
+                    local && !supported && format.instructions.isNotBlank() -> "Le modèle local prend en charge les listes et les mails. Pour ce format, choisissez le cloud dans les réglages."
+                    prefs.formattingEngine != "off" -> "Format sélectionné : ${format.name}"
+                    else -> "Activez un moteur de post-traitement dans les réglages pour appliquer ce format."
+                })
             })
         }, above = true)
     }
@@ -1688,6 +1928,8 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        resetVocabularyLearning()
+        localFormatter.close()
         dismissFloatingMenu()
         formatDialog?.dismiss()
         micArmed = false

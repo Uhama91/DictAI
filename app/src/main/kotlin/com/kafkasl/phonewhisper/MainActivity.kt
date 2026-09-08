@@ -24,6 +24,19 @@ import com.google.android.material.radiobutton.MaterialRadioButton
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
+    private var localFormatBenchmark: LocalFormatBenchmarkDialog? = null
+
+    override fun onStop() {
+        localFormatBenchmark?.cancel()
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        localFormatBenchmark?.close()
+        localFormatBenchmark = null
+        super.onDestroy()
+    }
+
 
     private lateinit var statusSubtitle: TextView
     private lateinit var audioRowSub: TextView
@@ -54,7 +67,11 @@ class MainActivity : AppCompatActivity() {
                         .setTitle(format.name)
                         .setItems(options) { _, action ->
                             when (action) {
-                                0 -> { store.select(format); Toast.makeText(this, "Format : ${format.name}", Toast.LENGTH_SHORT).show() }
+                                0 -> {
+                                    store.select(format)
+                                    val unavailable = PersistencePrefs(this).formattingEngine == "local" && format.id !in setOf("list", "email") && format.instructions.isNotBlank()
+                                    Toast.makeText(this, if (unavailable) "Ce format nécessite le cloud. L’essai local prend en charge les listes et les mails." else "Prochaine dictée : ${format.name}", Toast.LENGTH_LONG).show()
+                                }
                                 1 -> editFormat(format)
                                 2 -> androidx.appcompat.app.AlertDialog.Builder(this)
                                     .setTitle("Supprimer ${format.name} ?")
@@ -85,7 +102,7 @@ class MainActivity : AppCompatActivity() {
         }
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(if (format == null) "Créer un format" else "Modifier le format")
-            .setMessage("Décrivez la mise en forme souhaitée. Nécessite le nettoyage cloud et une clé OpenRouter ; le texte y est envoyé après la dictée.")
+            .setMessage("Décrivez la mise en forme souhaitée. Les formats personnalisés utilisent le cloud avec votre clé OpenRouter. L’essai local prend en charge les listes et les mails.")
             .setView(content).setPositiveButton("Enregistrer", null).setNegativeButton("Annuler", null).create()
         dialog.setOnShowListener {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -194,6 +211,25 @@ class MainActivity : AppCompatActivity() {
             showLanguageDialog()
         })
 
+        fun numberLabel() = when (languagePrefs.numberStyle) {
+            NumberStyle.DIGITS -> "En chiffres · 23, 2,5"
+            NumberStyle.WORDS -> "En lettres · vingt-trois, deux virgule cinq"
+            NumberStyle.UNCHANGED -> "Conserver la transcription"
+        }
+        val numberRow = settingsRow("Écriture des nombres", numberLabel())
+        numberRow.setOnClickListener {
+            val values = listOf(NumberStyle.DIGITS, NumberStyle.WORDS, NumberStyle.UNCHANGED)
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Écriture des nombres")
+                .setSingleChoiceItems(arrayOf("En chiffres", "En lettres", "Conserver la transcription"),
+                    values.indexOf(languagePrefs.numberStyle)) { dialog, index ->
+                    languagePrefs.numberStyle = values[index]
+                    numberRow.findViewWithTag<TextView>("subtitle").text = numberLabel()
+                    dialog.dismiss()
+                }.setNegativeButton("Annuler", null).show()
+        }
+        root.addView(numberRow)
+
         // Espace automatique en fin de dictée
         root.addView(settingsRow("Mes notes", "Retrouver, créer et modifier vos notes locales") {
             if (!android.provider.Settings.canDrawOverlays(this)) {
@@ -242,21 +278,38 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(vocabRow)
 
-        val cleanupSwitch = MaterialSwitch(this).apply {
-            isChecked = languagePrefs.cloudCleanupEnabled
-            greenTint()
-            setOnCheckedChangeListener { _, on -> languagePrefs.cloudCleanupEnabled = on }
+        fun engineLabel() = when (languagePrefs.formattingEngine) {
+            "local" -> "Local · essai listes et mails"
+            "cloud" -> "Cloud · le texte est envoyé à OpenRouter"
+            else -> "Désactivé · vocabulaire et nombres conservés"
         }
-        root.addView(settingsRow(
-            "Nettoyage cloud (optionnel)",
-            "Si activé, la transcription finale est envoyée via OpenRouter, selon les paramètres de confidentialité de votre compte.",
-            cleanupSwitch,
-        ))
+        val engineRow = settingsRow("Moteur de post-traitement", engineLabel())
+        engineRow.setOnClickListener {
+            val values = if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) listOf("local", "cloud", "off") else listOf("cloud", "off")
+            val labels = values.map { when (it) { "local" -> "Local — listes et mails (essai)"; "cloud" -> "Cloud — OpenRouter"; else -> "Désactivé" } }.toTypedArray()
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Moteur de post-traitement")
+                .setSingleChoiceItems(labels,
+                    values.indexOf(languagePrefs.formattingEngine)) { dialog, index ->
+                    languagePrefs.formattingEngine = values[index]
+                    engineRow.findViewWithTag<TextView>("subtitle").text = engineLabel()
+                    dialog.dismiss()
+                }.setNegativeButton("Annuler", null).show()
+        }
+        root.addView(engineRow)
+        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
+            root.addView(settingsRow("Tester le modèle local", "3 exemples FR/EN · temps et sorties copiables") {
+                if (localFormatBenchmark?.isShowing != true) {
+                    localFormatBenchmark?.close()
+                    localFormatBenchmark = LocalFormatBenchmarkDialog(this).also { it.show() }
+                }
+            })
+        }
 
-        root.addView(settingsRow("Modèle de nettoyage", languagePrefs.cloudModel().label) {
+        root.addView(settingsRow("Modèle cloud", languagePrefs.cloudModel().label) {
             showCloudModelDialog()
         })
-        root.addView(settingsRow("Formats de post-traitement", "Texte, liste, mail et formats personnalisés · glisser directement vers le haut sur la pastille") {
+        root.addView(settingsRow("Formats de post-traitement", "Pour la prochaine dictée · glisser vers le haut au repos pour choisir le format") {
             showFormatsDialog()
         })
         val credentialStore = SecureCredentialStore(this)

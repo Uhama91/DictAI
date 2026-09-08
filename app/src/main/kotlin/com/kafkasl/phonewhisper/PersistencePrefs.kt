@@ -52,9 +52,32 @@ class PersistencePrefs(ctx: Context) {
         get() = DictationLanguage.fromPreference(p.getString("dictation_language", null))
         set(v) { p.edit().putString("dictation_language", v.preferenceValue).apply() }
 
+    internal var numberStyle: NumberStyle
+        get() = NumberStyle.entries.firstOrNull { it.name == p.getString("number_style", null) } ?: NumberStyle.DIGITS
+        set(value) { p.edit().putString("number_style", value.name).apply() }
+
     var cloudCleanupEnabled: Boolean
         get() = p.getBoolean("cloud_cleanup_enabled", false)
         set(v) { p.edit().putBoolean("cloud_cleanup_enabled", v).apply() }
+
+    /** Keep existing cloud preferences. Unvalidated local models are restricted to prototype builds. */
+    var formattingEngine: String
+        get() {
+            val requested = p.getString("formatting_engine", null)
+            return when {
+                requested == "cloud" -> "cloud"
+                requested == "off" -> "off"
+                requested == "local" -> if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) "local" else "off"
+                cloudCleanupEnabled -> "cloud"
+                BuildConfig.LOCAL_FORMAT_PROTOTYPE -> "local"
+                else -> "off"
+            }
+        }
+        set(value) {
+            require(value in listOf("local", "cloud", "off"))
+            require(value != "local" || BuildConfig.LOCAL_FORMAT_PROTOTYPE)
+            p.edit().putString("formatting_engine", value).putBoolean("cloud_cleanup_enabled", value == "cloud").apply()
+        }
 
     fun cloudModel(): CuratedCloudModel =
         CloudModelCatalog.selected(p.getString(CloudModelPreferences.KEY, null))
