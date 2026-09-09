@@ -19,4 +19,10 @@ Le nettoyage du mode Texte est activé par défaut, désactivable, sans appel LL
 
 ## Publication
 
-Construction et publication GitHub Actions à suivre après le commit de ces sources. Les mesures de latence téléphone de 0.8.3 restent à recevoir ; ne pas confondre les tests hôte et le banc Android.
+- Source compilée : `36223d9300f582dc94e2e20d6b305391fc9a594a`.
+- [Actions 34329249048](https://github.com/Uhama91/DictAI/actions/runs/34329249048) : construction et publication réussies. Tests JVM, 18 tests Python, contrat natif, signature et alignement validés.
+- Artefact `dictai-local-layout-test`, identifiant `10095158600`, disponible dans Actions.
+- [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34329249048/dictai-local-layout-test.apk), [prerelease publique](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34329249048).
+- Téléchargement public HTTP 200 complet vérifié : 78 584 209 octets, SHA-256 `3f068d7686e05ef87c3ed5e39a656684fda5eae576acdb6671a758944b9c807b`, identique à l’APK locale, à SHA256SUMS, au journal Actions et à l’empreinte de l’asset GitHub.
+
+Les mesures de latence téléphone de 0.8.3 restent à recevoir ; ne pas confondre les tests hôte et le banc Android.

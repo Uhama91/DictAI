@@ -1,10 +1,10 @@
-# DictAI 0.8.2 — essai Gemma sur téléphone
+# DictAI 0.8.3 — essai Gemma sur téléphone
 
 Ullie a choisi Gemma après la recherche comparative. Le prototype utilise Gemma 4 E2B dans LiteRT-LM 0.17.0, sur GPU, avec MTP activé et thinking désactivé (budget zéro). Nemotron reste le moteur de transcription. Ce document décrit l'essai et ses limites ; il ne remplace pas une mesure sur le POCO F7.
 
 ## Installation depuis le téléphone
 
-**[Télécharger directement l'APK Gemma 0.8.2](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34325226264/dictai-local-layout-test.apk)** — 78 567 829 octets, environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34325226264), [construction Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34325226264). Le téléchargement public et son empreinte ont été vérifiés après publication. Installer en mise à jour conserve Gemma déjà téléchargé.
+**[Télécharger directement l’APK 0.8.3](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34329249048/dictai-local-layout-test.apk)** — environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34329249048), [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/34329249048). Installer en mise à jour conserve Gemma déjà téléchargé. Le résultat des contrôles de publication figure dans [la vérification 0.8.3](VERIFICATION-GEMMA-0.8.3.md).
 
 Installer l'APK de la prerelease Gemma, puis ouvrir DictAI et toucher **Installer Gemma 4 E2B** dans les réglages de post-traitement. Le modèle officiel fait 2 588 147 712 octets, environ 2,6 Go. Il est téléchargé une seule fois depuis le dépôt officiel épinglé. Garder cet écran ouvert ; quitter l'application met le téléchargement en pause et une nouvelle ouverture de la ligne permet de le reprendre.
 
@@ -20,9 +20,17 @@ Après une dictée, ouvrir **Dernier post-traitement** et copier le diagnostic. 
 
 À partir de 0.8.1, ce menu présente par défaut le **dernier format demandé**, même si une dictée en mode Texte a été faite ensuite. Son titre et la date du rapport permettent de le reconnaître. Le bouton **Dernière dictée** donne accès au rapport le plus récent de tous les modes. La mise à jour ne peut pas récupérer un rapport déjà écrasé par 0.8.0 : effectuer un essai Mail après installation, puis copier ce diagnostic. Le format est fixé au démarrage et partagé par l’affichage et la finalisation ; le choisir avant de commencer à dicter.
 
+## Changements 0.8.3
+
+Le petit overlay reprend le suivi des mots nouveaux après une correction, même lorsque le clavier conserve le focus. Le curseur reste à sa position ; le suivi attend la fin de la composition, de la sélection ou du toucher et 900 ms sans interaction. La vue se recale après mise en page et redimensionnement. Le rendu sur HyperOS reste à confirmer sur appareil.
+
+En mode Texte, **Nettoyage léger du texte** est activé par défaut dans les réglages : retrait de certaines hésitations et répétitions de pronoms, sans LLM. Citations, vocabulaire, négations et répétitions expressives restent protégés. Une dictée retouchée manuellement échappe au nettoyage global. Quelques questions explicites sont ponctuées ; les questions implicites et la correction générale du sens restent hors de ces règles. Ce passage est disponible également avant le cloud choisi avec clé API.
+
+Pour un mail avec salutation et signature clairement reconnues, la mise en paragraphes est faite directement puis les mots sont vérifiés. Le diagnostic porte **traitement direct, sans appel LLM**. Cette voie n’attend pas la génération complète de tout le mail. Gemma reste utilisé pour les cas incertains et les listes ; une génération trop longue peut encore dépasser l’attente finale de cinq secondes. Aucun changement du modèle ou du thinking.
+
 ## Mesure reproductible
 
-**Tester Gemma sur ce téléphone** exécute dix sources FR/EN à partir de 0.8.2, deux passages, dont deux réponses directes sans appel au modèle. Les sources comprennent listes sans virgules, compléments à conserver, nombres, négations, signatures et le mail long ayant reproduit une omission. Les critères de regroupement sont distincts de la conservation du texte. Le résultat brut des exemples est disponible après refus ou rétablissement de mots sources.
+**Tester Gemma sur ce téléphone** exécute onze sources FR/EN, deux passages. Chaque résultat indique **direct local** ou **Gemma**. Le nouveau mail long ayant dépassé le délai utilise la même voie directe que l’overlay. L’ancien mail long est également conservé comme **Gemma seul (comparaison 0.8.2)** : c’est volontairement une génération complète pour comparaison, même si le service peut désormais le disposer directement. Une réponse directe ne mesure pas la vitesse du LLM. Les critères de regroupement restent distincts de la conservation du texte.
 
 Le banc partage le moteur avec l'overlay. Il précise si le modèle était déjà chargé ; il ne prétend pas vider les caches. Le premier fragment natif ne constitue pas le texte final validé. Le temps du banc exclut arrêt ASR, affichage et insertion. Des échantillons PSS du processus, RAM disponible et état thermique Android sont indiqués, sans prétendre mesurer toute la mémoire GPU ni une consommation électrique.
 
@@ -32,7 +40,7 @@ Pour évaluer le ressenti, comparer ensuite de vraies dictées courtes avec le p
 
 Le service et le banc partagent une seule instance du modèle avec des conversations indépendantes. Chargement, génération, annulation JNI et destruction sont exécutés hors UI. Une annulation abandonne les sorties tardives ; si le natif ne répond pas, aucune seconde instance GPU n'est créée. L'API d'initialisation n'est pas interruptible : les ressources sont conservées jusqu'au retour natif pour éviter une libération pendant leur utilisation.
 
-Les contrôles de téléchargement et de transport sont testés avec des fixtures locales. Les tests JVM n'exécutent pas le GPU Android. Les résultats de construction, signature et alignement 16 Ko sont consignés dans [VERIFICATION-GEMMA.md](VERIFICATION-GEMMA.md). La construction locale exige Java 21 pour les classes de l'AAR officiel ; Kotlin 2.4.10 et D8/R8 9.1.43 sont épinglés, avec cible JVM 17 et minSdk Android 30 conservés.
+Les contrôles de téléchargement et de transport sont testés avec des fixtures locales. Les tests JVM n'exécutent pas le GPU Android. Les résultats de construction, signature et alignement 16 Ko sont consignés dans [VERIFICATION-GEMMA-0.8.3.md](VERIFICATION-GEMMA-0.8.3.md). La construction locale exige Java 21 pour les classes de l'AAR officiel ; Kotlin 2.4.10 et D8/R8 9.1.43 sont épinglés, avec cible JVM 17 et minSdk Android 30 conservés.
 
 Commande de vérification : `bash scripts/verify_gemma_android.sh`. La commande historique `bash scripts/verify_local_postprocessing.sh --prototype` redirige vers ce contrôle Gemma.
 
