@@ -18,7 +18,7 @@ internal data class LocalGenerationTiming(
             append("Validation du texte : $validationMs ms\n")
             val completeMs = callMs + validationMs
             append("Appel + validation : $completeMs ms\n")
-            for (limit in listOf(5_000L, 8_000L)) {
+            for (limit in listOf(5_000L, 8_000L, 10_000L)) {
                 val delta = completeMs - limit
                 append("Écart au seuil de $limit ms : ${if (delta > 0) "+$delta" else "$delta"} ms\n")
             }

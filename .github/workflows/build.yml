@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       local_format_prototype:
-        description: Build the Gemma GPU lists/email prototype
+        description: Build the Gemma GPU text/list/email prototype
         type: boolean
         default: false
       publish_prerelease:
@@ -99,14 +99,14 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.8.4 Android ARM64 : prototype Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
-            'Installez cette APK en mise à jour : le modèle Gemma déjà téléchargé est conservé. Pour une première installation, touchez Installer Gemma 4 E2B : téléchargement unique de 2,6 Go, reprenable et vérifié.' \
-            'Les mails longs sont de nouveau générés par Gemma : aucune disposition directe à partir de 60 mots. GPU, MTP et thinking désactivé sont conservés.' \
-            'La dictée Mail dispose désormais de huit secondes au maximum pour attendre le résultat. Cette marge d’essai ne force pas à attendre huit secondes et ne prouve pas une accélération du modèle.' \
-            'Nouveau menu Mesurer les mails longs avec Gemma : deux mails, deux passages chacun, jusqu’à vingt secondes par calcul, sans raccourci. Rapport copiable séparant préparation, file, génération et validation, avec écart aux seuils de cinq et huit secondes.' \
-            'Les corrections du suivi de l’overlay et le nettoyage léger du texte de 0.8.3 sont conservés.' \
-            'Cette version est expérimentale : aucune latence GPU ni qualité générale n’est garantie sur votre appareil. Une sortie infidèle conserve la transcription. Aucun repli cloud automatique ; votre mode cloud avec clé API reste disponible.' \
-            'APK compilée, testée et vérifiée par GitHub Actions. Le poids 350M n’est plus inclus.' > release-notes.md
+            'DictAI 0.8.5 Android ARM64 : Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
+            'Installez cette APK en mise à jour : Gemma déjà téléchargé est conservé. Première installation : touchez Installer Gemma 4 E2B pour le téléchargement unique de 2,6 Go, reprenable et vérifié.' \
+            'Le menu des formats propose Texte (sans LLM) et Texte corrigé (local ou cloud selon les réglages). Texte reste le choix initial, y compris pour les notes longues ; aucune activation automatique de l’IA selon la longueur.' \
+            'Les mails et textes corrigés de 60 mots ou plus disposent de dix secondes au maximum pour terminer le calcul local. Une réponse prête est utilisée immédiatement. Mails courts : huit secondes ; listes et textes corrigés courts : cinq secondes.' \
+            'Gemma peut corriger certaines fautes de forme, retirer les hésitations et répétitions adjacentes et structurer le corps du texte en paragraphes. Les changements de contenu non reconnus conservent la transcription source.' \
+            'Le banc distingue les corrections autorisées des critères de structure et mesure les paragraphes du corps, ainsi que les écarts à cinq, huit et dix secondes. La limite du banc reste vingt secondes.' \
+            'Essai expérimental : les tests sur ordinateur ne mesurent pas la latence GPU Android. Aucun repli cloud automatique ; le cloud se choisit avec votre clé API.' \
+            'APK compilée, testée et vérifiée par GitHub Actions.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.8.4 — mesurer Gemma au-delà de cinq secondes' --notes-file release-notes.md
+            --title 'DictAI 0.8.5 — correction souple et choix du texte sans IA' --notes-file release-notes.md

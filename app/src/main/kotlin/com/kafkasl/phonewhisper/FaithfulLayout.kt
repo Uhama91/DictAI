@@ -1,6 +1,6 @@
 package com.kafkasl.phonewhisper
 
-internal enum class LocalLayoutKind(val assetName: String) { LIST("list"), EMAIL("email") }
+internal enum class LocalLayoutKind(val assetName: String) { LIST("list"), EMAIL("email"), TEXT("text") }
 
 /** The LLM chooses whitespace only. Source words, case, punctuation and order are immutable. */
 internal class FaithfulLayout private constructor(

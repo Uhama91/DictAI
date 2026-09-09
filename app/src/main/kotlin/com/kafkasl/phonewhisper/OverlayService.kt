@@ -371,7 +371,8 @@ class OverlayService : Service() {
     private fun startRec() {
         dismissFloatingMenu()
         val requestedAt = SystemClock.uptimeMillis()
-        val cloudRequested = prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled
+        val selectedFormat = PostProcessingFormats(this).selected()
+        val cloudRequested = prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled && selectedFormat.usesLanguageModel
         val targetSensitive = cloudRequested && runCatching {
             InjectionGateway.current()?.isActiveTargetSensitive() ?: true
         }.getOrDefault(true)
@@ -405,7 +406,7 @@ class OverlayService : Service() {
             cloudCleanupEnabled = cloudPolicy.cloudAllowed,
             cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
             cloudModel = prefs.cloudModel(),
-            format = PostProcessingFormats(this).selected(),
+            format = selectedFormat,
             localFormattingEnabled = prefs.formattingEngine == "local",
             numberStyle = prefs.numberStyle,
             lightTextCleanup = prefs.lightTextCleanup,
@@ -456,7 +457,7 @@ class OverlayService : Service() {
             return
         }
         val run = ActiveDictationRun(started.session, options)
-        if (options.localFormattingEnabled && options.format.id in setOf("list", "email")) {
+        if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
             localFormatter.warm()
             run.localFormatting = LocalFormattingSession(localFormatter.backend())
             run.cancellation.onCancel { run.localFormatting?.close() }
@@ -749,7 +750,7 @@ class OverlayService : Service() {
         val formatStarted = SystemClock.elapsedRealtime()
         val lightCleanupApplied = !resolvedText.isNullOrBlank() && capture.options.lightTextCleanup &&
             capture.options.format.id == "cleanup" && !editableTranscript.hasUserEdits()
-        val localText = if (lightCleanupApplied) LightTextCleanup.apply(resolvedText!!, protectedVocabularyTerms(resolvedText)) else resolvedText
+        val localText = if (lightCleanupApplied) LightTextCleanup.apply(resolvedText, protectedVocabularyTerms(resolvedText)) else resolvedText
         if (run.cancellation.isCancelled) {
             return
         }
@@ -767,8 +768,10 @@ class OverlayService : Service() {
         var localDirect = false
         var localDiagnostic: LocalFinishDiagnostic? = null
         val localFormatted = if (!localText.isNullOrBlank() && capture.options.localFormattingEnabled &&
-            capture.options.format.instructions.isNotBlank()) {
-            val request = localFormatRequest(localText, capture.options, applyVocabulary = false)
+            capture.options.format.usesLanguageModel) {
+            val request = localFormatRequest(localText, capture.options, applyVocabulary = false).let {
+                if (editableTranscript.hasUserEdits()) it.copy(validation = LocalFormatValidation.GEMMA_PROJECTION) else it
+            }
             localDirect = request.directOutput() != null
             main.post {
                 if (isCurrentRun(run) && !run.cancellation.isCancelled) {
@@ -796,8 +799,8 @@ class OverlayService : Service() {
                 }
             }.also { localDiagnostic = session?.lastFinish }
         } else null
-        val cloudText = if (!capture.options.localFormattingEnabled && !localText.isNullOrBlank() && capture.options.cloudCleanupEnabled &&
-            (!editableTranscript.hasUserEdits() || capture.options.format.instructions.isNotBlank())) {
+        val cloudText = if (capture.options.format.usesLanguageModel && !capture.options.localFormattingEnabled && !localText.isNullOrBlank() && capture.options.cloudCleanupEnabled &&
+            (!editableTranscript.hasUserEdits() || capture.options.format.usesLanguageModel)) {
             val credential = SecureCredentialStore(this).load()
             credential?.let {
                 main.post {
@@ -826,7 +829,7 @@ class OverlayService : Service() {
             localFormatted != null && localDirect -> "Local appliqué · sans appel LLM"
             localFormatted != null -> "LLM local appliqué"
             cloudText != null -> "Cloud appliqué"
-            capture.options.format.instructions.isNotBlank() -> "Format indisponible · texte conservé"
+            capture.options.format.usesLanguageModel || localDiagnostic != null -> "Traitement indisponible · texte conservé"
             else -> "Sans appel LLM"
         }
         main.post {
@@ -836,7 +839,7 @@ class OverlayService : Service() {
                 if (localFormatted != null) toast("${capture.options.format.name} : $formatOutcome")
             }
         }
-        if (capture.options.format.instructions.isNotBlank() && formatted == null && !localText.isNullOrBlank()) {
+        if (capture.options.format.usesLanguageModel && formatted == null && !localText.isNullOrBlank()) {
             toast("Mise en forme indisponible : texte conservé sans format.")
         }
         run.localFormatting?.close()
@@ -899,7 +902,7 @@ class OverlayService : Service() {
                                 lightTextCleanup = lightCleanupApplied,
                             )
                             prefs.recordPostprocessingDiagnostic(diagnostic,
-                                formatRequested = capture.options.format.instructions.isNotBlank())
+                                formatRequested = capture.options.format.usesLanguageModel)
                         }.onFailure {
                             Log.w(TAG, "event=postprocess_diagnostic outcome=unavailable type=${it.javaClass.simpleName}")
                         }
@@ -1141,13 +1144,9 @@ class OverlayService : Service() {
             NumberStyle.WORDS -> " Spell out quantities in the transcript language."
             NumberStyle.UNCHANGED -> " Preserve the original representation of numbers."
         }
-        val layout = if (options.localFormattingEnabled) when (options.format.id) {
-            "list" -> LocalLayoutKind.LIST
-            "email" -> LocalLayoutKind.EMAIL
-            else -> null
-        } else null
+        val layout = if (options.localFormattingEnabled) options.format.localLayoutKind else null
         return LocalFormatRequest(source, options.format.instructions + numbers, options.language.cleanupLanguageName, spellings, layout,
-            validation = if (layout != null) LocalFormatValidation.GEMMA_PROJECTION else LocalFormatValidation.EXACT_LAYOUT,
+            validation = if (layout != null) LocalFormatValidation.GEMMA_EDITING else LocalFormatValidation.EXACT_LAYOUT,
             simpleEmailLayout = true)
     }
 
@@ -1232,7 +1231,7 @@ class OverlayService : Service() {
         run.formatOffer?.let(main::removeCallbacks)
         run.formatOffer = null
         run.formatOfferRequest = request
-        if (request == null) return
+        if (request == null || request.directOutput() != null || editableTranscript.hasUserEdits()) return
         val offer = Runnable {
             if (isCurrentRun(run) && isTranscriptEditable() && !run.cancellation.isCancelled) formatter.offer(request)
         }
@@ -1320,11 +1319,12 @@ class OverlayService : Service() {
         val options = activeRun?.formatOptions
         val format = options?.format ?: PostProcessingFormats(this).selected()
         val engine = activeRun?.formatStage ?: when {
+            format.id == "cleanup" -> "Sans LLM"
             options?.cloudSuppressedForSensitiveTarget == true -> "Cloud suspendu"
             options?.cloudCleanupEnabled == true -> "Cloud prévu"
             options == null && prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled -> "Cloud prévu"
-            format.instructions.isBlank() -> "Sans LLM"
-            options?.localFormattingEnabled == true -> if (format.id in setOf("list", "email")) localFormatStatus() else "Non disponible en local"
+            !format.usesLanguageModel -> "Sans LLM"
+            options?.localFormattingEnabled == true -> if (format.localLayoutKind != null) localFormatStatus() else "Non disponible en local"
             options?.cloudSuppressedForSensitiveTarget == true -> "Cloud suspendu"
             options?.cloudCleanupEnabled == true -> "Cloud prévu"
             options != null -> "Désactivé"
@@ -2028,10 +2028,11 @@ class OverlayService : Service() {
                 store.select(format)
                 dismissFloatingMenu()
                 val local = prefs.formattingEngine == "local"
-                val supported = format.id in setOf("list", "email")
+                val supported = format.localLayoutKind != null
                 if (local && supported) localFormatter.warm()
                 toast(when {
-                    local && !supported && format.instructions.isNotBlank() -> "Le modèle local prend en charge les listes et les mails. Pour ce format, choisissez le cloud dans les réglages."
+                    !format.usesLanguageModel -> "Texte sans LLM"
+                    local && !supported && format.usesLanguageModel -> "Le modèle local prend en charge le texte corrigé, les listes et les mails. Pour ce format, choisissez le cloud dans les réglages."
                     prefs.formattingEngine != "off" -> "Format sélectionné : ${format.name}"
                     else -> "Activez un moteur de post-traitement dans les réglages pour appliquer ce format."
                 })

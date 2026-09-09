@@ -5,7 +5,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-internal data class PostProcessingFormat(val id: String, val name: String, val instructions: String)
+internal data class PostProcessingFormat(val id: String, val name: String, val instructions: String) {
+    // The existing persisted cleanup ID is deliberately always the no-LLM path.
+    val usesLanguageModel: Boolean get() = id != "cleanup" && instructions.isNotBlank()
+    val localLayoutKind: LocalLayoutKind? get() = when (id) {
+        "list" -> LocalLayoutKind.LIST
+        "email" -> LocalLayoutKind.EMAIL
+        "corrected" -> LocalLayoutKind.TEXT
+        else -> null
+    }
+}
 
 internal class PostProcessingFormats(context: Context) {
     private val prefs = context.getSharedPreferences("dictai_formats", Context.MODE_PRIVATE)
@@ -35,9 +44,10 @@ internal class PostProcessingFormats(context: Context) {
     }
     companion object {
         val builtins = listOf(
-            PostProcessingFormat("cleanup", "Texte corrigé", ""),
+            PostProcessingFormat("cleanup", "Texte", ""),
+            PostProcessingFormat("corrected", "Texte corrigé", "Correct clear spelling and agreement mistakes and remove accidental repetitions and spoken fillers. Preserve the original vocabulary, content, names, numbers and negations. Structure long prose into paragraphs by idea. Do not summarize, invent information or add email sections."),
             PostProcessingFormat("list", "Liste à puces", "Organize the dictated items as a plain-text bulleted list using •. Keep all information and do not invent items."),
-            PostProcessingFormat("email", "Mail", "Format as an email with paragraphs, a greeting and a closing only when supported by the dictation. Do not invent a recipient, sender, subject facts or signature."),
+            PostProcessingFormat("email", "Mail", "Format as an email. Structure the body into paragraphs by idea, with a greeting and a closing only when supported by the dictation. Correct clear spelling mistakes and accidental repetitions while preserving content, names, numbers and negations. Do not invent a recipient, sender, subject facts or signature."),
         )
     }
 }

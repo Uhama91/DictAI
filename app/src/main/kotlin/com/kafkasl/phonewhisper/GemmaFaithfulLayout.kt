@@ -29,12 +29,12 @@ internal object GemmaFaithfulLayout {
                 if (lines.isEmpty()) return null
                 lines.map { BULLET.matchEntire(it)?.groupValues?.get(1) ?: return null }.joinToString("\n")
             }
-            LocalLayoutKind.EMAIL -> clean
+            LocalLayoutKind.EMAIL, LocalLayoutKind.TEXT -> clean
         }
         val sourceWords = LEXEME.findAll(policy.source).toList()
         var candidateWords = LEXEME.findAll(candidate).toList()
-        if (policy.kind == LocalLayoutKind.EMAIL && sourceWords.size != candidateWords.size) {
-            candidate = restoreSparseEmailOmissions(policy.source, sourceWords, candidate, candidateWords) ?: return null
+        if (policy.kind in setOf(LocalLayoutKind.EMAIL, LocalLayoutKind.TEXT) && sourceWords.size != candidateWords.size) {
+            candidate = restoreSparseEmailOmissions(policy.source, sourceWords, candidate, candidateWords, request.validation == LocalFormatValidation.GEMMA_EDITING) ?: return null
             candidateWords = LEXEME.findAll(candidate).toList()
         }
         if (sourceWords.isEmpty() || sourceWords.size != candidateWords.size || sourceWords.size > 2048) return null
@@ -42,6 +42,8 @@ internal object GemmaFaithfulLayout {
                 sourceWords[it].value.lowercase(Locale.ROOT) != candidateWords[it].value.lowercase(Locale.ROOT)
             }) return null
 
+        val preserveCase = if (request.validation == LocalFormatValidation.GEMMA_EDITING)
+            GemmaConservativeEditing.caseProtectedRanges(policy.source, request.protectedTerms) else emptyList()
         val projected = StringBuilder()
         for (i in 0..sourceWords.size) {
             val sourceGap = gap(policy.source, sourceWords, i)
@@ -50,12 +52,16 @@ internal object GemmaFaithfulLayout {
                 sourceWords[i - 1].value.all(Char::isDigit) && sourceWords[i].value.all(Char::isDigit)
             val restored = projectGap(sourceGap, candidateGap, numbers, i > 0 && i < sourceWords.size) ?: return null
             projected.append(restored)
-            if (i < sourceWords.size) projected.append(sourceWords[i].value)
+            if (i < sourceWords.size) projected.append(
+                if (request.validation == LocalFormatValidation.GEMMA_EDITING && preserveCase.none {
+                        it.first <= sourceWords[i].range.last && it.last >= sourceWords[i].range.first
+                    }) candidateWords[i].value else sourceWords[i].value
+            )
         }
         val text = projected.toString().trim()
         return when (policy.kind) {
             LocalLayoutKind.LIST -> text.lines().filter { it.isNotBlank() }.joinToString("\n") { "• ${it.trim()}" }
-            LocalLayoutKind.EMAIL -> text.replace(Regex("\\n[ \\t]*\\n(?:[ \\t]*\\n)+"), "\n\n")
+            LocalLayoutKind.EMAIL, LocalLayoutKind.TEXT -> text.replace(Regex("\\n[ \\t]*\\n(?:[ \\t]*\\n)+"), "\n\n")
         }
     }
 
@@ -66,9 +72,10 @@ internal object GemmaFaithfulLayout {
      */
     private fun restoreSparseEmailOmissions(
         source: String, sourceWords: List<MatchResult>, candidate: String, candidateWords: List<MatchResult>,
+        surfaceEditing: Boolean,
     ): String? {
         val missing = sourceWords.size - candidateWords.size
-        if (missing !in 1..3 || missing * 20 > sourceWords.size || candidateWords.isEmpty()) return null
+        if (missing !in 1..(if (surfaceEditing) 6 else 3) || missing * 20 > sourceWords.size || candidateWords.isEmpty()) return null
         val sourceKeys = sourceWords.map { it.value.lowercase(Locale.ROOT) }
         val candidateKeys = candidateWords.map { it.value.lowercase(Locale.ROOT) }
         val forward = IntArray(candidateKeys.size)
@@ -89,6 +96,7 @@ internal object GemmaFaithfulLayout {
 
         val restored = StringBuilder(candidate.substring(0, candidateWords.first().range.first))
         for (i in candidateWords.indices) {
+            var restoreSourceCase = false
             if (i > 0) {
                 val previous = forward[i - 1]
                 val next = forward[i]
@@ -99,7 +107,9 @@ internal object GemmaFaithfulLayout {
                     if ((previous + 1 until next).any { !LETTER_WORD.matches(sourceWords[it].value) }) return null
                     if ((previous + 1..next).any { index ->
                             val sourceGap = gap(source, sourceWords, index)
-                            sourceGap.none(::isSpace) || sourceGap.any { !isSpace(it) && it !in SENTENCE_PUNCTUATION }
+                            val clitic = surfaceEditing && sourceWords[index - 1].value.equals("c", true) &&
+                                sourceWords[index].value.equals("est", true) && sourceGap in setOf("'", "’")
+                            !clitic && (sourceGap.none(::isSpace) || sourceGap.any { !isSpace(it) && it !in SENTENCE_PUNCTUATION })
                         }) return null
                     if (proposedGap.any { !isSpace(it) && it !in SENTENCE_PUNCTUATION }) return null
                     val start = sourceWords[previous].range.last + 1
@@ -114,10 +124,12 @@ internal object GemmaFaithfulLayout {
                         restored.append(proposedGap)
                     } else {
                         restored.append(source.substring(start, sourceWords[next].range.first))
+                        // Restoring a source clause can replace the model's sentence break.
+                        restoreSourceCase = surfaceEditing && sourceWords[next].value.first().isLowerCase()
                     }
                 }
             }
-            restored.append(candidateWords[i].value)
+            restored.append(if (restoreSourceCase) sourceWords[forward[i]].value else candidateWords[i].value)
         }
         restored.append(candidate.substring(candidateWords.last().range.last + 1))
         return restored.toString()

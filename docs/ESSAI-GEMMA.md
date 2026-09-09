@@ -12,9 +12,19 @@ Le modèle est utilisable uniquement après contrôle de sa taille et de son SHA
 
 Le téléchargement séparé permet de fournir une APK installable directement depuis GitHub : le paquet Gemma standard dépasse à lui seul la limite par fichier d'une release. Le poids 350M n'est plus inclus dans ce prototype.
 
+## Choisir le traitement — 0.8.5
+
+Le menu des formats (geste vers le haut au repos) distingue **Texte** et **Texte corrigé**. **Texte n’appelle aucun LLM**, même si le moteur sélectionné est local ou cloud et même si le document est long. C’est le choix initial, adapté aux notes corrigées à la main. Les nombres, le vocabulaire et le nettoyage léger facultatif restent traités par les règles locales. Copier une note ouverte sans dictée active reste une insertion directe.
+
+**Texte corrigé** demande explicitement la correction et la mise en paragraphes au moteur local ou cloud choisi dans les réglages. Liste et Mail utilisent aussi ce moteur. En local, les mails et textes corrigés de 60 mots ou plus disposent de **10 secondes maximum** après l’arrêt, sans délai minimal ; mails courts 8 s, listes et textes corrigés courts 5 s. Les petits acquiescements en mode Mail peuvent toujours rester directs.
+
+Gemma conserve le vocabulaire et les idées, peut corriger des fautes de forme et enlever les répétitions adjacentes et hésitations. Les contrôles restent limités à des corrections reconnues : une reformulation plus large peut encore faire conserver la transcription. Les retouches manuelles conservent un contrôle strict. Le prompt demande de structurer aussi le corps des textes par idées. La limite d’entrée locale reste 512 mots / 16 000 caractères ; les textes hors de cette capacité conservent la source.
+
+Le banc de quatorze sources inclut deux textes corrigés FR/EN et un mail à plusieurs sujets. Il montre séparément les contrôles des modifications, les repères de contenu et les paragraphes du corps. Les mesures CPU ne prédisent pas la latence GPU du téléphone. [Vérification et résultats 0.8.5](VERIFICATION-GEMMA-0.8.5.md).
+
 ## Essai dans la dictée
 
-Choisir **Local** dans **Moteur de post-traitement**, puis **Liste** ou **Mail** par le geste habituel vers le haut au repos. Le mode Texte et les acquiescements courts conservent un chemin direct. Une modification finale de la transcription invalide un calcul anticipé devenu obsolète. Le texte source reste disponible si le moteur échoue, dépasse le délai ou fournit une réponse rejetée.
+Choisir **Local** dans **Moteur de post-traitement**, puis **Liste** ou **Mail** par le geste habituel vers le haut au repos. Le mode Texte reste sans LLM ; les acquiescements courts en Mail peuvent suivre un chemin direct. Une modification finale de la transcription invalide un calcul anticipé devenu obsolète. Le texte source reste disponible si le moteur échoue, dépasse le délai ou fournit une réponse rejetée.
 
 Après une dictée, ouvrir **Dernier post-traitement** et copier le diagnostic. Il indique le modèle, la route réellement appliquée, la configuration GPU/MTP/thinking, le délai de finalisation et l'arrêt vers insertion/copie. Ce diagnostic ne contient ni dictée, ni vocabulaire, ni clé API. Le cloud reste un choix explicite avec la clé de l'utilisateur ; aucune bascule automatique n'est effectuée.
 

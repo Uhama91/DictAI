@@ -7,14 +7,14 @@ class LocalMailTimingTest {
     private fun mail(text: String) = LocalFormatRequest(text, "Mail", "French", layoutKind = LocalLayoutKind.EMAIL,
         validation = LocalFormatValidation.GEMMA_PROJECTION, simpleEmailLayout = true)
 
-    @Test fun longConventionalMailUsesTheModelAndCanFinishJustBeyondFiveSeconds() {
+    @Test fun longConventionalMailUsesTheModelAndCanFinishBeyondNineSeconds() {
         val request = mail(SimpleEmailLayoutTest.LONG_MAIL)
         assertNull(request.directOutput())
         var calls = 0
         val backend = object : LocalFormatBackend {
             override fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit): String? {
                 calls++
-                Thread.sleep(5_150L)
+                Thread.sleep(9_100L)
                 return SimpleEmailLayout.format(request.text)
             }
             override fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit, onNativeStart: () -> Unit): String? {
@@ -28,8 +28,8 @@ class LocalMailTimingTest {
             assertEquals(1, calls)
             assertEquals("applied", session.lastFinish?.outcome)
             assertEquals(true, session.lastFinish?.nativeStarted)
-            assertEquals(8_000L, session.lastFinish?.waitLimitMs)
-            assertTrue(session.lastFinish!!.waitMs >= 5_000L)
+            assertEquals(10_000L, session.lastFinish?.waitLimitMs)
+            assertTrue(session.lastFinish!!.waitMs >= 9_000L)
         }
     }
 

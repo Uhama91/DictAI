@@ -103,7 +103,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
 
     private data class Case(val name: String, val request: LocalFormatRequest,
         val expected: List<String>, val forbidden: List<String> = emptyList(), val grouping: LayoutGroupingExpectation? = null,
-        val longMail: Boolean = false)
+        val longMail: Boolean = false, val minBodyParagraphs: Int? = null)
 
     private fun cases(): List<Case> {
         val list = PostProcessingFormats.builtins.first { it.id == "list" }.instructions
@@ -155,7 +155,19 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
                 latestLongMail, email, "French", listOf("Monsieur le Testeur"), LocalLayoutKind.EMAIL),
                 listOf("Bonjour", "ne", "pas", "latence", "Cordialement", "Testeur"),
                 grouping = LayoutGroupingExpectation(setOf(1, latestLongMail.split(' ').indexOf("Cordialement,"))), longMail = true),
-        ).map { it.copy(request = it.request.copy(validation = LocalFormatValidation.GEMMA_PROJECTION,
+            Case("FR · texte long · répétitions et deux sujets", LocalFormatRequest(
+                "Je je prépare la le réunion de demain avec les 23 élèves et je souhaite que les documents soient prêt avant leur arrivée. Nous garderons les cahiers bleus dans la classe et nous ne distribuerons pas les copies avant lundi. Ensuite euh je voudrais parler de la sortie de vendredi. Maëlys confirmera les horaires du bus et Karim vérifiera les 2 autorisations manquantes. Merci de conserver les coordonnées des familles dans le dossier habituel.",
+                "", "French", listOf("Maëlys", "Karim"), LocalLayoutKind.TEXT),
+                listOf("23", "ne", "pas", "lundi", "vendredi", "Maëlys", "Karim", "2"), minBodyParagraphs = 2),
+            Case("EN · long prose · repetitions and two topics", LocalFormatRequest(
+                "We need we need the the documents for the meeting tomorrow and everyone should recieve a separate copy before arriving. Please keep the 2 blue folders in Nora's office and do not remove the original invoices from the shared cabinet. Now I want to discuss Friday's trip. Eli will confirm the bus schedule and Karim will check the missing forms. Please keep every family's contact details in the usual folder so that we can contact them if necessary.",
+                "", "English", listOf("Nora", "Eli", "Karim"), LocalLayoutKind.TEXT),
+                listOf("2", "Nora", "not", "original", "Eli", "Karim"), minBodyParagraphs = 2),
+            Case("FR · mail long · paragraphes du corps", LocalFormatRequest(
+                "Bonjour Nora je vous écris pour préparer la réunion de demain. Les 23 dossiers seront prêt à neuf heures et les documents seront disponibles dans la salle habituelle. Merci de ne pas déplacer les originaux avant notre arrivée. Ensuite je voudrais évoquer la sortie de vendredi. Karim confirmera le transport et Maëlys vérifiera les autorisations des familles. Enfin pour le budget nous devons garder les 2 devis reçus et attendre votre confirmation avant de commander les fournitures. Cordialement Eli",
+                email, "French", listOf("Nora", "Karim", "Maëlys", "Eli"), LocalLayoutKind.EMAIL),
+                listOf("23", "ne", "pas", "Karim", "Maëlys", "2", "Eli"), minBodyParagraphs = 3),
+        ).map { it.copy(request = it.request.copy(validation = LocalFormatValidation.GEMMA_EDITING,
             simpleEmailLayout = !it.longMail)) }
     }
 
@@ -168,10 +180,10 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
             append("Moteur partagé avec l’overlay. Le premier essai indique si Gemma était déjà chargé. Caches système/GPU non vidés.\n")
             append("Configuration : LiteRT-LM 0.17.0 · GPU · MTP activé · thinking désactivé (budget 0).\n")
             append("Mails longs : Gemma seul, sans disposition directe. Les réponses directes des autres cas ne mesurent pas le LLM.\n")
-            append("Limite du banc : ${LocalFormatEngine.GENERATION_DEADLINE_MS} ms par appel après préparation initiale, file comprise ; aucune coupure à 5 ou 8 secondes.\n")
+            append("Limite du banc : ${LocalFormatEngine.GENERATION_DEADLINE_MS} ms par appel après préparation initiale, file comprise ; aucune coupure à 5, 8 ou 10 secondes.\n")
             append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Le texte est validé avant publication.\n")
             append("Mesure isolée : ne comprend pas l'arrêt ASR, l'affichage ni l'insertion dans une autre application.\n")
-            append("La conservation du texte et les critères ciblés de regroupement sont évalués séparément. Un critère réussi ne valide pas tous les formats.\n\n")
+            append("Corrections de forme et répétitions autorisées ; contrôles lexicaux et structure évalués séparément. Le score de paragraphes ne vérifie pas leur pertinence. Un critère réussi ne valide pas tous les formats.\n\n")
             append("Avant les essais : ${deviceSample()}\n\n")
         }
         var completed = 0
@@ -217,19 +229,27 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
                         failed = true
                         report.append("Calcul interrompu (${generated.exceptionOrNull()!!.javaClass.simpleName}), sans publication de résultat partiel.\n")
                     }
-                    report.append("Conservation du texte : ${if (output != null) "validée" else "rejetée"}\n")
+                    report.append("Contrôle des modifications : ${if (output != null) "validé" else "rejeté"}\n")
                     val restoredWords = if (output != null && raw != null)
                         GemmaFaithfulLayout.restoredWordCount(raw, output) else 0
                     if (restoredWords > 0) report.append("Mots rétablis depuis la transcription : $restoredWords\n")
                     val grouping = example.grouping?.evaluate(example.request, output)
                     report.append("Regroupement ciblé : " + when {
                         example.grouping == null -> "critère non défini"
-                        grouping == null -> "non évalué (sortie rejetée)"
+                        grouping == null -> if (output == null) "non évalué (sortie rejetée)" else "non évalué (nombre de mots modifié)"
                         grouping.passed -> "réussi"
                         else -> "échoué"
                     } + "\n")
                     if (grouping != null && !grouping.passed) {
                         report.append("Coupures après le mot n° : manquantes ${grouping.missing.sorted()} ; inattendues ${grouping.unexpected.sorted()}\n")
+                    }
+                    if (output != null && example.request.layoutKind != LocalLayoutKind.LIST) {
+                        val paragraphs = ProseParagraphs.count(output, example.request.layoutKind)
+                        report.append("Paragraphes du corps : $paragraphs")
+                        example.minBodyParagraphs?.let { minimum ->
+                            report.append(" ; minimum ciblé $minimum : ${if (paragraphs >= minimum) "réussi" else "échoué"}")
+                        }
+                        report.append("\n")
                     }
                     if (output == null) {
                         report.append("Repères de contenu : non évalués (aucune sortie validée)")

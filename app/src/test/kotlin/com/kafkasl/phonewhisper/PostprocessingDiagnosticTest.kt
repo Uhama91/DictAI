@@ -65,7 +65,7 @@ class PostprocessingDiagnosticTest {
         assertTrue(timeout.contains("délai d’attente finale dépassé"))
         val fidelity = report(LocalFinishDiagnostic("generated", "fidelity_rejected", true, 400),
             PostprocessingDiagnostic.Applied.ORIGINAL)
-        assertTrue(fidelity.contains("texte non conservé"))
+        assertTrue(fidelity.contains("modification hors corrections autorisées"))
         val vocabulary = report(LocalFinishDiagnostic("generated", "vocabulary_rejected", true, 400),
             PostprocessingDiagnostic.Applied.ORIGINAL)
         assertTrue(vocabulary.contains("vocabulaire non conservé"))

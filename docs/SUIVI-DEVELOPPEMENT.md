@@ -2,6 +2,20 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Correction souple, dix secondes et choix explicite du texte — 0.8.5
+
+Demande actuelle : autoriser les corrections de forme et les répétitions inutiles sans changer le contenu, structurer aussi le corps des mails longs, et essayer dix secondes de finalisation locale. **Précision ultérieure prioritaire : ne pas activer le LLM automatiquement selon la longueur du mode Texte.** Une note longue doit pouvoir être copiée sans passer dans le modèle.
+
+Version 0.8.5 vérifiée localement : deux formats distincts dans le menu du geste vers le haut, **Texte** (ID existant cleanup, sans LLM local ou cloud) et **Texte corrigé** (ID corrected, moteur choisi dans les réglages). La sélection existante est conservée ; Texte reste le choix initial. Les règles rapides de nombres/vocabulaire et le nettoyage léger facultatif restent disponibles sans modèle. L’export direct d’une note ouverte conserve son contenu sans appel au LLM.
+
+Les mails et textes corrigés d’au moins 60 mots ont un maximum de 10 s ; mails courts 8 s, listes/textes corrigés courts 5 s. Le délai n’est pas une attente minimale. Le modèle reçoit une consigne de correction limitée et de structuration du corps par idées. Aucun remplacement de modèle ni thinking activé.
+
+Le contrôle de fidélité accepte des corrections de forme reconnues, des hésitations non citées et des répétitions adjacentes ; il garde les noms/vocabulaire, nombres, négations, citations et signes techniques. Il ne valide pas toute reformulation sémantique. Le brut du dernier mail du téléphone est accepté avec locale → local. La conservation des noms et des éléments protégés reste vérifiée. Quelques équivalences de petits cardinaux peuvent être remises dans la présentation source (2 → deux → 2), sans changer leur valeur. Les textes corrigés retouchés manuellement gardent le contrôle strict de disposition pour protéger les retouches.
+
+Banc élargi : quatorze sources × deux passages, nouveaux textes FR/EN avec corrections et mail à plusieurs sujets, compte des paragraphes du corps, comparaison à 10 s. Le comptage de paragraphes n’est pas un jugement de leur pertinence. Les premiers essais CPU ont révélé des reformulations et conversions numériques indésirables ; les résultats définitifs et les limites sont consignés dans [la vérification 0.8.5](VERIFICATION-GEMMA-0.8.5.md). Aucun appareil Android connecté à Codex.
+
+Vérification locale terminée : 378 tests JVM / 56 suites réussis, APK signée et alignée 16 Ko, contrat du paquet vérifié. Évaluation finale exploratoire : cinq sorties acceptées sur six, textes FR/EN en deux paragraphes et mail à trois sujets en trois paragraphes ; signature anglaise inventée toujours rejetée, liste et ancien mail encore peu subdivisés. Publication Actions à terminer ; ne pas promettre une vitesse GPU à partir des générations CPU.
+
 ## Rapport GPU 0.8.4 reçu — durée réelle et rejet distinct
 
 Rapport complet reçu en deux messages : **22 cas, onze sources × deux passages**. Les lignes répétées dans la suite sont dédupliquées. [Données archivées](benchmarks/local-format/gemma4-poco-f7-084-user-2026-09-09-partial.json) (nom initial conservé ; contenu désormais complet).

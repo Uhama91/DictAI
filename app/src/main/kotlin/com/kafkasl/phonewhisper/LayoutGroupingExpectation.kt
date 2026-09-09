@@ -13,6 +13,10 @@ internal data class LayoutGroupingExpectation(
     fun evaluate(request: LocalFormatRequest, output: String?): Result? {
         if (request.layoutKind == null) return null
         val accepted = request.acceptOutput(output) ?: return null
+        // Original word-index criteria cannot score a shorter, legitimately edited transcript.
+        val words = Regex("[^\\s\\p{Z}\\u0085]+")
+        val withoutBullets = accepted.lines().joinToString(" ") { it.removePrefix("• ") }
+        if (words.findAll(request.text).count() != words.findAll(withoutBullets).count()) return null
         val segments = accepted.lines().filter { it.isNotBlank() }.map {
             if (request.layoutKind == LocalLayoutKind.LIST) it.removePrefix("• ") else it
         }

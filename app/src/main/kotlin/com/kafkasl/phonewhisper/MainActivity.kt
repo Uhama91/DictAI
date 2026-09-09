@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
                             when (action) {
                                 0 -> {
                                     store.select(format)
-                                    val unavailable = PersistencePrefs(this).formattingEngine == "local" && format.id !in setOf("list", "email") && format.instructions.isNotBlank()
+                                    val unavailable = PersistencePrefs(this).formattingEngine == "local" && format.localLayoutKind == null && format.instructions.isNotBlank()
                                     Toast.makeText(this, if (unavailable) "Ce format nécessite le cloud. L’essai local prend en charge les listes et les mails." else "Prochaine dictée : ${format.name}", Toast.LENGTH_LONG).show()
                                 }
                                 1 -> editFormat(format)
@@ -293,14 +293,14 @@ class MainActivity : AppCompatActivity() {
         root.addView(vocabRow)
 
         fun engineLabel() = when (languagePrefs.formattingEngine) {
-            "local" -> "Local · Gemma 4 E2B · listes et mails (essai)"
+            "local" -> "Local · Gemma 4 E2B · texte corrigé, listes et mails (essai)"
             "cloud" -> "Cloud · le texte est envoyé à OpenRouter"
             else -> "Désactivé · vocabulaire et nombres conservés"
         }
         val engineRow = settingsRow("Moteur de post-traitement", engineLabel())
         engineRow.setOnClickListener {
             val values = if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) listOf("local", "cloud", "off") else listOf("cloud", "off")
-            val labels = values.map { when (it) { "local" -> "Local — listes et mails (essai)"; "cloud" -> "Cloud — OpenRouter"; else -> "Désactivé" } }.toTypedArray()
+            val labels = values.map { when (it) { "local" -> "Local — texte corrigé, listes et mails (essai)"; "cloud" -> "Cloud — OpenRouter"; else -> "Désactivé" } }.toTypedArray()
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Moteur de post-traitement")
                 .setSingleChoiceItems(labels,
@@ -411,7 +411,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun gemmaInstallLabel(): String = if (GemmaModelStore(this).installedModel() != null)
-        "Installé · fonctionne hors ligne · listes et mails"
+        "Installé · hors ligne · texte corrigé, listes et mails"
     else "2,6 Go · téléchargement reprenable · puis utilisation hors ligne"
 
     private fun showGemmaDownload() {

@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
-internal enum class LocalFormatValidation { EXACT_LAYOUT, GEMMA_PROJECTION }
+internal enum class LocalFormatValidation { EXACT_LAYOUT, GEMMA_PROJECTION, GEMMA_EDITING }
 
 /** A format is explicit intent: even a three-word list must be formatted. */
 internal data class LocalFormatRequest(
@@ -36,21 +36,28 @@ internal data class LocalFormatRequest(
     fun layoutPolicy(): FaithfulLayout? = layoutKind?.let { FaithfulLayout.create(text, it) }
 
     /** Trial margin for actual mail generation; this is a maximum, never a minimum delay. */
-    fun finalWaitMs(): Long = if (layoutKind == LocalLayoutKind.EMAIL) 8_000L else 5_000L
+    fun finalWaitMs(): Long = when {
+        isLongText() && layoutKind in setOf(LocalLayoutKind.EMAIL, LocalLayoutKind.TEXT) -> 10_000L
+        layoutKind == LocalLayoutKind.EMAIL -> 8_000L
+        else -> 5_000L
+    }
 
     // Long mails must exercise Gemma, including conventional greetings and signatures.
-    fun isLongEmail(): Boolean = layoutKind == LocalLayoutKind.EMAIL &&
+    fun isLongEmail(): Boolean = layoutKind == LocalLayoutKind.EMAIL && isLongText()
+
+    fun isLongText(): Boolean =
         Regex("[^\\s\\p{Z}\\u0085]+").findAll(text).take(60).count() >= 60
 
     fun directOutput(): String? = layoutPolicy()?.directResult?.let(::acceptOutput)
         ?: if (simpleEmailLayout && layoutKind == LocalLayoutKind.EMAIL && !isLongEmail() &&
-            validation == LocalFormatValidation.GEMMA_PROJECTION)
+            validation != LocalFormatValidation.EXACT_LAYOUT)
             SimpleEmailLayout.format(text)?.let(::acceptOutput) else null
 
     fun acceptOutput(text: String?): String? {
         val value = when {
             layoutKind == null -> LocalFormatOutput.accept(text)
             validation == LocalFormatValidation.GEMMA_PROJECTION -> GemmaFaithfulLayout.accept(this, text)
+            validation == LocalFormatValidation.GEMMA_EDITING -> GemmaConservativeEditing.accept(this, text)
             else -> layoutPolicy()?.accept(text)
         }
         return value?.takeIf { output -> protectedTerms.all { it in output } }
@@ -60,6 +67,7 @@ internal data class LocalFormatRequest(
     fun previewOutput(prefix: String): String? = when (validation) {
         LocalFormatValidation.EXACT_LAYOUT -> layoutPolicy()?.preview(prefix)
         LocalFormatValidation.GEMMA_PROJECTION -> acceptOutput(prefix)
+        LocalFormatValidation.GEMMA_EDITING -> null // Corrections are published only after the engine returns.
     }
 }
 
@@ -88,6 +96,7 @@ internal data class LocalFinishDiagnostic(
     val waitMs: Long,
     val restoredSourceWords: Int = 0,
     val waitLimitMs: Long? = null,
+    val surfaceEditing: Boolean = false,
 )
 
 /**
@@ -134,7 +143,7 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
         var route = "not_called"
         fun record(outcome: String, nativeStarted: Boolean = false, restoredSourceWords: Int = 0) {
             lastFinish = LocalFinishDiagnostic(route, outcome, nativeStarted,
-                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L), restoredSourceWords, timeoutMs)
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L), restoredSourceWords, timeoutMs, request.validation == LocalFormatValidation.GEMMA_EDITING)
         }
         val job = synchronized(lock) {
             if (closed || request.text.isBlank()) {
@@ -234,7 +243,7 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
                         else -> "fidelity_rejected"
                     }
                     if (accepted != null) {
-                        if (job.request.validation == LocalFormatValidation.GEMMA_PROJECTION && value != null)
+                        if (job.request.validation != LocalFormatValidation.EXACT_LAYOUT && value != null)
                             job.restoredSourceWords = GemmaFaithfulLayout.restoredWordCount(value, accepted)
                         completed = job
                     }

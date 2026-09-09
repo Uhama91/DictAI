@@ -28,7 +28,7 @@ internal object PostprocessingDiagnostic {
         append("DictAI — dernier post-traitement\n")
         append("Application : $version\n")
         append("Date : ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.ROOT).format(Date(timestampMs))}\n")
-        append("Format : ${when (formatId) { "list" -> "Liste"; "email" -> "Mail"; "cleanup" -> "Texte"; else -> "Personnalisé" }}\n")
+        append("Format : ${when (formatId) { "list" -> "Liste"; "email" -> "Mail"; "cleanup" -> "Texte"; "corrected" -> "Texte corrigé"; else -> "Personnalisé" }}\n")
         append("Moteur demandé : ${when (requested) { Requested.LOCAL -> "local"; Requested.CLOUD -> "cloud"; Requested.OFF -> "désactivé" }}\n")
         append("Résultat : ${when (applied) {
             Applied.LOCAL_LLM -> "LLM local appliqué"
@@ -53,7 +53,7 @@ internal object PostprocessingDiagnostic {
             append("État : ${when (local?.outcome) {
                 "applied" -> "sortie validée (qualité du découpage non garantie)"
                 "wait_timeout" -> "délai d’attente finale dépassé"
-                "fidelity_rejected" -> "sortie rejetée : texte non conservé"
+                "fidelity_rejected" -> "sortie rejetée : modification hors corrections autorisées"
                 "vocabulary_rejected" -> "sortie rejetée : vocabulaire non conservé"
                 "backend_empty" -> "moteur sans résultat complet"
                 "backend_error", "error" -> "erreur du moteur"
@@ -62,6 +62,7 @@ internal object PostprocessingDiagnostic {
                     "mode Texte : aucun appel au LLM prévu"
                 else "traitement non exécuté ou indisponible"
             }}\n")
+            if (local?.surfaceEditing == true) append("Corrections : fautes de forme et répétitions limitées autorisées.\n")
             local?.let { append("Attente finale locale : ${it.waitMs} ms\n") }
             local?.waitLimitMs?.let { append("Limite d’attente finale : $it ms\n") }
             local?.restoredSourceWords?.takeIf { it > 0 }?.let {
