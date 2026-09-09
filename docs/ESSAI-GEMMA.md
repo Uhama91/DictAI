@@ -4,6 +4,8 @@ Ullie a choisi Gemma après la recherche comparative. Le prototype utilise Gemma
 
 ## Installation depuis le téléphone
 
+**[Télécharger directement l'APK Gemma 0.8.0](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34319036761/dictai-local-layout-test.apk)** — 78 551 445 octets, environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34319036761), [construction Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34319036761). Le téléchargement public et son empreinte ont été vérifiés après publication.
+
 Installer l'APK de la prerelease Gemma, puis ouvrir DictAI et toucher **Installer Gemma 4 E2B** dans les réglages de post-traitement. Le modèle officiel fait 2 588 147 712 octets, environ 2,6 Go. Il est téléchargé une seule fois depuis le dépôt officiel épinglé. Garder cet écran ouvert ; quitter l'application met le téléchargement en pause et une nouvelle ouverture de la ligne permet de le reprendre.
 
 Le modèle est utilisable uniquement après contrôle de sa taille et de son SHA-256. Une interruption conserve les octets partiels ; une reprise vérifie la plage et la version du fichier. Une fois installé, les listes et mails locaux fonctionnent sans connexion ni clé API. Le premier chargement et la préparation du GPU peuvent prendre plusieurs secondes ; ils sont lancés à l'avance dans le service, hors de l'interface.
