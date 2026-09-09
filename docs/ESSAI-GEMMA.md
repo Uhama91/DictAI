@@ -1,10 +1,10 @@
-# DictAI 0.9.0 — notes visuelles et essai Gemma sur téléphone
+# DictAI 0.9.1 — notes visuelles et essai Gemma sur téléphone
 
 Ullie a choisi Gemma après la recherche comparative. Le prototype utilise Gemma 4 E2B dans LiteRT-LM 0.17.0, sur GPU, avec MTP activé et thinking désactivé (budget zéro). Nemotron reste le moteur de transcription. Ce document décrit l'essai et ses limites ; il ne remplace pas une mesure sur le POCO F7.
 
 ## Installation depuis le téléphone
 
-**[Télécharger directement l’APK 0.9.0](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34350930791/dictai-local-layout-test.apk)** — environ 80 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34350930791), [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/34350930791). Installer en mise à jour conserve Gemma déjà téléchargé et les notes. Les ajouts concernent les captures, photos et exports ; le moteur et les délais de 0.8.5 sont conservés. [Utilisation et vérification des notes visuelles](NOTES-AVEC-IMAGES.md).
+**[Télécharger directement l’APK 0.9.1](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34355763495/dictai-local-layout-test.apk)** — environ 80 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34355763495), [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/34355763495). Installer en mise à jour conserve Gemma déjà téléchargé et les notes. 0.9.1 tente le collage de l’image dans la conversation au geste de capture, sans export automatique, et intègre un viseur caméra. Le moteur et les délais de 0.8.5 sont conservés. [Vérification et limites du collage image](INSERTION-IMAGES-0.9.1.md).
 
 Installer l'APK de la prerelease Gemma, puis ouvrir DictAI et toucher **Installer Gemma 4 E2B** dans les réglages de post-traitement. Le modèle officiel fait 2 588 147 712 octets, environ 2,6 Go. Il est téléchargé une seule fois depuis le dépôt officiel épinglé. Garder cet écran ouvert ; quitter l'application met le téléchargement en pause et une nouvelle ouverture de la ligne permet de le reprendre.
 
@@ -14,7 +14,7 @@ Le téléchargement séparé permet de fournir une APK installable directement d
 
 ## Choisir le traitement — 0.8.5
 
-Le menu des formats (geste vers le haut au repos) distingue **Texte** et **Texte corrigé**. **Texte n’appelle aucun LLM**, même si le moteur sélectionné est local ou cloud et même si le document est long. C’est le choix initial, adapté aux notes corrigées à la main. Les nombres, le vocabulaire et le nettoyage léger facultatif restent traités par les règles locales. Copier une note texte ouverte sans dictée active reste une insertion directe. Avec des images en 0.9.0, le geste prépare le partage groupé pour conserver ensemble texte et pièces jointes.
+Le menu des formats (geste vers le haut au repos) distingue **Texte** et **Texte corrigé**. **Texte n’appelle aucun LLM**, même si le moteur sélectionné est local ou cloud et même si le document est long. C’est le choix initial, adapté aux notes corrigées à la main. Les nombres, le vocabulaire et le nettoyage léger facultatif restent traités par les règles locales. Copier une note texte ouverte sans dictée active reste une insertion directe. En 0.9.1, les images sont tentées au geste de capture et la fin de dictée insère le texte normalement ; le partage groupé devient une action explicite.
 
 **Texte corrigé** demande explicitement la correction et la mise en paragraphes au moteur local ou cloud choisi dans les réglages. Liste et Mail utilisent aussi ce moteur. En local, les mails et textes corrigés de 60 mots ou plus disposent de **10 secondes maximum** après l’arrêt, sans délai minimal ; mails courts 8 s, listes et textes corrigés courts 5 s. Les petits acquiescements en mode Mail peuvent toujours rester directs.
 

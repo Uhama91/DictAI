@@ -2,11 +2,13 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
-## Collage dans la conversation et viseur interne — essai 0.9.1
+## Collage dans la conversation et viseur interne — essai 0.9.1 publié
 
 Retour utilisateur après 0.9.0 : application **ChatGPT → Remote**, puis autres applications Android (Messenger, WhatsApp, Instagram, Claude…). Le menu de partage automatique est rejeté ; la capture doit tenter une pièce jointe dans la conversation déjà ouverte. La caméra externe fait disparaître la pastille. La correction locale reste satisfaisante sur texte court ; coût plus marqué sur texte long, sans nouvelle demande de modification du moteur.
 
 0.9.1 retire la redirection automatique vers l’export, utilise un viseur Camera2 interne et conserve la pastille. Chaque capture tente un collage image ciblé, avec texte vide de repli pour ne pas introduire d’URI dans un éditeur texte. Le champ et la fenêtre sont revérifiés, les sélections actives protégées ; aucune activation de bouton Envoyer. Diagnostic séparé pour l’action de collage et la lecture du fichier par l’application identifiée. L’acceptation réelle par ChatGPT Remote et les messageries nécessite le téléphone ; elle n’est pas promise sur la seule base de l’API Android. [Détails et vérification](INSERTION-IMAGES-0.9.1.md).
+
+Publication vérifiée : [APK directe 0.9.1](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34355763495/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34355763495), source `be1c92c6b4149f4c64f0fe1c642d41daed65faea`. Téléchargement public intégral HTTP 200 : **78 800 260 octets**, SHA-256 `5e7dd945ea30274d67cb9b9e8a07c175ca6c5bb6d199f2e890db5cccbd291583`. Empreintes concordantes avec SHA256SUMS, l’asset GitHub et le journal CI. Signature, version 30 / 0.9.1-wp-gemma-test, ABI ARM64, permission caméra et alignement ZIP/natif 16 Ko vérifiés sur ce téléchargement. Les **1 048 entrées internes** de l’APK publique sont identiques octet pour octet à celles de l’APK testée localement ; la représentation du conteneur diffère. 396 tests JVM / 59 suites réussis ; tests Android contrôlés compilés mais non exécutés. Aucun appareil connecté.
 
 ## Notes visuelles et exports — essai 0.9.0 publié
 
