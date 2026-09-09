@@ -2,19 +2,29 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Rapport GPU 0.8.4 reçu — durée réelle et rejet distinct
+
+Rapport partiel du banc complet reçu : 17 cas complets, un 18e tronqué, quatre cas et le relevé final absents. Pas de seconde mesure des mails longs reçue. [Données archivées](benchmarks/local-format/gemma4-poco-f7-084-user-2026-09-09-partial.json).
+
+Premier passage : ancien mail long **5 836 ms appel + validation**, fidèle et regroupement réussi, un mot normalement rétabli. Dernier mail de 144 mots **9 233 ms**, dont 22 ms avant natif, 9 187 ms natif → retour et 24 ms de validation. Il dépasse 8 s de 1 233 ms, mais le banc l’a laissé terminer jusqu’au bout. Le délai n’explique donc pas son rejet dans le banc.
+
+Rejet exact reproduit avec les classes de l’APK 0.8.4 : une seule substitution lexicale, **locale → local**, dans en locale. Le modèle a corrigé une forme et structuré le mail ; la vérification lexicale actuelle le rejette. Rétablir manuellement locale dans la sortie brute suffit à la faire accepter. C’est une expérience diagnostique, aucun correctif de validation intégré ni nouvelle APK générée à la réception de ces mesures.
+
+Conclusion : 8 s apporte la marge nécessaire à l’ancien mail dans cet essai, mais reste insuffisant pour le dernier si le calcul doit être attendu en entier. Allonger le délai seul ne lèverait pas le rejet orthographique. Conserver séparément les travaux restant sur tolérance aux corrections de forme avec protection du contenu, durée acceptable des mails longs, regroupement des listes et rejets anglais. Ne pas prétendre à une médiane ni à deux mesures longues avec cette copie tronquée. Aucun besoin de changer le modèle ou le thinking pour interpréter ce rapport.
+
 ## Mesurer les mails au-delà de cinq secondes — 0.8.4
 
 Demande actuelle d’Ullie : laisser Gemma terminer les mails sur téléphone au-delà de 5 s avant de conclure à une latence trop forte. Le banc précédent a déjà donné 5 136 ms, soit seulement 136 ms au-delà du plafond. Cette demande prime sur l’ancienne consigne de ne pas modifier le délai sur la seule base d’un bloc de texte.
 
 Mesures hôte retrouvées : 15 399 ms pour l’ancien mail long, 7 281 ms pour le court, CPU deux threads. Nouvelle génération complète du dernier mail (144 mots) : 24 923 ms, premier fragment 6 457 ms, tous les mots conservés et sortie acceptée. Thinking off, MTP désactivé sur CPU ; aucune prédiction de latence téléphone à partir de ce temps. [Mesure brute](benchmarks/local-format/gemma4-latest-long-mail-host-duration-2026-09-09.json).
 
-Implémentation 0.8.4 en vérification :
+Implémentation 0.8.4 publiée :
 - Les mails de 60 mots ou plus retournent à Gemma, même avec une salutation et une signature explicites. Pas de raccourci direct pour les deux mails longs de l’utilisateur.
 - Attente finale Mail portée à 8 s, à titre de marge d’essai. Résultat utilisé dès qu’il est prêt et validé, sans attente minimale imposée. Liste : 5 s. Le diagnostic enregistre la limite réellement utilisée.
 - Menu **Mesurer les mails longs avec Gemma** : deux mails × deux passages, jusqu’à 20 s par appel, sans limite de 5/8 s dans ce banc. Initialisation mesurée séparément ; attente avant natif, premier fragment, retour moteur, validation, écarts à 5/8 s. Un essai interrompu ne prétend pas connaître sa durée totale.
 - Modèle, prompt, GPU/MTP et thinking off conservés. Le corps des mails n’est pas réécrit par les règles rapides lors de ces essais. Les autres correctifs 0.8.3 sont conservés.
 
-Les tests de finalisation comprennent un moteur simulé terminant après 5,15 s. Les mesures GPU Android et la limite définitive restent à décider à partir du rapport du téléphone ; aucun appareil connecté à Codex. 361 tests JVM dans 54 suites réussis, APK compilée/signée/alignée 16 Ko et contrat du paquet vérifié. [Vérification](VERIFICATION-GEMMA-0.8.4.md). [APK 0.8.4 publiée](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34335478012/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34335478012), source `1464d52b07510b3b84f48c03fa0274b090d4afd8`. Téléchargement public complet vérifié, 78 600 597 octets ; SHA identique à l’APK locale et à l’asset GitHub. Attente du rapport des quatre mesures GPU, aucune nouvelle recherche de modèle nécessaire pour cet essai.
+Les tests de finalisation comprennent un moteur simulé terminant après 5,15 s. Les mesures GPU Android et la limite définitive restent à décider à partir du rapport du téléphone ; aucun appareil connecté à Codex. 361 tests JVM dans 54 suites réussis, APK compilée/signée/alignée 16 Ko et contrat du paquet vérifié. [Vérification](VERIFICATION-GEMMA-0.8.4.md). [APK 0.8.4 publiée](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34335478012/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34335478012), source `1464d52b07510b3b84f48c03fa0274b090d4afd8`. Téléchargement public complet vérifié, 78 600 597 octets ; SHA identique à l’APK locale et à l’asset GitHub. Premier passage long reçu dans le rapport partiel ci-dessus ; les deux mails du second passage ne sont pas dans la copie. Aucune nouvelle recherche de modèle nécessaire pour interpréter ces mesures.
 
 ## Retour 10:08 — overlay, mode Texte et attente Mail — 0.8.3
 

@@ -110,3 +110,23 @@ Le nouveau menu Mesurer les mails longs avec Gemma exécute uniquement les deux 
 Étape suivante sur téléphone : installer la version publiée, ouvrir ce menu avec la dictée au repos, attendre les quatre résultats et copier le rapport. Ne pas désactiver le thinking off ni changer de modèle pour cette comparaison. La limite finale définitive dépendra de ces mesures et du ressenti d’Ullie.
 
 0.8.4 publiée : [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34335478012/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34335478012), [vérification complète](VERIFICATION-GEMMA-0.8.4.md). 361 tests JVM réussis ; téléchargement public complet, signature et alignement vérifiés. La limite définitive et le temps complet du dernier mail sur téléphone restent à établir avec le test dédié.
+
+
+## Premier rapport GPU 0.8.4 — 5,836 s et 9,233 s, rejet d’une correction de forme
+
+Ullie fournit un rapport du banc complet (onze sources × deux passages), coupé pendant le septième cas du passage 2. Dix-sept cas sont complets, un dix-huitième possède ses mesures mais pas son verdict, les quatre derniers cas et le relevé mémoire/thermique après test manquent. [Archive partielle explicite](benchmarks/local-format/gemma4-poco-f7-084-user-2026-09-09-partial.json). Les durées ci-dessous correspondent uniquement au premier passage, moteur déjà chargé.
+
+| Mail | Retour moteur | Validation | Appel + validation | Résultat |
+|---|---:|---:|---:|---|
+| Ancien long | 5 807 ms | 29 ms | **5 836 ms** | Accepté, regroupement réussi, normalement rétabli |
+| Dernier, 144 mots | 9 209 ms | 24 ms | **9 233 ms** | Rejeté pour conservation lexicale |
+
+Le premier dépasse 5 s de 836 ms et reste sous 8 s de 2 164 ms. Le dernier dépasse 5 s de 4 233 ms et 8 s de 1 233 ms. Les 20 s du banc n’ont pas été atteintes : ce sont des retours complets, contrairement au diagnostic manuel arrêté après 5 003 ms. Ces temps n’incluent ni arrêt ASR ni insertion ; une anticipation terminée plus tôt peut réduire l’attente finale réelle.
+
+Sur le dernier mail, le temps avant appel natif est 22 ms, le natif jusqu’au retour moteur 9 187 ms et la validation 24 ms. L’essentiel du temps observé provient de la génération, pas de la file ou du contrôle de fidélité dans cet essai. Le premier fragment arrive à 2 200 ms et ne constitue pas encore un mail publiable validé.
+
+Le brut possède les paragraphes attendus et remplace uniquement locale par local, dans la phrase L’intérêt d’avoir la mise en forme en locale. Les 157 unités lexicales (144 mots séparés par espaces) restent dans le même ordre ; une seule unité diffère. La correction en local est naturelle en français, mais le validateur actuel refuse toute substitution lexicale. Vérification exécutée contre les classes réelles compilées pour 0.8.4 : brut refusé ; même brut avec uniquement l’orthographe source locale rétablie accepté. Le brut GPU est exactement le brut CPU archivé précédemment à cette substitution près. Aucune nouvelle génération ni règle applicative ajoutée dans cette analyse.
+
+Le plafond de 8 s ne suffit donc pas à attendre ce dernier résultat depuis zéro ; l’augmenter ne suffirait pas non plus à publier la sortie, car le contrôle la rejette ensuite. Il faut distinguer une éventuelle marge plus longue acceptable pour l’utilisateur de l’adaptation des vérifications aux corrections de forme. Ne pas accepter en bloc les signatures inventées ou les modifications de nombres : les rejets anglais et les regroupements de listes restent distincts.
+
+PSS avant 1 791 Mio, RAM disponible 2 371 Mio, thermique Android 0 ; initialisation du moteur 7 546 ms, antérieure au banc. Aucun relevé après essai reçu, donc aucune conclusion sur l’évolution thermique. Pas de nouvelle APK pour cette réception de mesures ; les conclusions et les travaux restants sont enregistrés.

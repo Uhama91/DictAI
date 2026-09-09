@@ -35,3 +35,8 @@ Les anciennes mesures hôte étaient 15 399 ms pour le premier mail long et 7 28
 - Téléchargement public HTTP 200 complet vérifié : 78 600 597 octets ; SHA-256 `01dcf03752f51c4efbe43a710fef6bb9395926c818780390aaaeb93a2bbd4894`, identique à l’APK locale, à SHA256SUMS, au journal Actions et à l’empreinte de l’asset GitHub.
 
 Installer en mise à jour conserve Gemma déjà téléchargé. Les mesures GPU des deux mails dans cette version restent à recevoir.
+
+
+## Mesures téléphone ultérieures, fournies par Ullie
+
+Un premier passage GPU complet des deux mails est reçu dans un rapport tronqué : 5 836 ms pour l’ancien (validé avec normalement rétabli) et 9 233 ms pour le dernier (rejeté). La seule substitution locale → local déclenche le rejet du dernier ; le rétablissement manuel de locale dans le brut le fait accepter par les classes compilées de l’APK. Ce contrôle diagnostique n’est pas un correctif intégré. Les secondes mesures longues et le relevé final sont absents de la copie. [Analyse et données](2026-09-09-retour-gemma-telephone.md#premier-rapport-gpu-084--5836-s-et-9233-s-rejet-dune-correction-de-forme). Aucun Android piloté par Codex, aucune modification de l’APK pour ce rapport.

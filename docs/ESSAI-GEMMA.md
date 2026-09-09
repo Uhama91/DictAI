@@ -28,7 +28,7 @@ Le rapport donne séparément la préparation du moteur, l’attente avant le na
 
 En dictée, un mail de **60 mots ou plus** est de nouveau confié à Gemma. Le délai maximal Mail passe à **8 secondes**, à titre d’essai : l’application utilise une sortie dès qu’elle est prête et validée. Les listes restent à 5 secondes. Les petits acquiescements et certains mails courts conventionnels restent directs. Le diagnostic mentionne la limite réellement utilisée. Cette marge ne prétend pas accélérer le modèle et sera réévaluée avec le rapport Android.
 
-Les mesures CPU sur ordinateur sont 15,399 secondes pour le premier mail long et 24,923 secondes pour le dernier mail de 144 mots. Elles ne prédisent pas le temps GPU du téléphone. Le premier mail avait terminé sur téléphone en 4,978 / 5,136 secondes ; le dernier n’a pas encore de mesure GPU complète. [Protocole et limites](VERIFICATION-GEMMA-0.8.4.md).
+Les mesures CPU sur ordinateur sont 15,399 secondes pour le premier mail long et 24,923 secondes pour le dernier mail de 144 mots. Elles ne prédisent pas le temps GPU du téléphone. Le premier mail avait terminé sur téléphone en 4,978 / 5,136 secondes. Le rapport 0.8.4 reçu ensuite donne, validation comprise, 5,836 secondes pour le premier mail et 9,233 secondes pour le dernier. Ce dernier est structuré mais rejeté pour une substitution locale → local ; une attente plus longue seule ne résoudrait pas ce rejet. La copie ne contient pas les deux mails du second passage. [Protocole et limites](VERIFICATION-GEMMA-0.8.4.md).
 
 ## Changements 0.8.3
 
