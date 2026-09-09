@@ -5,6 +5,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
+internal enum class LocalFormatValidation { EXACT_LAYOUT, GEMMA_PROJECTION }
+
 /** A format is explicit intent: even a three-word list must be formatted. */
 internal data class LocalFormatRequest(
     val text: String,
@@ -12,6 +14,7 @@ internal data class LocalFormatRequest(
     val language: String,
     val protectedTerms: List<String> = emptyList(),
     val layoutKind: LocalLayoutKind? = null,
+    val validation: LocalFormatValidation = LocalFormatValidation.EXACT_LAYOUT,
 ) {
     fun prompt(): String {
         fun safe(value: String) = value.replace("<|", "< |")
@@ -32,8 +35,18 @@ internal data class LocalFormatRequest(
     fun layoutPolicy(): FaithfulLayout? = layoutKind?.let { FaithfulLayout.create(text, it) }
 
     fun acceptOutput(text: String?): String? {
-        val value = if (layoutKind != null) layoutPolicy()?.accept(text) else LocalFormatOutput.accept(text)
+        val value = when {
+            layoutKind == null -> LocalFormatOutput.accept(text)
+            validation == LocalFormatValidation.GEMMA_PROJECTION -> GemmaFaithfulLayout.accept(this, text)
+            else -> layoutPolicy()?.accept(text)
+        }
         return value?.takeIf { output -> protectedTerms.all { it in output } }
+    }
+
+    /** Free generation remains private until all source words have been verified. */
+    fun previewOutput(prefix: String): String? = when (validation) {
+        LocalFormatValidation.EXACT_LAYOUT -> layoutPolicy()?.preview(prefix)
+        LocalFormatValidation.GEMMA_PROJECTION -> acceptOutput(prefix)
     }
 }
 

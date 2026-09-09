@@ -2,6 +2,12 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Choix Gemma — prototype 0.8.0
+
+Ullie autorise l'intégration de Gemma. [Notice de l'essai](ESSAI-GEMMA.md) : LiteRT-LM 0.17.0 GPU + MTP, thinking désactivé, modèle partagé et préchauffé, téléchargement officiel de 2,6 Go depuis l'application avec reprise et contrôle SHA. L'APK ne contient plus le poids 350M. Validation locale terminée : 328 tests JVM dans 48 suites et 18 tests Python réussis, APK prototype (79 311 099 octets) et standard construites/signées/alignées 16 Ko. [Vérification](VERIFICATION-GEMMA.md). Publication GitHub préparée ; aucun test GPU Android effectué sur le POCO F7 dans cette session.
+
+Les sondes du prompt de production donnent dix générations complètes, six fidèles acceptées, dont cinq formats satisfaisants ; le découpage des courses reste imparfait. Une variante produisant des indices de coupure a échoué sur le regroupement et n'est pas intégrée. Le prototype mesure Gemma en situation réelle, sans présenter la qualité locale comme résolue.
+
 ## Étape du 9 septembre — retour réel d’Ullie
 
 Qualité du 350M **non validée** : les regroupements de liste et fermetures de mail signalés sont reproduits. La latence est jugée satisfaisante par Ullie. Comparaison de quatre modèles avec le JNI réel et variantes de consigne : 84 générations archivées ; les alternatives améliorent certains cas mais restent irrégulières. Aucun remplacement de modèle ni variante de prompt n’est livré comme correction acquise. [Résultats et décision](2026-09-09-retour-essai-local.md).

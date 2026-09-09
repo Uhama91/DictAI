@@ -1,0 +1,20 @@
+Gemma 4 E2B and LiteRT-LM
+========================
+
+Model: Google Gemma 4 E2B instruction-tuned, official LiteRT-LM mobile package.
+The model is downloaded separately by the app; no model weights are bundled in this APK.
+Repository: https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm
+Revision: b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1
+File: gemma-4-E2B-it.litertlm
+Size: 2588147712 bytes
+SHA-256: 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c
+Model license: Apache-2.0.
+Model card: https://huggingface.co/google/gemma-4-E2B-it
+
+Runtime: com.google.ai.edge.litertlm:litertlm-android:0.17.0
+Source: https://github.com/google-ai-edge/LiteRT-LM
+Copyright 2026 Google LLC. Licensed under Apache-2.0.
+License text is included alongside this notice in Apache-2.0.txt.
+
+DictAI runs the model locally on the GPU, without an API key or automatic cloud fallback.
+This is an experimental integration, not an endorsement by Google.

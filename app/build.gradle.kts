@@ -13,16 +13,17 @@ android {
         buildConfig = true
     }
 
-    androidResources { noCompress += "gguf" }
-    if (localFormatPrototype) sourceSets.getByName("main").assets.srcDir("src/localFormatPrototype/assets")
+    androidResources { noCompress += listOf("gguf", "litertlm") }
+    // Gemma is installed once from inside the app. The old bundled 350M is not packaged.
+    if (localFormatPrototype) packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
 
     defaultConfig {
         applicationId = "com.uhama.whisperpin"
         minSdk = 30
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
-        versionCode = 22
-        versionName = if (localFormatPrototype) "0.7.3-wp-local-test" else "0.7.3-wp"
+        versionCode = 23
+        versionName = if (localFormatPrototype) "0.8.0-wp-gemma-test" else "0.8.0-wp"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }
@@ -48,11 +49,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    @Suppress("DEPRECATION")
-    kotlinOptions { jvmTarget = "17" }
-
     testOptions { unitTests { isIncludeAndroidResources = true } }
 }
+
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -61,7 +61,8 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("org.apache.commons:commons-compress:1.27.1")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.ibm.icu:icu4j:78.3")

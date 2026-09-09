@@ -57,7 +57,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
             content.addView(this, LinearLayout.LayoutParams(-1, dp(12)))
         }
         val report = TextView(activity).apply {
-            text = "${totalRuns} essais français/anglais, dont 2 messages courts sans appel LLM.\nLe premier appel au modèle inclut son chargement.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
+            text = "${totalRuns} essais français/anglais, dont 2 messages courts sans appel LLM.\nLe chargement est mesuré si Gemma n’est pas déjà prêt.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
             textSize = 13f
             setTextIsSelectable(true)
             setPadding(0, dp(12), 0, dp(8))
@@ -128,7 +128,21 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                 "Bonjour voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut cordialement M. l’utilisateur.",
                 email, "French", layoutKind = LocalLayoutKind.EMAIL), listOf("Bonjour", "test", "cordialement", "utilisateur"),
                 grouping = LayoutGroupingExpectation(setOf(1, 19), forbidden = setOf(21))),
-        )
+            Case("EN · mail sans ponctuation · signature", LocalFormatRequest(
+                "Hello Nora please keep the 2 blue folders do not delete the originals thank you Eli",
+                email, "English", listOf("Nora", "Eli"), LocalLayoutKind.EMAIL),
+                listOf("Nora", "2", "not", "originals", "Eli"),
+                grouping = LayoutGroupingExpectation(setOf(2, 13), allowed = setOf(2, 8, 13, 15))),
+            Case("FR · courses avec compléments", LocalFormatRequest(
+                "des tomates cerises du pain de campagne du café moulu des pommes",
+                list, "French", layoutKind = LocalLayoutKind.LIST),
+                listOf("tomates", "cerises", "campagne", "café", "pommes"),
+                grouping = LayoutGroupingExpectation(setOf(3, 7, 10), allowed = setOf(3, 7, 10))),
+            Case("EN · liste avec compléments", LocalFormatRequest(
+                "green tea whole wheat bread apple juice", list, "English", layoutKind = LocalLayoutKind.LIST),
+                listOf("green", "tea", "wheat", "bread", "juice"),
+                grouping = LayoutGroupingExpectation(setOf(2, 5), allowed = setOf(2, 5))),
+        ).map { it.copy(request = it.request.copy(validation = LocalFormatValidation.GEMMA_PROJECTION)) }
     }
 
     private fun runBenchmark() {
@@ -137,10 +151,12 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
             append("Application : ${BuildConfig.VERSION_NAME}\n")
             append("Appareil : ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n")
             append("${examples.size} exemples synthétiques × 2 passages, sans cloud.\n")
-            append("Premier appel : moteur neuf, chargement inclus. Le cache de fichiers du système n'est pas vidé.\n")
+            append("Moteur partagé avec l’overlay. Le premier essai indique si Gemma était déjà chargé. Caches système/GPU non vidés.\n")
+            append("Configuration : LiteRT-LM 0.17.0 · GPU · MTP activé · thinking désactivé (budget 0).\n")
             append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Le texte est validé avant publication.\n")
             append("Mesure isolée : ne comprend pas l'arrêt ASR, l'affichage ni l'insertion dans une autre application.\n")
             append("La conservation du texte et les critères ciblés de regroupement sont évalués séparément. Un critère réussi ne valide pas tous les formats.\n\n")
+            append("Avant les essais : ${deviceSample()}\n\n")
         }
         var completed = 0
         var failed = false
@@ -151,7 +167,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     val cold = completed == 0
                     postUpdate("Passage $pass/2 · exemple ${index + 1}/${examples.size}\n${example.name}", completed, report.toString())
                     val start = SystemClock.elapsedRealtime()
-                    val loadMs = if (cold) engine.prepareForBenchmark() else null
+                    val preparation = if (cold) engine.prepareForBenchmarkInfo() else null
                     if (cancelled.get()) break@runs
                     var firstTextMs: Long? = null
                     val raw = backend.generate(example.request) { chunk ->
@@ -162,9 +178,11 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     val output = example.request.acceptOutput(raw)
                     val missing = example.expected.filterNot { hasTerm(output.orEmpty(), it) }
                     val unwanted = example.forbidden.filter { hasTerm(output.orEmpty(), it) }
-                    if (cold) report.append("Calcul : ${engine.runtimeName()} · 2 threads\n\n")
-                    report.append("Passage $pass · ${example.name} · ${if (cold) "moteur neuf" else "moteur chargé"}\n")
-                    report.append("Chargement : ${loadMs?.let { "$it ms" } ?: "déjà effectué"}\n")
+                    if (cold) report.append("Calcul : ${engine.runtimeName()}\n\n")
+                    if (cold) engine.lastLoadMs()?.let { report.append("Dernière initialisation du moteur partagé : $it ms\n\n") }
+                    report.append("Passage $pass · ${example.name} · ${if (preparation?.wasAlreadyLoaded == false) "chargement effectué" else "moteur chargé"}\n")
+                    report.append("Chargement : ${preparation?.takeUnless { it.wasAlreadyLoaded }?.let { "${it.loadMs} ms" } ?: "déjà effectué"}\n")
+                    preparation?.let { report.append("Attente de préparation (file comprise) : ${it.waitMs} ms\n") }
                     report.append("Premier fragment : ${firstTextMs?.let { "$it ms" } ?: if (example.request.layoutPolicy()?.directResult != null) "sans appel LLM" else "aucun"} ; fin : $totalMs ms\n")
                     report.append("Conservation du texte : ${if (output != null) "validée" else "rejetée"}\n")
                     val grouping = example.grouping?.evaluate(example.request, output)
@@ -191,8 +209,10 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
             if (!cancelled.get()) {
                 failed = true
                 report.append("Le test local n'a pas pu se terminer (${error.javaClass.simpleName}).\n")
+                report.append("État GPU : ${engine.runtimeName()} ; motif : ${engine.failureCode() ?: "indisponible"}. Aucun repli CPU ou cloud.\n")
             }
         } finally {
+            report.append("Après les essais : ${deviceSample()}\n")
             engine.close()
             val status = when {
                 cancelled.get() -> "Test interrompu · $completed/$totalRuns essais terminés"
@@ -203,6 +223,14 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
             postUpdate(status, completed, report.toString(), done = true)
         }
     }
+
+    private fun deviceSample(): String = runCatching {
+        val activity = activityRef.get() ?: return "échantillon indisponible"
+        val thermal = (activity.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).currentThermalStatus
+        val memory = android.app.ActivityManager.MemoryInfo()
+        (activity.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memory)
+        "PSS processus ${android.os.Debug.getPss() / 1024} Mio (mémoire GPU partagée potentiellement exclue), RAM disponible ${memory.availMem / (1024 * 1024)} Mio, état thermique Android $thermal"
+    }.getOrDefault("échantillon indisponible")
 
     private fun hasTerm(text: String, term: String): Boolean =
         Regex("(?iu)(?<![\\p{L}\\p{N}])${Regex.escape(term)}(?![\\p{L}\\p{N}])").containsMatchIn(text)

@@ -25,13 +25,19 @@ import java.io.File
 
 class MainActivity : AppCompatActivity() {
     private var localFormatBenchmark: LocalFormatBenchmarkDialog? = null
+    private var gemmaDownload: GemmaModelDownloadDialog? = null
+    private var gemmaSubtitle: TextView? = null
 
     override fun onStop() {
+        gemmaDownload?.close()
+        gemmaDownload = null
         localFormatBenchmark?.cancel()
         super.onStop()
     }
 
     override fun onDestroy() {
+        gemmaDownload?.close()
+        gemmaDownload = null
         localFormatBenchmark?.close()
         localFormatBenchmark = null
         super.onDestroy()
@@ -279,7 +285,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(vocabRow)
 
         fun engineLabel() = when (languagePrefs.formattingEngine) {
-            "local" -> "Local · LFM2.5-350M · découpage expérimental"
+            "local" -> "Local · Gemma 4 E2B · listes et mails (essai)"
             "cloud" -> "Cloud · le texte est envoyé à OpenRouter"
             else -> "Désactivé · vocabulaire et nombres conservés"
         }
@@ -294,9 +300,18 @@ class MainActivity : AppCompatActivity() {
                     languagePrefs.formattingEngine = values[index]
                     engineRow.findViewWithTag<TextView>("subtitle").text = engineLabel()
                     dialog.dismiss()
+                    if (values[index] == "local") {
+                        if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
+                        else prepareLocalFormatter()
+                    }
                 }.setNegativeButton("Annuler", null).show()
         }
         root.addView(engineRow)
+        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
+            val row = settingsRow("Installer Gemma 4 E2B", gemmaInstallLabel()) { showGemmaDownload() }
+            gemmaSubtitle = row.findViewWithTag("subtitle")
+            root.addView(row)
+        }
         root.addView(settingsRow("Dernier post-traitement", "Moteur utilisé et résultat · diagnostic copiable") {
             val report = PersistencePrefs(this).lastPostprocessingDiagnostic
             androidx.appcompat.app.AlertDialog.Builder(this)
@@ -307,8 +322,10 @@ class MainActivity : AppCompatActivity() {
                 .show()
         })
         if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
-            root.addView(settingsRow("Tester le modèle local", "6 exemples FR/EN · vitesse et regroupement") {
-                if (localFormatBenchmark?.isShowing != true) {
+            root.addView(settingsRow("Tester Gemma sur ce téléphone", "GPU · sans thinking · vitesse et fidélité FR/EN") {
+                if (GemmaModelStore(this).installedModel() == null) {
+                    showGemmaDownload()
+                } else if (localFormatBenchmark?.isShowing != true) {
                     localFormatBenchmark?.close()
                     localFormatBenchmark = LocalFormatBenchmarkDialog(this).also { it.show() }
                 }
@@ -363,6 +380,30 @@ class MainActivity : AppCompatActivity() {
             )
         }
         refresh()
+        gemmaSubtitle?.text = gemmaInstallLabel()
+    }
+
+    private fun gemmaInstallLabel(): String = if (GemmaModelStore(this).installedModel() != null)
+        "Installé · fonctionne hors ligne · listes et mails"
+    else "2,6 Go · téléchargement reprenable · puis utilisation hors ligne"
+
+    private fun showGemmaDownload() {
+        if (gemmaDownload?.isShowing == true) return
+        gemmaDownload?.close()
+        gemmaDownload = GemmaModelDownloadDialog(this, onInstalled = {
+            gemmaSubtitle?.text = gemmaInstallLabel()
+            prepareLocalFormatter()
+        }).also { it.show() }
+    }
+
+    private fun prepareLocalFormatter() {
+        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE && Settings.canDrawOverlays(this) &&
+            lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+            runCatching {
+                startForegroundService(Intent(this, OverlayService::class.java)
+                    .setAction(OverlayService.ACTION_PREPARE_LOCAL_FORMAT))
+            }
+        }
     }
     override fun onRequestPermissionsResult(c: Int, p: Array<String>, r: IntArray) {
         super.onRequestPermissionsResult(c, p, r); refresh()

@@ -150,6 +150,7 @@ class OverlayService : Service() {
         private const val SAMPLE_RATE = 16000
         const val ACTION_OPEN_NOTES = "com.uhama.whisperpin.OPEN_NOTES"
         const val ACTION_ARM_MIC = "com.uhama.whisperpin.ARM_MIC"
+        const val ACTION_PREPARE_LOCAL_FORMAT = "com.uhama.whisperpin.PREPARE_LOCAL_FORMAT"
         private const val DOUBLE_TAP_MS = 280L
         private const val RECORD_STOP_TIMEOUT_MS = 1_000L
         @Volatile var micArmed = false
@@ -254,6 +255,7 @@ class OverlayService : Service() {
             setLivePreviewVisible(true)
         }
         ensureLocalLoaded()
+        warmLocalFormatter()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -262,9 +264,16 @@ class OverlayService : Service() {
             // Si le modèle local n'était pas dispo au démarrage (pas encore téléchargé),
             // on retente de le charger (un seul chargement à la fois, cf. ensureLocalLoaded).
             ensureLocalLoaded()
+            warmLocalFormatter()
         }
+        if (intent?.action == ACTION_PREPARE_LOCAL_FORMAT) warmLocalFormatter()
         if (intent?.action == ACTION_OPEN_NOTES) archiveOrShowNotes()
         return START_STICKY
+    }
+
+    private fun warmLocalFormatter() {
+        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE && prefs.formattingEngine == "local" &&
+            GemmaModelStore(this).installedModel() != null) localFormatter.warm()
     }
 
     /** Charge le modèle local hors thread principal; l'ancien moteur est fermé avant toute nouvelle ouverture. */
@@ -778,14 +787,14 @@ class OverlayService : Service() {
                     run.formatStage = when {
                         run.localFormatting == null -> "Non disponible en local"
                         localDirect -> "Traitement local rapide…"
-                        else -> "LLM local en cours…"
+                        else -> "Gemma en cours…"
                     }
                     currentAnchor?.let(::positionLivePanel)
                 }
             }
             val session = run.localFormatting
             session?.finish(request, 5_000L) { chunk ->
-                val preview = policy?.preview(chunk)?.takeIf { value -> request.protectedTerms.all { it in value } }
+                val preview = request.previewOutput(chunk)
                 if (preview != null) main.post {
                     if (isCurrentRun(run) && state == State.TRANSCRIBING && !run.cancellation.isCancelled) {
                         updatingLiveText = true
@@ -898,6 +907,7 @@ class OverlayService : Service() {
                                 finalText = outText,
                                 injection = result,
                                 cloudSuppressed = capture.options.cloudSuppressedForSensitiveTarget,
+                                modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
                             )
                         }.onFailure {
                             Log.w(TAG, "event=postprocess_diagnostic outcome=unavailable type=${it.javaClass.simpleName}")
@@ -1157,7 +1167,8 @@ class OverlayService : Service() {
             "email" -> LocalLayoutKind.EMAIL
             else -> null
         } else null
-        return LocalFormatRequest(source, options.format.instructions + numbers, options.language.cleanupLanguageName, spellings, layout)
+        return LocalFormatRequest(source, options.format.instructions + numbers, options.language.cleanupLanguageName, spellings, layout,
+            validation = if (layout != null) LocalFormatValidation.GEMMA_PROJECTION else LocalFormatValidation.EXACT_LAYOUT)
     }
 
     private fun protectedVocabularyTerms(text: String): List<String> = Vocabulary.corrections(this)
@@ -1305,6 +1316,14 @@ class OverlayService : Service() {
 
     private fun pillRect(lp: WindowManager.LayoutParams): Rect = Rect(lp.x, lp.y, lp.width, lp.height)
 
+    private fun localFormatStatus(): String = when (localFormatter.runtimeName()) {
+        "litert-lm-gpu-mtp-thinking-off" -> "Gemma prêt"
+        "loading" -> "Gemma se prépare…"
+        "model-missing" -> "Gemma à installer"
+        "gpu-error", "loading-timeout", "cancellation-pending" -> "Gemma indisponible"
+        else -> "Gemma prévu"
+    }
+
     private fun positionLivePanel(anchor: Anchor) {
         val panel = livePanel ?: return
         val panelParams = liveParams ?: return
@@ -1325,11 +1344,11 @@ class OverlayService : Service() {
             options?.cloudCleanupEnabled == true -> "Cloud prévu"
             options == null && prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled -> "Cloud prévu"
             format.instructions.isBlank() -> "Sans LLM"
-            options?.localFormattingEnabled == true -> if (format.id in setOf("list", "email")) "Local prévu" else "Non disponible en local"
+            options?.localFormattingEnabled == true -> if (format.id in setOf("list", "email")) localFormatStatus() else "Non disponible en local"
             options?.cloudSuppressedForSensitiveTarget == true -> "Cloud suspendu"
             options?.cloudCleanupEnabled == true -> "Cloud prévu"
             options != null -> "Désactivé"
-            prefs.formattingEngine == "local" -> "Local prévu"
+            prefs.formattingEngine == "local" -> localFormatStatus()
             prefs.formattingEngine == "cloud" -> "Cloud prévu"
             else -> "Désactivé"
         }

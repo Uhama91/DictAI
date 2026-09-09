@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       local_format_prototype:
-        description: Build the experimental local lists/email formatter
+        description: Build the Gemma GPU lists/email prototype
         type: boolean
         default: false
       publish_prerelease:
@@ -27,11 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -49,11 +49,8 @@ jobs:
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" bash scripts/test_transcribe_cpp_bundle.sh
 
       - name: Build isolated local formatter
+        if: env.PROTOTYPE != 'true'
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" DICTAI_CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake" bash scripts/build_local_format_android.sh
-
-      - name: Fetch verified bundled format model
-        if: env.PROTOTYPE == 'true'
-        run: python3 scripts/fetch_local_format_model.py
 
       - name: Run unit tests and build selected APK
         shell: bash
@@ -100,12 +97,13 @@ jobs:
         run: |
           cd dist
           sha256sum -c SHA256SUMS
-          tag="local-layout-test-$GITHUB_RUN_ID"
+          tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.7.3 Android ARM64 : diagnostic du traitement réel, six cas de regroupement FR/EN, correction des plages de nombres.' \
-            'Le 350M reste inclus pour comparaison. La qualité de son découpage listes/mails n’est pas encore validée ; cette version ne change pas le modèle.' \
-            'Après une dictée en Liste ou Mail : Dernier post-traitement → Copier. Le menu Tester le modèle local compare aussi six exemples FR/EN.' \
-            'APK compilée et vérifiée par GitHub Actions. Le mode cloud reste disponible.' > release-notes.md
+            'DictAI 0.8.0 Android ARM64 : prototype Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
+            'Installez cette APK, ouvrez DictAI puis touchez Installer Gemma 4 E2B : téléchargement unique de 2,6 Go, reprenable et vérifié. Le modèle est ensuite utilisable hors ligne.' \
+            'Choisissez Local puis Liste ou Mail. Le menu Tester Gemma sur ce téléphone mesure neuf exemples FR/EN ; Dernier post-traitement indique le moteur réellement appliqué et le délai final.' \
+            'Cette version est expérimentale : aucune latence GPU ni qualité générale n’est garantie sur votre appareil. Une sortie infidèle conserve la transcription. Aucun repli cloud automatique ; votre mode cloud avec clé API reste disponible.' \
+            'APK compilée, testée et vérifiée par GitHub Actions. Le poids 350M n’est plus inclus.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.7.3 — diagnostic du post-traitement local' --notes-file release-notes.md
+            --title 'DictAI 0.8.0 — essai Gemma sur GPU' --notes-file release-notes.md

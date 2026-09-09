@@ -22,6 +22,7 @@ internal object PostprocessingDiagnostic {
         finalText: String,
         injection: InjectionResult,
         cloudSuppressed: Boolean,
+        modelLoadMs: Long? = null,
     ): String = buildString {
         append("DictAI — dernier post-traitement\n")
         append("Application : $version\n")
@@ -36,7 +37,9 @@ internal object PostprocessingDiagnostic {
         }}\n")
         if (requested == Requested.LOCAL) {
             append("Modèle : ${LocalFormatEngine.MODEL_FILE}\n")
-            append("Calcul : ${runtime.takeIf { it in setOf("arm64-baseline", "arm64-dotprod-fp16", "not-loaded") } ?: "indéterminé"}\n")
+            append("Calcul : ${runtime.takeIf { it in setOf("arm64-baseline", "arm64-dotprod-fp16", "not-loaded", "loading", "loading-timeout", "model-missing", "gpu-error", "cancellation-pending", "litert-lm-gpu-mtp-thinking-off") } ?: "indéterminé"}\n")
+            if (runtime == "litert-lm-gpu-mtp-thinking-off") append("Thinking : désactivé · budget 0 · MTP activé\n")
+            modelLoadMs?.takeIf { it >= 0 }?.let { append("Dernier chargement du moteur partagé : $it ms (peut précéder la dictée)\n") }
             append("Appel natif pour ce résultat : ${if (local?.nativeStarted == true) "oui" else "non"}\n")
             append("Origine : ${when (local?.route) {
                 "direct" -> "réponse directe"

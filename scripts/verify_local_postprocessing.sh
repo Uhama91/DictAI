@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-export JAVA_HOME="${JAVA_HOME:-/home/ullie/.cache/dictai-build-tools/java/usr/lib/jvm/java-17-openjdk-amd64}"
+if [[ "${1:-}" == "--prototype" && $# == 1 ]]; then
+    exec bash "$repo_root/scripts/verify_gemma_android.sh"
+fi
+export JAVA_HOME="${JAVA_HOME:-/home/ullie/.cache/dictai-build-tools/java21/usr/lib/jvm/java-21-openjdk-amd64}"
 export ANDROID_HOME="${ANDROID_HOME:-/home/ullie/.cache/dictai-build-tools/sdk}"
 export GRADLE_USER_HOME="${GRADLE_USER_HOME:-/home/ullie/.cache/dictai-build-tools/gradle}"
 export PATH="$JAVA_HOME/bin:$PATH"
@@ -19,7 +22,6 @@ if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--prototype" ) ]]; then
     exit 2
 fi
 bash scripts/build_local_format_android.sh
-python3 scripts/fetch_local_format_model.py --verify-only
 python3 -m unittest scripts/test_check_apk_native_alignment.py -v
 ./gradlew --no-daemon testDebugUnitTest assembleDebug --stacktrace -Djavax.net.ssl.trustStore=/home/ullie/.cache/dictai-build-tools/cacerts
 verify_apk() {
@@ -58,37 +60,4 @@ Les tests couvrent notamment la fidélité intégrale des mots et de chaque pré
 """
 Path('docs/VERIFICATION-POST-TRAITEMENT.md').write_text(report)
 print(f'Normal APK verified: {destination.stat().st_size} bytes, {count} JVM tests, model absent, SHA256={checksum}')
-REPORT
-if [[ "${1:-}" != "--prototype" ]]; then exit; fi
-./gradlew --no-daemon -PlocalFormatPrototype=true assembleDebug --stacktrace -Djavax.net.ssl.trustStore=/home/ullie/.cache/dictai-build-tools/cacerts
-verify_apk app/build/outputs/apk/debug/app-debug.apk
-python3 -B - <<'REPORT'
-from pathlib import Path
-import zipfile,hashlib,shutil,json
-apk=Path('app/build/outputs/apk/debug/app-debug.apk')
-version=json.loads((apk.parent/'output-metadata.json').read_text())['elements'][0]['versionName']
-with zipfile.ZipFile(apk) as archive:
- model='assets/local-format/LFM2.5-350M-Q4_K_M.gguf'
- assert [n for n in archive.namelist() if n.endswith('.gguf')]==[model]
- assert archive.getinfo(model).file_size==229312224
- assert archive.getinfo(model).compress_type==zipfile.ZIP_STORED
- with archive.open(model) as stream:assert hashlib.file_digest(stream,'sha256').hexdigest()=='7e6f72643caafc9a68256686638c4d7916f2cec76d1df478d4c3ddcd95a6aed4'
- for name in ['LICENSE.txt','NOTICE.txt','layout-list.prompt','layout-email.prompt']:assert 'assets/local-format/'+name in archive.namelist()
- for name in ['libdictai_llm.so','libdictai_llm_arm82.so']:assert 'lib/arm64-v8a/'+name in archive.namelist()
-destination=apk.parents[1]/'verified/app-local-layout-test.apk';shutil.copyfile(apk,destination)
-with destination.open('rb') as stream:checksum=hashlib.file_digest(stream,'sha256').hexdigest()
-with Path('docs/VERIFICATION-POST-TRAITEMENT.md').open('a') as report:
- report.write(f"""
-## Prototype de mise en page locale — {version}
-
-- APK construite et signature, alignement ELF/ZIP 16 Ko vérifiés.
-- Un seul GGUF inclus, LFM2.5-350M Q4_K_M : taille, SHA-256, stockage sans compression, licence et notice vérifiés dans l’APK finale.
-- Deux variantes natives et deux prompts partagés présents.
-- Taille prototype : {destination.stat().st_size} octets.
-- SHA-256 prototype : `{checksum}`.
-- Fichier : `{destination}`.
-
-Le prototype conserve le texte et choisit uniquement puces/paragraphes. Il n’est pas validé comme remplaçant général du cloud. Mesure sur téléphone nécessaire ; aucune installation effectuée par Codex.
-""")
-print(f'Prototype APK verified: {destination.stat().st_size} bytes, SHA256={checksum}')
 REPORT

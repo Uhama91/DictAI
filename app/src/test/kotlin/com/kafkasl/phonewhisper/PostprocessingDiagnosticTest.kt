@@ -4,6 +4,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PostprocessingDiagnosticTest {
+    @Test fun gemmaGpuConfigurationAndMissingModelAreExplicit() {
+        val value = report(runtime = "litert-lm-gpu-mtp-thinking-off")
+        assertTrue(value.contains("gemma-4-E2B-it.litertlm"))
+        assertTrue(value.contains("Thinking : désactivé · budget 0 · MTP activé"))
+        val unavailable = report(LocalFinishDiagnostic("generated", "backend_error", false, 2),
+            PostprocessingDiagnostic.Applied.ORIGINAL, runtime = "model-missing")
+        assertTrue(unavailable.contains("model-missing"))
+        assertTrue(unavailable.contains("transcription conservée"))
+        assertFalse(unavailable.contains("LLM local appliqué"))
+    }
+
     private fun report(
         local: LocalFinishDiagnostic? = LocalFinishDiagnostic("generated", "applied", true, 700),
         applied: PostprocessingDiagnostic.Applied = PostprocessingDiagnostic.Applied.LOCAL_LLM,
