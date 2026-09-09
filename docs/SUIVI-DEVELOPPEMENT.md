@@ -2,9 +2,11 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
-## Texte corrigé : retrait fiable des hésitations — 0.9.4 en vérification
+## Texte corrigé : retrait fiable des hésitations — 0.9.4 publiée et vérifiée
 
 Ullie confirme explicitement qu’il utilisait déjà Texte corrigé ; il ne s’agit pas de lui redemander le format. Le code permettait une sortie avec hésitations et un repli inchangé. Préparation déterministe du texte avant modèle et en repli, protection des segments réellement saisis à la main, anticipation cohérente et compteur dans le diagnostic. Aucun changement de modèle, de thinking, des plafonds d’attente ou des autres formats. [Comportement, cas protégés et vérification](HESITATIONS-TEXTE-CORRIGE-0.9.4.md).
+
+Publication vérifiée le 9 septembre 2026 : [APK directe 0.9.4](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34388786570/dictai-local-layout-test.apk), [GitHub Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34388786570), source `5ee4c5a959694fe4846307a52a2115ea35c1d17d`. Téléchargement public complet HTTP 200, **78 833 036 octets**, SHA-256 `7dad952b7d9f204bf256823126dddbce62855bc55d982b922da021fd63def42c`. Empreinte identique à l’APK locale finale, à SHA256SUMS, au digest GitHub et au journal CI ; les **1 048 entrées ZIP** sont également identiques. Certificat de mise à jour, version code33 / 0.9.4-wp-gemma-test et alignement ZIP/natif 16 Ko vérifiés. **429 tests JVM / 61 suites**, 18 tests du contrôleur APK et contrat natif réussis. Aucune génération GPU Android ni essai terrain de ce correctif effectué par Codex.
 
 ## Retour terrain du 9 septembre — mail, liste et captures
 
