@@ -2,6 +2,10 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Galerie, notes volontaires et vocabulaire lettre par lettre — essai 0.9.3
+
+Nouvelle précision : Ullie efface habituellement lettre par lettre. La suggestion doit suivre le mot source jusqu’au remplacement, y compris AF → CAF et petits groupes. La sauvegarde des captures/photos dans Pictures/DictAI s’ajoute au presse-papier. Les notes avec captures sont rétablies uniquement lors d’une sauvegarde volontaire, avec dix images maximum et exports PDF/HTML autonome. [Fonctionnement, limites et essais](GALERIE-NOTES-VOCABULAIRE-0.9.3.md). Construction et publication en cours ; aucune validation Gboard/galerie sur téléphone déclarée.
+
 ## Presse-papier et vocabulaire — essai 0.9.2 publié
 
 Nouvelle priorité explicite : abandonner le collage automatique et les nouvelles notes visuelles. Copier une capture/photo à la fois ; Gboard est le clavier de référence choisi par Ullie. Il colle lui-même chaque image puis termine la dictée pour insérer le texte. La caméra interne est confirmée fonctionnelle par son retour. Les anciennes notes restent conservées.

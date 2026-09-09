@@ -47,13 +47,13 @@ class VocabularyCorrectionTrackerTest {
         edit("", "Marie", 0, 0, 5, at = 20_000)
         assertNull(suggestion("Marie", 21_000))
     }
-    @Test fun ordinaryTypingBackspaceAndFragmentsAreIgnored() {
+    @Test fun ordinaryTypingIsIgnoredAndSpellingEditsUseTheWholeWord() {
         edit("Bonjour", "Bonjour Marie", 7, 0, 6)
         assertNull(suggestion("Bonjour Marie"))
         edit("Bonjour Marie", "Bonjour Mari", 12, 1, 0, 13, 13)
-        assertNull(suggestion("Bonjour Mari"))
+        assertEquals(VocabularyCorrectionTracker.Suggestion("Marie", "Mari"), suggestion("Bonjour Mari"))
         edit("didier", "Dydier", 0, 3, 3, 0, 3)
-        assertNull(suggestion("Dydier"))
+        assertEquals(VocabularyCorrectionTracker.Suggestion("didier", "Dydier"), suggestion("Dydier"))
     }
     @Test fun reversedSelectionAndPhrasesSupported() {
         edit("new york", "New York City", 0, 8, 13, 8, 0)
@@ -88,10 +88,10 @@ class VocabularyCorrectionTrackerTest {
         assertTrue(tracker.consume(current, "Marion"))
         assertNull(suggestion("Marion", 3_000))
     }
-    @Test fun activeSelectionAndCaretInsideHideSuggestion() {
+    @Test fun activeSelectionHidesSuggestionButCaretInsideTheCorrectionDoesNot() {
         edit("mari", "Marie", 0, 4, 5, 0, 4)
         assertNull(tracker.suggestion("Marie", 0, 5, false, 1_000))
-        assertNull(tracker.suggestion("Marie", 3, 3, false, 1_000))
+        assertNotNull(tracker.suggestion("Marie", 3, 3, false, 1_000))
         assertNull(suggestion("Marie demain"))
     }
     @Test fun gboardStableCompositionMayBeConfirmedWithoutTypingASpace() {
@@ -133,7 +133,55 @@ class VocabularyCorrectionTrackerTest {
         tracker.onSelectionChanged("cloud arrive", 0, 5)
         tracker.onSelectionChanged("cloud arrive", 12, 12)
         edit("cloud arrive", "cloud arriv", 11, 1, 0, 12, 12)
-        assertNull(suggestion("cloud arriv"))
+        assertEquals(VocabularyCorrectionTracker.Suggestion("arrive", "arriv"), suggestion("cloud arriv"))
+    }
+
+    @Test fun afDeletedLetterByLetterThenReplacedByCafInPause() {
+        edit("AF", "A", 1, 1, 0, 2, 2)
+        edit("A", "", 0, 1, 0, 1, 1, at = 100)
+        assertNull(suggestion("", 2_000))
+        edit("", "C", 0, 0, 1, at = 300)
+        edit("C", "CA", 1, 0, 1, at = 400)
+        edit("CA", "CAF", 2, 0, 1, at = 500)
+        assertEquals(VocabularyCorrectionTracker.Suggestion("AF", "CAF"), suggestion("CAF", 1_500))
+    }
+    @Test fun insertingMissingCAtTheBeginningDoesNotRequireMovingCaretToTheEnd() {
+        edit("AF", "CAF", 0, 0, 1, 0, 0)
+        assertEquals(VocabularyCorrectionTracker.Suggestion("AF", "CAF"),
+            tracker.suggestion("CAF", 1, 1, false, 1_000))
+    }
+    @Test fun gboardCanReplaceTheWholeComposingRegionForOneMissingLetter() {
+        edit("Je suis Haron", "Je suis Haroun", 8, 5, 6, 12, 12)
+        assertEquals(VocabularyCorrectionTracker.Suggestion("Haron", "Haroun"), suggestion("Je suis Haroun"))
+    }
+    @Test fun ordinaryLetterByLetterTypingDoesNotTeachIntermediatePrefixes() {
+        edit("Bonjour ", "Bonjour C", 8, 0, 1)
+        edit("Bonjour C", "Bonjour CA", 9, 0, 1, at = 200)
+        edit("Bonjour CA", "Bonjour CAF", 10, 0, 1, at = 400)
+        assertNull(suggestion("Bonjour CAF", 2_000))
+    }
+    @Test fun deletingAnExistingNameOnlyNeverOffersAnEmptyReplacement() {
+        edit("Haron", "Haro", 4, 1, 0, 5, 5)
+        edit("Haro", "Har", 3, 1, 0, 4, 4, at = 100)
+        edit("Har", "Ha", 2, 1, 0, 3, 3, at = 200)
+        edit("Ha", "H", 1, 1, 0, 2, 2, at = 300)
+        edit("H", "", 0, 1, 0, 1, 1, at = 400)
+        assertNull(suggestion("", 10_000))
+    }
+
+    @Test fun aPhraseCanBeErasedOneLetterAtATimeAndReplaced() {
+        var text = "Bonjour ma yotte demain"
+        var caret = 16
+        repeat(8) { index ->
+            val next = text.removeRange(caret - 1, caret)
+            edit(text, next, caret - 1, 1, 0, caret, caret, at = index * 100L)
+            text = next; caret--
+            tracker.onSelectionChanged(text, caret, caret)
+        }
+        assertEquals("Bonjour  demain", text)
+        assertNull(suggestion(text, 2_000))
+        edit(text, "Bonjour Maillot demain", 8, 0, 7, at = 2_100)
+        assertEquals(VocabularyCorrectionTracker.Suggestion("ma yotte", "Maillot"), suggestion("Bonjour Maillot demain", 3_100))
     }
 
 }

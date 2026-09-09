@@ -1,5 +1,7 @@
 # DictAI 0.9.2 — image dans Gboard et vocabulaire explicite
 
+> Le retour utilisateur conduit à [0.9.3](GALERIE-NOTES-VOCABULAIRE-0.9.3.md) : correction lettre par lettre, sauvegarde dans la galerie et contexte image des notes volontaires. Ce document conserve le bilan de 0.9.2.
+
 Demande d’Ullie du 9 septembre 2026, après l’échec du collage automatique 0.9.1 : une capture ou photo à la fois dans le presse-papier, collage manuel depuis **Gboard**, puis insertion du texte en fin de dictée. Abandon des nouvelles notes visuelles et des lots d’images. La caméra interne vient d’être testée avec succès par Ullie ; elle est conservée. Le LLM et ses délais ne changent pas.
 
 ## Images

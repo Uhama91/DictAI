@@ -1,6 +1,6 @@
 package com.kafkasl.phonewhisper
 
-/** Tracks explicit replacements; recognition changes must use onProgrammaticTextChanged. */
+/** Tracks manual spelling edits and replacements; recognition changes never start learning. */
 internal class VocabularyCorrectionTracker(
     val settleDelayMillis: Long = 1_000L,
     private val editTimeoutMillis: Long = 15_000L,
@@ -20,17 +20,18 @@ internal class VocabularyCorrectionTracker(
     }
     private var change: Change? = null
     private var pending: Pending? = null
+    private var typing: Pending? = null
     val hasPending: Boolean get() = pending != null
     private data class Selection(val text: String, val start: Int, val end: Int)
     private var selected: Selection? = null
-    fun reset() { change = null; pending = null; selected = null }
+    fun reset() { change = null; pending = null; selected = null; typing = null }
     fun beforeChange(text: String, start: Int, count: Int, afterCount: Int, selectionStart: Int, selectionEnd: Int) {
         if (start !in 0..text.length || count < 0 || start + count > text.length || afterCount < 0) {
             reset(); return
         }
         // Some IMEs collapse the selection before sending the replacement to TextWatcher.
-        // Accept only the exact range that the user actually selected in the same source text.
-        val remembered = selected?.takeIf { it.text == text && it.start == start && it.end == start + count }
+        // Keep a selected phrase only when the actual edit is contained in that same source range.
+        val remembered = selected?.takeIf { it.text == text }
         change = Change(text, start, count, afterCount,
             remembered?.start ?: selectionStart, remembered?.end ?: selectionEnd)
         selected = null
@@ -38,31 +39,69 @@ internal class VocabularyCorrectionTracker(
     fun afterChange(text: String, nowMillis: Long) {
         val edit = change ?: return
         change = null
-        val insertedEnd = edit.start + edit.afterCount
-        if (insertedEnd > text.length || text != edit.text.take(edit.start) + text.substring(edit.start, insertedEnd) + edit.text.drop(edit.start + edit.count)) {
-            pending = null; return
+        // Gboard may report a whole composing region although only one letter changed.
+        // Compute the actual edit before extending the corrected word or selected phrase.
+        val precise = (edit.count == 0 || edit.afterCount == 0) &&
+            text.length == edit.text.length - edit.count + edit.afterCount &&
+            text.startsWith(edit.text.take(edit.start)) && text.endsWith(edit.text.drop(edit.start + edit.count))
+        // With adjacent identical spaces/letters, a minimal diff can move a backspace to the
+        // other side of the caret. Prefer the verified IME position for pure insertions/deletions.
+        val start = if (precise) edit.start else edit.text.commonPrefixWith(text).length
+        val suffixLength = edit.text.drop(start).commonSuffixWith(text.drop(start)).length
+        val oldEnd = if (precise) start + edit.count else edit.text.length - suffixLength
+        val newEnd = if (precise) start + edit.afterCount else text.length - suffixLength
+        if (start == oldEnd && start == newEnd) return
+        val newlyTyped = typing
+        if (newlyTyped != null && edit.text == newlyTyped.text && start >= newlyTyped.start && oldEnd <= newlyTyped.end) {
+            val length = newlyTyped.replacement.length - (oldEnd - start) + (newEnd - start)
+            typing = newlyTyped.copy(replacement = text.substring(newlyTyped.start, newlyTyped.start + length), changedAt = nowMillis)
+            return
         }
+        typing = null
         val previous = pending
         if (previous != null && edit.text == previous.text && nowMillis - previous.changedAt in 0..editTimeoutMillis &&
-            edit.start >= previous.start && edit.start + edit.count <= previous.end) {
-            val replacementLength = previous.replacement.length - edit.count + edit.afterCount
+            previous.replacement.isEmpty() && oldEnd == previous.start && newEnd == start) {
+            // Backspace can cross the space between two misrecognized words. Keep both source
+            // words instead of forgetting the first deleted word when the next deletion starts.
+            var first = start
+            while (first > 0 && isWordCharacter(edit.text[first - 1])) first--
+            val from = (edit.text.substring(first, previous.start) + previous.from).trim()
+            if (isVocabularyTerm(from)) {
+                pending = Pending(from, text.take(first), previous.suffix, text.substring(first, start), nowMillis)
+                return
+            }
+        }
+        if (previous != null && edit.text == previous.text && nowMillis - previous.changedAt in 0..editTimeoutMillis &&
+            start >= previous.start && oldEnd <= previous.end) {
+            val replacementLength = previous.replacement.length - (oldEnd - start) + (newEnd - start)
             pending = previous.copy(replacement = text.substring(previous.start, previous.start + replacementLength), changedAt = nowMillis)
             return
         }
         pending = null
-        val first = minOf(edit.selectionStart, edit.selectionEnd)
-        val last = maxOf(edit.selectionStart, edit.selectionEnd)
-        if (first < 0 || first == last || edit.start != first || edit.count != last - first) return
-        val selected = edit.text.substring(first, last)
-        val from = selected.trim()
-        if (!isVocabularyTerm(from)) return
-        val trimmedStart = first + selected.indexOfFirst { !it.isWhitespace() }
-        val trimmedEnd = trimmedStart + from.length
-        if ((trimmedStart > 0 && isWordCharacter(edit.text[trimmedStart - 1])) ||
-            (trimmedEnd < edit.text.length && isWordCharacter(edit.text[trimmedEnd]))) return
-        pending = Pending(from, edit.text.take(edit.start), edit.text.drop(edit.start + edit.count), text.substring(edit.start, insertedEnd), nowMillis)
+        var first = minOf(edit.selectionStart, edit.selectionEnd)
+        var last = maxOf(edit.selectionStart, edit.selectionEnd)
+        if (first < 0 || first == last || start < first || oldEnd > last) {
+            // In-place spelling edits count too: AF -> CAF, Haron -> Haroun, repeated backspace.
+            // Ordinary words typed after a space have no existing source word to learn from.
+            val inserted = text.substring(start, newEnd)
+            if (start == oldEnd && inserted.any { it.isWhitespace() }) return
+            first = start
+            last = oldEnd
+        }
+        while (first > 0 && isWordCharacter(edit.text[first - 1])) first--
+        while (last < edit.text.length && isWordCharacter(edit.text[last])) last++
+        val source = edit.text.substring(first, last)
+        val from = source.trim()
+        val replacementEnd = last + text.length - edit.text.length
+        if (replacementEnd < first || replacementEnd > text.length) return
+        if (!isVocabularyTerm(from)) {
+            if (from.isEmpty()) typing = Pending("", edit.text.take(first), edit.text.drop(last), text.substring(first, replacementEnd), nowMillis)
+            return
+        }
+        pending = Pending(from, edit.text.take(first), edit.text.drop(last), text.substring(first, replacementEnd), nowMillis)
     }
     fun onSelectionChanged(text: String, start: Int, end: Int) {
+        if (typing?.let { text == it.text && (start !in it.start..it.end || end !in it.start..it.end) } == true) typing = null
         if (change == null) {
             if (start >= 0 && end >= 0 && start != end) selected = Selection(text, minOf(start, end), maxOf(start, end))
             else if (selected?.let { it.text != text || start !in listOf(it.start, it.end) } == true) selected = null
@@ -74,6 +113,8 @@ internal class VocabularyCorrectionTracker(
     fun onProgrammaticTextChanged(text: String) {
         change = null
         selected = null
+        typing = typing?.takeIf { text.startsWith(it.prefix + it.replacement) }
+            ?.let { it.copy(suffix = text.substring(it.end)) }
         val candidate = pending ?: return
         // Recognition may revise its unedited continuation while the replacement stays intact.
         if (text.startsWith(candidate.prefix + candidate.replacement) &&
@@ -89,7 +130,6 @@ internal class VocabularyCorrectionTracker(
         // Save tap may confirm that stable spelling; no rule is ever added by this tracker alone.
         if (text != candidate.text || selectionStart < 0 || selectionStart != selectionEnd ||
             settledFor < if (hasComposingText) maxOf(settleDelayMillis, 1_500L) else settleDelayMillis) return null
-        if (selectionStart > candidate.start && selectionStart < candidate.end) return null
         val to = candidate.replacement.trim()
         if (!isVocabularyTerm(to) || candidate.from == to) return null
         return Suggestion(candidate.from, to)

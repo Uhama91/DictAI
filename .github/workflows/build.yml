@@ -99,13 +99,13 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.9.2 Android ARM64 : captures et photos copiées une par une, apprentissage explicite du vocabulaire.' \
-            'La copie image ne dépend plus du champ de conversation. Le JPEG est copié sans seconde compression ; la fin de dictée tente l’insertion du texte sans remplacer l’image si elle réussit directement. Le repli texte utilise le presse-papier si nécessaire.' \
-            'Une capture ou photo remplace le contenu courant du presse-papier. Collez-la manuellement depuis Gboard avant la suivante. Aucun collage automatique, aucun nouveau repère ni image ajouté aux notes. La réception et les suggestions Gboard restent à vérifier sur téléphone.' \
-            'Appareil photo : petit viseur Camera2 intégré, pastille visible, micro en pause puis repris. Permission caméra Android au premier usage. Aucun lancement de la caméra externe, aucune permission galerie.' \
-            'Vocabulaire : après remplacement volontaire, suggestion temporaire Enregistrer ou fermer ; les corrections validées sont locales et appliquées pendant le streaming sans LLM. Les notes et images déjà enregistrées restent accessibles avec leurs exports.' \
-            'Le mode Texte reste sans LLM. Gemma déjà installé, GPU/MTP, thinking désactivé et délais de correction conservés. Aucun traitement des images par le modèle de correction.' \
-            'Compilation et tests JVM vérifiés dans Actions. Aucun appareil Android connecté à Codex : comportement caméra, réception des pièces jointes et latence photo à confirmer sur appareil.' > release-notes.md
+            'DictAI 0.9.3 Android ARM64 : correction du vocabulaire lettre par lettre, captures et photos enregistrées dans Photos / DictAI.' \
+            'Le mot ou petit groupe source est suivi pendant les effacements et la nouvelle saisie, sans sélection obligatoire. La suggestion temporaire nécessite un appui explicite pour enregistrer la règle locale, appliquée pendant la transcription sans LLM.' \
+            'Une capture ou photo est enregistrée dans Pictures/DictAI et copiée au presse-papier. Le collage depuis Gboard dépend toujours de l’application destinataire ; les images sont aussi accessibles depuis son sélecteur de photos.' \
+            'Glisser vers la gauche conserve volontairement la note et ses captures, avec au maximum dix images placées près du texte visible lors de chaque capture. La transcription ordinaire ne reçoit pas de repères image supplémentaires.' \
+            'Mes notes : lire, partager ou enregistrer un PDF ; exporter un HTML autonome avec ses images intégrées. Un agent outillé peut extraire les images du HTML ; leur analyse visuelle n’est pas automatique dans tous les chatbots.' \
+            'Caméra interne conservée. Aucun appel LLM pour les images ou exports. Texte sans LLM, Gemma GPU/MTP avec thinking désactivé et délais inchangés.' \
+            'Tests JVM et compilation APK/tests Android dans Actions. Pas d’appareil Android connecté à Codex : galerie, gestes IME/Gboard et rendu PDF restent à valider sur téléphone.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.9.2 — presse-papier image et vocabulaire pendant la dictée' --notes-file release-notes.md
+            --title 'DictAI 0.9.3 — vocabulaire lettre par lettre, galerie et notes illustrées' --notes-file release-notes.md

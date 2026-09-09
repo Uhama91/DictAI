@@ -224,6 +224,7 @@ class OverlayService : Service() {
     private var preserveImageClipboard = false
     private var imageDeliveryBusy = false
     private var exportAfterImageDelivery: String? = null
+    private var archiveAfterImageDelivery = false
     private var imageStrip: LinearLayout? = null
     private var mediaButtons = mutableListOf<ImageButton>()
     private var shownImageIds = emptyList<String>()
@@ -666,7 +667,7 @@ class OverlayService : Service() {
     private fun stopRec() {
         if (state != State.RECORDING && state != State.PAUSED) return
         val run = activeRun ?: return
-        if (imageDeliveryBusy || imageStore.pending()?.let { it.noteId == activeNoteId && !it.complete } == true) {
+        if (imageDeliveryBusy || imageStore.pending() != null) {
             run.finishAfterCapture = true
             if (state == State.RECORDING) pauseRec()
             return
@@ -787,7 +788,7 @@ class OverlayService : Service() {
             main.post {
                 if (!isCurrentRun(run) || run.cancellation.isCancelled || localEngineLifecycle.isDestroyed()) return@post
                 val text = localText ?: liveText?.text?.toString().orEmpty()
-                val saved = notes.save(activeNoteId, text)
+                val saved = saveNoteWithCaptures(text)
                 completeRunOnMain(run)
                 toast("Note enregistrée : ${saved.title}")
                 showNotesOverlay()
@@ -892,7 +893,7 @@ class OverlayService : Service() {
             run.finalPublication.submit(SystemClock.uptimeMillis()) {
                 val published = run.cancellation.publishIfActive {
                     if (run.exportNote) {
-                        val saved = notes.save(activeNoteId, outText ?: liveText?.text?.toString().orEmpty())
+                        val saved = saveNoteWithCaptures(outText ?: liveText?.text?.toString().orEmpty())
                         main.post { launchNoteExport(saved, automatic = run.automaticNoteShare) }
                     } else if (!outText.isNullOrBlank()) {
                         activeNoteId?.let { notes.save(it, outText) }
@@ -1067,11 +1068,16 @@ class OverlayService : Service() {
     /** Only the current run may release the busy state; an old worker cannot reset a newer run. */
     private fun completeRunOnMain(run: ActiveDictationRun) {
         if (localEngineLifecycle.isDestroyed() || activeRun !== run) return
+        if (imageDeliveryBusy || imageStore.pending() != null) {
+            main.postDelayed({ completeRunOnMain(run) }, 60)
+            return
+        }
         run.formatOffer?.let(main::removeCallbacks)
         run.formatOffer = null
         run.formatOfferRequest = null
         run.localFormatting?.close()
         activeRun = null
+        archiveAfterImageDelivery = false
         recoveredDraft = null
         activeNoteId = null
         draftStore.clear()
@@ -1635,8 +1641,8 @@ class OverlayService : Service() {
         val mediaRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         mediaToolbar = mediaRow
         listOf(
-            Triple(R.drawable.ic_note_screenshot, "Capturer l’écran et copier l’image", { captureNoteImage(NoteImageKind.SCREENSHOT) }),
-            Triple(R.drawable.ic_note_camera, "Prendre une photo et copier l’image", { captureNoteImage(NoteImageKind.CAMERA) }),
+            Triple(R.drawable.ic_note_screenshot, "Capturer l’écran, enregistrer dans Photos et copier", { captureNoteImage(NoteImageKind.SCREENSHOT) }),
+            Triple(R.drawable.ic_note_camera, "Prendre une photo, enregistrer dans Photos et copier", { captureNoteImage(NoteImageKind.CAMERA) }),
             Triple(R.drawable.ic_note_share, "Partager ou exporter la note avec ses images", { exportNoteWithImages(automatic = false) }),
         ).forEach { (icon, label, action) ->
             val button = panelIcon(icon, label, action)
@@ -1920,9 +1926,12 @@ class OverlayService : Service() {
             toast("Activez le service d’accessibilité DictAI pour capturer l’écran.")
             return
         }
-        val pending = runCatching { imageStore.beginClipboard(kind, state == State.RECORDING) }.getOrElse {
+        val pending = runCatching { imageStore.beginClipboard(kind, state == State.RECORDING, NoteImage.nextNumber(
+            notes.get(activeNoteId)?.images.orEmpty() + draftStore.captures().mapNotNull { it.image }, liveText?.text?.toString().orEmpty())) }.getOrElse {
             toast("Capture indisponible : vérifiez l’espace de stockage."); return
         }
+        draftStore.save(liveText?.text?.toString().orEmpty())
+        draftStore.reserveCapture(pending.id, notes.get(activeNoteId)?.images?.size ?: 0)
         refreshNoteImages()
         releaseTranscriptFocus()
         dismissFloatingMenu()
@@ -1992,7 +2001,7 @@ class OverlayService : Service() {
     }
 
     private fun finishPendingImage() {
-        if (localEngineLifecycle.isDestroyed()) return
+        if (localEngineLifecycle.isDestroyed() || imageDeliveryBusy) return
         val pending = imageStore.pending()?.takeIf { it.complete } ?: return
         restoreCaptureWindows()
         // Complete an old in-flight contextual capture after an update without losing its image.
@@ -2009,27 +2018,48 @@ class OverlayService : Service() {
         }
         imageStore.clearPending(pending.id)
         refreshNoteImages()
-        if (pending.image != null) copyCapturedImage(pending.image, discardSource = pending.clipboardOnly)
-        else pending.error?.let(::toast)
+        if (pending.image != null) {
+            draftStore.completeCapture(pending.image)
+            if (activeNoteId != null && pending.clipboardOnly) {
+                val saved = saveNoteWithCaptures(liveText?.text?.toString().orEmpty())
+                replaceNoteText(saved.text)
+            }
+            val retained = draftStore.captures().any { it.id == pending.id } ||
+                notes.get(activeNoteId)?.images?.any { it.id == pending.id } == true || !pending.clipboardOnly
+            copyCapturedImage(pending.image, discardSource = !retained, saveInGallery = true)
+        } else {
+            draftStore.removeCapture(pending.id)
+            pending.error?.let(::toast)
+        }
         if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
-        else if (pending.kind == NoteImageKind.CAMERA && pending.resumeListening && activeRun != null && state == State.PAUSED)
+        else if (pending.kind == NoteImageKind.CAMERA && pending.resumeListening && !archiveAfterImageDelivery && activeRun != null && state == State.PAUSED)
             resumeRec()
+        if (pending.image == null) finishImageDelivery()
     }
 
-    private fun copyCapturedImage(image: NoteImage, discardSource: Boolean = false) {
+    private fun copyCapturedImage(image: NoteImage, discardSource: Boolean = false, saveInGallery: Boolean = false) {
         imageDeliveryBusy = true
         refreshNoteImages()
         thread(name = "dictai-image-clipboard") {
             // Copy the already resized JPEG bytes: no numbering, second encoding or LLM.
-            val prepared = runCatching { NoteImagePaste.prepare(this, image) }
-            if (discardSource) imageStore.delete(image.id)
+            val gallery = if (saveInGallery) runCatching { CapturedImageGallery.save(this, image) } else null
+            val prepared = gallery?.getOrNull()?.let { Result.success(it) }
+                ?: runCatching { NoteImagePaste.prepare(this, image) }
+            if (discardSource && prepared.isSuccess) imageStore.delete(image.id)
             main.post {
                 if (localEngineLifecycle.isDestroyed()) return@post
                 val copied = prepared.getOrNull()?.let { NoteImagePaste.copy(this, it) } == true
                 if (copied) preserveImageClipboard = true
-                NoteImagePaste.recordCopy(this, image.kind, copied)
-                toast(if (copied) "Image copiée. Collez-la dans votre conversation avant la prochaine capture."
-                    else "Impossible de copier l’image. Réessayez la capture.")
+                val saved = gallery?.isSuccess == true
+                NoteImagePaste.recordCopy(this, image.kind, copied, saved)
+                toast(when {
+                    saved && copied -> "Image enregistrée dans Photos → DictAI et copiée."
+                    saved -> "Image enregistrée dans Photos → DictAI. Copie au presse-papier indisponible."
+                    saveInGallery && copied -> "Image copiée ; enregistrement dans Photos impossible. Vérifiez l’espace disponible."
+                    copied -> "Image copiée. Collez-la depuis Gboard."
+                    else -> "Impossible de copier l’image. Vérifiez l’espace disponible puis réessayez."
+                })
+                if (saved && discardSource) toast("La note est limitée à 10 images ; cette capture reste disponible dans Photos → DictAI.")
                 finishImageDelivery()
             }
         }
@@ -2038,6 +2068,11 @@ class OverlayService : Service() {
     private fun finishImageDelivery() {
         imageDeliveryBusy = false
         refreshNoteImages()
+        if (archiveAfterImageDelivery) {
+            archiveAfterImageDelivery = false
+            archiveOrShowNotes()
+            return
+        }
         if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
         val queuedNote = exportAfterImageDelivery
         exportAfterImageDelivery = null
@@ -2055,7 +2090,7 @@ class OverlayService : Service() {
     }
 
     private fun refreshNoteImages() {
-        val images = notes.get(activeNoteId)?.images.orEmpty()
+        val images = notes.get(activeNoteId)?.images.orEmpty() + draftStore.captures().mapNotNull { it.image }
         val pending = imageStore.pending()
         val editable = isTranscriptEditable() && !imageDeliveryBusy
         mediaButtons.forEach { button ->
@@ -2063,7 +2098,7 @@ class OverlayService : Service() {
             button.alpha = if (button.isEnabled) 1f else .4f
         }
         val strip = imageStrip ?: return
-        val ids = images.map { it.id } + listOfNotNull(pending?.id)
+        val ids = images.map { "${it.id}:${it.number}" } + listOfNotNull(pending?.id)
         if (shownImageIds == ids && strip.childCount > 0) return
         shownImageIds = ids
         strip.removeAllViews()
@@ -2103,7 +2138,7 @@ class OverlayService : Service() {
             strip.addView(frame, LinearLayout.LayoutParams((44 * dp).toInt(), (40 * dp).toInt()).apply { marginEnd = (4 * dp).toInt() })
             thread(name = "dictai-note-thumbnail") {
                 val bitmap = runCatching { NoteImageStore.decode(imageStore.thumbnail(image.id), 160) }.getOrNull()
-                main.post { if (!localEngineLifecycle.isDestroyed() && image.id in shownImageIds) thumb.setImageBitmap(bitmap) else bitmap?.recycle() }
+                main.post { if (!localEngineLifecycle.isDestroyed() && shownImageIds.any { it.startsWith(image.id + ":") }) thumb.setImageBitmap(bitmap) else bitmap?.recycle() }
             }
         }
     }
@@ -2128,9 +2163,14 @@ class OverlayService : Service() {
     }
 
     private fun removeNoteImage(image: NoteImage) {
-        if (!isTranscriptEditable() || imageStore.pending() != null) return
-        val note = notes.get(activeNoteId) ?: return
-        if (note.images.none { it.id == image.id }) return
+        if (!isTranscriptEditable() || imageDeliveryBusy || imageStore.pending() != null) return
+        val note = notes.get(activeNoteId)
+        if (note == null || note.images.none { it.id == image.id }) {
+            draftStore.removeCapture(image.id)
+            dismissFloatingMenu()
+            refreshNoteImages()
+            return
+        }
         dismissFloatingMenu()
         val text = NoteImageMarkers.remove(liveText?.text?.toString().orEmpty(), image.number)
         notes.save(note.id, text, note.images.filter { it.id != image.id })
@@ -2148,7 +2188,8 @@ class OverlayService : Service() {
             run.finishAfterPause = true
             if (state != State.PAUSING) stopRec()
         } else {
-            val note = notes.save(activeNoteId, liveText?.text?.toString().orEmpty())
+            val note = saveNoteWithCaptures(liveText?.text?.toString().orEmpty())
+            replaceNoteText(note.text)
             activeNoteId = note.id
             draftStore.noteId = note.id
             launchNoteExport(note, automatic = automatic)
@@ -2170,6 +2211,18 @@ class OverlayService : Service() {
         }
     }
 
+    /** Explicit note action promotes the draft's images and inserts their positional references. */
+    private fun saveNoteWithCaptures(text: String): TranscriptNote {
+        draftStore.save(text)
+        val content = DraftImageContext.materialize(text, notes.get(activeNoteId)?.images.orEmpty(), draftStore.captures())
+        val note = notes.save(activeNoteId, content.text, content.images)
+        draftStore.detachCaptures(content.attachedIds)
+        activeNoteId = note.id
+        draftStore.noteId = note.id
+        draftStore.save(note.text)
+        return note
+    }
+
     private fun persistDraft(text: String) {
         draftStore.save(text)
         activeNoteId?.let { id ->
@@ -2180,6 +2233,7 @@ class OverlayService : Service() {
 
     private fun clearOpenDraft() {
         exportAfterImageDelivery = null
+        archiveAfterImageDelivery = false
         tapCoordinator.reset()
         recoveredDraft = null
         activeNoteId = null
@@ -2190,6 +2244,8 @@ class OverlayService : Service() {
     }
 
     private fun cancelPausedNote() {
+        if (localEngineLifecycle.isDestroyed()) return
+        if (imageDeliveryBusy) { main.postDelayed({ cancelPausedNote() }, 60); return }
         tapCoordinator.reset()
         val run = activeRun
         if (run != null) {
@@ -2203,7 +2259,7 @@ class OverlayService : Service() {
 
     private fun archiveOrShowNotes() {
         tapCoordinator.reset()
-        if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
+        if (imageStore.pending() != null || imageDeliveryBusy) { archiveAfterImageDelivery = true; return }
         if (state == State.TRANSCRIBING || state == State.CANCELLING) {
             toast("Patientez jusqu’à la fin du traitement.")
             return
@@ -2214,7 +2270,7 @@ class OverlayService : Service() {
             run.resumeAfterPause = false
             if (state != State.PAUSING) stopRec()
         } else if (recoveredDraft != null) {
-            notes.save(activeNoteId, liveText?.text?.toString().orEmpty())
+            saveNoteWithCaptures(liveText?.text?.toString().orEmpty())
             clearOpenDraft()
             showNotesOverlay()
         } else showNotesOverlay()

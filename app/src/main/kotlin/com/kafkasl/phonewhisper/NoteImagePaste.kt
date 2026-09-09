@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import java.io.File
 
@@ -24,7 +25,8 @@ internal object NoteImagePaste {
     }
 
     fun copy(context: Context, uri: Uri): Boolean = runCatching {
-        require(uri.scheme == "content" && uri.authority == "${context.packageName}.note_files")
+        require(uri.scheme == "content" && (uri.authority == "${context.packageName}.note_files" ||
+            (uri.authority == MediaStore.AUTHORITY && context.contentResolver.getType(uri) == "image/jpeg")))
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(imageClip(uri))
         true
     }.getOrDefault(false)
@@ -33,8 +35,8 @@ internal object NoteImagePaste {
     // keyboards classify the clipboard as text instead of presenting the JPEG thumbnail.
     fun imageClip(uri: Uri) = ClipData("Image DictAI", arrayOf("image/jpeg"), ClipData.Item(uri))
 
-    fun recordCopy(context: Context, kind: NoteImageKind, copied: Boolean) {
-        prefs(context).edit().clear().putString("kind", kind.label).putBoolean("copied", copied)
+    fun recordCopy(context: Context, kind: NoteImageKind, copied: Boolean, savedInGallery: Boolean = false) {
+        prefs(context).edit().clear().putString("kind", kind.label).putBoolean("copied", copied).putBoolean("gallery", savedInGallery)
             .putLong("time", System.currentTimeMillis()).apply()
     }
 
@@ -43,7 +45,7 @@ internal object NoteImagePaste {
         if (!p.contains("time")) return "Aucune copie d’image effectuée dans cette version."
         val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", java.util.Locale.ROOT)
             .format(java.util.Date(p.getLong("time", 0)))
-        return "DictAI — dernière copie d’image\nApplication : ${BuildConfig.VERSION_NAME}\nDate : $time\nType : ${p.getString("kind", "")}\nRésultat : ${if (p.getBoolean("copied", false)) "image remise au presse-papier Android" else "copie impossible"}\nCollage : manuel depuis Gboard ou votre clavier\nChaque capture remplace le contenu courant du presse-papier. L’historique et la réception de l’image dépendent du clavier et de l’application.\nCe diagnostic ne contient ni image, ni note, ni chemin de fichier."
+        return "DictAI — dernière copie d’image\nApplication : ${BuildConfig.VERSION_NAME}\nDate : $time\nType : ${p.getString("kind", "")}\nRésultat : ${if (p.getBoolean("copied", false)) "image remise au presse-papier Android" else "copie impossible"}\nStockage : ${if (p.getBoolean("gallery", false)) "Photos / DictAI" else "enregistrement galerie non confirmé"}\nCollage : manuel depuis Gboard ou votre clavier\nChaque capture remplace le contenu courant du presse-papier. L’historique et la réception de l’image dépendent du clavier et de l’application.\nCe diagnostic ne contient ni image, ni note, ni chemin de fichier."
     }
 }
 

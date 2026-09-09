@@ -1,6 +1,6 @@
 # Notes avec contexte visuel — essai 0.9.1
 
-> Historique : depuis la demande 0.9.2, les nouvelles captures vont uniquement au presse-papier pour collage manuel depuis Gboard. Aucun nouveau repère ni image ajouté aux notes. Les anciennes notes restent accessibles. Voir [le fonctionnement actuel](PRESSE-PAPIER-VOCABULAIRE-0.9.2.md).
+> Historique 0.9.0/0.9.1. Après la simplification 0.9.2, la demande 0.9.3 rétablit le contexte image lors d’une sauvegarde volontaire en note et ajoute la galerie. Voir [le fonctionnement actuel 0.9.3](GALERIE-NOTES-VOCABULAIRE-0.9.3.md). Le collage automatique décrit ci-dessous reste abandonné.
 
 Demande d’Ullie du 9 septembre 2026 : capturer le contexte depuis la pastille, jusqu’à dix images par note, avec un repère à la position du texte au moment du geste. Le PDF est destiné à la lecture par l’utilisateur. Le HTML doit être autonome. Le transfert vers une conversation doit préparer ensemble texte et images, sans sélection manuelle image par image.
 

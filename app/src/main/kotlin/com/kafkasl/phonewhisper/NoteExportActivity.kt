@@ -37,9 +37,10 @@ class NoteExportActivity : Activity() {
         fun action(label: String, click: () -> Unit): Button = Button(this).apply {
             text = label; setOnClickListener { click() }; root.addView(this); actions += this
         }
-        action("Partager le texte et les images") { prepare(Format.IMAGES, ::shareDocument) }
-        action("Lire en PDF") { prepare(Format.PDF, ::viewPdf) }
-        action("Exporter en HTML autonome") { prepare(Format.HTML, ::saveDocument) }
+        action("Partager un PDF · texte et images") { prepare(Format.PDF, ::shareDocument) }
+        action("Lire le PDF") { prepare(Format.PDF, ::viewPdf) }
+        action("Enregistrer le PDF") { prepare(Format.PDF, ::saveDocument) }
+        action("Fichier HTML unique · texte et images") { prepare(Format.HTML, ::saveDocument) }
         save = action("Enregistrer les fichiers dans un dossier", ::saveDocument).apply { isEnabled = false }
         share = action("Partager les fichiers préparés", ::shareDocument).apply { isEnabled = false }
         action("Fermer") { finish() }
@@ -57,7 +58,7 @@ class NoteExportActivity : Activity() {
             .filter { runCatching { it.isFile && it.canonicalPath.startsWith(exportRoot) }.getOrDefault(false) }
         save.isEnabled = documents.isNotEmpty(); share.isEnabled = documents.isNotEmpty()
         status.text = "${note.title}\n${note.images.size} image(s) · ${note.text.length} caractères"
-        if (intent.getBooleanExtra("autoShare", false) && savedInstanceState == null) prepare(Format.IMAGES, ::shareDocument)
+        if (intent.getBooleanExtra("autoShare", false) && savedInstanceState == null) prepare(Format.PDF, ::shareDocument)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

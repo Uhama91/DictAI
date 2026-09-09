@@ -67,7 +67,7 @@ class NoteMediaAndroidTest {
             listOf("transcript_notes", "note_capture").forEach { app.deleteSharedPreferences("test-$id-$it") }
         }
     }
-    @Test fun clipboardCaptureNeedsNoNoteAndDoesNotCreateThumbnailsOrMarkers() {
+    @Test fun clipboardCaptureNeedsNoNoteAndKeepsASmallPreviewForOptionalNotes() {
         val app = ApplicationProvider.getApplicationContext<Context>()
         val id = UUID.randomUUID().toString()
         val dir = File(app.cacheDir, "clipboard-test-$id").apply { mkdirs() }
@@ -89,13 +89,59 @@ class NoteMediaAndroidTest {
                 assertTrue(restored.clipboardOnly)
                 assertNotNull(restored.image)
                 assertTrue(store.file(pending.id).length() > 0)
-                assertFalse(store.thumbnail(pending.id).exists())
+                assertTrue(store.thumbnail(pending.id).exists())
                 store.clearPending(pending.id)
                 store.delete(pending.id)
             }
         } finally {
             dir.deleteRecursively()
             app.deleteSharedPreferences("test-$id-note_capture")
+        }
+    }
+
+    @Test fun galleryCopySurvivesTheDraftAndNoteWithTheSameJpegBytes() {
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        val id = UUID.randomUUID().toString()
+        val dir = File(app.cacheDir, "gallery-test-$id").apply { mkdirs() }
+        val context = object : ContextWrapper(app) {
+            override fun getFilesDir() = File(dir, "files").apply { mkdirs() }
+            override fun getSharedPreferences(name: String, mode: Int) = app.getSharedPreferences("test-$id-$name", mode)
+        }
+        var galleryUri: android.net.Uri? = null
+        try {
+            val store = NoteImageStore(context)
+            val draft = DictationDraftStore(context)
+            draft.save("Avant")
+            val pending = store.beginClipboard(NoteImageKind.CAMERA, false)
+            assertTrue(draft.reserveCapture(pending.id, 0))
+            val bitmap = Bitmap.createBitmap(24, 16, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLUE) }
+            try { store.store(pending.id, bitmap) } finally { bitmap.recycle() }
+            val image = store.pending()!!.image!!
+            draft.completeCapture(image)
+            draft.save("Avant après")
+            val restored = DictationDraftStore(context)
+            assertEquals(5, restored.captures().single().offset)
+            val jpeg = store.file(image.id).readBytes()
+            galleryUri = CapturedImageGallery.save(context, image)
+            assertEquals("image/jpeg", app.contentResolver.getType(galleryUri))
+            app.contentResolver.query(galleryUri, arrayOf(android.provider.MediaStore.Images.Media.RELATIVE_PATH,
+                android.provider.MediaStore.Images.Media.IS_PENDING), null, null, null)!!.use {
+                assertTrue(it.moveToFirst())
+                assertEquals("Pictures/DictAI/", it.getString(0)); assertEquals(0, it.getInt(1))
+            }
+            val content = DraftImageContext.materialize(restored.load()!!, emptyList(), restored.captures())
+            val notes = TranscriptNotes(AndroidTranscriptNoteStorage(context))
+            val note = notes.save(null, content.text, content.images)
+            restored.detachCaptures(content.attachedIds)
+            restored.clear()
+            assertTrue(store.file(image.id).isFile)
+            notes.delete(note.id)
+            assertFalse(store.file(image.id).exists())
+            assertArrayEquals(jpeg, app.contentResolver.openInputStream(galleryUri)!!.use { it.readBytes() })
+        } finally {
+            galleryUri?.let { app.contentResolver.delete(it, null, null) }
+            dir.deleteRecursively()
+            listOf("transcript_notes", "note_capture", "dictation_draft").forEach { app.deleteSharedPreferences("test-$id-$it") }
         }
     }
 

@@ -48,9 +48,9 @@ internal class NoteImageStore(context: Context) {
             kind, System.currentTimeMillis(), resume).also(::writePending)
     }
     /** Independent of notes: each gesture prepares one clipboard image, without a context marker. */
-    fun beginClipboard(kind: NoteImageKind, resume: Boolean): PendingNoteCapture {
+    fun beginClipboard(kind: NoteImageKind, resume: Boolean, number: Int = 1): PendingNoteCapture {
         check(pending() == null)
-        return PendingNoteCapture(UUID.randomUUID().toString(), "", 1, kind,
+        return PendingNoteCapture(UUID.randomUUID().toString(), "", number, kind,
             System.currentTimeMillis(), resume, clipboardOnly = true).also(::writePending)
     }
     private fun writePending(pending: PendingNoteCapture) {
@@ -92,7 +92,7 @@ internal class NoteImageStore(context: Context) {
             temporary.outputStream().use { check(scaled.compress(Bitmap.CompressFormat.JPEG, 92, it)) }
             check(temporary.length() in 1..8L * 1024 * 1024)
             check(temporary.renameTo(file(id)))
-            if (!capture.clipboardOnly) {
+            run {
                 val smallRatio = minOf(1f, 160f / maxOf(scaled.width, scaled.height))
                 val thumb = Bitmap.createScaledBitmap(scaled, (scaled.width * smallRatio).toInt().coerceAtLeast(1),
                     (scaled.height * smallRatio).toInt().coerceAtLeast(1), true)
