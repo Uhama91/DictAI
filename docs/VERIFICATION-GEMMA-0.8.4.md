@@ -28,4 +28,10 @@ Les anciennes mesures hôte étaient 15 399 ms pour le premier mail long et 7 28
 
 ## Publication
 
-Publication GitHub Actions en cours après validation locale. Installer en mise à jour conserve Gemma déjà téléchargé.
+- Source compilée : `1464d52b07510b3b84f48c03fa0274b090d4afd8`.
+- [Actions 34335478012](https://github.com/Uhama91/DictAI/actions/runs/34335478012) : construction et publication réussies, tests JVM et 18 tests Python, contrat natif, signature et alignement validés.
+- Artefact Actions `dictai-local-layout-test`, identifiant `10097648972`.
+- [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34335478012/dictai-local-layout-test.apk), [prerelease publique](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34335478012).
+- Téléchargement public HTTP 200 complet vérifié : 78 600 597 octets ; SHA-256 `01dcf03752f51c4efbe43a710fef6bb9395926c818780390aaaeb93a2bbd4894`, identique à l’APK locale, à SHA256SUMS, au journal Actions et à l’empreinte de l’asset GitHub.
+
+Installer en mise à jour conserve Gemma déjà téléchargé. Les mesures GPU des deux mails dans cette version restent à recevoir.
