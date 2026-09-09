@@ -9,6 +9,13 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
 class WhisperAccessibilityService : AccessibilityService(), InjectionController {
+    private var lastExternalEditor: AccessibilityNodeInfo? = null
+
+    internal class ImageTarget internal constructor(internal val node: AccessibilityNodeInfo) : AutoCloseable {
+        private val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+        val packageName: String = node.packageName?.toString().orEmpty()
+        override fun close() { if (closed.compareAndSet(false, true)) node.recycle() }
+    }
 
     companion object {
         private const val TAG = "WhisperPin"
@@ -26,13 +33,55 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
         }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType != AccessibilityEvent.TYPE_VIEW_FOCUSED || event.packageName?.toString() == packageName) return
+        val node = event.source ?: return
+        try {
+            if (node.isEditable) {
+                lastExternalEditor?.recycle()
+                lastExternalEditor = if (SensitiveInputPolicy.isSensitive(node.isPassword, node.inputType)) null
+                    else AccessibilityNodeInfo.obtain(node)
+            }
+        } finally { node.recycle() }
+    }
     override fun onInterrupt() {}
 
     override fun onDestroy() {
+        lastExternalEditor?.recycle(); lastExternalEditor = null
         if (connected === this) connected = null
         InjectionGateway.unregister(this)
         super.onDestroy()
+    }
+
+    /** Retain the actual editor node at the gesture, not merely the app package or a screen position. */
+    internal fun snapshotImageTarget(): ImageTarget? {
+        val candidates = findInjectionCandidates()
+        try {
+            val editors = candidates.filter { it.isEditable && it.isVisibleToUser && !SensitiveInputPolicy.isSensitive(it.isPassword, it.inputType) }.distinct()
+            val current = editors.firstOrNull { it.isFocused } ?: editors.singleOrNull()
+                ?: lastExternalEditor?.takeIf { it.refresh() && it.isEditable && !SensitiveInputPolicy.isSensitive(it.isPassword, it.inputType) }
+            if (current != null && current !== lastExternalEditor) {
+                lastExternalEditor?.recycle()
+                lastExternalEditor = AccessibilityNodeInfo.obtain(current)
+            }
+            return current?.let { ImageTarget(AccessibilityNodeInfo.obtain(it)) }
+        } finally { candidates.forEach { it.recycle() } }
+    }
+
+    internal fun pasteImage(target: ImageTarget, uri: android.net.Uri): ImagePasteResult {
+        val node = target.node
+        val root = rootInActiveWindow ?: return ImagePasteResult.TARGET_CHANGED
+        val currentWindow = try { root.packageName?.toString() == target.packageName && root.windowId == node.windowId }
+            finally { root.recycle() }
+        if (!node.refresh()) return ImagePasteResult.TARGET_CHANGED
+        if (!currentWindow || !node.isEditable || !node.isVisibleToUser || SensitiveInputPolicy.isSensitive(node.isPassword, node.inputType))
+            return ImagePasteResult.TARGET_CHANGED
+        val prepared = focusAndReadTarget(node) ?: return ImagePasteResult.TARGET_CHANGED
+        if (targetSafety(prepared) != InjectionTargetSafety.Safe) return ImagePasteResult.TARGET_CHANGED
+        ImagePasteSafety.allow(true, node.isEditable, node.isPassword, node.textSelectionStart, node.textSelectionEnd)?.let { return it }
+        if (!NoteImagePaste.copy(this, uri)) return ImagePasteResult.FAILED
+        // Refresh after changing the clipboard: native editors can then advertise their paste action.
+        return if (tryPaste(node)) ImagePasteResult.REQUESTED else ImagePasteResult.COPIED
     }
 
     override fun inject(text: String): InjectionResult {

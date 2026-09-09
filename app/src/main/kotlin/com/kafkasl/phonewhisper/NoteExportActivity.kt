@@ -4,10 +4,6 @@ import android.app.Activity
 import android.app.KeyguardManager
 import android.content.ClipData
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
@@ -100,7 +96,7 @@ class NoteExportActivity : Activity() {
                     val text = File(directory, "Note.txt").apply { writeText(NoteShareText.create(note)) }
                     val images = NoteImageMarkers.parts(note).filterIsInstance<NoteImageMarkers.Part.Image>().map { part ->
                         File(directory, "Image-%02d.jpg".format(java.util.Locale.ROOT, part.image.number)).also {
-                            writeLabeledImage(part.image, store, it)
+                            NoteImageCopies.write(this, part.image, it)
                         }
                     }
                     listOf(text) + images
@@ -135,19 +131,6 @@ class NoteExportActivity : Activity() {
         }
     }
 
-    private fun writeLabeledImage(image: NoteImage, store: NoteImageStore, file: File) {
-        val original = NoteImageStore.decode(store.file(image.id), 2048)
-        // A visible label survives clients which rename or reorder attachments. The original stays intact.
-        val labeled = Bitmap.createBitmap(original.width, original.height + 72, Bitmap.Config.ARGB_8888)
-        try {
-            val canvas = Canvas(labeled)
-            canvas.drawColor(Color.WHITE)
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; textSize = minOf(32f, original.width / 16f) }
-            canvas.drawText("Image ${image.number} · ${image.kind.label}", 16f, 46f, paint)
-            canvas.drawBitmap(original, 0f, 72f, null)
-            file.outputStream().use { check(labeled.compress(Bitmap.CompressFormat.JPEG, 92, it)) }
-        } finally { original.recycle(); labeled.recycle() }
-    }
 
     private fun mime() = when (format) { Format.PDF -> "application/pdf"; Format.HTML -> "text/html"; Format.IMAGES -> "*/*" }
     private fun shareDocument() {

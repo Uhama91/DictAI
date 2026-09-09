@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -41,12 +43,13 @@
             android:launchMode="singleTop" />
 
         <activity android:name=".NoteCameraActivity" android:exported="false"
+            android:theme="@style/Theme.NoteCamera"
             android:taskAffinity=""
             android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".NoteExportActivity" android:exported="false"
             android:taskAffinity=""
             android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
-        <provider android:name="androidx.core.content.FileProvider"
+        <provider android:name=".NoteFileProvider"
             android:authorities="${applicationId}.note_files" android:exported="false"
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/note_file_paths" />

@@ -11,4 +11,9 @@
         <item name="android:statusBarColor">?android:attr/colorBackground</item>
         <item name="android:navigationBarColor">?android:attr/colorBackground</item>
     </style>
+    <style name="Theme.NoteCamera" parent="Theme.Material3.DayNight.Dialog">
+        <item name="android:windowCloseOnTouchOutside">false</item>
+        <item name="android:backgroundDimAmount">0.15</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
 </resources>

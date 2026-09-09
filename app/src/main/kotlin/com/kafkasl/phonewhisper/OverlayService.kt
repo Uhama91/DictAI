@@ -219,6 +219,10 @@ class OverlayService : Service() {
     private var activeNoteId: String? = null
     private val imageStore by lazy { NoteImageStore(this) }
     private var captureWindowsHidden = false
+    private var pendingImageTarget: WhisperAccessibilityService.ImageTarget? = null
+    private var deliveringImageTarget: WhisperAccessibilityService.ImageTarget? = null
+    private var imageDeliveryBusy = false
+    private var exportAfterImageDelivery: String? = null
     private var imageStrip: LinearLayout? = null
     private var mediaButtons = mutableListOf<ImageButton>()
     private var shownImageIds = emptyList<String>()
@@ -389,6 +393,7 @@ class OverlayService : Service() {
 
     private fun startRec() {
         dismissFloatingMenu()
+        WhisperAccessibilityService.connected?.snapshotImageTarget()?.close()
         val requestedAt = SystemClock.uptimeMillis()
         val selectedFormat = PostProcessingFormats(this).selected()
         val cloudRequested = prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled && selectedFormat.usesLanguageModel
@@ -661,7 +666,7 @@ class OverlayService : Service() {
     private fun stopRec() {
         if (state != State.RECORDING && state != State.PAUSED) return
         val run = activeRun ?: return
-        if (imageStore.pending()?.let { it.noteId == activeNoteId && !it.complete } == true) {
+        if (imageDeliveryBusy || imageStore.pending()?.let { it.noteId == activeNoteId && !it.complete } == true) {
             run.finishAfterCapture = true
             if (state == State.RECORDING) pauseRec()
             return
@@ -886,7 +891,7 @@ class OverlayService : Service() {
             if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed()) return@post
             run.finalPublication.submit(SystemClock.uptimeMillis()) {
                 val published = run.cancellation.publishIfActive {
-                    if (run.exportNote || notes.get(activeNoteId)?.images?.isNotEmpty() == true) {
+                    if (run.exportNote) {
                         val saved = notes.save(activeNoteId, outText ?: liveText?.text?.toString().orEmpty())
                         main.post { launchNoteExport(saved, automatic = run.automaticNoteShare) }
                     } else if (!outText.isNullOrBlank()) {
@@ -1901,7 +1906,7 @@ class OverlayService : Service() {
     }
 
     private fun captureNoteImage(kind: NoteImageKind) {
-        if (!isTranscriptEditable() || imageStore.pending() != null) return
+        if (!isTranscriptEditable() || imageStore.pending() != null || imageDeliveryBusy) return
         if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) {
             toast("Déverrouillez le téléphone pour joindre une image à la note.")
             return
@@ -1918,6 +1923,8 @@ class OverlayService : Service() {
         val pending = runCatching { imageStore.begin(note, kind, state == State.RECORDING) }.getOrElse {
             toast("Capture indisponible : vérifiez l’espace de stockage."); return
         }
+        pendingImageTarget?.close()
+        pendingImageTarget = WhisperAccessibilityService.connected?.snapshotImageTarget()
         // Anchor at the visible end at the tap, before any asynchronous capture or new ASR words.
         replaceNoteText(NoteImageMarkers.append(text, pending.number))
         refreshNoteImages()
@@ -1959,7 +1966,8 @@ class OverlayService : Service() {
         }
         try {
             captureWindowsHidden = true
-            container?.visibility = View.INVISIBLE
+            // The in-app viewfinder owns camera access while visible; keep the pill available.
+            container?.visibility = View.VISIBLE
             setLivePreviewVisible(false)
             startActivity(Intent(this, NoteCameraActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra("captureId", pending.id))
@@ -1981,7 +1989,9 @@ class OverlayService : Service() {
         val pending = imageStore.pending() ?: return
         if (!pending.complete && pending.kind == NoteImageKind.SCREENSHOT)
             imageStore.fail(pending.id, "Capture interrompue : texte conservé.")
-        // The system camera activity owns its result across process recreation.
+        if (!pending.complete && pending.kind == NoteImageKind.CAMERA && !NoteCameraActivity.handles(pending.id))
+            imageStore.fail(pending.id, "Photo interrompue : texte conservé.")
+        // A surviving in-app viewfinder may still finish its pending capture after service recovery.
         finishPendingImage()
     }
 
@@ -2004,11 +2014,69 @@ class OverlayService : Service() {
         }
         imageStore.clearPending(pending.id)
         refreshNoteImages()
-        if (pending.image != null) toast("Image ${pending.number} ajoutée à la note.")
-        else pending.error?.let(::toast)
+        val target = pendingImageTarget
+        pendingImageTarget = null
+        if (pending.image != null) pasteCapturedImage(pending.image, target, pending.noteId)
+        else { target?.close(); pending.error?.let(::toast) }
         if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
         else if (pending.kind == NoteImageKind.CAMERA && pending.resumeListening && activeRun != null && state == State.PAUSED)
             resumeRec()
+    }
+
+    private fun pasteCapturedImage(image: NoteImage, target: WhisperAccessibilityService.ImageTarget?, noteId: String) {
+        deliveringImageTarget = target
+        imageDeliveryBusy = true
+        refreshNoteImages()
+        thread(name = "dictai-image-paste") {
+            val prepared = runCatching { NoteImagePaste.prepare(this, image) }
+            main.post {
+                if (localEngineLifecycle.isDestroyed()) { target?.close(); return@post }
+                if (prepared.isFailure) {
+                    target?.close(); finishImageDelivery(); toast("Image enregistrée dans la note ; préparation du collage impossible.")
+                    return@post
+                }
+                val uri = prepared.getOrThrow()
+                NoteImagePaste.begin(this, uri, image.number, target?.packageName)
+                releaseTranscriptFocus()
+                // The camera dialog must finish and return focus before checking the original editor.
+                main.postDelayed({
+                    val result = try {
+                        if (activeNoteId != noteId) ImagePasteResult.TARGET_CHANGED
+                        else if (target == null) ImagePasteResult.NO_TARGET
+                        else WhisperAccessibilityService.connected?.pasteImage(target, uri) ?: ImagePasteResult.NO_TARGET
+                    } catch (_: Exception) { ImagePasteResult.FAILED }
+                    finally { target?.close(); deliveringImageTarget = null }
+                    NoteImagePaste.record(this, uri, result)
+                    toast(when (result) {
+                        ImagePasteResult.REQUESTED -> "Image ${image.number} : collage demandé dans la conversation."
+                        ImagePasteResult.COPIED -> "Image ${image.number} copiée ; le champ n’a pas accepté le collage."
+                        ImagePasteResult.NO_TARGET -> "Image ${image.number} conservée dans la note ; touchez d’abord le champ de la conversation."
+                        ImagePasteResult.SELECTION_ACTIVE -> "Image conservée : terminez la sélection de texte avant de la coller."
+                        ImagePasteResult.TARGET_CHANGED -> "Image conservée : le champ de la conversation a changé."
+                        ImagePasteResult.FAILED -> "Image conservée dans la note ; collage indisponible."
+                    })
+                    // An immediate stop must not overwrite an image clipboard still being read.
+                    val started = SystemClock.uptimeMillis()
+                    fun awaitRead() {
+                        if (localEngineLifecycle.isDestroyed()) return
+                        if (result != ImagePasteResult.REQUESTED || NoteImagePaste.read(this, uri) || SystemClock.uptimeMillis() - started >= 1_200)
+                            finishImageDelivery()
+                        else main.postDelayed({ awaitRead() }, 60)
+                    }
+                    awaitRead()
+                }, 300)
+            }
+        }
+    }
+
+    private fun finishImageDelivery() {
+        deliveringImageTarget?.close(); deliveringImageTarget = null
+        imageDeliveryBusy = false
+        refreshNoteImages()
+        if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
+        val queuedNote = exportAfterImageDelivery
+        exportAfterImageDelivery = null
+        if (queuedNote != null && activeRun == null && activeNoteId == queuedNote && state == State.PAUSED) exportOpenNote()
     }
 
     private fun replaceNoteText(text: String) {
@@ -2024,7 +2092,7 @@ class OverlayService : Service() {
     private fun refreshNoteImages() {
         val images = notes.get(activeNoteId)?.images.orEmpty()
         val pending = imageStore.pending()
-        val editable = isTranscriptEditable()
+        val editable = isTranscriptEditable() && !imageDeliveryBusy
         mediaButtons.forEachIndexed { index, button ->
             button.isEnabled = editable && pending == null && (index == 2 || images.size < NoteImage.MAX_IMAGES)
             button.alpha = if (button.isEnabled) 1f else .4f
@@ -2051,7 +2119,11 @@ class OverlayService : Service() {
                 contentDescription = "Image ${image.number}, ${image.kind.label}. Appuyer pour voir, maintenir pour retirer."
                 setOnClickListener { previewNoteImage(image) }
                 setOnLongClickListener {
-                    if (imageStore.pending() == null && isTranscriptEditable()) showFloatingMenu("Image ${image.number}", listOf(
+                    if (imageStore.pending() == null && !imageDeliveryBusy && isTranscriptEditable()) showFloatingMenu("Image ${image.number}", listOf(
+                        MenuEntry("Coller dans la conversation ouverte", {
+                            dismissFloatingMenu()
+                            activeNoteId?.let { pasteCapturedImage(image, WhisperAccessibilityService.connected?.snapshotImageTarget(), it) }
+                        }),
                         MenuEntry("Retirer cette image de la note", { removeNoteImage(image) }),
                         MenuEntry("Retour", ::dismissFloatingMenu),
                     ))
@@ -2142,6 +2214,7 @@ class OverlayService : Service() {
     }
 
     private fun clearOpenDraft() {
+        exportAfterImageDelivery = null
         tapCoordinator.reset()
         recoveredDraft = null
         activeNoteId = null
@@ -2206,7 +2279,7 @@ class OverlayService : Service() {
     private fun exportOpenNote() {
         if (!isTranscriptEditable()) return
         if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
-        if (notes.get(activeNoteId)?.images?.isNotEmpty() == true) { exportNoteWithImages(); return }
+        if (imageDeliveryBusy) { exportAfterImageDelivery = activeNoteId; return }
         tapCoordinator.reset()
         val text = liveText?.text?.toString().orEmpty()
         val note = notes.save(activeNoteId, text)
@@ -2349,6 +2422,8 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        pendingImageTarget?.close(); pendingImageTarget = null
+        deliveringImageTarget?.close(); deliveringImageTarget = null
         resetVocabularyLearning()
         mediaButtons.clear()
         imageStrip = null

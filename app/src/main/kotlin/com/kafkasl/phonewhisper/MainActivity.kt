@@ -323,6 +323,12 @@ class MainActivity : AppCompatActivity() {
         root.addView(settingsRow("Dernier post-traitement", "Dernier format demandé conservé · diagnostic copiable") {
             showPostprocessingDiagnostic()
         })
+        root.addView(settingsRow("Dernier collage d’image", "Champ destinataire · demande de collage · fichier lu") {
+            val report = NoteImagePaste.report(this)
+            androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Dernier collage d’image").setMessage(report)
+                .setPositiveButton("Copier") { _, _ -> DictationClipboard.copy(this, report) }
+                .setNegativeButton("Fermer", null).show()
+        })
         if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
             root.addView(settingsRow("Tester Gemma sur ce téléphone", "GPU · sans thinking · vitesse et fidélité FR/EN") {
                 if (GemmaModelStore(this).installedModel() == null) {

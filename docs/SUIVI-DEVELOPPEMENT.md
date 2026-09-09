@@ -2,6 +2,12 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Collage dans la conversation et viseur interne — essai 0.9.1
+
+Retour utilisateur après 0.9.0 : application **ChatGPT → Remote**, puis autres applications Android (Messenger, WhatsApp, Instagram, Claude…). Le menu de partage automatique est rejeté ; la capture doit tenter une pièce jointe dans la conversation déjà ouverte. La caméra externe fait disparaître la pastille. La correction locale reste satisfaisante sur texte court ; coût plus marqué sur texte long, sans nouvelle demande de modification du moteur.
+
+0.9.1 retire la redirection automatique vers l’export, utilise un viseur Camera2 interne et conserve la pastille. Chaque capture tente un collage image ciblé, avec texte vide de repli pour ne pas introduire d’URI dans un éditeur texte. Le champ et la fenêtre sont revérifiés, les sélections actives protégées ; aucune activation de bouton Envoyer. Diagnostic séparé pour l’action de collage et la lecture du fichier par l’application identifiée. L’acceptation réelle par ChatGPT Remote et les messageries nécessite le téléphone ; elle n’est pas promise sur la seule base de l’API Android. [Détails et vérification](INSERTION-IMAGES-0.9.1.md).
+
 ## Notes visuelles et exports — essai 0.9.0 publié
 
 Demande et précisions du 9 septembre : captures sous l’overlay, photos caméra, dix images maximum, références au moment du geste, transfert groupé vers une conversation. PDF réservé à la lecture personnelle ; HTML autonome avec images intégrées pour l’archive. Ne pas présenter ces documents comme une solution de collage universel. Le partage multiple Android dépend des applications destinataires ; aucun test réel de réception mobile n’est encore effectué. Les images ne doivent pas être envoyées à Gemma ou au moteur cloud de correction.
