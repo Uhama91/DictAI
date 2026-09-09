@@ -1,6 +1,6 @@
 # Vérification DictAI 0.8.5 — corrections et choix explicite du texte
 
-9 septembre 2026. Vérifications locales terminées sur la branche codex/intentional-format-swipe ; publication GitHub Actions en préparation.
+9 septembre 2026. Vérifications locales terminées sur la branche codex/intentional-format-swipe ; publication GitHub Actions terminée et téléchargement public vérifié.
 
 ## Périmètre
 
@@ -35,3 +35,14 @@ Ainsi cinq réponses sur six passent les contrôles de modification dans cette �
 ## Limites de la correction
 
 Il s’agit de corrections de surface reconnues, avec un budget de substitutions, et non d’une validation sémantique universelle. Les répétitions adjacentes sont limitées à quatre mots par expression ; le rétablissement d’omissions est limité à six unités et 5 % en mode correction, avec alignement unique (trois unités dans l’ancien mode strict). Le clitique c’ avant est peut être rétabli depuis la source. Les nombres équivalents pris en charge sont de petits cardinaux FR/EN ; dates, décimaux, identifiants et valeurs différentes ne sont pas convertis par cette étape. Les autres modifications continuent de conserver la transcription en cas de doute.
+
+## Publication vérifiée
+
+- Source : `dbe60a0d862bcbeab0449e05efb9647b35a48cdd`.
+- [Actions 34345121225](https://github.com/Uhama91/DictAI/actions/runs/34345121225) : construction et publication réussies. Contrôles natifs, 18 tests Python, tests JVM, signature, alignement et contrat du paquet réussis.
+- Artefact `dictai-local-layout-test`, ID `10101472179` ; [prerelease](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34345121225), [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34345121225/dictai-local-layout-test.apk).
+- Téléchargement intégral public HTTP 200 vérifié : **78 633 365 octets**, SHA-256 **f63c8cc3e09ce2156caabe858dbddfdeb3babd52cc8592021a8ec101be172780**. Empreinte identique au fichier SHA256SUMS, au journal Actions et au digest de l’asset GitHub.
+- L’empreinte globale diffère de l’APK locale issue de constructions incrémentales. La comparaison de toutes les entrées ZIP confirme des noms et contenus strictement identiques, y compris chaque fichier DEX. Ne pas présenter les empreintes globales comme identiques.
+- APK publiée contrôlée de nouveau : versionCode 28, versionName 0.8.5-wp-gemma-test, paquet com.uhama.whisperpin, ARM64, minSdk 30 ; dix bibliothèques natives, alignement 16 Ko et signature valides.
+
+Installer en mise à jour conserve le fichier Gemma existant. La latence réelle de cette consigne et de la nouvelle marge sur téléphone reste à mesurer ; aucune nouvelle installation Android par Codex.

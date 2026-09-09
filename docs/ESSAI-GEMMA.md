@@ -1,14 +1,14 @@
-# DictAI 0.8.4 — essai Gemma sur téléphone
+# DictAI 0.8.5 — essai Gemma sur téléphone
 
 Ullie a choisi Gemma après la recherche comparative. Le prototype utilise Gemma 4 E2B dans LiteRT-LM 0.17.0, sur GPU, avec MTP activé et thinking désactivé (budget zéro). Nemotron reste le moteur de transcription. Ce document décrit l'essai et ses limites ; il ne remplace pas une mesure sur le POCO F7.
 
 ## Installation depuis le téléphone
 
-**[Télécharger directement l’APK 0.8.4](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34335478012/dictai-local-layout-test.apk)** — environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34335478012), [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/34335478012). Installer en mise à jour conserve Gemma déjà téléchargé. Le résultat des contrôles de publication figure dans [la vérification 0.8.4](VERIFICATION-GEMMA-0.8.4.md).
+**[Télécharger directement l’APK 0.8.5](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34345121225/dictai-local-layout-test.apk)** — environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34345121225), [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/34345121225). Installer en mise à jour conserve Gemma déjà téléchargé. Le résultat des contrôles de publication figure dans [la vérification 0.8.5](VERIFICATION-GEMMA-0.8.5.md).
 
 Installer l'APK de la prerelease Gemma, puis ouvrir DictAI et toucher **Installer Gemma 4 E2B** dans les réglages de post-traitement. Le modèle officiel fait 2 588 147 712 octets, environ 2,6 Go. Il est téléchargé une seule fois depuis le dépôt officiel épinglé. Garder cet écran ouvert ; quitter l'application met le téléchargement en pause et une nouvelle ouverture de la ligne permet de le reprendre.
 
-Le modèle est utilisable uniquement après contrôle de sa taille et de son SHA-256. Une interruption conserve les octets partiels ; une reprise vérifie la plage et la version du fichier. Une fois installé, les listes et mails locaux fonctionnent sans connexion ni clé API. Le premier chargement et la préparation du GPU peuvent prendre plusieurs secondes ; ils sont lancés à l'avance dans le service, hors de l'interface.
+Le modèle est utilisable uniquement après contrôle de sa taille et de son SHA-256. Une interruption conserve les octets partiels ; une reprise vérifie la plage et la version du fichier. Une fois installé, le texte corrigé, les listes et mails locaux fonctionnent sans connexion ni clé API. Le premier chargement et la préparation du GPU peuvent prendre plusieurs secondes ; ils sont lancés à l'avance dans le service, hors de l'interface.
 
 Le téléchargement séparé permet de fournir une APK installable directement depuis GitHub : le paquet Gemma standard dépasse à lui seul la limite par fichier d'une release. Le poids 350M n'est plus inclus dans ce prototype.
 
