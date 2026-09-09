@@ -2,9 +2,11 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
-## Galerie, notes volontaires et vocabulaire lettre par lettre — essai 0.9.3
+## Galerie, notes volontaires et vocabulaire lettre par lettre — essai 0.9.3 publié
 
-Nouvelle précision : Ullie efface habituellement lettre par lettre. La suggestion doit suivre le mot source jusqu’au remplacement, y compris AF → CAF et petits groupes. La sauvegarde des captures/photos dans Pictures/DictAI s’ajoute au presse-papier. Les notes avec captures sont rétablies uniquement lors d’une sauvegarde volontaire, avec dix images maximum et exports PDF/HTML autonome. [Fonctionnement, limites et essais](GALERIE-NOTES-VOCABULAIRE-0.9.3.md). Construction et publication en cours ; aucune validation Gboard/galerie sur téléphone déclarée.
+Nouvelle précision : Ullie efface habituellement lettre par lettre. La suggestion doit suivre le mot source jusqu’au remplacement, y compris AF → CAF et petits groupes. La sauvegarde des captures/photos dans Pictures/DictAI s’ajoute au presse-papier. Les notes avec captures sont rétablies uniquement lors d’une sauvegarde volontaire, avec dix images maximum et exports PDF/HTML autonome. [Fonctionnement, limites et essais](GALERIE-NOTES-VOCABULAIRE-0.9.3.md).
+
+Publication vérifiée le 9 septembre 2026 : [APK directe 0.9.3](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34364610947/dictai-local-layout-test.apk), [GitHub Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34364610947), source `38d88b3ff6d3e93f7b2fa88115b405449f34000a`. Téléchargement public complet HTTP 200, **78 816 652 octets**, SHA-256 `984ecf4c694c5ce73eac95323744c68ace08fa57360fa1244c53c6c3a67bd3ef`. Empreinte identique à l’APK locale finale, à SHA256SUMS, au digest GitHub et au journal CI ; les **1 048 entrées ZIP** sont également identiques. Signature de mise à jour, version code32 / 0.9.3-wp-gemma-test, ABI ARM64 et alignement ZIP/natif 16 Ko vérifiés. **418 tests JVM / 60 suites**, 18 tests du contrôleur d’alignement et contrat natif réussis. APK et tests Android compilés ; tests Android non exécutés, aucun appareil connecté à Codex. Les gestes Gboard, l’overlay, MediaStore/galerie et le rendu PDF restent à vérifier sur téléphone.
 
 ## Presse-papier et vocabulaire — essai 0.9.2 publié
 

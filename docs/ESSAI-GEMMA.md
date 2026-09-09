@@ -1,10 +1,10 @@
-# DictAI 0.9.2 — presse-papier, vocabulaire et essai Gemma sur téléphone
+# DictAI 0.9.3 — galerie, vocabulaire et essai Gemma sur téléphone
 
 Ullie a choisi Gemma après la recherche comparative. Le prototype utilise Gemma 4 E2B dans LiteRT-LM 0.17.0, sur GPU, avec MTP activé et thinking désactivé (budget zéro). Nemotron reste le moteur de transcription. Ce document décrit l'essai et ses limites ; il ne remplace pas une mesure sur le POCO F7.
 
 ## Installation depuis le téléphone
 
-**[Télécharger directement l’APK 0.9.2](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34360582995/dictai-local-layout-test.apk)** — environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34360582995), [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/34360582995). Installer en mise à jour conserve Gemma déjà téléchargé, vocabulaire et notes. 0.9.2 copie une capture/photo à la fois au presse-papier pour collage manuel depuis Gboard et renforce les suggestions de vocabulaire pendant la dictée. Aucun nouveau contexte image ajouté aux notes, aucun collage automatique. Le moteur et les délais de 0.8.5 sont conservés. [Fonctionnement et vérification 0.9.2](PRESSE-PAPIER-VOCABULAIRE-0.9.2.md).
+**[Télécharger directement l’APK 0.9.3](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34364610947/dictai-local-layout-test.apk)** — environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34364610947), [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/34364610947). Installer en mise à jour conserve Gemma déjà téléchargé, vocabulaire et notes. 0.9.3 suit les corrections lettre par lettre sans sélection obligatoire, enregistre captures/photos dans Pictures/DictAI en plus du presse-papier et conserve les images lors d’une sauvegarde volontaire en note. Exports PDF et HTML autonome. Gboard/galerie restent à vérifier sur téléphone. Le moteur et les délais de 0.8.5 sont conservés. [Fonctionnement et preuves 0.9.3](GALERIE-NOTES-VOCABULAIRE-0.9.3.md).
 
 Installer l'APK de la prerelease Gemma, puis ouvrir DictAI et toucher **Installer Gemma 4 E2B** dans les réglages de post-traitement. Le modèle officiel fait 2 588 147 712 octets, environ 2,6 Go. Il est téléchargé une seule fois depuis le dépôt officiel épinglé. Garder cet écran ouvert ; quitter l'application met le téléchargement en pause et une nouvelle ouverture de la ligne permet de le reprendre.
 
