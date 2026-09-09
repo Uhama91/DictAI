@@ -74,3 +74,11 @@ Décision : aucun changement de modèle livré sur la seule promesse « plus gro
 ### Suite conservée
 
 Avant toute nouvelle sélection, définir une évaluation de regroupement et de fidélité sur un corpus tenu à l'écart des consignes. Étudier une spécialisation au découpage et/ou un runtime accéléré sur appareil. Un cache des préfixes immuables via `llama_state_seq_get_data/set_data` est techniquement possible pour Qwen35, mais son gain n'a pas été mesuré et il ne corrige pas la qualité. Ne pas augmenter la taille de l'APK tant qu'un candidat ne montre pas un gain utile. Ne pas basculer automatiquement le cloud : ce choix et la clé restent ceux de l'utilisateur.
+
+## Recherche approfondie complémentaire du 9 septembre
+
+À la demande d'Ullie, la recherche a été élargie aux publications récentes, quantifications entraînées et moteurs Android CPU/GPU/NPU. Le [rapport consolidé](2026-09-09-recherche-avancee-llm-mobile.md) distingue les preuves éditeur des mesures réelles et propose Gemma 4 E2B mobile avec LiteRT-LM GPU comme prochaine expérience. Les mesures CPU précédentes ne suffisent pas à éliminer une voie accélérée. Le téléphone identifié est le POCO F7 standard, Snapdragon 8s Gen 4 ; aucune latence de cette nouvelle configuration n'y a été mesurée.
+
+Trois candidats supplémentaires ont été exécutés sur ordinateur, sans cloud ni thinking : Bonsai-4B, Luth-2-0.8B et Gemma 4 E2B dans le runtime officiel LiteRT-LM. Les 27 générations sont des sondes exploratoires, dont 26 complètes, pas un benchmark de production. Gemma réussit davantage de cas simples, mais un prompt plus strict corrige un mail au prix d'autres défauts : courses regroupées et traduction indésirable d'un nouveau cas anglais. Les sorties exactes, configurations et limites figurent dans le rapport. Aucun remplacement n'est livré sur cette seule base.
+
+La version 0.7.3 de diagnostic est [téléchargeable directement](https://github.com/Uhama91/DictAI/releases/download/local-layout-test-34296957796/dictai-local-layout-test.apk), avec le modèle 350M. Cette recherche n'a pas produit de nouvelle APK. Le suivi des travaux restants demeure dans [SUIVI-DEVELOPPEMENT.md](SUIVI-DEVELOPPEMENT.md).

@@ -1,0 +1,228 @@
+{
+  "date_utc": "2026-09-09T01:18:45Z",
+  "model": "kurakurai/Luth-2-0.8B-GGUF",
+  "revision": "669c903a2b2bbf47afe9afce350f4b2b399b69bc",
+  "file": "Luth-2-0.8B-Q4_K_M.gguf",
+  "file_bytes": 529298720,
+  "sha256": "1dc9c73e4684e30364bffba9e8330f6ccfa2e7c01f09a9e1c58f7d83262df32d",
+  "template_source": "https://huggingface.co/kurakurai/Luth-2-0.8B/blob/cd628ce69a99aefd973854848d11a1224b5a7ad5/chat_template.jinja",
+  "thinking_enabled": false,
+  "native_runtime": "DictAI production JNI, llama.cpp 1511ce3bc3f087376c8526b4ad07100bfabb277f",
+  "host_only": true,
+  "model_and_context_load_ms": 1286,
+  "threads": 2,
+  "context": 4096,
+  "deadline_ms": 20000,
+  "temperature": 0.1,
+  "top_k": 50,
+  "repeat_penalty": 1.05,
+  "seed": 1234,
+  "no_concurrent_model_or_build": true,
+  "exit_code": 0,
+  "limitations": [
+    "Exploratory 4 cases, two decoding modes. Not held-out benchmark or a product validation.",
+    "Host x86 CPU latency is not Android latency. Load excluded from generation_ms; file cache not cleared.",
+    "Native generation parameters are those of DictAI, not the Luth publisher recommended 0.8/20/0.95 parameters; not a tuned optimum for Luth.",
+    "Free decoding allows lexical changes and is not automatically accepted by DictAI.",
+    "Source-copy grammar can affect layout choices. Only manual quality inspection is warranted."
+  ],
+  "cases": [
+    {
+      "id": "liste-courses-free",
+      "language": "fr",
+      "format": "list",
+      "decoding": "free",
+      "source": "du lait des oranges du pain du chocolat, des roses du riz",
+      "expected_items": 6,
+      "prompt": "<|im_start|>system\nTu mets en forme une dictée. Réponds uniquement par le texte final. Préserve le sens, les négations, les noms et les quantités. N’ajoute aucune information. Présente une liste à puces, avec un élément par ligne. Garde chaque nom et ses compléments dans le même élément.<|im_end|>\n<|im_start|>user\ndu lait des oranges du pain du chocolat, des roses du riz<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "grammar": "root ::= [^\\x00]*\n",
+      "token_budget": 192,
+      "first_nonblank_ms": 1555,
+      "generation_ms": 4316,
+      "complete": true,
+      "output": "- lait des oranges  \n- du pain  \n- du chocolat  \n- des roses  \n- du riz",
+      "partial": "- lait des oranges  \n- du pain  \n- du chocolat  \n- des roses  \n- du riz",
+      "manual_review": {
+        "correct_grouping": false,
+        "source_words_order_preserved_ignoring_layout_punctuation_case": false,
+        "explicit_thinking_generated": false,
+        "note": "5 bullets instead of 6: milk and oranges merged. Initial du omitted; no new item added."
+      }
+    },
+    {
+      "id": "liste-courses-faithful",
+      "language": "fr",
+      "format": "list",
+      "decoding": "faithful",
+      "source": "du lait des oranges du pain du chocolat, des roses du riz",
+      "expected_items": 6,
+      "prompt": "<|im_start|>system\nTu mets en forme une dictée. Réponds uniquement par le texte final. Préserve le sens, les négations, les noms et les quantités. N’ajoute aucune information. Présente une liste à puces, avec un élément par ligne. Garde chaque nom et ses compléments dans le même élément.<|im_end|>\n<|im_start|>user\ndu lait des oranges du pain du chocolat, des roses du riz<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "grammar": "root ::= \"• \" \"du\" sep \"lait\" sep \"des\" sep \"oranges\" sep \"du\" sep \"pain\" sep \"du\" sep \"chocolat,\" sep \"des\" sep \"roses\" sep \"du\" sep \"riz\"\nsep ::= \" \" | \"\\n• \"\n",
+      "token_budget": 192,
+      "first_nonblank_ms": 1322,
+      "generation_ms": 2966,
+      "complete": true,
+      "output": "• du lait des oranges du pain du chocolat, des roses du riz",
+      "partial": "• du lait des oranges du pain du chocolat, des roses du riz",
+      "manual_review": {
+        "correct_grouping": false,
+        "source_words_order_preserved_ignoring_layout_punctuation_case": true,
+        "explicit_thinking_generated": false,
+        "note": "All 6 items remain in one bullet; exact source words and order preserved."
+      }
+    },
+    {
+      "id": "liste-complements-free",
+      "language": "fr",
+      "format": "list",
+      "decoding": "free",
+      "source": "du thé à la menthe du fromage de chèvre des figues",
+      "expected_items": 3,
+      "prompt": "<|im_start|>system\nTu mets en forme une dictée. Réponds uniquement par le texte final. Préserve le sens, les négations, les noms et les quantités. N’ajoute aucune information. Présente une liste à puces, avec un élément par ligne. Garde chaque nom et ses compléments dans le même élément.<|im_end|>\n<|im_start|>user\ndu thé à la menthe du fromage de chèvre des figues<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "grammar": "root ::= [^\\x00]*\n",
+      "token_budget": 192,
+      "first_nonblank_ms": 1790,
+      "generation_ms": 4604,
+      "complete": true,
+      "output": "- du thé à la menthe  \n- du fromage de chèvre  \n- des figues",
+      "partial": "- du thé à la menthe  \n- du fromage de chèvre  \n- des figues",
+      "manual_review": {
+        "correct_grouping": true,
+        "source_words_order_preserved_ignoring_layout_punctuation_case": true,
+        "explicit_thinking_generated": false,
+        "note": "3 correct bullets: tea with mint, goat cheese, figs. Complements and all words preserved."
+      }
+    },
+    {
+      "id": "liste-complements-faithful",
+      "language": "fr",
+      "format": "list",
+      "decoding": "faithful",
+      "source": "du thé à la menthe du fromage de chèvre des figues",
+      "expected_items": 3,
+      "prompt": "<|im_start|>system\nTu mets en forme une dictée. Réponds uniquement par le texte final. Préserve le sens, les négations, les noms et les quantités. N’ajoute aucune information. Présente une liste à puces, avec un élément par ligne. Garde chaque nom et ses compléments dans le même élément.<|im_end|>\n<|im_start|>user\ndu thé à la menthe du fromage de chèvre des figues<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "grammar": "root ::= \"• \" \"du\" sep \"thé\" sep \"à\" sep \"la\" sep \"menthe\" sep \"du\" sep \"fromage\" sep \"de\" sep \"chèvre\" sep \"des\" sep \"figues\"\nsep ::= \" \" | \"\\n• \"\n",
+      "token_budget": 192,
+      "first_nonblank_ms": 1480,
+      "generation_ms": 3187,
+      "complete": true,
+      "output": "• du thé à la menthe du fromage de chèvre des figues",
+      "partial": "• du thé à la menthe du fromage de chèvre des figues",
+      "manual_review": {
+        "correct_grouping": false,
+        "source_words_order_preserved_ignoring_layout_punctuation_case": true,
+        "explicit_thinking_generated": false,
+        "note": "All 3 items remain in one bullet; source words preserved."
+      }
+    },
+    {
+      "id": "mail-fr-free",
+      "language": "fr",
+      "format": "email",
+      "decoding": "free",
+      "source": "Bonjour voici le document pour les 23 élèves ne le transmettez pas avant vendredi cordialement Madame Martin",
+      "expected_items": null,
+      "prompt": "<|im_start|>system\nTu mets en forme une dictée. Réponds uniquement par le texte final. Préserve le sens, les négations, les noms et les quantités. N’ajoute aucune information. Présente un e-mail avec la salutation, le corps, la formule de politesse et la signature dans des paragraphes distincts lorsqu’ils sont présents.<|im_end|>\n<|im_start|>user\nBonjour voici le document pour les 23 élèves ne le transmettez pas avant vendredi cordialement Madame Martin<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "grammar": "root ::= [^\\x00]*\n",
+      "token_budget": 192,
+      "first_nonblank_ms": 1676,
+      "generation_ms": 5159,
+      "complete": true,
+      "output": "Bonjour  \nCe document pour les 23 élèves n’est pas transmis avant vendredi, cordialement Madame Martin  \nBien sûr",
+      "partial": "Bonjour  \nCe document pour les 23 élèves n’est pas transmis avant vendredi, cordialement Madame Martin  \nBien sûr",
+      "manual_review": {
+        "correct_grouping": false,
+        "source_words_order_preserved_ignoring_layout_punctuation_case": false,
+        "explicit_thinking_generated": false,
+        "note": "Rewrites prohibition ne le transmettez pas as factual n’est pas transmis, adds Bien sûr, omits source words, and does not separate closing/signature correctly."
+      }
+    },
+    {
+      "id": "mail-fr-faithful",
+      "language": "fr",
+      "format": "email",
+      "decoding": "faithful",
+      "source": "Bonjour voici le document pour les 23 élèves ne le transmettez pas avant vendredi cordialement Madame Martin",
+      "expected_items": null,
+      "prompt": "<|im_start|>system\nTu mets en forme une dictée. Réponds uniquement par le texte final. Préserve le sens, les négations, les noms et les quantités. N’ajoute aucune information. Présente un e-mail avec la salutation, le corps, la formule de politesse et la signature dans des paragraphes distincts lorsqu’ils sont présents.<|im_end|>\n<|im_start|>user\nBonjour voici le document pour les 23 élèves ne le transmettez pas avant vendredi cordialement Madame Martin<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "grammar": "root ::= \"Bonjour\" sep \"voici\" sep \"le\" sep \"document\" sep \"pour\" sep \"les\" sep \"23\" sep \"élèves\" sep \"ne\" sep \"le\" sep \"transmettez\" sep \"pas\" sep \"avant\" sep \"vendredi\" sep \"cordialement\" sep \"Madame\" sep \"Martin\"\nsep ::= \" \" | \"\\n\\n\"\n",
+      "token_budget": 192,
+      "first_nonblank_ms": 1750,
+      "generation_ms": 4337,
+      "complete": true,
+      "output": "Bonjour voici le document pour les 23 élèves ne le transmettez pas avant vendredi cordialement Madame Martin",
+      "partial": "Bonjour voici le document pour les 23 élèves ne le transmettez pas avant vendredi cordialement Madame Martin",
+      "manual_review": {
+        "correct_grouping": false,
+        "source_words_order_preserved_ignoring_layout_punctuation_case": true,
+        "explicit_thinking_generated": false,
+        "note": "Single paragraph; source words and order preserved."
+      }
+    },
+    {
+      "id": "mail-en-free",
+      "language": "en",
+      "format": "email",
+      "decoding": "free",
+      "source": "Hello Karim do not send the documents today wait until Friday and contact Julie first thank you Alex",
+      "expected_items": null,
+      "prompt": "<|im_start|>system\nFormat a dictated email. Return only the final email. Preserve the meaning, negations, names and quantities. Do not add information. Place the greeting, body, closing and signature in separate paragraphs when present.<|im_end|>\n<|im_start|>user\nHello Karim do not send the documents today wait until Friday and contact Julie first thank you Alex<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "grammar": "root ::= [^\\x00]*\n",
+      "token_budget": 192,
+      "first_nonblank_ms": 1279,
+      "generation_ms": 6139,
+      "complete": true,
+      "output": "Subject: Please confirm your availability for Friday  \n\nHello Karim,  \nDo not send the documents today — wait until Friday and contact Julie first. Thank you, Alex.",
+      "partial": "Subject: Please confirm your availability for Friday  \n\nHello Karim,  \nDo not send the documents today — wait until Friday and contact Julie first. Thank you, Alex.",
+      "manual_review": {
+        "correct_grouping": false,
+        "source_words_order_preserved_ignoring_layout_punctuation_case": false,
+        "explicit_thinking_generated": false,
+        "note": "Invents subject asking to confirm availability for Friday. Greeting has line break but closing/signature remain in body. Body wording otherwise preserved apart from punctuation/case."
+      }
+    },
+    {
+      "id": "mail-en-faithful",
+      "language": "en",
+      "format": "email",
+      "decoding": "faithful",
+      "source": "Hello Karim do not send the documents today wait until Friday and contact Julie first thank you Alex",
+      "expected_items": null,
+      "prompt": "<|im_start|>system\nFormat a dictated email. Return only the final email. Preserve the meaning, negations, names and quantities. Do not add information. Place the greeting, body, closing and signature in separate paragraphs when present.<|im_end|>\n<|im_start|>user\nHello Karim do not send the documents today wait until Friday and contact Julie first thank you Alex<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "grammar": "root ::= \"Hello\" sep \"Karim\" sep \"do\" sep \"not\" sep \"send\" sep \"the\" sep \"documents\" sep \"today\" sep \"wait\" sep \"until\" sep \"Friday\" sep \"and\" sep \"contact\" sep \"Julie\" sep \"first\" sep \"thank\" sep \"you\" sep \"Alex\"\nsep ::= \" \" | \"\\n\\n\"\n",
+      "token_budget": 192,
+      "first_nonblank_ms": 1231,
+      "generation_ms": 3410,
+      "complete": true,
+      "output": "Hello Karim do not send the documents today wait until Friday and contact Julie first thank you Alex",
+      "partial": "Hello Karim do not send the documents today wait until Friday and contact Julie first thank you Alex",
+      "manual_review": {
+        "correct_grouping": false,
+        "source_words_order_preserved_ignoring_layout_punctuation_case": true,
+        "explicit_thinking_generated": false,
+        "note": "Single paragraph; source words and order preserved."
+      }
+    }
+  ],
+  "manual_review_summary": {
+    "complete": 8,
+    "total": 8,
+    "correct_grouping": 1,
+    "source_words_order_preserved_ignoring_layout_punctuation_case": 5,
+    "explicit_thinking_in_outputs": false,
+    "quality_status": "Exploratory manual inspection only. Not a general model score."
+  },
+  "template_revision": "cd628ce69a99aefd973854848d11a1224b5a7ad5",
+  "publisher_generation_recommendation": {
+    "temperature": 0.8,
+    "top_k": 20,
+    "top_p": 0.95,
+    "source": "https://huggingface.co/kurakurai/Luth-2-0.8B-GGUF/blob/669c903a2b2bbf47afe9afce350f4b2b399b69bc/README.md",
+    "used_in_probe": false
+  },
+  "gguf_template_verified": {
+    "architecture": "qwen35",
+    "embedded_template_exactly_matches_pinned_source": true,
+    "prompt_generated_manually_with_same_two_message_template": true
+  }
+}

@@ -1,0 +1,1715 @@
+{
+  "model": "litert-community/gemma-4-E2B-it-litert-lm",
+  "revision": "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
+  "file": "gemma-4-E2B-it.litertlm",
+  "file_bytes": 2588147712,
+  "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+  "runtime": "litert-lm-api",
+  "runtime_version": "0.17.0",
+  "host": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+  "host_only": true,
+  "settings": {
+    "backend": "CPU",
+    "threads": 2,
+    "max_num_tokens": 4096,
+    "max_output_tokens": 192,
+    "enable_thinking": false,
+    "thinking_token_budget": 0,
+    "temperature": 0.1,
+    "top_k": 50,
+    "top_p": 0.95,
+    "seed": 1234,
+    "speculative_decoding": false,
+    "deadline_seconds": 20
+  },
+  "template": "Model default provided by official LiteRT package; system/user API messages",
+  "limitations": [
+    "Exploratory seven cases: four prior cases plus three new examples, frozen prompt, one passage only. Not a representative benchmark.",
+    "Linux x86 CPU times are not Android latency.",
+    "LiteRT mobile QAT and runtime differ from JNI GGUF probes; timings and exact sampling are not controlled comparisons.",
+    "No source-copy grammar; free lexical changes possible.",
+    "Cold OS file cache was not cleared."
+  ],
+  "cases": [
+    {
+      "id": "liste-courses-free",
+      "language": "fr",
+      "format": "list",
+      "source": "du lait des oranges du pain du chocolat, des roses du riz",
+      "expected_items": 6,
+      "system_message": "Applique uniquement une mise en forme conservative à la dictée fournie. Réponds uniquement par le texte final, dans la langue de la dictée.\nConserve tous les mots et leur ordre, les nombres tels qu'ils sont écrits, les négations, les noms et les rôles des personnes. Tu peux seulement ajouter de la ponctuation, ajuster les majuscules et insérer des retours à la ligne ou des puces. Ne réécris aucune expression, n'ajoute aucun mot et ne supprime aucun mot. N'ajoute jamais d'objet de mail, de titre, de destinataire, de signature ni de placeholder qui ne figurent pas dans la dictée.\nFormat demandé : liste.\nPour une liste : une puce par élément distinct, en gardant chaque nom et ses compléments ensemble.\nPour un e-mail : sépare en paragraphes la salutation, le corps, la formule de politesse et la signature lorsqu'ils sont présents. Conserve chaque nom dans son rôle et à sa position relative ; un nom après la formule de politesse reste à la fin.\n",
+      "chunks": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " du"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " lait"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " des"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " oranges"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " du"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " pain"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " du"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " chocolat"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " des"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " roses"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " du"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " riz"
+            }
+          ]
+        }
+      ],
+      "complete": true,
+      "first_nonblank_ms": 5211,
+      "output": "* du lait\n* des oranges\n* du pain du chocolat\n* des roses du riz",
+      "generation_ms": 7060,
+      "deadline_reached": false,
+      "manual_review": {
+        "fidelity": "Words, order and meaning preserved.",
+        "grouping": "Incorrect: four items instead of six; bread/chocolate and roses/rice remain merged.",
+        "verdict": "fail_grouping"
+      },
+      "thought_channel_observed": false
+    },
+    {
+      "id": "liste-complements-free",
+      "language": "fr",
+      "format": "list",
+      "source": "du thé à la menthe du fromage de chèvre des figues",
+      "expected_items": 3,
+      "system_message": "Applique uniquement une mise en forme conservative à la dictée fournie. Réponds uniquement par le texte final, dans la langue de la dictée.\nConserve tous les mots et leur ordre, les nombres tels qu'ils sont écrits, les négations, les noms et les rôles des personnes. Tu peux seulement ajouter de la ponctuation, ajuster les majuscules et insérer des retours à la ligne ou des puces. Ne réécris aucune expression, n'ajoute aucun mot et ne supprime aucun mot. N'ajoute jamais d'objet de mail, de titre, de destinataire, de signature ni de placeholder qui ne figurent pas dans la dictée.\nFormat demandé : liste.\nPour une liste : une puce par élément distinct, en gardant chaque nom et ses compléments ensemble.\nPour un e-mail : sépare en paragraphes la salutation, le corps, la formule de politesse et la signature lorsqu'ils sont présents. Conserve chaque nom dans son rôle et à sa position relative ; un nom après la formule de politesse reste à la fin.\n",
+      "chunks": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " du"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " thé"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " à"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " la"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " ment"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "he"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " du"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " fromage"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " de"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " ch"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "èvre"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " des"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " fig"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ues"
+            }
+          ]
+        }
+      ],
+      "complete": true,
+      "first_nonblank_ms": 4488,
+      "output": "* du thé à la menthe\n* du fromage de chèvre\n* des figues",
+      "generation_ms": 6506,
+      "deadline_reached": false,
+      "manual_review": {
+        "fidelity": "Words, order and complements preserved.",
+        "grouping": "Correct three items; tea/mint and cheese/goat complements remain attached.",
+        "verdict": "satisfactory"
+      },
+      "thought_channel_observed": false
+    },
+    {
+      "id": "mail-fr-free",
+      "language": "fr",
+      "format": "email",
+      "source": "Bonjour voici le document pour les 23 élèves ne le transmettez pas avant vendredi cordialement Madame Martin",
+      "expected_items": null,
+      "system_message": "Applique uniquement une mise en forme conservative à la dictée fournie. Réponds uniquement par le texte final, dans la langue de la dictée.\nConserve tous les mots et leur ordre, les nombres tels qu'ils sont écrits, les négations, les noms et les rôles des personnes. Tu peux seulement ajouter de la ponctuation, ajuster les majuscules et insérer des retours à la ligne ou des puces. Ne réécris aucune expression, n'ajoute aucun mot et ne supprime aucun mot. N'ajoute jamais d'objet de mail, de titre, de destinataire, de signature ni de placeholder qui ne figurent pas dans la dictée.\nFormat demandé : e-mail.\nPour une liste : une puce par élément distinct, en gardant chaque nom et ses compléments ensemble.\nPour un e-mail : sépare en paragraphes la salutation, le corps, la formule de politesse et la signature lorsqu'ils sont présents. Conserve chaque nom dans son rôle et à sa position relative ; un nom après la formule de politesse reste à la fin.\n",
+      "chunks": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Bonjour"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": ","
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Voici"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " le"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " document"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " pour"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " les"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " "
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "2"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "3"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " élèves"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Ne"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " le"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " trans"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "met"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "tez"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " pas"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " avant"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " vendredi"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Cordial"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ement"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": ","
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Madame"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Martin"
+            }
+          ]
+        }
+      ],
+      "complete": true,
+      "first_nonblank_ms": 4794,
+      "output": "Bonjour,\n\nVoici le document pour les 23 élèves. Ne le transmettez pas avant vendredi.\n\nCordialement,\n\nMadame Martin",
+      "generation_ms": 7727,
+      "deadline_reached": false,
+      "manual_review": {
+        "fidelity": "No added subject, placeholder or lexical rewriting; negation, 23 and signature Madame Martin preserved in correct roles.",
+        "grouping": "Greeting, body, closing and signature separated.",
+        "verdict": "satisfactory"
+      },
+      "thought_channel_observed": false
+    },
+    {
+      "id": "mail-en-free",
+      "language": "en",
+      "format": "email",
+      "source": "Hello Karim do not send the documents today wait until Friday and contact Julie first thank you Alex",
+      "expected_items": null,
+      "system_message": "Applique uniquement une mise en forme conservative à la dictée fournie. Réponds uniquement par le texte final, dans la langue de la dictée.\nConserve tous les mots et leur ordre, les nombres tels qu'ils sont écrits, les négations, les noms et les rôles des personnes. Tu peux seulement ajouter de la ponctuation, ajuster les majuscules et insérer des retours à la ligne ou des puces. Ne réécris aucune expression, n'ajoute aucun mot et ne supprime aucun mot. N'ajoute jamais d'objet de mail, de titre, de destinataire, de signature ni de placeholder qui ne figurent pas dans la dictée.\nFormat demandé : e-mail.\nPour une liste : une puce par élément distinct, en gardant chaque nom et ses compléments ensemble.\nPour un e-mail : sépare en paragraphes la salutation, le corps, la formule de politesse et la signature lorsqu'ils sont présents. Conserve chaque nom dans son rôle et à sa position relative ; un nom après la formule de politesse reste à la fin.\n",
+      "chunks": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Hello"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Karim"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": ","
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Do"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " not"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " send"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " the"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " documents"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " today"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Wait"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " until"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Friday"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " and"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " contact"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Julie"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " first"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Thank"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " you"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": ","
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Alex"
+            }
+          ]
+        }
+      ],
+      "complete": true,
+      "first_nonblank_ms": 4185,
+      "output": "Hello Karim,\n\nDo not send the documents today. Wait until Friday and contact Julie first.\n\nThank you,\nAlex",
+      "generation_ms": 6608,
+      "deadline_reached": false,
+      "manual_review": {
+        "fidelity": "English preserved, as are names, negation, timeline and word order.",
+        "grouping": "Greeting/body/closing/signature readable and separated; closing and signature use adjacent lines.",
+        "verdict": "satisfactory"
+      },
+      "thought_channel_observed": false
+    },
+    {
+      "id": "heldout-mail-fr",
+      "language": "fr",
+      "format": "email",
+      "source": "Bonjour Léa merci de préparer deux dossiers ne modifiez pas le dossier de Karim bien cordialement Nora",
+      "expected_items": null,
+      "system_message": "Applique uniquement une mise en forme conservative à la dictée fournie. Réponds uniquement par le texte final, dans la langue de la dictée.\nConserve tous les mots et leur ordre, les nombres tels qu'ils sont écrits, les négations, les noms et les rôles des personnes. Tu peux seulement ajouter de la ponctuation, ajuster les majuscules et insérer des retours à la ligne ou des puces. Ne réécris aucune expression, n'ajoute aucun mot et ne supprime aucun mot. N'ajoute jamais d'objet de mail, de titre, de destinataire, de signature ni de placeholder qui ne figurent pas dans la dictée.\nFormat demandé : e-mail.\nPour une liste : une puce par élément distinct, en gardant chaque nom et ses compléments ensemble.\nPour un e-mail : sépare en paragraphes la salutation, le corps, la formule de politesse et la signature lorsqu'ils sont présents. Conserve chaque nom dans son rôle et à sa position relative ; un nom après la formule de politesse reste à la fin.\n",
+      "chunks": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Bonjour"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Lé"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": ","
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Merci"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " de"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " préparer"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " deux"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " dossiers"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Ne"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " mod"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ifiez"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " pas"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " le"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " dossier"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " de"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Karim"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Bien"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " cordial"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ement"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": ","
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "N"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ora"
+            }
+          ]
+        }
+      ],
+      "complete": true,
+      "first_nonblank_ms": 5007,
+      "output": "Bonjour Léa,\n\nMerci de préparer deux dossiers. Ne modifiez pas le dossier de Karim.\n\nBien cordialement,\n\nNora",
+      "generation_ms": 7867,
+      "deadline_reached": false,
+      "manual_review": {
+        "fidelity": "Lea remains addressee, Karim remains owner of protected file, Nora remains signer; deux and negation preserved.",
+        "grouping": "Greeting/body/closing/signature separated correctly.",
+        "verdict": "satisfactory"
+      },
+      "thought_channel_observed": false
+    },
+    {
+      "id": "heldout-mail-en",
+      "language": "en",
+      "format": "email",
+      "source": "good morning Sam please bring the two blue folders and do not delete the originals many thanks Morgan",
+      "expected_items": null,
+      "system_message": "Applique uniquement une mise en forme conservative à la dictée fournie. Réponds uniquement par le texte final, dans la langue de la dictée.\nConserve tous les mots et leur ordre, les nombres tels qu'ils sont écrits, les négations, les noms et les rôles des personnes. Tu peux seulement ajouter de la ponctuation, ajuster les majuscules et insérer des retours à la ligne ou des puces. Ne réécris aucune expression, n'ajoute aucun mot et ne supprime aucun mot. N'ajoute jamais d'objet de mail, de titre, de destinataire, de signature ni de placeholder qui ne figurent pas dans la dictée.\nFormat demandé : e-mail.\nPour une liste : une puce par élément distinct, en gardant chaque nom et ses compléments ensemble.\nPour un e-mail : sépare en paragraphes la salutation, le corps, la formule de politesse et la signature lorsqu'ils sont présents. Conserve chaque nom dans son rôle et à sa position relative ; un nom après la formule de politesse reste à la fin.\n",
+      "chunks": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Bonjour"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Sam"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": ","
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "V"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "eu"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "illez"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " apporter"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " les"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " deux"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " dossiers"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " ble"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "us"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " et"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " ne"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " supp"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "rime"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "z"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " pas"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " les"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " origin"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "aux"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Merci"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " beaucoup"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": ","
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " Morgan"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        }
+      ],
+      "complete": true,
+      "first_nonblank_ms": 4192,
+      "output": "Bonjour Sam,\n\nVeuillez apporter les deux dossiers bleus et ne supprimez pas les originaux. Merci beaucoup, Morgan.",
+      "generation_ms": 7209,
+      "deadline_reached": false,
+      "manual_review": {
+        "fidelity": "Fails required preservation of source language and words: translates entire English dictation into French.",
+        "grouping": "Greeting/body separated, but closing and signature embedded in body paragraph.",
+        "verdict": "fail_language_and_grouping"
+      },
+      "thought_channel_observed": false
+    },
+    {
+      "id": "heldout-liste-fr",
+      "language": "fr",
+      "format": "list",
+      "source": "des tomates cerises du pain de campagne du café moulu des pommes",
+      "expected_items": 4,
+      "system_message": "Applique uniquement une mise en forme conservative à la dictée fournie. Réponds uniquement par le texte final, dans la langue de la dictée.\nConserve tous les mots et leur ordre, les nombres tels qu'ils sont écrits, les négations, les noms et les rôles des personnes. Tu peux seulement ajouter de la ponctuation, ajuster les majuscules et insérer des retours à la ligne ou des puces. Ne réécris aucune expression, n'ajoute aucun mot et ne supprime aucun mot. N'ajoute jamais d'objet de mail, de titre, de destinataire, de signature ni de placeholder qui ne figurent pas dans la dictée.\nFormat demandé : liste.\nPour une liste : une puce par élément distinct, en gardant chaque nom et ses compléments ensemble.\nPour un e-mail : sépare en paragraphes la salutation, le corps, la formule de politesse et la signature lorsqu'ils sont présents. Conserve chaque nom dans son rôle et à sa position relative ; un nom après la formule de politesse reste à la fin.\n",
+      "chunks": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " des"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " tomates"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " cer"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "ises"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " du"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " pain"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " de"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " campagne"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " du"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " café"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " mou"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "lu"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " des"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": " pommes"
+            }
+          ]
+        }
+      ],
+      "complete": true,
+      "first_nonblank_ms": 4495,
+      "output": "* des tomates cerises\n* du pain de campagne\n* du café moulu\n* des pommes",
+      "generation_ms": 6967,
+      "deadline_reached": false,
+      "manual_review": {
+        "fidelity": "All words and noun complements preserved.",
+        "grouping": "Correct four items: cherry tomatoes, country bread, ground coffee, apples.",
+        "verdict": "satisfactory"
+      },
+      "thought_channel_observed": false
+    }
+  ],
+  "prompt_template_sha256": "a484b7fde0cca9d8ee6f31b5cf788009f68cd2a28e406642c5484e0fea423223",
+  "prompt_template_frozen_before_generation": true,
+  "no_prompt_adjustments_after_heldout_results": true,
+  "cache_difference": "Persistent XNNPACK cache directory exists for this run. Do not compare timings with prior probe where cache was absent.",
+  "model_load_ms": 5112,
+  "status": "finished",
+  "exit_code": 0,
+  "verified_at_utc": "2026-09-09T01:30:37.292444+00:00",
+  "system_instruction_language": "French for all seven cases; the first probe used an English system instruction for its English case. This difference can affect language adherence; no further variant was tried.",
+  "manual_review_method": "Read each source and output for preservation of words, meaning, names, negations, quantities, language, and item/paragraph boundaries. Punctuation exact-match was not used as a pass/fail criterion.",
+  "runtime_wheel_sha256": "654efe7dd6870335b3cfabe57debc9ef13beece16e4981a71c964d3a212fb724",
+  "conclusion": "The fixed conservative instruction repaired the prior French-email hallucination but was not universally reliable: original shopping list under-segmented and new English email translated. No product validation and no Android-latency conclusion."
+}
