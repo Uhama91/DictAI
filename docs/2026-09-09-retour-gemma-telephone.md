@@ -63,4 +63,18 @@ La correction porte sur la cause reproduite du rejet ; elle ne garantit pas tous
 
 0.8.2 publiée et téléchargée pour vérification : [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34325226264/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34325226264), [rapport de vérification](VERIFICATION-GEMMA-0.8.2.md). Elle inclut aussi la conservation des diagnostics introduite en 0.8.1 ; Gemma déjà téléchargé est conservé lors de la mise à jour.
 
+## Banc 0.8.2 sur le POCO F7 — correction confirmée, marge de temps insuffisante
+
+Ullie fournit les vingt passages du banc de 0.8.2 : [mesures et sorties archivées](benchmarks/local-format/gemma4-poco-f7-082-user-2026-09-09.json). Le mail long réussit deux fois, avec un mot rétabli (normalement), tous les repères conservés et les paragraphes attendus. Le brut GPU montre la même omission que la reproduction CPU. Cette correction est donc confirmée sur le téléphone pour cet exemple.
+
+Le mail long termine en **5 136 ms et 4 978 ms**. Le banc attend directement le moteur (limite de 20 s) et mesure son retour avant validation, alors que `LocalFormattingSession.finish` dispose de 5 000 ms à la finalisation. Si le calcul entier doit démarrer à cet instant, le premier temps dépasse la limite, et le second ne laisse que 22 ms avant validation et aléas d’exécution. Une génération anticipée peut réduire le temps restant. Le banc réussi ne garantit donc pas la réussite de la dictée réelle ; aucun nouveau diagnostic de délai dépassé n’a été fourni à ce stade.
+
+Sur dix sources répétées deux fois : dix-huit appels au LLM, douze réponses acceptées, dont huit réussissent les critères ciblés et quatre gardent un mauvais regroupement ; six réponses sont rejetées. Les deux acquiescements directs ne sont pas des générations LLM. Les échecs inchangés concernent la suppression de et dans la liste d’actions, la signature anglaise inventée, la conversion 2 → two, les courses regroupées par paires et le complément de la ferme non séparé du pain. La correction ciblée du mail ne valide pas ces autres formats.
+
+Dernière initialisation : 7 472 ms, moteur déjà chargé pendant le banc. Premier fragment médian sur les dix-huit appels : 1 363 ms ; retour complet médian : 2 376,5 ms. Sur les huit sources LLM communes au banc 0.8.0, le retour complet médian est de 2 196 ms contre 1 986,5 ms précédemment ; les conditions appareil/caches/mémoire diffèrent, donc ce n’est pas une preuve de régression causée par le code.
+
+PSS processus 1 753 → 1 947 Mio, RAM disponible 2 183 → 2 559 Mio, état thermique Android 0 aux deux relevés. Ne pas attribuer les durées à une cause thermique ou mémoire sur ces seules mesures.
+
+Suite prioritaire : rendre la finalisation des mails longs plus rapide et régulière avec les mots conservés. Ne pas présenter une simple hausse du délai comme une amélioration de vitesse. Les cas de regroupement et les rejets anglais restent distincts. Aucun changement d’application ni nouvelle APK n’est réalisé à la réception de ce seul rapport.
+
 Ne pas modifier le délai de cinq secondes, remplacer le modèle ou relâcher globalement la fidélité sur la seule base d’un bloc de texte. Gemma reste la base d’essai ; priorité à l’identification de l’échec des mails longs avec le ressenti de faible latence conservé.

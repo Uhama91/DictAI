@@ -23,3 +23,7 @@ Le modèle, le prompt et les délais sont inchangés. La restauration est limit�
 - [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34325226264/dictai-local-layout-test.apk), [prerelease publique](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34325226264).
 - APK publiée : 78 567 829 octets ; SHA-256 `624f4a623df77d8d6d9544f8dde7563b549ec7d85b8959d1668f85fcf51abc5a`, identique à l’APK locale vérifiée.
 - Téléchargement HTTP 200 complet vérifié : taille et SHA identiques à `SHA256SUMS`, au journal Actions et à l’empreinte de l’asset GitHub.
+
+## Retour téléphone ultérieur fourni par Ullie
+
+Le banc 0.8.2 sur Xiaomi 25053PC47G / Android 16 valide les deux passages du mail long : un mot rétabli, texte conservé et regroupement ciblé réussi. Durées de génération 5 136 et 4 978 ms. Le banc a une limite de moteur de 20 s, la finalisation réelle une attente de 5 s : la réussite du banc ne garantit pas la publication du format dans cette limite. Les autres échecs de listes et mails anglais restent présents. [Rapport détaillé](2026-09-09-retour-gemma-telephone.md#banc-082-sur-le-poco-f7--correction-confirmée-marge-de-temps-insuffisante), [mesures archivées](benchmarks/local-format/gemma4-poco-f7-082-user-2026-09-09.json). Ces mesures sont fournies par Ullie ; aucun téléphone n’a été piloté par Codex.
