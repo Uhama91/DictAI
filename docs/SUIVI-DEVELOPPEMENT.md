@@ -8,6 +8,16 @@ Qualité du 350M **non validée** : les regroupements de liste et fermetures de 
 
 Version 0.7.2 : format/moteur visibles dans l’overlay, retrait Ranger/Coller, préparation du panneau avant premier tap, numérotation générique et énumération avec un corrigées, point final de prose, geste ↑Envoyer pendant la pause. 251 tests JVM et 18 tests Python réussis ; APK normale et prototype vérifiées dans [le rapport](VERIFICATION-POST-TRAITEMENT.md) ; gestes et gain au démarrage restent à confirmer sur téléphone. L’étape suivante du LLM reste ouverte et prioritaire.
 
+## Complément : modèle plus lourd et thinking
+
+Ullie accepte une application plus lourde pour améliorer la compréhension, exige des essais sans thinking et donne l'autorisation de poursuivre sans reconfirmer chaque étape. La session du 9 septembre est passée en accès complet. À la reprise, respecter le profil technique courant ; l'autorisation utilisateur persiste.
+
+Rapport Xiaomi reçu : à chaud premier fragment 700 ms / fin 1723 ms sur la liste FR, 613 ms / 1304 ms sur le mail EN. Le JNI fonctionne dans le banc isolé, sans preuve de la route de chaque dictée réelle.
+
+Nouveaux essais de Qwen3.5-2B (1,28 Go) et Qwen3-4B Instruct Q3_K_S (1,89 Go), sans thinking : aucun remplacement retenu pour la qualité/latence testée. Résultats et limites dans [la note canonique](2026-09-09-retour-essai-local.md#mesures-téléphone-et-essais-complémentaires) et [le rapport](benchmarks/local-format/larger-models-2026-09-09.json). Ne pas refaire les mêmes variantes de consigne.
+
+Version 0.7.3 : diagnostic de la dernière publication, six cas du banc avec scores de regroupement distincts, plages de comptage avec 1 et recherche d'énumération corrigées. Modèle 350M inchangé ; qualité locale toujours ouverte. Validation locale terminée : 285 tests JVM dans 43 suites, 18 tests Python, APK normale et prototype signées et vérifiées (bibliothèques ARM64, alignement 16 Ko, poids unique et empreinte). Publication Actions en préparation ; renseigner le lien après son succès.
+
 ## 1. Post-traitement et correction personnelle — priorité actuelle
 
 Décision actualisée du 8 septembre : **le LLM local n’est pas abandonné**. Les essais de réécriture libre ont échoué avec 350M et quatre candidats plus gros. Une nouvelle configuration LFM2.5-350M copie tous les mots sous contrainte et laisse le modèle choisir uniquement les puces/paragraphes. Le corpus élargi contient dix générations et deux réponses directes : tous les mots sont conservés, mais le découpage reste imparfait. La version normale conserve cloud/désactivé ; le prototype séparé `0.7.1-wp-local-test` sert à mesurer listes/mails sur téléphone. Ce n’est pas encore un remplacement général et instantané du cloud.

@@ -3,6 +3,7 @@ package com.kafkasl.phonewhisper
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /** A format is explicit intent: even a three-word list must be formatted. */
 internal data class LocalFormatRequest(
@@ -47,8 +48,19 @@ internal object LocalFormatOutput {
 
 internal interface LocalFormatBackend {
     fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit): String?
+    /** Production runtimes report this immediately before entering native generation. */
+    fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit, onNativeStart: () -> Unit): String? =
+        generate(request, onChunk)
     fun cancel()
 }
+
+/** Metadata only. waitMs measures finalization, including any remaining queue/load wait. */
+internal data class LocalFinishDiagnostic(
+    val route: String,
+    val outcome: String,
+    val nativeStarted: Boolean,
+    val waitMs: Long,
+)
 
 /**
  * One worker and at most one pending draft. Only an identical source + format can reuse output.
@@ -58,6 +70,15 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
     private class Job(val request: LocalFormatRequest) {
         val result = CompletableFuture<String?>()
         @Volatile var onChunk: ((String) -> Unit)? = null
+        @Volatile var nativeStarted = false
+        @Volatile var outcome = "pending"
+
+        /** Caller holds the session lock; a cancelled job cannot later become applied. */
+        fun complete(value: String?, outcome: String) {
+            if (result.isDone) return
+            this.outcome = outcome
+            result.complete(value)
+        }
     }
 
     private val lock = Any()
@@ -70,6 +91,8 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
     private var running = false
     private var closed = false
     private var finalizing = false
+    @Volatile var lastFinish: LocalFinishDiagnostic? = null
+        private set
 
     fun offer(request: LocalFormatRequest) {
         synchronized(lock) {
@@ -78,17 +101,34 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
     }
 
     fun finish(request: LocalFormatRequest, timeoutMs: Long, onChunk: (String) -> Unit): String? {
+        val started = System.nanoTime()
+        var route = "not_called"
+        fun record(outcome: String, nativeStarted: Boolean = false) {
+            lastFinish = LocalFinishDiagnostic(route, outcome, nativeStarted,
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L))
+        }
         val job = synchronized(lock) {
-            if (closed || request.text.isBlank()) return null
+            if (closed || request.text.isBlank()) {
+                record(if (closed) "cancelled" else "empty_input")
+                return null
+            }
             finalizing = true
             // A direct acknowledgment must bypass an old model load/prefill completely.
             request.layoutPolicy()?.directResult?.let { direct ->
                 request.acceptOutput(direct)?.let { accepted ->
                     backend.cancel()
-                    pending?.result?.complete(null)
+                    pending?.complete(null, "cancelled")
                     pending = null
+                    route = "direct"
+                    record("applied")
                     return accepted
                 }
+            }
+            route = when {
+                completed?.request == request -> "cache"
+                active?.request == request -> "in_flight"
+                pending?.request == request -> "queued"
+                else -> "generated"
             }
             // Stop obsolete speculation instead of making the final request wait behind it.
             if (active?.request?.let { it != request } == true) backend.cancel()
@@ -97,8 +137,21 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
             next
         }
         return try {
-            job.result.get(timeoutMs, TimeUnit.MILLISECONDS)
+            job.result.get(timeoutMs, TimeUnit.MILLISECONDS).also {
+                record(job.outcome, job.nativeStarted)
+            }
+        } catch (_: TimeoutException) {
+            // Freeze the observed state BEFORE cancellation can unblock a late worker.
+            record("wait_timeout", job.nativeStarted)
+            close()
+            null
+        } catch (_: InterruptedException) {
+            record("interrupted", job.nativeStarted)
+            close()
+            Thread.currentThread().interrupt()
+            null
         } catch (_: Exception) {
+            record("error", job.nativeStarted)
             close()
             null
         }
@@ -108,12 +161,12 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
     private fun enqueue(request: LocalFormatRequest): Job {
         completed?.takeIf { it.request == request }?.let { return it }
         active?.takeIf { it.request == request }?.let {
-            pending?.result?.complete(null)
+            pending?.complete(null, "cancelled")
             pending = null
             return it
         }
         pending?.takeIf { it.request == request }?.let { return it }
-        pending?.result?.complete(null)
+        pending?.complete(null, "cancelled")
         val job = Job(request)
         pending = job
         if (!running) {
@@ -132,19 +185,30 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
                 }
                 pending!!.also { pending = null; active = it }
             }
-            val value = runCatching {
-                backend.generate(job.request) { chunk ->
+            val generated = runCatching {
+                backend.generate(job.request, { chunk ->
                     synchronized(lock) {
                         if (!closed && active === job) job.onChunk?.invoke(chunk)
                     }
-                }
-            }.getOrNull()
+                }, { job.nativeStarted = true })
+            }
             synchronized(lock) {
                 if (!closed) {
-                    val accepted = job.request.acceptOutput(value)
+                    val value = generated.getOrNull()
+                    val validation = runCatching { job.request.acceptOutput(value) }
+                    val accepted = validation.getOrNull()
+                    val outcome = when {
+                        generated.isFailure -> "backend_error"
+                        validation.isFailure -> "error"
+                        value.isNullOrBlank() -> "backend_empty"
+                        accepted != null -> "applied"
+                        job.request.copy(protectedTerms = emptyList()).acceptOutput(value) != null ->
+                            "vocabulary_rejected"
+                        else -> "fidelity_rejected"
+                    }
                     if (accepted != null) completed = job
-                    job.result.complete(accepted)
-                } else job.result.complete(null)
+                    job.complete(accepted, outcome)
+                } else job.complete(null, "cancelled")
                 active = null
             }
         }
@@ -154,8 +218,8 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
         synchronized(lock) {
             if (closed) return
             closed = true
-            active?.result?.complete(null)
-            pending?.result?.complete(null)
+            active?.complete(null, "cancelled")
+            pending?.complete(null, "cancelled")
             pending = null
             backend.cancel()
             worker.shutdown()

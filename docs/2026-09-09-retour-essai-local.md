@@ -32,3 +32,45 @@ Un test ASR préexistant attendait qu’un décodeur ait tourné alors qu’un d
 1. Sur téléphone : confirmer le moteur réellement appliqué et mesurer le premier démarrage, le geste d’envoi en pause et les corrections de nombres/points.
 2. Pour le LLM : comparer sur un corpus tenu à l’écart des consignes, comprenant listes sans virgules, compléments ambigus, signatures et citations. Évaluer qualité avant d’augmenter la taille livrée. Étudier une spécialisation au découpage ou un autre modèle si le gain est reproductible ; ne pas forcer toutes les frontières `du/de la/des` par règle.
 3. Garder les demandes vocabulaire et catalogue ASR dans le suivi canonique du dépôt. Les utilisateurs qui choisissent le cloud conservent leur clé et leur choix ; aucune bascule automatique.
+
+
+## Mesures téléphone et essais complémentaires
+
+Ullie a fourni le rapport du menu sur Xiaomi 25053PC47G, Android 16, version 0.7.2. Chargement du 350M : 682 ms. À chaud : premier fragment 700 ms / fin 1723 ms pour la liste FR ; premier fragment 613 ms / fin 1304 ms pour le mail EN. Le message « OK, ça marche. » ne lance pas de génération. [Mesures reçues](benchmarks/local-format/phone-lfm350-2026-09-09.json).
+
+Ce rapport confirme le fonctionnement du JNI dans le test isolé. Il ne prouve pas que chaque dictée réelle a reçu un résultat LLM : la finalisation peut conserver la source après délai, sortie rejetée ou indisponibilité. Les cinq repères affichés vérifiaient le contenu, pas la qualité du regroupement. Les dictées spontanées de liste et mail restent insuffisantes.
+
+Ullie accepte explicitement un modèle/application plus lourd si la compréhension progresse en conservant la réactivité. Il demande de vérifier le mode thinking et la latence. Les essais Qwen3.5 utilisent bien le suffixe officiel de mode sans réflexion (`assistant` puis bloc think vide fermé) ; le Qwen3-4B Instruct 2507 utilise son template sans bloc think. Les deux modèles source sont Apache-2.0 ; les GGUF testés sont des conversions Unsloth, pas des conversions publiées par Qwen.
+
+Sources : [template Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B/blob/main/chat_template.jinja), [modèle Qwen3-4B Instruct](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507), [GGUF 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/blob/main/Qwen3.5-2B-Q4_K_M.gguf), [GGUF 4B Q3_K_S](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/blob/main/Qwen3-4B-Instruct-2507-Q3_K_S.gguf).
+
+### Résultats sur ordinateur, modèle chargé, deux threads, sans thinking
+
+Les 17 sources comprennent les cas reçus, des compléments à conserver et des mails FR/EN. Une égalité exacte au découpage de référence est un indicateur ciblé, pas un score général de compréhension. Les durées comprennent le prompt et la génération, pas le chargement ni la chaîne ASR/affichage/insertion. [Sorties, prompts, grammaires et mesures](benchmarks/local-format/larger-models-2026-09-09.json).
+
+| Configuration | Découpages de référence | Premier fragment médian | Fin médiane |
+|---|---:|---:|---:|
+| 350M, consigne avec exemples de cette comparaison | 6/17 | 966 ms | 1481 ms |
+| Qwen3.5-2B Q4_K_M, mêmes exemples | 9/17 | 5902 ms | 8442 ms |
+| Qwen3.5-2B, consigne brève | 3/17 | 1955 ms | 4517 ms |
+
+Le 2B avec exemples structure les deux mails français mais laisse encore des regroupements erronés en liste. La version brève perd notamment les paragraphes du mail. Sans la grammaire de copie, cette même consigne brève produit six éléments pour les listes simples, mais conserve des mails monoblocs et coupe encore « thé à la menthe » / « lait de la ferme » ; certaines réponses omettent ou répètent du contenu. Une projection lexicale pourrait récupérer des puces/majuscules/ponctuations différentes, mais ne résout pas ces erreurs de compréhension. Seize générations sur dix-sept sont complètes ; la génération incomplète ne reçoit aucune note de regroupement. Cette variante n'est pas intégrée.
+
+Qwen3-4B Instruct Q3_K_S (1 886 997 600 octets) : le lot avec exemples a dépassé 20 secondes avant le premier fragment sur sept cas observés, puis a été interrompu. Le lot bref borné à quatre cas produit quatre réponses complètes/fidèles mais un seul regroupement conforme : la liste utilisateur a trois puces, le mail français reste monobloc, lait de la ferme/pain reste une seule puce ; le mail anglais est structuré. Premier fragment 6,64–10,10 s, fin 9,47–19,03 s. Arrêt de ce candidat sans lancer les treize autres cas ni multiplier les réglages. Les sorties absentes du lot interrompu ne reçoivent aucune note de qualité.
+
+Les lots 350M/2B et l'ancien lot 4B exécutaient les tests natifs avant les cas ; le 4B bref utilise un pilote de cas seuls, avec fragments partiels conservés. Le code natif et les réglages de génération restent identiques.
+
+Une autre formulation, classification START/JOIN sur fragments candidats fournis manuellement, a également échoué : 350M 4/17, variante d'exemples 0/17, Qwen0.8B bref 5/17, LFM1.2B bref 4/17. L'extraction automatique des candidats n'était pas testée. [Rapport séparé](benchmarks/local-format/boundary-decisions-2026-09-09.json).
+
+Décision : aucun changement de modèle livré sur la seule promesse « plus gros = meilleur ». Ces constats concernent les poids quantifiés, consignes, runtime CPU et contraintes effectivement testés ; ils ne prouvent pas l'impossibilité du local. La qualité et la réactivité du remplacement restent à résoudre.
+
+## Correctifs 0.7.3
+
+- Diagnostic du dernier traitement effectivement publié : moteur demandé/appliqué, appel natif ayant produit le résultat, cache/calcul/direct, résultat validé ou motif de repli, délai final et arrêt vers insertion/copie, nombres de lignes/puces. Aucun texte dicté, vocabulaire, nom de format personnel ou clé API stocké dans ce diagnostic. Une génération tardive ne remplace pas le diagnostic du délai. Réglages : « Dernier post-traitement », avec copie.
+- Banc du menu : six sources FR/EN, deux passages ; conservation du texte et regroupement évalués séparément. Les listes sans virgules, compléments et mails sans ponctuation font partie des cas, avec dix générations et deux réponses directes. Le banc reste isolé de l'ASR et de l'insertion.
+- Nombres : « de un jusqu'à dix » devient « de 1 jusqu'à 10 » ; refus des bornes partielles comme « dix-huitième ». Correction d'une recherche arrière d'énumération trop coûteuse sur les longues proses. Les variantes usuelles de 256 sont couvertes et fonctionnent déjà ; le cas exact du retour utilisateur reste inconnu. Majuscules internes et tirets longs ambiguës restent à étudier séparément.
+- Le modèle de l'APK demeure le 350M. Cette version améliore les corrections et le diagnostic, elle ne prétend pas résoudre la qualité des formats locaux.
+
+### Suite conservée
+
+Avant toute nouvelle sélection, définir une évaluation de regroupement et de fidélité sur un corpus tenu à l'écart des consignes. Étudier une spécialisation au découpage et/ou un runtime accéléré sur appareil. Un cache des préfixes immuables via `llama_state_seq_get_data/set_data` est techniquement possible pour Qwen35, mais son gain n'a pas été mesuré et il ne corrige pas la qualité. Ne pas augmenter la taille de l'APK tant qu'un candidat ne montre pas un gain utile. Ne pas basculer automatiquement le cloud : ce choix et la clé restent ceux de l'utilisateur.

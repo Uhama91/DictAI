@@ -61,7 +61,7 @@ class NumberFormattingTest {
         assertEquals("2 et Paul", fr.apply("deux et Paul", NumberStyle.DIGITS))
     }
     @Test fun commonCardinalsRoundTripInBothLanguages() {
-        val values = listOf(0L, 2, 9, 17, 21, 71, 80, 81, 99, 100, 101, 200, 201, 999, 1000, 1001, 2026, 999999, 1000000, 2345678)
+        val values = listOf(0L, 2, 9, 17, 21, 71, 80, 81, 99, 100, 101, 200, 201, 256, 999, 1000, 1001, 2026, 999999, 1000000, 2345678)
         for ((language, formatter) in listOf(DictationLanguage.FRENCH to fr, DictationLanguage.ENGLISH to en)) {
             val format = MessageFormat("{0,spellout}", if (language == DictationLanguage.FRENCH) Locale.FRANCE else Locale.US)
             for (value in values) {
@@ -113,5 +113,66 @@ class NumberFormattingTest {
         }
         assertEquals("un, 2, trois", fr.apply("un, 2, trois", NumberStyle.DIGITS, listOf("2", "trois")))
         assertEquals("1 ;\u00a02 ;\u00a03", fr.apply("un ;\u00a02 ;\u00a03", NumberStyle.DIGITS))
+    }
+
+    @Test fun explicitCountingRangesDisambiguateFrenchOne() {
+        assertEquals("Je compte de 1 jusqu’à 10.", fr.apply("Je compte de un jusqu’à 10.", NumberStyle.DIGITS))
+        assertEquals("de 1 jusqu'à 10", fr.apply("de un jusqu'à dix", NumberStyle.DIGITS))
+        assertEquals("de 1 à 1 ; depuis 1 jusqu’à 21.", fr.apply("de un à un ; depuis un jusqu’à vingt et un.", NumberStyle.DIGITS))
+        assertEquals("de -1 à 1 ; de 1 jusqu’à -3", fr.apply("de moins un à un ; de un jusqu’à moins trois", NumberStyle.DIGITS))
+        assertEquals("de 9 à 10", fr.apply("de neuf à dix", NumberStyle.DIGITS))
+        assertEquals("Count from 1 to 10; from -1 through 1.", en.apply("Count from one to ten; from minus one through one.", NumberStyle.DIGITS))
+    }
+
+    @Test fun rangesDoNotTurnArticlesNamesOrProtectedEvidenceIntoNumbers() {
+        assertEquals("un livre ; une classe ; un projet neuf", fr.apply("un livre ; une classe ; un projet neuf", NumberStyle.DIGITS))
+        assertEquals("de un livre à 10 élèves", fr.apply("de un livre à dix élèves", NumberStyle.DIGITS))
+        for (text in listOf("de un à quelqu’un", "de un jusqu’à 0612345678", "de un jusqu’à Deux"))
+            assertEquals(text, fr.apply(text, NumberStyle.DIGITS))
+        val words = "de un jusqu’à dix"
+        assertEquals(words, fr.apply(words, NumberStyle.DIGITS, listOf("dix")))
+        val digits = "de un jusqu’à 10"
+        assertEquals(digits, fr.apply(digits, NumberStyle.DIGITS, listOf("un")))
+        assertEquals("No one is here.", en.apply("No one is here.", NumberStyle.DIGITS))
+    }
+
+    @Test fun twoHundredFiftySixAcceptsSupportedSpacesHyphensAndSentenceCase() {
+        for (words in listOf("deux cent cinquante-six", "deux cent cinquante six", "deux-cent-cinquante-six",
+            "deux‐cent‐cinquante‐six", "deux‑cent‑cinquante‑six", "Deux cent cinquante-six", "deux\u00a0cent\u202fcinquante-six"))
+            assertEquals(words, "256", fr.apply(words, NumberStyle.DIGITS))
+        for (words in listOf("two hundred fifty-six", "two hundred and fifty six", "Two hundred fifty-six"))
+            assertEquals(words, "256", en.apply(words, NumberStyle.DIGITS))
+        assertEquals("256 ; SHA256", fr.apply("deux cent cinquante-six ; SHA256", NumberStyle.DIGITS))
+        assertEquals("256 ; SHA256", en.apply("two hundred fifty-six ; SHA256", NumberStyle.DIGITS))
+    }
+
+    @Test fun cardinal256StillRespectsIdentifierVocabularyAndNameGuards() {
+        for (text in listOf("code deux cent cinquante-six", "j’ai Deux cent cinquante-six élèves",
+            "deux Cent cinquante-six", "deux cent cinquante-six Élèves"))
+            assertEquals(text, fr.apply(text, NumberStyle.DIGITS))
+        val words = "deux cent cinquante-six"
+        assertEquals(words, fr.apply(words, NumberStyle.DIGITS, listOf(words)))
+        assertEquals("reference two hundred fifty-six", en.apply("reference two hundred fifty-six", NumberStyle.DIGITS))
+    }
+
+    @Test fun rangeEvidenceMustUseCompleteNumericEndpoints() {
+        for (text in listOf("de un à dix-huitième", "de un à dix‐huitième", "de un à dix‑huitième",
+            "de un à dix’neuvième", "de un à 10.5beta", "de un à 10,5beta",
+            "de un à 10.5", "de un à 10,5", "de un à 10 000", "de un à 01"))
+            assertEquals(text, fr.apply(text, NumberStyle.DIGITS))
+        assertEquals("de 1 à 18", fr.apply("de un à dix-huit", NumberStyle.DIGITS))
+        assertEquals("de 1 à 10", fr.apply("de un à 10", NumberStyle.DIGITS))
+    }
+
+    @Test fun longProseWithArticlesDoesNotBecomeAnEnumeration() {
+        val prose = "un livre et une classe dans un projet neuf. ".repeat(300)
+        assertEquals(prose, fr.apply(prose, NumberStyle.DIGITS))
+    }
+
+    @Test fun enumerationCanUseTwoCompletePrecedingNumbers() {
+        assertEquals("2, 3, 1", fr.apply("2, trois, un", NumberStyle.DIGITS))
+        assertEquals("2 ; 3 ; 9", fr.apply("2 ; trois ; neuf", NumberStyle.DIGITS))
+        assertEquals("2,3, un", fr.apply("2,3, un", NumberStyle.DIGITS))
+        assertEquals("2, 3, un", fr.apply("2, trois, un", NumberStyle.DIGITS, listOf("2")))
     }
 }

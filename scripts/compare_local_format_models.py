@@ -7,6 +7,8 @@ ROOT=Path(__file__).resolve().parents[1]
 CACHE=ROOT/'.native-cache/format-models'
 BINARY=Path('/home/ullie/.cache/dictai-build-tools/llama-host-v0.1.2/bin/llama-completion')
 CANDIDATES={
+ 'qwen4-q3s':('unsloth/Qwen3-4B-Instruct-2507-GGUF','Qwen3-4B-Instruct-2507-Q3_K_S.gguf'),
+ 'qwen2':('unsloth/Qwen3.5-2B-GGUF','Qwen3.5-2B-Q4_K_M.gguf'),
  'qwen15':('Qwen/Qwen2.5-1.5B-Instruct-GGUF','qwen2.5-1.5b-instruct-q4_k_m.gguf'),
  'lfm12-qad':('LiquidAI/LFM2.5-1.2B-Instruct-GGUF','LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf'),
  'lfm12-q4km':('LiquidAI/LFM2.5-1.2B-Instruct-GGUF','LFM2.5-1.2B-Instruct-Q4_K_M.gguf'),
@@ -74,7 +76,7 @@ def prompt(case,style,key):
   system=f"Format the user's dictated text in {case['language']}. {instruction} Preserve all names, numbers and facts. Keep numbers as digits. Output only the formatted text."
   user=case['text']
  bos='' if key.startswith('qwen') else '<|startoftext|>'
- suffix='<think>\n\n</think>\n\n' if key=='qwen08' else ''
+ suffix='<think>\n\n</think>\n\n' if key in ('qwen08','qwen2') else ''
  return bos+'<|im_start|>system\n'+system+'<|im_end|>\n<|im_start|>user\n'+user+'<|im_end|>\n<|im_start|>assistant\n'+suffix
 
 def evaluate(key,path,meta,style,threads):

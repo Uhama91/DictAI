@@ -39,7 +39,10 @@ internal class LocalFormatEngine(context: Context) : AutoCloseable {
 
     fun backend(): LocalFormatBackend = object : LocalFormatBackend {
         private val cancellationEpoch = java.util.concurrent.atomic.AtomicLong()
-        override fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit): String? {
+        override fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit): String? =
+            runCatching { generate(request, onChunk, {}) }.getOrNull()
+
+        override fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit, onNativeStart: () -> Unit): String? {
           val policy = request.layoutPolicy() ?: return null
           if (closed) return null
           policy.directResult?.let { return it }
@@ -51,12 +54,12 @@ internal class LocalFormatEngine(context: Context) : AutoCloseable {
             try {
                 val model = load()
                 val remaining = 20_000L - (SystemClock.elapsedRealtime() - started)
-                if (remaining <= 0L) null else model?.generate(policy.prompt(prefixes.getValue(policy.kind)), request.outputTokenBudget(), remaining, onChunk, grammar = policy.grammar()) {
+                if (remaining <= 0L) null else model?.generate(policy.prompt(prefixes.getValue(policy.kind)), request.outputTokenBudget(), remaining, onChunk, grammar = policy.grammar(), onNativeStart = onNativeStart) {
                     closed || cancellationEpoch.get() != epoch
                 }
             } catch (error: Throwable) {
                 Log.w("LocalFormat", "event=format outcome=failed type=${error.javaClass.simpleName}")
-                null
+                throw error
             } finally {
                 activeOwner = null
                 Log.i("LocalFormat", "event=format elapsed_ms=${SystemClock.elapsedRealtime() - started}")

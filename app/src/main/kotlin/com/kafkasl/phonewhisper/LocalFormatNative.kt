@@ -14,17 +14,21 @@ internal class LocalFormatNative private constructor(
     @Volatile private var closed = false
 
     fun generate(prompt: String, maxTokens: Int, timeoutMs: Long, onChunk: (String) -> Unit,
-        grammar: String? = null, isCancelled: () -> Boolean = { false }): String? =
+        grammar: String? = null, onNativeStart: () -> Unit = {}, isCancelled: () -> Boolean = { false }): String? =
         synchronized(lock) {
             if (closed || maxTokens <= 0 || timeoutMs <= 0) return@synchronized null
             val generation = sequence.incrementAndGet()
             activeGeneration.set(generation)
             try {
+                val promptBytes = prompt.toByteArray(Charsets.UTF_8)
+                val grammarBytes = grammar?.toByteArray(Charsets.UTF_8)
+                val sink = object : LocalFormatChunkSink {
+                    override fun onBytes(bytes: ByteArray) { onChunk(bytes.toString(Charsets.UTF_8)) }
+                }
                 if (closed || isCancelled()) return@synchronized null
-                bindings.generate(handle, generation, prompt.toByteArray(Charsets.UTF_8),
-                    grammar?.toByteArray(Charsets.UTF_8), maxTokens, timeoutMs, object : LocalFormatChunkSink {
-                        override fun onBytes(bytes: ByteArray) { onChunk(bytes.toString(Charsets.UTF_8)) }
-                    })?.toString(Charsets.UTF_8)
+                onNativeStart()
+                bindings.generate(handle, generation, promptBytes, grammarBytes,
+                    maxTokens, timeoutMs, sink)?.toString(Charsets.UTF_8)
             } finally { activeGeneration.compareAndSet(generation, 0) }
         }
 
@@ -42,6 +46,8 @@ internal class LocalFormatNative private constructor(
     }
 
     companion object {
+        internal fun forTesting(bindings: LocalFormatNativeApi): LocalFormatNative = LocalFormatNative(1L, bindings)
+
         private val preferredBindings: LocalFormatNativeApi by lazy {
             if (LocalFormatBindings.supportsArm82()) {
                 try { LocalFormatArm82Bindings } catch (_: LinkageError) { LocalFormatBindings }

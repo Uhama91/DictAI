@@ -297,8 +297,17 @@ class MainActivity : AppCompatActivity() {
                 }.setNegativeButton("Annuler", null).show()
         }
         root.addView(engineRow)
+        root.addView(settingsRow("Dernier post-traitement", "Moteur utilisé et résultat · diagnostic copiable") {
+            val report = PersistencePrefs(this).lastPostprocessingDiagnostic
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Dernier post-traitement")
+                .setMessage(report ?: "Aucun traitement enregistré.")
+                .setPositiveButton("Copier") { _, _ -> report?.let { DictationClipboard.copy(this, it) } }
+                .setNegativeButton("Fermer", null)
+                .show()
+        })
         if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
-            root.addView(settingsRow("Tester le modèle local", "3 exemples FR/EN · temps et sorties copiables") {
+            root.addView(settingsRow("Tester le modèle local", "6 exemples FR/EN · vitesse et regroupement") {
                 if (localFormatBenchmark?.isShowing != true) {
                     localFormatBenchmark?.close()
                     localFormatBenchmark = LocalFormatBenchmarkDialog(this).also { it.show() }

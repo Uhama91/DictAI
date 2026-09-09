@@ -80,6 +80,7 @@ internal class NumberFormattingEngine(
 
     private fun wordsToDigits(text: String, protected: List<IntRange>): String {
         val tokens = word.findAll(text).toList()
+        val explicitRangeEndpoints by lazy(LazyThreadSafetyMode.NONE) { validatedRangeEndpoints(text, protected) }
         val result = StringBuilder(text.length)
         var copiedUntil = 0
         var index = 0
@@ -109,6 +110,7 @@ internal class NumberFormattingEngine(
             val replacement = if (isProtected(range, protected) || named || nextNamed ||
                 identifierContext(text, range.first) ||
                 (ambiguousSingleton(text, range, parts) && !numberingContext(text, range.first) &&
+                    range !in explicitRangeEndpoints &&
                     !(french && parts.singleOrNull() in setOf("un", "une", "neuf") && enumerationContext(text, range, protected)))
             ) null else parseWords(parts)
             if (replacement != null) {
@@ -206,6 +208,38 @@ internal class NumberFormattingEngine(
     private fun numberingContext(text: String, at: Int): Boolean =
         numberingLabel.containsMatchIn(text.substring(0, at).takeLast(64))
 
+    /** Explicit cardinal endpoints disambiguate "de un jusqu’à dix" without changing articles. */
+    private fun validatedRangeEndpoints(text: String, protected: List<IntRange>): Set<IntRange> =
+        rangePatterns.asSequence().flatMap { it.findAll(text) }.filter { match ->
+            val endpoints = listOf(match.groups[1]!!, match.groups[2]!!)
+            !isProtected(match.range, protected) && !identifierContext(text, match.range.first) &&
+                endpoints.all { endpoint ->
+                    val value = endpoint.value
+                    if (value.any { it.isUpperCase() }) false
+                    else if (Regex("[-−]?(?:0|[1-9][0-9]{0,8})").matches(value)) true
+                    else {
+                        val parts = splitWords(value)
+                        parts.firstOrNull() != connector && parts.lastOrNull() != connector &&
+                            parts.all { it in numberWords } && parseWords(parts) != null
+                    }
+                }
+        }.flatMap { sequenceOf(it.groups[1]!!.range, it.groups[2]!!.range) }.toSet()
+
+    private val rangePatterns by lazy {
+        val terms = (numberWords + if (french) setOf("zéro") else emptySet())
+            .sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
+        val atom = "(?:$terms)(?![\\p{L}\\p{N}_])"
+        val spaces = "[ \\t\\u00a0\\u202f]+"
+        val endpoint = "(?:[-−]?[0-9]{1,9}(?![\\p{L}\\p{N}_])|" +
+            "$atom(?:[ \\t\\u00a0\\u202f\\-‐‑]+$atom){0,27})" +
+            "(?![\\p{L}\\p{N}_\\-‐‑–—’']|[.,][0-9]|[ \\t\\u00a0\\u202f]+[0-9])"
+        val markers = if (french) listOf("(?:de|depuis)" to "(?:à|jusqu[’']à)")
+            else listOf("from" to "(?:to|through)")
+        markers.map { (start, separator) ->
+            Regex("(?<![\\p{L}\\p{N}_])$start$spaces($endpoint)$spaces$separator$spaces($endpoint)", RegexOption.IGNORE_CASE)
+        }
+    }
+
     /** Three complete comma/semicolon-separated numbers disambiguate un/une/neuf. */
     private fun enumerationContext(text: String, range: IntRange, protected: List<IntRange>): Boolean {
         fun cardinal(segment: String, offset: Int): Boolean {
@@ -228,13 +262,19 @@ internal class NumberFormattingEngine(
             count++
             afterOffset += next.range.last + 1
         }
-        var before = text.substring(0, range.first)
-        while (count < 3) {
-            val previous = Regex("([^,;\\n]+)[,;][ \\t\\u00a0\\u202f]+$").find(before) ?: break
-            val group = previous.groups[1]!!
-            if (!cardinal(group.value, group.range.first)) break
+        var beforeEnd = range.first
+        while (count < 3 && beforeEnd > 0) {
+            var separatorAt = beforeEnd - 1
+            while (separatorAt >= 0 && text[separatorAt] in " \t\u00a0\u202f") separatorAt--
+            // Require whitespace after a comma/semicolon, as for the forward scan.
+            if (separatorAt == beforeEnd - 1 || separatorAt < 0 || text[separatorAt] !in ",;") break
+            var segmentStart = separatorAt - 1
+            while (segmentStart >= 0 && text[segmentStart] !in ",;\n") segmentStart--
+            segmentStart++
+            val segment = text.substring(segmentStart, separatorAt)
+            if (!cardinal(segment, segmentStart)) break
             count++
-            before = before.substring(0, previous.range.first)
+            beforeEnd = segmentStart + segment.indexOfFirst { !it.isWhitespace() }
         }
         return count >= 3
     }

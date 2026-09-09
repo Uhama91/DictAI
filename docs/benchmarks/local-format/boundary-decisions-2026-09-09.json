@@ -1,0 +1,1434 @@
+{
+  "date": "2026-09-09",
+  "decision": "Not integrated. These classifiers do not reliably group the feedback examples. Candidate spans were manually supplied, not extracted from dictation.",
+  "experiments": [
+    {
+      "model": "lfm350",
+      "model_sha256": "7e6f72643caafc9a68256686638c4d7916f2cec76d1df478d4c3ddcd95a6aed4",
+      "host_only": true,
+      "candidates": "Manually supplied, including false boundaries. Candidate generation is a separate unvalidated stage.",
+      "jni_source_sha256": "fe48c593e5013613d1042e46b88d9a9a7723fb1bdfc61b3221d3b73e1d2e5e17",
+      "context": 4096,
+      "threads": 2,
+      "temperature": 0.1,
+      "seed": 1234,
+      "cases": [
+        {
+          "id": "list-feedback",
+          "format": "list",
+          "candidate_spans": [
+            "du lait",
+            "des oranges",
+            "du pain",
+            "du chocolat,",
+            "des roses",
+            "du riz"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SJSJSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN\n5: START\n6: START",
+          "output": "• du lait des oranges\n• du pain du chocolat,\n• des roses\n• du riz",
+          "first_chunk_ms": 960,
+          "generation_ms": 1682,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: du lait\n2: des oranges\n3: du pain\n4: du chocolat,\n5: des roses\n6: du riz<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-feedback-pin",
+          "format": "list",
+          "candidate_spans": [
+            "Du lait",
+            "des oranges",
+            "du pin",
+            "du chocolat,",
+            "des roses",
+            "du riz"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SJSJSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN\n5: START\n6: START",
+          "output": "• Du lait des oranges\n• du pin du chocolat,\n• des roses\n• du riz",
+          "first_chunk_ms": 989,
+          "generation_ms": 1729,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: Du lait\n2: des oranges\n3: du pin\n4: du chocolat,\n5: des roses\n6: du riz<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-flour",
+          "format": "list",
+          "candidate_spans": [
+            "de la farine",
+            "du pain",
+            "du lait",
+            "de la levure",
+            "du riz",
+            "des oranges"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SJSJSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN\n5: START\n6: START",
+          "output": "• de la farine du pain\n• du lait de la levure\n• du riz\n• des oranges",
+          "first_chunk_ms": 1031,
+          "generation_ms": 1869,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: de la farine\n2: du pain\n3: du lait\n4: de la levure\n5: du riz\n6: des oranges<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-tea",
+          "format": "list",
+          "candidate_spans": [
+            "du thé à la menthe",
+            "du fromage de chèvre",
+            "des figues"
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• du thé à la menthe du fromage de chèvre\n• des figues",
+          "first_chunk_ms": 909,
+          "generation_ms": 1223,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: du thé à la menthe\n2: du fromage de chèvre\n3: des figues<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-farm",
+          "format": "list",
+          "candidate_spans": [
+            "du lait",
+            "de la ferme",
+            "du pain"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• du lait de la ferme\n• du pain",
+          "first_chunk_ms": 953,
+          "generation_ms": 1232,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: du lait\n2: de la ferme\n3: du pain<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-mill",
+          "format": "list",
+          "candidate_spans": [
+            "de la farine",
+            "du moulin",
+            "des œufs"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• de la farine du moulin\n• des œufs",
+          "first_chunk_ms": 877,
+          "generation_ms": 1222,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: de la farine\n2: du moulin\n3: des œufs<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-complements",
+          "format": "list",
+          "candidate_spans": [
+            "la couleur",
+            "du pain",
+            "et la date",
+            "du rendez-vous"
+          ],
+          "expected_plan": "SJSJ",
+          "plan": "SJSJ",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN",
+          "output": "• la couleur du pain\n• et la date du rendez-vous",
+          "first_chunk_ms": 905,
+          "generation_ms": 1404,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: la couleur\n2: du pain\n3: et la date\n4: du rendez-vous<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-actions",
+          "format": "list",
+          "candidate_spans": [
+            "Demain, appeler Julie pour confirmer les 23 élèves,",
+            "imprimer 2 fiches par élève",
+            "et apporter les cahiers bleus."
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• Demain, appeler Julie pour confirmer les 23 élèves, imprimer 2 fiches par élève\n• et apporter les cahiers bleus.",
+          "first_chunk_ms": 981,
+          "generation_ms": 1295,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: Demain, appeler Julie pour confirmer les 23 élèves,\n2: imprimer 2 fiches par élève\n3: et apporter les cahiers bleus.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-feedback-m",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour,",
+            "Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut",
+            "cordialement",
+            "M. l’utilisateur."
+          ],
+          "expected_plan": "SSSS",
+          "plan": "SJSJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN",
+          "output": "Bonjour, Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut\n\ncordialement M. l’utilisateur.",
+          "first_chunk_ms": 1191,
+          "generation_ms": 1698,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonjour,\n2: Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut\n3: cordialement\n4: M. l’utilisateur.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-feedback-monsieur",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour,",
+            "voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut",
+            "cordialement",
+            "Monsieur l’utilisateur."
+          ],
+          "expected_plan": "SSSS",
+          "plan": "SJSJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN",
+          "output": "Bonjour, voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut\n\ncordialement Monsieur l’utilisateur.",
+          "first_chunk_ms": 1092,
+          "generation_ms": 1556,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonjour,\n2: voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut\n3: cordialement\n4: Monsieur l’utilisateur.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-fr-named",
+          "format": "email",
+          "candidate_spans": [
+            "Bonsoir",
+            "Léa",
+            "tout est prêt",
+            "bien cordialement",
+            "Noé"
+          ],
+          "expected_plan": "SJSSS",
+          "plan": "SJJJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: START",
+          "output": "Bonsoir Léa tout est prêt bien cordialement\n\nNoé",
+          "first_chunk_ms": 1027,
+          "generation_ms": 1715,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonsoir\n2: Léa\n3: tout est prêt\n4: bien cordialement\n5: Noé<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-fr-adverb",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour",
+            "je vous réponds",
+            "cordialement"
+          ],
+          "expected_plan": "SSJ",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "Bonjour je vous réponds\n\ncordialement",
+          "first_chunk_ms": 1005,
+          "generation_ms": 1338,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: je vous réponds\n3: cordialement<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-quoted",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour",
+            "le mot «",
+            "cordialement",
+            "» doit rester dans le texte",
+            "merci de vérifier"
+          ],
+          "expected_plan": "SSJJJ",
+          "plan": "SJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Bonjour le mot « cordialement » doit rester dans le texte merci de vérifier",
+          "first_chunk_ms": 1102,
+          "generation_ms": 1712,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: le mot «\n3: cordialement\n4: » doit rester dans le texte\n5: merci de vérifier<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-en",
+          "format": "list",
+          "candidate_spans": [
+            "2 notebooks,",
+            "5 blue pens",
+            "and 1 green folder."
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• 2 notebooks, 5 blue pens\n• and 1 green folder.",
+          "first_chunk_ms": 902,
+          "generation_ms": 1358,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: 2 notebooks,\n2: 5 blue pens\n3: and 1 green folder.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-en-modifier",
+          "format": "list",
+          "candidate_spans": [
+            "a bag",
+            "of red apples",
+            "and some milk"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• a bag of red apples\n• and some milk",
+          "first_chunk_ms": 935,
+          "generation_ms": 1282,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du café\n2: de la cafetière\n3: des serviettes\n4: en papier\n5: du sucre<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: a bag\n2: of red apples\n3: and some milk<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-en",
+          "format": "email",
+          "candidate_spans": [
+            "Hello",
+            "Morgan",
+            "the files are ready",
+            "kind regards",
+            "Sam"
+          ],
+          "expected_plan": "SJSSS",
+          "plan": "SJJJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: START",
+          "output": "Hello Morgan the files are ready kind regards\n\nSam",
+          "first_chunk_ms": 1031,
+          "generation_ms": 1675,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Hello\n2: Morgan\n3: the files are ready\n4: kind regards\n5: Sam<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-en-quoted",
+          "format": "email",
+          "candidate_spans": [
+            "Hello",
+            "Alex,",
+            "I wrote the word",
+            "thanks",
+            "on the card."
+          ],
+          "expected_plan": "SJSJJ",
+          "plan": "SJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Hello Alex, I wrote the word thanks on the card.",
+          "first_chunk_ms": 1066,
+          "generation_ms": 1655,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Hello\n2: Alex,\n3: I wrote the word\n4: thanks\n5: on the card.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        }
+      ],
+      "prompt_variant": "original"
+    },
+    {
+      "model": "lfm350",
+      "prompt_variant": "balanced",
+      "model_sha256": "7e6f72643caafc9a68256686638c4d7916f2cec76d1df478d4c3ddcd95a6aed4",
+      "host_only": true,
+      "candidates": "Manually supplied, including false boundaries. Candidate generation is a separate unvalidated stage.",
+      "jni_source_sha256": "fe48c593e5013613d1042e46b88d9a9a7723fb1bdfc61b3221d3b73e1d2e5e17",
+      "context": 4096,
+      "threads": 2,
+      "temperature": 0.1,
+      "seed": 1234,
+      "cases": [
+        {
+          "id": "list-feedback",
+          "format": "list",
+          "candidate_spans": [
+            "du lait",
+            "des oranges",
+            "du pain",
+            "du chocolat,",
+            "des roses",
+            "du riz"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SJJSSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: START\n5: START\n6: START",
+          "output": "• du lait des oranges du pain\n• du chocolat,\n• des roses\n• du riz",
+          "first_chunk_ms": 856,
+          "generation_ms": 1560,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: du lait\n2: des oranges\n3: du pain\n4: du chocolat,\n5: des roses\n6: du riz<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-feedback-pin",
+          "format": "list",
+          "candidate_spans": [
+            "Du lait",
+            "des oranges",
+            "du pin",
+            "du chocolat,",
+            "des roses",
+            "du riz"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SJJSSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: START\n5: START\n6: START",
+          "output": "• Du lait des oranges du pin\n• du chocolat,\n• des roses\n• du riz",
+          "first_chunk_ms": 901,
+          "generation_ms": 1719,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: Du lait\n2: des oranges\n3: du pin\n4: du chocolat,\n5: des roses\n6: du riz<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-flour",
+          "format": "list",
+          "candidate_spans": [
+            "de la farine",
+            "du pain",
+            "du lait",
+            "de la levure",
+            "du riz",
+            "des oranges"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SJJSSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: START\n5: START\n6: START",
+          "output": "• de la farine du pain du lait\n• de la levure\n• du riz\n• des oranges",
+          "first_chunk_ms": 918,
+          "generation_ms": 1818,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: de la farine\n2: du pain\n3: du lait\n4: de la levure\n5: du riz\n6: des oranges<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-tea",
+          "format": "list",
+          "candidate_spans": [
+            "du thé à la menthe",
+            "du fromage de chèvre",
+            "des figues"
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN",
+          "output": "• du thé à la menthe du fromage de chèvre des figues",
+          "first_chunk_ms": 824,
+          "generation_ms": 1124,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: du thé à la menthe\n2: du fromage de chèvre\n3: des figues<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-farm",
+          "format": "list",
+          "candidate_spans": [
+            "du lait",
+            "de la ferme",
+            "du pain"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN",
+          "output": "• du lait de la ferme du pain",
+          "first_chunk_ms": 810,
+          "generation_ms": 1171,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: du lait\n2: de la ferme\n3: du pain<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-mill",
+          "format": "list",
+          "candidate_spans": [
+            "de la farine",
+            "du moulin",
+            "des œufs"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN",
+          "output": "• de la farine du moulin des œufs",
+          "first_chunk_ms": 797,
+          "generation_ms": 1143,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: de la farine\n2: du moulin\n3: des œufs<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-complements",
+          "format": "list",
+          "candidate_spans": [
+            "la couleur",
+            "du pain",
+            "et la date",
+            "du rendez-vous"
+          ],
+          "expected_plan": "SJSJ",
+          "plan": "SJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN",
+          "output": "• la couleur du pain et la date du rendez-vous",
+          "first_chunk_ms": 886,
+          "generation_ms": 1383,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: la couleur\n2: du pain\n3: et la date\n4: du rendez-vous<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-actions",
+          "format": "list",
+          "candidate_spans": [
+            "Demain, appeler Julie pour confirmer les 23 élèves,",
+            "imprimer 2 fiches par élève",
+            "et apporter les cahiers bleus."
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• Demain, appeler Julie pour confirmer les 23 élèves, imprimer 2 fiches par élève\n• et apporter les cahiers bleus.",
+          "first_chunk_ms": 922,
+          "generation_ms": 1250,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: Demain, appeler Julie pour confirmer les 23 élèves,\n2: imprimer 2 fiches par élève\n3: et apporter les cahiers bleus.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-feedback-m",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour,",
+            "Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut",
+            "cordialement",
+            "M. l’utilisateur."
+          ],
+          "expected_plan": "SSSS",
+          "plan": "SJSJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN",
+          "output": "Bonjour, Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut\n\ncordialement M. l’utilisateur.",
+          "first_chunk_ms": 1124,
+          "generation_ms": 1594,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonjour,\n2: Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut\n3: cordialement\n4: M. l’utilisateur.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-feedback-monsieur",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour,",
+            "voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut",
+            "cordialement",
+            "Monsieur l’utilisateur."
+          ],
+          "expected_plan": "SSSS",
+          "plan": "SJSJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN",
+          "output": "Bonjour, voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut\n\ncordialement Monsieur l’utilisateur.",
+          "first_chunk_ms": 1183,
+          "generation_ms": 1610,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonjour,\n2: voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut\n3: cordialement\n4: Monsieur l’utilisateur.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-fr-named",
+          "format": "email",
+          "candidate_spans": [
+            "Bonsoir",
+            "Léa",
+            "tout est prêt",
+            "bien cordialement",
+            "Noé"
+          ],
+          "expected_plan": "SJSSS",
+          "plan": "SJJJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: START",
+          "output": "Bonsoir Léa tout est prêt bien cordialement\n\nNoé",
+          "first_chunk_ms": 1119,
+          "generation_ms": 1790,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonsoir\n2: Léa\n3: tout est prêt\n4: bien cordialement\n5: Noé<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-fr-adverb",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour",
+            "je vous réponds",
+            "cordialement"
+          ],
+          "expected_plan": "SSJ",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "Bonjour je vous réponds\n\ncordialement",
+          "first_chunk_ms": 1029,
+          "generation_ms": 1328,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: je vous réponds\n3: cordialement<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-quoted",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour",
+            "le mot «",
+            "cordialement",
+            "» doit rester dans le texte",
+            "merci de vérifier"
+          ],
+          "expected_plan": "SSJJJ",
+          "plan": "SJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Bonjour le mot « cordialement » doit rester dans le texte merci de vérifier",
+          "first_chunk_ms": 1141,
+          "generation_ms": 1731,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: le mot «\n3: cordialement\n4: » doit rester dans le texte\n5: merci de vérifier<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-en",
+          "format": "list",
+          "candidate_spans": [
+            "2 notebooks,",
+            "5 blue pens",
+            "and 1 green folder."
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• 2 notebooks, 5 blue pens\n• and 1 green folder.",
+          "first_chunk_ms": 839,
+          "generation_ms": 1240,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: 2 notebooks,\n2: 5 blue pens\n3: and 1 green folder.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-en-modifier",
+          "format": "list",
+          "candidate_spans": [
+            "a bag",
+            "of red apples",
+            "and some milk"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN",
+          "output": "• a bag of red apples and some milk",
+          "first_chunk_ms": 794,
+          "generation_ms": 1171,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: des carottes\n2: des bananes\n3: du beurre<|im_end|>\n<|im_start|>assistant\n1: START\n2: START\n3: START<|im_end|>\n<|im_start|>user\n1: a blue jacket\n2: with a hood\n3: two white shirts<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START<|im_end|>\n<|im_start|>user\n1: a bag\n2: of red apples\n3: and some milk<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-en",
+          "format": "email",
+          "candidate_spans": [
+            "Hello",
+            "Morgan",
+            "the files are ready",
+            "kind regards",
+            "Sam"
+          ],
+          "expected_plan": "SJSSS",
+          "plan": "SJJJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: START",
+          "output": "Hello Morgan the files are ready kind regards\n\nSam",
+          "first_chunk_ms": 1007,
+          "generation_ms": 1675,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Hello\n2: Morgan\n3: the files are ready\n4: kind regards\n5: Sam<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-en-quoted",
+          "format": "email",
+          "candidate_spans": [
+            "Hello",
+            "Alex,",
+            "I wrote the word",
+            "thanks",
+            "on the card."
+          ],
+          "expected_plan": "SJSJJ",
+          "plan": "SJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Hello Alex, I wrote the word thanks on the card.",
+          "first_chunk_ms": 1142,
+          "generation_ms": 1740,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: Nadia,\n3: voici le document demandé.\n4: Cordialement,\n5: Luc.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: START\n5: START<|im_end|>\n<|im_start|>user\n1: Hi\n2: Ben,\n3: Please write\n4: best wishes\n5: on the label.<|im_end|>\n<|im_start|>assistant\n1: START\n2: JOIN\n3: START\n4: JOIN\n5: JOIN<|im_end|>\n<|im_start|>user\n1: Hello\n2: Alex,\n3: I wrote the word\n4: thanks\n5: on the card.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        }
+      ]
+    },
+    {
+      "model": "qwen08",
+      "prompt_variant": "brief",
+      "model_sha256": "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf",
+      "host_only": true,
+      "candidates": "Manually supplied, including false boundaries. Candidate generation is a separate unvalidated stage.",
+      "jni_source_sha256": "fe48c593e5013613d1042e46b88d9a9a7723fb1bdfc61b3221d3b73e1d2e5e17",
+      "context": 4096,
+      "threads": 2,
+      "temperature": 0.1,
+      "seed": 1234,
+      "cases": [
+        {
+          "id": "list-feedback",
+          "format": "list",
+          "candidate_spans": [
+            "du lait",
+            "des oranges",
+            "du pain",
+            "du chocolat,",
+            "des roses",
+            "du riz"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SSSSSS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: START\n3: START\n4: START\n5: START\n6: START",
+          "output": "• du lait\n• des oranges\n• du pain\n• du chocolat,\n• des roses\n• du riz",
+          "first_chunk_ms": 1107,
+          "generation_ms": 3759,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du lait\n2: des oranges\n3: du pain\n4: du chocolat,\n5: des roses\n6: du riz<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-feedback-pin",
+          "format": "list",
+          "candidate_spans": [
+            "Du lait",
+            "des oranges",
+            "du pin",
+            "du chocolat,",
+            "des roses",
+            "du riz"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SSSSSS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: START\n3: START\n4: START\n5: START\n6: START",
+          "output": "• Du lait\n• des oranges\n• du pin\n• du chocolat,\n• des roses\n• du riz",
+          "first_chunk_ms": 1094,
+          "generation_ms": 3711,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Du lait\n2: des oranges\n3: du pin\n4: du chocolat,\n5: des roses\n6: du riz<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-flour",
+          "format": "list",
+          "candidate_spans": [
+            "de la farine",
+            "du pain",
+            "du lait",
+            "de la levure",
+            "du riz",
+            "des oranges"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SJJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN\n6: JOIN",
+          "output": "• de la farine du pain du lait de la levure du riz des oranges",
+          "first_chunk_ms": 1158,
+          "generation_ms": 3358,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: de la farine\n2: du pain\n3: du lait\n4: de la levure\n5: du riz\n6: des oranges<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-tea",
+          "format": "list",
+          "candidate_spans": [
+            "du thé à la menthe",
+            "du fromage de chèvre",
+            "des figues"
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• du thé à la menthe du fromage de chèvre\n• des figues",
+          "first_chunk_ms": 953,
+          "generation_ms": 2028,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du thé à la menthe\n2: du fromage de chèvre\n3: des figues<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-farm",
+          "format": "list",
+          "candidate_spans": [
+            "du lait",
+            "de la ferme",
+            "du pain"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• du lait de la ferme\n• du pain",
+          "first_chunk_ms": 914,
+          "generation_ms": 1943,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du lait\n2: de la ferme\n3: du pain<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-mill",
+          "format": "list",
+          "candidate_spans": [
+            "de la farine",
+            "du moulin",
+            "des œufs"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• de la farine du moulin\n• des œufs",
+          "first_chunk_ms": 963,
+          "generation_ms": 2040,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: de la farine\n2: du moulin\n3: des œufs<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-complements",
+          "format": "list",
+          "candidate_spans": [
+            "la couleur",
+            "du pain",
+            "et la date",
+            "du rendez-vous"
+          ],
+          "expected_plan": "SJSJ",
+          "plan": "SJSJ",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: JOIN\n3: START\n4: JOIN",
+          "output": "• la couleur du pain\n• et la date du rendez-vous",
+          "first_chunk_ms": 963,
+          "generation_ms": 2477,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: la couleur\n2: du pain\n3: et la date\n4: du rendez-vous<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-actions",
+          "format": "list",
+          "candidate_spans": [
+            "Demain, appeler Julie pour confirmer les 23 élèves,",
+            "imprimer 2 fiches par élève",
+            "et apporter les cahiers bleus."
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• Demain, appeler Julie pour confirmer les 23 élèves, imprimer 2 fiches par élève\n• et apporter les cahiers bleus.",
+          "first_chunk_ms": 1251,
+          "generation_ms": 2274,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Demain, appeler Julie pour confirmer les 23 élèves,\n2: imprimer 2 fiches par élève\n3: et apporter les cahiers bleus.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-feedback-m",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour,",
+            "Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut",
+            "cordialement",
+            "M. l’utilisateur."
+          ],
+          "expected_plan": "SSSS",
+          "plan": "SJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN",
+          "output": "Bonjour, Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut cordialement M. l’utilisateur.",
+          "first_chunk_ms": 1422,
+          "generation_ms": 3382,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour,\n2: Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut\n3: cordialement\n4: M. l’utilisateur.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-feedback-monsieur",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour,",
+            "voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut",
+            "cordialement",
+            "Monsieur l’utilisateur."
+          ],
+          "expected_plan": "SSSS",
+          "plan": "SJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN",
+          "output": "Bonjour, voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut cordialement Monsieur l’utilisateur.",
+          "first_chunk_ms": 1278,
+          "generation_ms": 3159,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour,\n2: voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut\n3: cordialement\n4: Monsieur l’utilisateur.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-fr-named",
+          "format": "email",
+          "candidate_spans": [
+            "Bonsoir",
+            "Léa",
+            "tout est prêt",
+            "bien cordialement",
+            "Noé"
+          ],
+          "expected_plan": "SJSSS",
+          "plan": "SJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Bonsoir Léa tout est prêt bien cordialement Noé",
+          "first_chunk_ms": 1190,
+          "generation_ms": 3541,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonsoir\n2: Léa\n3: tout est prêt\n4: bien cordialement\n5: Noé<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-fr-adverb",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour",
+            "je vous réponds",
+            "cordialement"
+          ],
+          "expected_plan": "SSJ",
+          "plan": "SJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN",
+          "output": "Bonjour je vous réponds cordialement",
+          "first_chunk_ms": 1011,
+          "generation_ms": 2161,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: je vous réponds\n3: cordialement<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-quoted",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour",
+            "le mot «",
+            "cordialement",
+            "» doit rester dans le texte",
+            "merci de vérifier"
+          ],
+          "expected_plan": "SSJJJ",
+          "plan": "SJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Bonjour le mot « cordialement » doit rester dans le texte merci de vérifier",
+          "first_chunk_ms": 1117,
+          "generation_ms": 3167,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: le mot «\n3: cordialement\n4: » doit rester dans le texte\n5: merci de vérifier<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-en",
+          "format": "list",
+          "candidate_spans": [
+            "2 notebooks,",
+            "5 blue pens",
+            "and 1 green folder."
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• 2 notebooks, 5 blue pens\n• and 1 green folder.",
+          "first_chunk_ms": 953,
+          "generation_ms": 2037,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: 2 notebooks,\n2: 5 blue pens\n3: and 1 green folder.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-en-modifier",
+          "format": "list",
+          "candidate_spans": [
+            "a bag",
+            "of red apples",
+            "and some milk"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN",
+          "output": "• a bag of red apples and some milk",
+          "first_chunk_ms": 928,
+          "generation_ms": 2053,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: a bag\n2: of red apples\n3: and some milk<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-en",
+          "format": "email",
+          "candidate_spans": [
+            "Hello",
+            "Morgan",
+            "the files are ready",
+            "kind regards",
+            "Sam"
+          ],
+          "expected_plan": "SJSSS",
+          "plan": "SSJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: START\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Hello\n\nMorgan the files are ready kind regards Sam",
+          "first_chunk_ms": 1144,
+          "generation_ms": 3284,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Hello\n2: Morgan\n3: the files are ready\n4: kind regards\n5: Sam<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-en-quoted",
+          "format": "email",
+          "candidate_spans": [
+            "Hello",
+            "Alex,",
+            "I wrote the word",
+            "thanks",
+            "on the card."
+          ],
+          "expected_plan": "SJSJJ",
+          "plan": "SSJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: START\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Hello\n\nAlex, I wrote the word thanks on the card.",
+          "first_chunk_ms": 1098,
+          "generation_ms": 3167,
+          "completed": true,
+          "prompt": "<|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Hello\n2: Alex,\n3: I wrote the word\n4: thanks\n5: on the card.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        }
+      ]
+    },
+    {
+      "model": "lfm12-q4km",
+      "prompt_variant": "brief",
+      "model_sha256": "b1b3de114215d9507409a662a501a631095a479a419584e8a2ded6304b19b4f5",
+      "host_only": true,
+      "candidates": "Manually supplied, including false boundaries. Candidate generation is a separate unvalidated stage.",
+      "jni_source_sha256": "fe48c593e5013613d1042e46b88d9a9a7723fb1bdfc61b3221d3b73e1d2e5e17",
+      "context": 4096,
+      "threads": 2,
+      "temperature": 0.1,
+      "seed": 1234,
+      "cases": [
+        {
+          "id": "list-feedback",
+          "format": "list",
+          "candidate_spans": [
+            "du lait",
+            "des oranges",
+            "du pain",
+            "du chocolat,",
+            "des roses",
+            "du riz"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SSSSSS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: START\n3: START\n4: START\n5: START\n6: START",
+          "output": "• du lait\n• des oranges\n• du pain\n• du chocolat,\n• des roses\n• du riz",
+          "first_chunk_ms": 1613,
+          "generation_ms": 3630,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du lait\n2: des oranges\n3: du pain\n4: du chocolat,\n5: des roses\n6: du riz<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-feedback-pin",
+          "format": "list",
+          "candidate_spans": [
+            "Du lait",
+            "des oranges",
+            "du pin",
+            "du chocolat,",
+            "des roses",
+            "du riz"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SSSSSS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: START\n3: START\n4: START\n5: START\n6: START",
+          "output": "• Du lait\n• des oranges\n• du pin\n• du chocolat,\n• des roses\n• du riz",
+          "first_chunk_ms": 1661,
+          "generation_ms": 3674,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Du lait\n2: des oranges\n3: du pin\n4: du chocolat,\n5: des roses\n6: du riz<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-flour",
+          "format": "list",
+          "candidate_spans": [
+            "de la farine",
+            "du pain",
+            "du lait",
+            "de la levure",
+            "du riz",
+            "des oranges"
+          ],
+          "expected_plan": "SSSSSS",
+          "plan": "SSSSSS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: START\n3: START\n4: START\n5: START\n6: START",
+          "output": "• de la farine\n• du pain\n• du lait\n• de la levure\n• du riz\n• des oranges",
+          "first_chunk_ms": 1696,
+          "generation_ms": 3450,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: de la farine\n2: du pain\n3: du lait\n4: de la levure\n5: du riz\n6: des oranges<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label \"\\n6: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-tea",
+          "format": "list",
+          "candidate_spans": [
+            "du thé à la menthe",
+            "du fromage de chèvre",
+            "des figues"
+          ],
+          "expected_plan": "SSS",
+          "plan": "SSS",
+          "plan_exact": true,
+          "raw_output": "1: START\n2: START\n3: START",
+          "output": "• du thé à la menthe\n• du fromage de chèvre\n• des figues",
+          "first_chunk_ms": 1415,
+          "generation_ms": 2438,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du thé à la menthe\n2: du fromage de chèvre\n3: des figues<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-farm",
+          "format": "list",
+          "candidate_spans": [
+            "du lait",
+            "de la ferme",
+            "du pain"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: START\n3: START",
+          "output": "• du lait\n• de la ferme\n• du pain",
+          "first_chunk_ms": 1387,
+          "generation_ms": 2137,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: du lait\n2: de la ferme\n3: du pain<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-mill",
+          "format": "list",
+          "candidate_spans": [
+            "de la farine",
+            "du moulin",
+            "des œufs"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: START\n3: START",
+          "output": "• de la farine\n• du moulin\n• des œufs",
+          "first_chunk_ms": 1606,
+          "generation_ms": 2638,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: de la farine\n2: du moulin\n3: des œufs<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-complements",
+          "format": "list",
+          "candidate_spans": [
+            "la couleur",
+            "du pain",
+            "et la date",
+            "du rendez-vous"
+          ],
+          "expected_plan": "SJSJ",
+          "plan": "SJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN",
+          "output": "• la couleur du pain et la date du rendez-vous",
+          "first_chunk_ms": 1522,
+          "generation_ms": 2720,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: la couleur\n2: du pain\n3: et la date\n4: du rendez-vous<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-actions",
+          "format": "list",
+          "candidate_spans": [
+            "Demain, appeler Julie pour confirmer les 23 élèves,",
+            "imprimer 2 fiches par élève",
+            "et apporter les cahiers bleus."
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• Demain, appeler Julie pour confirmer les 23 élèves, imprimer 2 fiches par élève\n• et apporter les cahiers bleus.",
+          "first_chunk_ms": 1800,
+          "generation_ms": 2674,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Demain, appeler Julie pour confirmer les 23 élèves,\n2: imprimer 2 fiches par élève\n3: et apporter les cahiers bleus.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-feedback-m",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour,",
+            "Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut",
+            "cordialement",
+            "M. l’utilisateur."
+          ],
+          "expected_plan": "SSSS",
+          "plan": "SJJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: START",
+          "output": "Bonjour, Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut cordialement\n\nM. l’utilisateur.",
+          "first_chunk_ms": 2142,
+          "generation_ms": 3783,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour,\n2: Voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut\n3: cordialement\n4: M. l’utilisateur.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-feedback-monsieur",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour,",
+            "voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut",
+            "cordialement",
+            "Monsieur l’utilisateur."
+          ],
+          "expected_plan": "SSSS",
+          "plan": "SJJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: START",
+          "output": "Bonjour, voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut cordialement\n\nMonsieur l’utilisateur.",
+          "first_chunk_ms": 1938,
+          "generation_ms": 3611,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour,\n2: voici un test qui vérifie que le post-traitement sur le mail fonctionne comme il faut\n3: cordialement\n4: Monsieur l’utilisateur.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-fr-named",
+          "format": "email",
+          "candidate_spans": [
+            "Bonsoir",
+            "Léa",
+            "tout est prêt",
+            "bien cordialement",
+            "Noé"
+          ],
+          "expected_plan": "SJSSS",
+          "plan": "SJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Bonsoir Léa tout est prêt bien cordialement Noé",
+          "first_chunk_ms": 1808,
+          "generation_ms": 3676,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonsoir\n2: Léa\n3: tout est prêt\n4: bien cordialement\n5: Noé<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-fr-adverb",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour",
+            "je vous réponds",
+            "cordialement"
+          ],
+          "expected_plan": "SSJ",
+          "plan": "SJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN",
+          "output": "Bonjour je vous réponds cordialement",
+          "first_chunk_ms": 1519,
+          "generation_ms": 2829,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: je vous réponds\n3: cordialement<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-quoted",
+          "format": "email",
+          "candidate_spans": [
+            "Bonjour",
+            "le mot «",
+            "cordialement",
+            "» doit rester dans le texte",
+            "merci de vérifier"
+          ],
+          "expected_plan": "SSJJJ",
+          "plan": "SJJJJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: JOIN\n5: JOIN",
+          "output": "Bonjour le mot « cordialement » doit rester dans le texte merci de vérifier",
+          "first_chunk_ms": 1758,
+          "generation_ms": 3739,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Bonjour\n2: le mot «\n3: cordialement\n4: » doit rester dans le texte\n5: merci de vérifier<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-en",
+          "format": "list",
+          "candidate_spans": [
+            "2 notebooks,",
+            "5 blue pens",
+            "and 1 green folder."
+          ],
+          "expected_plan": "SSS",
+          "plan": "SJS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: START",
+          "output": "• 2 notebooks, 5 blue pens\n• and 1 green folder.",
+          "first_chunk_ms": 1485,
+          "generation_ms": 2531,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: 2 notebooks,\n2: 5 blue pens\n3: and 1 green folder.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "list-en-modifier",
+          "format": "list",
+          "candidate_spans": [
+            "a bag",
+            "of red apples",
+            "and some milk"
+          ],
+          "expected_plan": "SJS",
+          "plan": "SSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: START\n3: START",
+          "output": "• a bag\n• of red apples\n• and some milk",
+          "first_chunk_ms": 1450,
+          "generation_ms": 2436,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of a list. START begins a separate item. JOIN continues the previous item, including a noun's modifier. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: a bag\n2: of red apples\n3: and some milk<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-en",
+          "format": "email",
+          "candidate_spans": [
+            "Hello",
+            "Morgan",
+            "the files are ready",
+            "kind regards",
+            "Sam"
+          ],
+          "expected_plan": "SJSSS",
+          "plan": "SSJSS",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: START\n3: JOIN\n4: START\n5: START",
+          "output": "Hello\n\nMorgan the files are ready\n\nkind regards\n\nSam",
+          "first_chunk_ms": 1687,
+          "generation_ms": 3554,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Hello\n2: Morgan\n3: the files are ready\n4: kind regards\n5: Sam<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        },
+        {
+          "id": "mail-en-quoted",
+          "format": "email",
+          "candidate_spans": [
+            "Hello",
+            "Alex,",
+            "I wrote the word",
+            "thanks",
+            "on the card."
+          ],
+          "expected_plan": "SJSJJ",
+          "plan": "SJJSJ",
+          "plan_exact": false,
+          "raw_output": "1: START\n2: JOIN\n3: JOIN\n4: START\n5: JOIN",
+          "output": "Hello Alex, I wrote the word\n\nthanks on the card.",
+          "first_chunk_ms": 1668,
+          "generation_ms": 3613,
+          "completed": true,
+          "prompt": "<|startoftext|><|im_start|>system\nLabel the consecutive fragments of an email. START begins a new part: greeting, body, closing or signature. JOIN continues the same part. Keep a quoted phrase together. The first fragment is START. Return one numbered label per fragment and nothing else.<|im_end|>\n<|im_start|>user\n1: Hello\n2: Alex,\n3: I wrote the word\n4: thanks\n5: on the card.<|im_end|>\n<|im_start|>assistant\n",
+          "grammar": "root ::= \"1: START\" \"\\n2: \" label \"\\n3: \" label \"\\n4: \" label \"\\n5: \" label\nlabel ::= \"START\" | \"JOIN\"\n"
+        }
+      ]
+    }
+  ]
+}

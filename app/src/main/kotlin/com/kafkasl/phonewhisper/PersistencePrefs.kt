@@ -42,6 +42,10 @@ class PersistencePrefs(ctx: Context) {
         get() = p.getString("last_error", null)
         set(v) { p.edit().putString("last_error", v).apply() }
 
+    internal var lastPostprocessingDiagnostic: String?
+        get() = p.getString("last_postprocessing_diagnostic", null)
+        set(value) { p.edit().putString("last_postprocessing_diagnostic", value).apply() }
+
     /** Ajoute automatiquement une espace à la fin de chaque transcription insérée. */
     var trailingSpace: Boolean
         get() = p.getBoolean("trailing_space", false)

@@ -767,6 +767,7 @@ class OverlayService : Service() {
         }
         val formatStarted = SystemClock.elapsedRealtime()
         var localDirect = false
+        var localDiagnostic: LocalFinishDiagnostic? = null
         val localFormatted = if (!localText.isNullOrBlank() && capture.options.localFormattingEnabled &&
             capture.options.format.instructions.isNotBlank()) {
             val request = localFormatRequest(localText, capture.options, applyVocabulary = false)
@@ -782,7 +783,8 @@ class OverlayService : Service() {
                     currentAnchor?.let(::positionLivePanel)
                 }
             }
-            run.localFormatting?.finish(request, 5_000L) { chunk ->
+            val session = run.localFormatting
+            session?.finish(request, 5_000L) { chunk ->
                 val preview = policy?.preview(chunk)?.takeIf { value -> request.protectedTerms.all { it in value } }
                 if (preview != null) main.post {
                     if (isCurrentRun(run) && state == State.TRANSCRIBING && !run.cancellation.isCancelled) {
@@ -795,7 +797,7 @@ class OverlayService : Service() {
                         }
                     }
                 }
-            }
+            }.also { localDiagnostic = session?.lastFinish }
         } else null
         val cloudText = if (!capture.options.localFormattingEnabled && !localText.isNullOrBlank() && capture.options.cloudCleanupEnabled &&
             (!editableTranscript.hasUserEdits() || capture.options.format.instructions.isNotBlank())) {
@@ -841,6 +843,8 @@ class OverlayService : Service() {
             toast("Mise en forme indisponible : texte conservé sans format.")
         }
         run.localFormatting?.close()
+        val postprocessMs = SystemClock.elapsedRealtime() - formatStarted
+        val localRuntime = if (capture.options.localFormattingEnabled) localFormatter.runtimeName() else "not-loaded"
         Log.i(TAG, "event=postprocess engine=${if (capture.options.localFormattingEnabled) "local" else "cloud_or_off"} " +
             "outcome=${if (formatted != null) "formatted" else "original"} elapsed_ms=${SystemClock.elapsedRealtime() - formatStarted}")
         // Local layout already starts from normalized source; do not rewrite it after validation.
@@ -870,6 +874,33 @@ class OverlayService : Service() {
                         }.getOrElse {
                             Log.w(TAG, "event=injection outcome=failure type=${it.javaClass.simpleName}")
                             InjectionResult.Failed
+                        }
+                        runCatching {
+                            prefs.lastPostprocessingDiagnostic = PostprocessingDiagnostic.report(
+                                version = BuildConfig.VERSION_NAME,
+                                timestampMs = System.currentTimeMillis(),
+                                formatId = capture.options.format.id,
+                                requested = when {
+                                    capture.options.localFormattingEnabled -> PostprocessingDiagnostic.Requested.LOCAL
+                                    capture.options.cloudCleanupEnabled || capture.options.cloudSuppressedForSensitiveTarget -> PostprocessingDiagnostic.Requested.CLOUD
+                                    else -> PostprocessingDiagnostic.Requested.OFF
+                                },
+                                applied = when {
+                                    localFormatted != null && localDirect -> PostprocessingDiagnostic.Applied.LOCAL_DIRECT
+                                    localFormatted != null -> PostprocessingDiagnostic.Applied.LOCAL_LLM
+                                    cloudText != null -> PostprocessingDiagnostic.Applied.CLOUD
+                                    else -> PostprocessingDiagnostic.Applied.ORIGINAL
+                                },
+                                local = localDiagnostic,
+                                runtime = localRuntime,
+                                postprocessMs = postprocessMs,
+                                stopToPublicationMs = run.stoppedAtMs.takeIf { it > 0 }?.let { SystemClock.elapsedRealtime() - it },
+                                finalText = outText,
+                                injection = result,
+                                cloudSuppressed = capture.options.cloudSuppressedForSensitiveTarget,
+                            )
+                        }.onFailure {
+                            Log.w(TAG, "event=postprocess_diagnostic outcome=unavailable type=${it.javaClass.simpleName}")
                         }
                         Log.i(TAG, "event=dictation_insert_complete stop_to_insert_ms=${if (run.stoppedAtMs > 0) SystemClock.elapsedRealtime() - run.stoppedAtMs else -1}")
                         injectionFeedbackMessage(result)?.let(::toast)
