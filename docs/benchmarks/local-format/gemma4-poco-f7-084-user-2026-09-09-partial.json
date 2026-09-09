@@ -9,13 +9,13 @@
   "mtp": true,
   "thinking": false,
   "thinking_budget": 0,
-  "provenance": "Rapport copié par Ullie. Mesures GPU sur son téléphone ; aucune exécution Android par Codex.",
-  "report_complete": false,
-  "truncation": "Passage 2, EN mail sans ponctuation/signature : copie coupée après Écart au se. Verdict et sortie non fournis pour ce cas ; les quatre derniers cas et le relevé après essais manquent.",
+  "provenance": "Rapport copié par Ullie en deux messages, maintenant complet. Mesures GPU sur son téléphone ; aucune exécution Android par Codex. Les cas répétés dans la suite sont fusionnés par passage et identifiant, sans compter de nouveaux essais.",
+  "report_complete": true,
+  "truncation": null,
   "expected_total_cases": 22,
-  "received_complete_cases": 17,
-  "received_partial_cases": 1,
-  "missing_cases": 4,
+  "received_complete_cases": 22,
+  "received_partial_cases": 0,
+  "missing_cases": 0,
   "shared_engine_already_loaded": true,
   "last_initialization_ms": 7546,
   "initial_preparation_wait_ms": 1,
@@ -26,7 +26,11 @@
     "available_ram_mib": 2371,
     "android_thermal_status": 0
   },
-  "after": null,
+  "after": {
+    "process_pss_mib": 1945,
+    "available_ram_mib": 2734,
+    "android_thermal_status": 0
+  },
   "measurement_scope": "Durées depuis appel backend, hors préparation initiale, file comprise. Ne comprennent pas arrêt ASR, affichage ni insertion. La première durée globale fin=3996 ms inclut 1 ms de préparation ; le tableau conserve call_ms=3995.",
   "cases": [
     {
@@ -315,9 +319,75 @@
       "call_plus_validation_ms": 2402,
       "delta_5000_ms": -2598,
       "delta_8000_ms": -5598,
-      "validation_status": null,
+      "validation_status": "rejected",
       "grouping_passed": null,
-      "report_case_complete": false
+      "report_case_complete": true
+    },
+    {
+      "pass_number": 2,
+      "id": "fr_groceries_modifiers",
+      "treatment": "Gemma",
+      "first_fragment_from_call_ms": 1434,
+      "before_native_ms": 9,
+      "call_ms": 2108,
+      "native_to_return_ms": 2099,
+      "validation_ms": 7,
+      "call_plus_validation_ms": 2115,
+      "delta_5000_ms": -2885,
+      "delta_8000_ms": -5885,
+      "validation_status": "accepted",
+      "grouping_passed": true,
+      "report_case_complete": true
+    },
+    {
+      "pass_number": 2,
+      "id": "en_groceries_modifiers",
+      "treatment": "Gemma",
+      "first_fragment_from_call_ms": 1320,
+      "before_native_ms": 7,
+      "call_ms": 1849,
+      "native_to_return_ms": 1842,
+      "validation_ms": 6,
+      "call_plus_validation_ms": 1855,
+      "delta_5000_ms": -3145,
+      "delta_8000_ms": -6145,
+      "validation_status": "accepted",
+      "grouping_passed": true,
+      "report_case_complete": true
+    },
+    {
+      "pass_number": 2,
+      "id": "fr_long_mail",
+      "treatment": "Gemma",
+      "first_fragment_from_call_ms": 1477,
+      "before_native_ms": 15,
+      "call_ms": 5217,
+      "native_to_return_ms": 5202,
+      "validation_ms": 33,
+      "call_plus_validation_ms": 5250,
+      "delta_5000_ms": 250,
+      "delta_8000_ms": -2750,
+      "validation_status": "accepted",
+      "grouping_passed": true,
+      "report_case_complete": true,
+      "restored_source_words": 1,
+      "source_reference": "gemma4-long-mail-rejection-2026-09-09.json : cases[id=user-fr-long-mail-fidelity-rejection]"
+    },
+    {
+      "pass_number": 2,
+      "id": "fr_latest_long_mail",
+      "treatment": "Gemma",
+      "first_fragment_from_call_ms": 1779,
+      "before_native_ms": 21,
+      "call_ms": 8879,
+      "native_to_return_ms": 8858,
+      "validation_ms": 27,
+      "call_plus_validation_ms": 8906,
+      "delta_5000_ms": 3906,
+      "delta_8000_ms": 906,
+      "validation_status": "rejected",
+      "grouping_passed": null,
+      "report_case_complete": true
     }
   ],
   "latest_long_mail": {
@@ -340,6 +410,20 @@
     "only_source_locale_restored_accepted": true,
     "accepted_after_manual_source_spelling_restoration": "Bonjour,\n\nvoici le nouveau test concernant la génération d'un nouveau mail qui doit être mis en forme par le modèle en local. donc le but, c'est de rédiger un mail suffisamment long pour solliciter le travail du modèle en local et qu'il fasse la mise en forme du texte comme il faut. l'intérêt d'avoir la mise en forme en locale, c'est aussi de ne pas fournir de données au modèle cloud et d'avoir une génération peut-être un peu plus lente, mais l'idée, c'est aussi d'avoir une latence suffisamment basse pour que l'expérience reste agréable pour un utilisateur qui veut envoyer un mail et que le post traitement soit correct aussi. je ne sais pas si le mail est suffisamment long là actuellement, mais l'idée est vraiment que je puisse réaliser ce travail là en étant suffisamment satisfait au niveau latence.\n\nCordialement,\n\nMonsieur le Testeur",
     "repair_integrated": false,
-    "limits": "Ce rétablissement manuel est un diagnostic contrôlé, pas un correctif applicatif. Aucune durée GPU du second passage long reçue."
+    "limits": "Ce rétablissement manuel est un diagnostic contrôlé, pas un correctif applicatif. Le second passage fournit le même brut rejeté. Deux répétitions ne garantissent pas les durées des prochaines dictées ; les relevés thermiques sont seulement des points avant/après.",
+    "raw_identical_in_passes": [
+      1,
+      2
+    ]
+  },
+  "archive_filename_note": "Le suffixe partial est conservé pour préserver les liens de la première réception ; les données sont désormais complètes.",
+  "summary": {
+    "total_cases": 22,
+    "llm_calls": 20,
+    "direct_responses": 2,
+    "llm_accepted": 12,
+    "llm_rejected": 8,
+    "llm_grouping_passed": 8,
+    "llm_accepted_grouping_failed": 4
   }
 }

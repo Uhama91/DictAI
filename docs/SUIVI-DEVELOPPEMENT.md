@@ -4,13 +4,20 @@ Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche exis
 
 ## Rapport GPU 0.8.4 reçu — durée réelle et rejet distinct
 
-Rapport partiel du banc complet reçu : 17 cas complets, un 18e tronqué, quatre cas et le relevé final absents. Pas de seconde mesure des mails longs reçue. [Données archivées](benchmarks/local-format/gemma4-poco-f7-084-user-2026-09-09-partial.json).
+Rapport complet reçu en deux messages : **22 cas, onze sources × deux passages**. Les lignes répétées dans la suite sont dédupliquées. [Données archivées](benchmarks/local-format/gemma4-poco-f7-084-user-2026-09-09-partial.json) (nom initial conservé ; contenu désormais complet).
 
-Premier passage : ancien mail long **5 836 ms appel + validation**, fidèle et regroupement réussi, un mot normalement rétabli. Dernier mail de 144 mots **9 233 ms**, dont 22 ms avant natif, 9 187 ms natif → retour et 24 ms de validation. Il dépasse 8 s de 1 233 ms, mais le banc l’a laissé terminer jusqu’au bout. Le délai n’explique donc pas son rejet dans le banc.
+| Mail | Passage 1, appel + validation | Passage 2, appel + validation | Résultat aux deux passages |
+|---|---:|---:|---|
+| Ancien long | 5 836 ms | 5 250 ms | Accepté, regroupement réussi, normalement rétabli |
+| Dernier, 144 mots | 9 233 ms | 8 906 ms | Rejeté, même substitution locale → local |
 
-Rejet exact reproduit avec les classes de l’APK 0.8.4 : une seule substitution lexicale, **locale → local**, dans en locale. Le modèle a corrigé une forme et structuré le mail ; la vérification lexicale actuelle le rejette. Rétablir manuellement locale dans la sortie brute suffit à la faire accepter. C’est une expérience diagnostique, aucun correctif de validation intégré ni nouvelle APK générée à la réception de ces mesures.
+L’ancien mail dépasse 5 s de 250 à 836 ms. Le dernier dépasse 8 s de 906 à 1 233 ms, mais le banc l’a laissé terminer jusqu’au bout. Ces durées isolées excluent arrêt ASR, affichage et insertion ; une génération anticipée peut réduire l’attente réelle.
 
-Conclusion : 8 s apporte la marge nécessaire à l’ancien mail dans cet essai, mais reste insuffisant pour le dernier si le calcul doit être attendu en entier. Allonger le délai seul ne lèverait pas le rejet orthographique. Conserver séparément les travaux restant sur tolérance aux corrections de forme avec protection du contenu, durée acceptable des mails longs, regroupement des listes et rejets anglais. Ne pas prétendre à une médiane ni à deux mesures longues avec cette copie tronquée. Aucun besoin de changer le modèle ou le thinking pour interpréter ce rapport.
+Rejet exact reproduit avec les classes de l’APK 0.8.4 : une seule substitution lexicale, **locale → local**, dans en locale. Les deux bruts GPU sont identiques. Le modèle a corrigé une forme et structuré le mail ; la vérification lexicale actuelle le rejette. Rétablir manuellement locale dans la sortie brute suffit à la faire accepter. C’est une expérience diagnostique, aucun correctif de validation intégré ni nouvelle APK générée à la réception de ces mesures.
+
+Conclusion : 8 s laisse une marge pour l’ancien mail dans les deux essais, mais reste insuffisant pour le dernier si le calcul doit être attendu en entier. Allonger le délai seul ne lèverait pas le rejet orthographique. Conserver séparément les travaux restant sur tolérance aux corrections de forme avec protection du contenu, durée acceptable des mails longs, regroupement des listes et rejets anglais. Aucun besoin de redemander la suite du rapport ni de changer le modèle ou le thinking pour interpréter ces mesures.
+
+Sur vingt appels Gemma : douze réponses acceptées, dont huit réussissent les critères ciblés et quatre gardent un mauvais regroupement ; huit rejetées. Les deux acquiescements directs ne mesurent pas le LLM. PSS 1 791 → 1 945 Mio, RAM disponible 2 371 → 2 734 Mio, état thermique Android 0 aux deux relevés ; ces points ne décrivent pas l’état thermique pendant tout le banc.
 
 ## Mesurer les mails au-delà de cinq secondes — 0.8.4
 
@@ -24,7 +31,7 @@ Implémentation 0.8.4 publiée :
 - Menu **Mesurer les mails longs avec Gemma** : deux mails × deux passages, jusqu’à 20 s par appel, sans limite de 5/8 s dans ce banc. Initialisation mesurée séparément ; attente avant natif, premier fragment, retour moteur, validation, écarts à 5/8 s. Un essai interrompu ne prétend pas connaître sa durée totale.
 - Modèle, prompt, GPU/MTP et thinking off conservés. Le corps des mails n’est pas réécrit par les règles rapides lors de ces essais. Les autres correctifs 0.8.3 sont conservés.
 
-Les tests de finalisation comprennent un moteur simulé terminant après 5,15 s. Les mesures GPU Android et la limite définitive restent à décider à partir du rapport du téléphone ; aucun appareil connecté à Codex. 361 tests JVM dans 54 suites réussis, APK compilée/signée/alignée 16 Ko et contrat du paquet vérifié. [Vérification](VERIFICATION-GEMMA-0.8.4.md). [APK 0.8.4 publiée](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34335478012/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34335478012), source `1464d52b07510b3b84f48c03fa0274b090d4afd8`. Téléchargement public complet vérifié, 78 600 597 octets ; SHA identique à l’APK locale et à l’asset GitHub. Premier passage long reçu dans le rapport partiel ci-dessus ; les deux mails du second passage ne sont pas dans la copie. Aucune nouvelle recherche de modèle nécessaire pour interpréter ces mesures.
+Les tests de finalisation comprennent un moteur simulé terminant après 5,15 s. Les mesures GPU Android ont depuis été fournies par Ullie (ci-dessus) ; la limite définitive reste à décider. Aucun appareil connecté à Codex. 361 tests JVM dans 54 suites réussis, APK compilée/signée/alignée 16 Ko et contrat du paquet vérifié. [Vérification](VERIFICATION-GEMMA-0.8.4.md). [APK 0.8.4 publiée](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34335478012/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34335478012), source `1464d52b07510b3b84f48c03fa0274b090d4afd8`. Téléchargement public complet vérifié, 78 600 597 octets ; SHA identique à l’APK locale et à l’asset GitHub. Les deux passages longs et le relevé final sont désormais reçus et archivés ci-dessus. Aucune nouvelle recherche de modèle nécessaire pour interpréter ces mesures.
 
 ## Retour 10:08 — overlay, mode Texte et attente Mail — 0.8.3
 
