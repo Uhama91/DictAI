@@ -55,7 +55,7 @@ jobs:
       - name: Run unit tests and build selected APK
         shell: bash
         run: |
-          args=(testDebugUnitTest assembleDebug --stacktrace)
+          args=(testDebugUnitTest assembleDebug assembleDebugAndroidTest --stacktrace)
           if [[ "$PROTOTYPE" == true ]]; then args+=(-PlocalFormatPrototype=true); fi
           ./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' "${args[@]}"
 
@@ -99,12 +99,12 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.9.4 Android ARM64 : retrait fiable des hésitations dans Texte corrigé.' \
-            'Les euh/heu/uh/um spontanés sont retirés localement avant Gemma. Le texte nettoyé reste disponible si le modèle échoue, dépasse son délai ou propose une modification refusée.' \
-            'Les corrections manuelles, citations, mentions explicites et graphies du vocabulaire sont protégées. Une retouche de Grok ne conserve plus toutes les hésitations de la dictée.' \
-            'Le diagnostic indique le nombre d’hésitations retirées, sans enregistrer les mots dictés. Modèle Gemma, GPU/MTP, thinking désactivé et délais maximaux conservés.' \
-            'Les modes Texte, Mail et Liste conservent leur comportement. Les captures, photos, notes et exports de 0.9.3 sont conservés ; Ullie a confirmé le stockage, le presse-papier, les exports PDF/HTML et le parcours du vocabulaire.' \
-            'Tests JVM et vérifications de compilation/signature/alignement de l’APK. Le nouveau comportement reste à essayer sur le téléphone ; aucune génération GPU Android effectuée par Codex pour ce correctif.' > release-notes.md
+            'DictAI 0.9.5 Android ARM64 : notes protégées, correction plus accessible et interface plus chaleureuse.' \
+            'Message : le parcours direct est conservé. Note ouverte volontairement : la pastille met la dictée en pause ou la reprend ; elle ne dépose plus la note dans un autre champ.' \
+            'Le bouton Insérer… affiche le texte à confirmer. La note reste enregistrée après insertion. Le glissement vers le haut réaffiche la note ; Terminer la range dans Mes notes.' \
+            'Correction : acquisition du focus et du clavier coordonnée après le toucher ; position du curseur préservée ; bouton Modifier pour agrandir ; défilement automatique suspendu pendant la correction.' \
+            'Mes notes distingue titre, aperçu et date. Tons charbon chaud, crème et sauge ; cartes et commandes plus arrondies. Captures, photos, vocabulaire et exports PDF/HTML conservés.' \
+            'Tests JVM, compilation des tests Android et vérifications de signature/alignement. Aucun appareil Android accessible : fluidité tactile, clavier et rendu visuel restent à vérifier sur téléphone.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.9.4 — hésitations retirées dans Texte corrigé' --notes-file release-notes.md
+            --title 'DictAI 0.9.5 — notes protégées et édition plus douce' --notes-file release-notes.md

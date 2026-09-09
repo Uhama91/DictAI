@@ -6,6 +6,9 @@ import android.content.Context
 internal class DictationDraftStore(context: Context) {
     private val imageStore = NoteImageStore(context)
     private val prefs = context.getSharedPreferences("dictation_draft", Context.MODE_PRIVATE)
+    var purpose: DictationPurpose
+        get() = DictationPurpose.restore(prefs.getString("purpose", null), noteId)
+        set(value) { prefs.edit().putString("purpose", value.name).apply() }
     var noteId: String?
         get() = prefs.getString("note_id", null)
         set(value) { prefs.edit().putString("note_id", value).apply() }

@@ -12,7 +12,7 @@ if [[ -f /home/ullie/.cache/dictai-build-tools/cacerts ]]; then
 fi
 python3 -m unittest scripts/test_check_apk_native_alignment.py -v
 ./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' \
-    -PlocalFormatPrototype=true :app:testDebugUnitTest :app:assembleDebug --stacktrace "${extra[@]}"
+    -PlocalFormatPrototype=true :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace "${extra[@]}"
 apk=app/build/outputs/apk/debug/app-debug.apk
 python3 scripts/check_apk_native_alignment.py "$apk"
 "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 "$apk"
@@ -36,6 +36,7 @@ Exécution UTC : {datetime.datetime.now(datetime.timezone.utc).isoformat()}
 
 - Tests JVM : {count}, zéro échec, dans {len(rows)} suites.
 - Tests Python du contrôleur APK : 18, zéro échec.
+- Tests instrumentés Android : compilation réussie, exécution non réalisée faute d'appareil.
 - APK ARM64 : construction, signature, alignement ELF/ZIP 16 Ko vérifiés.
 - LiteRT-LM JNI présent ; absence des anciens moteurs llama et des poids 350M vérifiée dans l'APK.
 - Gemma est installé séparément dans l'application ; taille et SHA-256 sont vérifiés avant publication du modèle.
@@ -43,7 +44,7 @@ Exécution UTC : {datetime.datetime.now(datetime.timezone.utc).isoformat()}
 - SHA-256 APK : `{checksum}`.
 - Fichier local : `{destination}`.
 
-Les tests couvrent reprise du téléchargement, vérification d'intégrité, projection fidèle du texte, rejet d'ajouts/traductions, annulation et suppression des sorties tardives. Les tests de transport utilisent des callbacks simulés, pas une exécution GPU Android.
+Les tests couvrent séparation message/note, confirmation ponctuelle, reprise sûre du brouillon, coordination du clavier, maintien du point de lecture, reprise du téléchargement, vérification d'intégrité, projection fidèle du texte, rejet d'ajouts/traductions, annulation et suppression des sorties tardives. Les tests de transport utilisent des callbacks simulés, pas une exécution GPU Android.
 
 La latence GPU, la qualité des dictées réelles et les gestes restent à mesurer sur téléphone. Aucun appareil Android n'était connecté à cette vérification. Le premier chargement ne constitue pas une dictée instantanée ; le moteur est préchauffé et reste partagé avec l'overlay.
 ''')

@@ -159,7 +159,7 @@ class MainActivity : AppCompatActivity() {
             stateListAnimator = null
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = ThemeTokens.dpf(this@MainActivity, 12f)
+                cornerRadius = ThemeTokens.dpf(this@MainActivity, 22f)
                 setColor(ThemeTokens.GREEN)
             }
             layoutParams = LinearLayout.LayoutParams(LP_MATCH, LP_WRAP).apply {
@@ -586,7 +586,7 @@ class MainActivity : AppCompatActivity() {
         // Carte-note sobre : surface arrondie + filet fin
         val cardBg = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = ThemeTokens.dpf(this@MainActivity, 11f)
+            cornerRadius = ThemeTokens.dpf(this@MainActivity, 20f)
             setColor(ThemeTokens.SURFACE)
             setStroke(dp(1), ThemeTokens.STROKE)
         }
@@ -633,7 +633,7 @@ class MainActivity : AppCompatActivity() {
         text = title
         textSize = 14f
         setTypeface(typeface, Typeface.BOLD)
-        letterSpacing = 0.08f
+        letterSpacing = 0.025f
         setTextColor(ThemeTokens.GREEN)
         setPadding(dp(2), dp(22), dp(2), dp(8))
     }

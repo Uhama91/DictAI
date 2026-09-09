@@ -1,8 +1,10 @@
-# DictAI 0.9.4 — texte corrigé, hésitations et essai Gemma sur téléphone
+# DictAI 0.9.5 — notes, correction et essai Gemma sur téléphone
 
 Ullie a choisi Gemma après la recherche comparative. Le prototype utilise Gemma 4 E2B dans LiteRT-LM 0.17.0, sur GPU, avec MTP activé et thinking désactivé (budget zéro). Nemotron reste le moteur de transcription. Ce document décrit l'essai et ses limites ; il ne remplace pas une mesure sur le POCO F7.
 
 ## Installation depuis le téléphone
+
+Version 0.9.5 en cours de vérification : [notes protégées, correction et interface](NOTES-ET-EDITION-0.9.5.md). Le lien ci-dessous reste celui de la livraison précédente jusqu’à publication vérifiée.
 
 **[Télécharger directement l’APK 0.9.4](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34388786570/dictai-local-layout-test.apk)** — environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34388786570), [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/34388786570). Installer en mise à jour conserve Gemma déjà téléchargé, vocabulaire et notes. Texte corrigé retire désormais les hésitations ordinaires avant le modèle et garde ce nettoyage en repli. Les segments saisis à la main, citations et graphies personnelles sont protégés. Le diagnostic compte les hésitations retirées. Modèle, thinking et plafonds d’attente conservés. [Fonctionnement et preuves 0.9.4](HESITATIONS-TEXTE-CORRIGE-0.9.4.md). Les captures/photos, exports PDF/HTML et le parcours du vocabulaire de 0.9.3 ont depuis été confirmés par Ullie ; le correctif 0.9.4 reste à essayer sur son téléphone.
 
@@ -14,7 +16,7 @@ Le téléchargement séparé permet de fournir une APK installable directement d
 
 ## Choisir le traitement — 0.8.5
 
-Le menu des formats (geste vers le haut au repos) distingue **Texte** et **Texte corrigé**. **Texte n’appelle aucun LLM**, même si le moteur sélectionné est local ou cloud et même si le document est long. C’est le choix initial, adapté aux notes corrigées à la main. Les nombres, le vocabulaire et le nettoyage léger facultatif restent traités par les règles locales. Copier une note texte ouverte sans dictée active reste une insertion directe. En 0.9.2, les captures vont au presse-papier pour collage manuel depuis Gboard ; la fin de dictée insère le texte normalement. Les anciennes notes visuelles gardent leurs exports explicites.
+Le menu des formats (geste vers le haut au repos) distingue **Texte** et **Texte corrigé**. **Texte n’appelle aucun LLM**, même si le moteur sélectionné est local ou cloud et même si le document est long. C’est le choix initial, adapté aux notes corrigées à la main. Les nombres, le vocabulaire et le nettoyage léger facultatif restent traités par les règles locales. À partir de 0.9.5, une note ouverte volontairement s’insère uniquement par Insérer… puis confirmation, même sans dictée active. Un appui pendant sa dictée la met en pause ; le parcours message reste direct. En 0.9.2, les captures vont au presse-papier pour collage manuel depuis Gboard ; la fin de dictée insère le texte normalement. Les anciennes notes visuelles gardent leurs exports explicites.
 
 **Texte corrigé** demande explicitement la correction et la mise en paragraphes au moteur local ou cloud choisi dans les réglages. Liste et Mail utilisent aussi ce moteur. En local, les mails et textes corrigés de 60 mots ou plus disposent de **10 secondes maximum** après l’arrêt, sans délai minimal ; mails courts 8 s, listes et textes corrigés courts 5 s. Les petits acquiescements en mode Mail peuvent toujours rester directs.
 

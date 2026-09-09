@@ -163,6 +163,7 @@ class OverlayService : Service() {
     private class ActiveDictationRun(
         val session: DictationAsrSession,
         val formatOptions: RecordingOptions,
+        val purpose: DictationPurpose,
         val cancellation: DictationCancellationCoordinator = DictationCancellationCoordinator(),
     ) {
         val captureGate = RecordingCaptureGate()
@@ -170,6 +171,8 @@ class OverlayService : Service() {
         var resumeAfterPause = false
         var archiveAsNote = false
         var exportNote = false
+        var reviewNoteInsertionAfterFinish = false
+        var afterCompletion: (() -> Unit)? = null
         var automaticNoteShare = true
         var finishAfterPause = false
         var finishAfterCapture = false
@@ -193,7 +196,7 @@ class OverlayService : Service() {
     private var wave: CursiveWaveView? = null
     private var pauseIndicator: TextView? = null
     private var loader: LoadingBorderView? = null
-    private var liveText: EditText? = null
+    private var liveText: OverlayTranscriptEditor? = null
     private var updatingLiveText = false
     private var liveEditorChanging = false
     private val vocabularyTracker = VocabularyCorrectionTracker()
@@ -219,6 +222,11 @@ class OverlayService : Service() {
     private var recoveredDraft: String? = null
     private val notes by lazy { TranscriptNotes(AndroidTranscriptNoteStorage(this)) }
     private var activeNoteId: String? = null
+    private var purpose = DictationPurpose.MESSAGE
+    private val noteInsertionGate = NoteInsertionGate()
+    private var noteInsertionDialog: AlertDialog? = null
+    private var noteInsertButton: TextView? = null
+    private var noteDoneButton: TextView? = null
     private val imageStore by lazy { NoteImageStore(this) }
     private var captureWindowsHidden = false
     private var preserveImageClipboard = false
@@ -259,6 +267,7 @@ class OverlayService : Service() {
         createChannel()
         if (!startForegroundSpecialUse()) return
         showButton()
+        purpose = draftStore.purpose
         recoveredDraft = draftStore.load()
         activeNoteId = draftStore.noteId?.takeIf { notes.get(it) != null }
         recoveredDraft?.let { text ->
@@ -481,7 +490,8 @@ class OverlayService : Service() {
             toast("Dictée déjà en cours.")
             return
         }
-        val run = ActiveDictationRun(started.session, options)
+        invalidateNoteInsertion()
+        val run = ActiveDictationRun(started.session, options, purpose)
         if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
             localFormatter.warm()
             run.localFormatting = LocalFormattingSession(localFormatter.backend())
@@ -601,6 +611,8 @@ class OverlayService : Service() {
     }
 
     private fun resumeRec() {
+        invalidateNoteInsertion()
+        releaseTranscriptFocus()
         if (state == State.PAUSED && activeRun == null && recoveredDraft != null) {
             if (!micArmed) { toast("Ouvrez l’application pour réactiver le micro et reprendre le brouillon."); openApp(); return }
             startRec()
@@ -792,9 +804,11 @@ class OverlayService : Service() {
                 if (!isCurrentRun(run) || run.cancellation.isCancelled || localEngineLifecycle.isDestroyed()) return@post
                 val text = localText ?: liveText?.text?.toString().orEmpty()
                 val saved = saveNoteWithCaptures(text)
+                run.afterCompletion = {
+                    toast("Note enregistrée : ${saved.title}")
+                    showNotesOverlay()
+                }
                 completeRunOnMain(run)
-                toast("Note enregistrée : ${saved.title}")
-                showNotesOverlay()
             }
             return
         }
@@ -897,9 +911,23 @@ class OverlayService : Service() {
             if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed()) return@post
             run.finalPublication.submit(SystemClock.uptimeMillis()) {
                 val published = run.cancellation.publishIfActive {
-                    if (run.exportNote) {
+                    // This is the publication boundary, including late capture/pause callbacks.
+                    // A note can only reach an external field through the explicit confirmation below.
+                    val destination = NoteInteractionPolicy.destination(
+                        if (purpose == DictationPurpose.NOTE) purpose else run.purpose,
+                        archive = run.archiveAsNote, export = run.exportNote,
+                    )
+                    if (destination != NoteInteractionPolicy.Destination.MESSAGE) {
                         val saved = saveNoteWithCaptures(outText ?: liveText?.text?.toString().orEmpty())
-                        main.post { launchNoteExport(saved, automatic = run.automaticNoteShare) }
+                        run.afterCompletion = {
+                            if (destination == NoteInteractionPolicy.Destination.NOTE_LIST) showNotesOverlay()
+                            else {
+                                openNote(saved)
+                                if (destination == NoteInteractionPolicy.Destination.NOTE_EXPORT)
+                                    launchNoteExport(saved, automatic = run.automaticNoteShare)
+                                else if (run.reviewNoteInsertionAfterFinish) confirmNoteInsertion(saved)
+                            }
+                        }
                     } else if (!outText.isNullOrBlank()) {
                         activeNoteId?.let { notes.save(it, outText) }
                         Log.i(TAG, "event=dictation_publish stop_to_text_ms=${if (run.stoppedAtMs > 0) SystemClock.elapsedRealtime() - run.stoppedAtMs else -1}")
@@ -1008,10 +1036,12 @@ class OverlayService : Service() {
         decision: DictationTapGestureCoordinator.Decision,
         atMs: Long,
     ) {
-        when (decision.action) {
+        when (NoteInteractionPolicy.tap(purpose, decision.action)) {
             DictationTapGestureCoordinator.Action.START_RECORDING -> startRec()
             DictationTapGestureCoordinator.Action.RESUME_RECORDING -> resumeRec()
             DictationTapGestureCoordinator.Action.STOP_RECORDING -> stopRec()
+            DictationTapGestureCoordinator.Action.PAUSE_RECORDING -> pauseRec()
+            DictationTapGestureCoordinator.Action.SAVE_AND_CLOSE_NOTE -> archiveOrShowNotes()
             DictationTapGestureCoordinator.Action.CANCEL_RECORDING -> {
                 if (state == State.PAUSED || state == State.PAUSING) cancelPausedNote() else cancelRec()
             }
@@ -1086,12 +1116,14 @@ class OverlayService : Service() {
         archiveAfterImageDelivery = false
         recoveredDraft = null
         activeNoteId = null
+        purpose = DictationPurpose.MESSAGE
         draftStore.clear()
         refreshNoteImages()
         if (asrSession === run.session) asrSession = null
         tapCoordinator.reset()
         setLivePreviewVisible(false)
         setState(State.IDLE)
+        run.afterCompletion?.also { run.afterCompletion = null }?.invoke()
     }
 
     private fun isCurrentRun(run: ActiveDictationRun): Boolean = activeRun === run
@@ -1123,9 +1155,9 @@ class OverlayService : Service() {
             pauseIndicator?.visibility = if (paused) View.VISIBLE else View.GONE
             wave?.visibility = if (paused) View.INVISIBLE else View.VISIBLE
             pill?.contentDescription = when (s) {
-                State.PAUSED -> "Dictée en pause. Appuyer pour reprendre."
+                State.PAUSED -> if (purpose == DictationPurpose.NOTE) "Note en pause. Appuyer pour dicter dans la note." else "Dictée en pause. Appuyer pour reprendre."
                 State.PAUSING -> "Mise en pause de la dictée."
-                State.RECORDING -> "Dictée en cours. Glisser vers le bas pour mettre en pause. Maintenir jusqu’à la vibration pour déplacer."
+                State.RECORDING -> if (purpose == DictationPurpose.NOTE) "Dictée dans la note. Appuyer pour mettre en pause." else "Dictée de message en cours. Appuyer pour insérer. Glisser vers le bas pour mettre en pause."
                 else -> "Appuyer pour dicter. Glisser vers le haut pour les formats. Maintenir jusqu’à la vibration pour déplacer."
             }
             showRecordingPill(s == State.RECORDING)
@@ -1324,8 +1356,8 @@ class OverlayService : Service() {
     private fun releaseTranscriptFocus() {
         val panel = livePanel ?: return
         keyboardInset = 0
+        liveText?.endEditing()
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(panel.windowToken, 0)
-        liveText?.clearFocus()
         liveParams?.let { it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE }
         if (livePanelAdded) runCatching {
             (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, liveParams)
@@ -1365,9 +1397,10 @@ class OverlayService : Service() {
         val dp = resources.displayMetrics.density
         val fullScreen = screenRect()
         val screen = fullScreen.copy(height = (fullScreen.height - keyboardInset).coerceAtLeast(1))
-        panelTitle?.text = when (state) {
-            State.RECORDING -> "Écoute en cours"
-            State.PAUSING, State.PAUSED -> "En pause · ↑ pour envoyer"
+        val inNote = purpose == DictationPurpose.NOTE
+        panelTitle?.text = if (inNote) notes.get(activeNoteId)?.title ?: "Nouvelle note" else when (state) {
+            State.RECORDING -> "Message · Écoute en cours"
+            State.PAUSING, State.PAUSED -> "Message · En pause"
             State.TRANSCRIBING -> "Traitement…"
             else -> notes.get(activeNoteId)?.title ?: "Dictée"
         }
@@ -1387,7 +1420,18 @@ class OverlayService : Service() {
             prefs.formattingEngine == "cloud" -> "Cloud prévu"
             else -> "Désactivé"
         }
-        panelFormat?.text = "${if (format.id == "cleanup") "Texte" else format.name} · $engine"
+        panelFormat?.text = if (inNote) when (state) {
+            State.RECORDING -> "Note · Appuyez sur la pastille pour mettre en pause"
+            State.PAUSING -> "Note · Mise en pause…"
+            State.TRANSCRIBING -> "Note · Préparation du texte…"
+            else -> "Note enregistrée · Micro en pause"
+        } else "${if (format.id == "cleanup") "Texte" else format.name} · $engine"
+        noteInsertButton?.visibility = if (inNote) View.VISIBLE else View.GONE
+        noteDoneButton?.visibility = if (inNote) View.VISIBLE else View.GONE
+        listOfNotNull(noteInsertButton, noteDoneButton).forEach {
+            it.isEnabled = isTranscriptEditable()
+            it.alpha = if (it.isEnabled) 1f else .45f
+        }
         panelExpandButton?.setImageResource(if (panelExpanded) R.drawable.ic_panel_restore else R.drawable.ic_panel_expand)
         panelExpandButton?.contentDescription = if (panelExpanded) "Réduire le panneau" else "Agrandir le panneau"
         val bounds = OverlayPlacement.panelBounds(
@@ -1396,8 +1440,8 @@ class OverlayService : Service() {
                 if (rect.bottom > screen.bottom) rect.copy(y = (screen.bottom - rect.height).coerceAtLeast(screen.y)) else rect
             }, screen,
             ((if (panelExpanded) 600 else 312) * dp).toInt(),
-            if (panelExpanded) (screen.height * 0.82f).toInt() else (liveText?.lineHeight ?: 20) * 3 +
-                (160 * dp).toInt(),
+            if (panelExpanded) (screen.height * 0.82f).toInt() else (liveText?.lineHeight ?: 20) * 4 +
+                (188 * dp).toInt(),
             (6 * dp).toInt(),
         )
         panelParams.x = bounds.x
@@ -1507,7 +1551,7 @@ class OverlayService : Service() {
         }
         pillView.addView(gestureHint, FrameLayout.LayoutParams(-1, -1))
 
-        val liveView = object : EditText(this) {
+        val liveView = object : OverlayTranscriptEditor(this) {
             override fun onSelectionChanged(start: Int, end: Int) {
                 super.onSelectionChanged(start, end)
                 if (liveText === this && !updatingLiveText && !liveEditorChanging && isTranscriptEditable()) {
@@ -1518,11 +1562,21 @@ class OverlayService : Service() {
             }
         }.apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            setTextColor(0xFFF4F4F4.toInt())
+            setTextColor(ThemeTokens.INK)
             background = null
-            setPadding(0, 0, 0, 0)
+            setPadding((8 * dp).toInt(), (8 * dp).toInt(), (8 * dp).toInt(), (12 * dp).toInt())
             hint = "Touchez pour corriger pendant la dictée"
-            setHintTextColor(0xFFBBBBBB.toInt())
+            setHintTextColor(ThemeTokens.INK_MUTED)
+            canEdit = { isTranscriptEditable() }
+            acquireWindow = {
+                liveParams?.let { layout ->
+                    if (layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0) {
+                        layout.flags = layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                        runCatching { wm.updateViewLayout(this@OverlayService.livePanel, layout) }
+                    }
+                }
+            }
+            finishEditing = { releaseTranscriptFocus() }
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
                     liveEditorChanging = true
@@ -1537,6 +1591,7 @@ class OverlayService : Service() {
                 }
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     if (!updatingLiveText && isTranscriptEditable()) {
+                        invalidateNoteInsertion()
                         editableTranscript.edit(s.toString())
                         activeRun?.let { scheduleLocalFormatting(it, s.toString()) }
                         if (recoveredDraft != null) recoveredDraft = s.toString()
@@ -1556,21 +1611,12 @@ class OverlayService : Service() {
                     MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> tailFollower?.touch(true)
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> tailFollower?.touch(false)
                 }
-                if (event.actionMasked == MotionEvent.ACTION_DOWN && isTranscriptEditable()) {
-                    liveParams?.let { layout ->
-                        layout.flags = layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-                        (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(this@OverlayService.livePanel, layout)
-                    }
-                    requestFocus()
-                    post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(this, InputMethodManager.SHOW_IMPLICIT) }
-                }
                 false
             }
-            textSize = 14f
-            setTextColor(0xFFF4F4F4.toInt())
+            textSize = 16f
             includeFontPadding = false
             gravity = Gravity.START
-            setLineSpacing(2 * dp, 1.0f)
+            setLineSpacing(4 * dp, 1.0f)
         }
         val panelHPadding = (20 * dp).toInt()
         val safeScreen = screenRect()
@@ -1595,15 +1641,16 @@ class OverlayService : Service() {
             addView(liveView, FrameLayout.LayoutParams(-1, -2))
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> tailFollower?.resized() }
         }
-        tailFollower = TranscriptTailFollower(liveView, scroll) { state == State.RECORDING && activeRun != null }
+        tailFollower = TranscriptTailFollower(liveView, scroll, editing = { liveView.isEditing }) { state == State.RECORDING && activeRun != null }
         val livePanel = FrameLayout(this).apply {
             visibility = View.GONE
             background = GradientDrawable().apply {
-                cornerRadius = 10 * dp
-                setColor(0xFF1F1F25.toInt())
-                setStroke((1.2f * dp).toInt(), ThemeTokens.GREEN)
+                cornerRadius = 24 * dp
+                setColor(ThemeTokens.SURFACE)
+                setStroke(dp.toInt().coerceAtLeast(1), ThemeTokens.STROKE)
             }
-            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (120 * dp).toInt() })
+            elevation = 8 * dp
+            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (168 * dp).toInt() })
         }
         livePanel.setOnApplyWindowInsetsListener { _, insets ->
             val nextInset = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
@@ -1615,7 +1662,8 @@ class OverlayService : Service() {
         }
         val toolbar = LinearLayout(this).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
         panelTitle = TextView(this).apply {
-            text = "Dictée"; textSize = 13f; setTextColor(0xFFF4F4F4.toInt()); gravity = Gravity.CENTER_VERTICAL
+            text = "Dictée"; textSize = 15f; setTextColor(ThemeTokens.INK); gravity = Gravity.CENTER_VERTICAL
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
             maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
             setPadding((12 * dp).toInt(), 0, 0, 0)
         }
@@ -1641,12 +1689,37 @@ class OverlayService : Service() {
         toolbar.addView(hide, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         livePanel.addView(toolbar, FrameLayout.LayoutParams(-1, (48 * dp).toInt(), Gravity.TOP))
         panelFormat = TextView(this).apply {
-            textSize = 11f; setTextColor(ThemeTokens.GREEN)
+            textSize = 12f; setTextColor(ThemeTokens.INK_MUTED)
             gravity = Gravity.CENTER_VERTICAL
             maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
             setPadding((12 * dp).toInt(), 0, (12 * dp).toInt(), 0)
         }
         livePanel.addView(panelFormat, FrameLayout.LayoutParams(-1, (24 * dp).toInt()).apply { topMargin = (48 * dp).toInt() })
+
+        val editorActions = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((8 * dp).toInt(), 0, (8 * dp).toInt(), 0)
+        }
+        fun editorAction(label: String, action: () -> Unit) = TextView(this).apply {
+            text = label; textSize = 13f; gravity = Gravity.CENTER
+            setTextColor(ThemeTokens.GREEN)
+            background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x337DAD88),
+                GradientDrawable().apply { cornerRadius = 18 * dp; setColor(ThemeTokens.RAISED) }, null)
+            setOnClickListener { action() }
+            editorActions.addView(this, LinearLayout.LayoutParams(0, (48 * dp).toInt(), 1f).apply {
+                leftMargin = (3 * dp).toInt(); rightMargin = (3 * dp).toInt()
+            })
+        }
+        editorAction("Modifier") {
+            if (isTranscriptEditable()) {
+                panelExpanded = true
+                currentAnchor?.let(::positionLivePanel)
+                liveText?.post { liveText?.beginEditing() }
+            }
+        }
+        noteInsertButton = editorAction("Insérer…", ::requestNoteInsertion)
+        noteDoneButton = editorAction("Terminer", ::archiveOrShowNotes)
+        livePanel.addView(editorActions, FrameLayout.LayoutParams(-1, (48 * dp).toInt()).apply { topMargin = (120 * dp).toInt() })
 
         val mediaRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         mediaToolbar = mediaRow
@@ -1707,8 +1780,8 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            alpha = 0.96f
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            // IME insets are handled by positionLivePanel; do not resize the window twice.
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         }
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
@@ -1732,7 +1805,15 @@ class OverlayService : Service() {
             val left = notesGesture.progress(dy, dx)
             val progress = maxOf(up, down, left)
             gestureHint.visibility = if (progress > 0f) View.VISIBLE else View.GONE
-            gestureHint.text = if (left > 0f) "← Notes" else if (up > 0f) { if (state == State.PAUSED || state == State.PAUSING) "↑ Envoyer" else if (isTranscriptEditable()) "↑ Texte" else "↑ Format" } else "↓ Pause"
+            gestureHint.text = if (left > 0f) "← Notes" else if (up > 0f) {
+                when {
+                    purpose == DictationPurpose.NOTE -> "↑ Note"
+                    panelHidden && isTranscriptEditable() -> "↑ Texte"
+                    state == State.PAUSED || state == State.PAUSING -> "↑ Insérer"
+                    isTranscriptEditable() -> "↑ Texte"
+                    else -> "↑ Format"
+                }
+            } else "↓ Pause"
             gestureHint.alpha = 0.35f + 0.65f * progress
             val ready = progress >= 1f
             if (ready && !gestureReady) pillView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
@@ -1841,11 +1922,15 @@ class OverlayService : Service() {
                             pauseRec()
                         } else if (selectFormat && (state == State.PAUSED || state == State.PAUSING)) {
                             val run = activeRun
-                            if (run != null) {
+                            if (purpose == DictationPurpose.NOTE || panelHidden) {
+                                panelHidden = false
+                                setLivePreviewVisible(true)
+                            }
+                            else if (run != null) {
                                 run.resumeAfterPause = false
                                 run.finishAfterPause = true
                                 if (state == State.PAUSED) stopRec()
-                            } else exportOpenNote()
+                            } else insertPausedMessage()
                         } else if (selectFormat && isTranscriptEditable()) {
                             panelHidden = false
                             setLivePreviewVisible(true)
@@ -2086,7 +2171,7 @@ class OverlayService : Service() {
         if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
         val queuedNote = exportAfterImageDelivery
         exportAfterImageDelivery = null
-        if (queuedNote != null && activeRun == null && activeNoteId == queuedNote && state == State.PAUSED) exportOpenNote()
+        if (queuedNote != null && activeRun == null && activeNoteId == queuedNote && state == State.PAUSED) insertPausedMessage()
     }
 
     private fun replaceNoteText(text: String) {
@@ -2223,6 +2308,8 @@ class OverlayService : Service() {
 
     /** Explicit note action promotes the draft's images and inserts their positional references. */
     private fun saveNoteWithCaptures(text: String): TranscriptNote {
+        purpose = DictationPurpose.NOTE
+        draftStore.purpose = purpose
         draftStore.save(text)
         val content = DraftImageContext.materialize(text, notes.get(activeNoteId)?.images.orEmpty(), draftStore.captures())
         val note = notes.save(activeNoteId, content.text, content.images)
@@ -2234,6 +2321,7 @@ class OverlayService : Service() {
     }
 
     private fun persistDraft(text: String) {
+        draftStore.purpose = purpose
         draftStore.save(text)
         activeNoteId?.let { id ->
             if (notes.get(id)?.text != text) notes.save(id, text)
@@ -2242,11 +2330,13 @@ class OverlayService : Service() {
     }
 
     private fun clearOpenDraft() {
+        invalidateNoteInsertion()
         exportAfterImageDelivery = null
         archiveAfterImageDelivery = false
         tapCoordinator.reset()
         recoveredDraft = null
         activeNoteId = null
+        purpose = DictationPurpose.MESSAGE
         draftStore.clear()
         refreshNoteImages()
         setLivePreviewVisible(false)
@@ -2268,7 +2358,14 @@ class OverlayService : Service() {
     }
 
     private fun archiveOrShowNotes() {
+        invalidateNoteInsertion()
         tapCoordinator.reset()
+        // The intent changes immediately, even when a photo or final ASR result is pending.
+        if (activeRun != null || recoveredDraft != null) {
+            purpose = DictationPurpose.NOTE
+            draftStore.purpose = purpose
+            activeRun?.let { it.archiveAsNote = true; it.reviewNoteInsertionAfterFinish = false }
+        }
         if (imageStore.pending() != null || imageDeliveryBusy) { archiveAfterImageDelivery = true; return }
         if (state == State.TRANSCRIBING || state == State.CANCELLING) {
             toast("Patientez jusqu’à la fin du traitement.")
@@ -2288,8 +2385,12 @@ class OverlayService : Service() {
 
     private fun openNote(note: TranscriptNote) {
         if (activeRun != null) return
+        invalidateNoteInsertion()
+        releaseTranscriptFocus()
         resetVocabularyLearning()
         dismissFloatingMenu()
+        purpose = DictationPurpose.NOTE
+        draftStore.purpose = purpose
         activeNoteId = note.id
         draftStore.noteId = note.id
         recoveredDraft = note.text
@@ -2307,15 +2408,13 @@ class OverlayService : Service() {
         setLivePreviewVisible(true)
     }
 
-    private fun exportOpenNote() {
+    private fun insertPausedMessage() {
+        if (purpose == DictationPurpose.NOTE) { requestNoteInsertion(); return }
         if (!isTranscriptEditable()) return
         if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
         if (imageDeliveryBusy) { exportAfterImageDelivery = activeNoteId; return }
         tapCoordinator.reset()
         val text = liveText?.text?.toString().orEmpty()
-        val note = notes.save(activeNoteId, text)
-        activeNoteId = note.id
-        draftStore.noteId = note.id
         val run = activeRun
         if (run != null) {
             run.finishAfterPause = true
@@ -2328,6 +2427,7 @@ class OverlayService : Service() {
         setState(State.TRANSCRIBING)
         // Let focus return to the underlying app before resolving its text field.
         main.post {
+            if (localEngineLifecycle.isDestroyed() || purpose != DictationPurpose.MESSAGE || state != State.TRANSCRIBING) return@post
             val result = runCatching {
                 injectOrCopy(InjectionGateway.current(), text, { DictationClipboard.copy(this, it) }, preserveClipboardOnDirectInsert = preserveImageClipboard)
             }.getOrDefault(InjectionResult.Failed)
@@ -2344,7 +2444,77 @@ class OverlayService : Service() {
         }
     }
 
-    private data class MenuEntry(val label: String, val click: () -> Unit, val longClick: (() -> Unit)? = null)
+    private fun invalidateNoteInsertion() {
+        noteInsertionGate.invalidate()
+        noteInsertionDialog?.dismiss()
+        noteInsertionDialog = null
+    }
+
+    private fun requestNoteInsertion() {
+        if (purpose != DictationPurpose.NOTE || !isTranscriptEditable()) return
+        if (imageDeliveryBusy || imageStore.pending() != null) { toast("Terminez la capture avant d’insérer le texte."); return }
+        invalidateNoteInsertion()
+        tapCoordinator.reset()
+        activeRun?.let { run ->
+            // Finishing prepares a review. It never grants permission to insert its later result.
+            run.reviewNoteInsertionAfterFinish = true
+            run.resumeAfterPause = false
+            run.finishAfterPause = true
+            if (state != State.PAUSING) stopRec()
+            return
+        }
+        val note = saveNoteWithCaptures(liveText?.text?.toString().orEmpty())
+        replaceNoteText(note.text)
+        confirmNoteInsertion(note)
+    }
+
+    private fun confirmNoteInsertion(note: TranscriptNote) {
+        if (purpose != DictationPurpose.NOTE || activeRun != null || state != State.PAUSED) return
+        invalidateNoteInsertion()
+        val request = noteInsertionGate.request(note.id, note.text) ?: run { toast("La note ne contient pas de texte à insérer."); return }
+        releaseTranscriptFocus()
+        var approved = false
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Insérer le texte ?")
+            .setMessage("Le texte ci-dessous sera déposé dans le champ de l’application ouverte. Votre note restera enregistrée. Pour transmettre les images, utilisez l’export.\n\n${note.text}")
+            .setNegativeButton("Rester dans la note", null)
+            .setPositiveButton("Insérer le texte") { _, _ ->
+                approved = true
+                // Reserve this one operation while focus returns to the underlying application.
+                liveText?.isEnabled = false
+                setState(State.TRANSCRIBING)
+                releaseTranscriptFocus()
+                main.post {
+                    if (localEngineLifecycle.isDestroyed() || purpose != DictationPurpose.NOTE ||
+                        activeRun != null || state != State.TRANSCRIBING) { noteInsertionGate.invalidate(); return@post }
+                    val text = noteInsertionGate.consume(request, activeNoteId, liveText?.text?.toString().orEmpty())
+                    if (text != null) {
+                        val result = runCatching {
+                            injectOrCopy(InjectionGateway.current(), text, { DictationClipboard.copy(this, it) },
+                                preserveClipboardOnDirectInsert = preserveImageClipboard)
+                        }.getOrDefault(InjectionResult.Failed)
+                        if (result != InjectionResult.Failed) preserveImageClipboard = false
+                        toast(injectionFeedbackMessage(result) ?: "Texte inséré. Votre note est conservée.")
+                    }
+                    liveText?.isEnabled = true
+                    setState(State.PAUSED)
+                    panelHidden = false
+                    setLivePreviewVisible(true)
+                }
+            }.create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        dialog.setOnDismissListener {
+            if (!approved) noteInsertionGate.invalidate()
+            if (noteInsertionDialog === dialog) noteInsertionDialog = null
+        }
+        noteInsertionDialog = dialog
+        dialog.show()
+    }
+
+    private data class MenuEntry(
+        val label: String, val click: () -> Unit, val longClick: (() -> Unit)? = null,
+        val subtitle: String? = null, val metadata: String? = null,
+    )
 
     private fun dismissFloatingMenu() {
         floatingMenu?.let { runCatching { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } }
@@ -2353,28 +2523,50 @@ class OverlayService : Service() {
 
     private fun showFloatingMenu(title: String, entries: List<MenuEntry>, above: Boolean = false) {
         dismissFloatingMenu()
+        releaseTranscriptFocus()
         val dp = resources.displayMetrics.density
         val screen = screenRect()
         val width = minOf((320 * dp).toInt(), screen.width)
-        val height = minOf(((entries.size.coerceAtLeast(1) * 64 + 48) * dp).toInt(), (screen.height * .65f).toInt())
+        val height = minOf(((entries.sumOf { if (it.metadata != null) 144 else 64 }.coerceAtLeast(64) + 56) * dp).toInt(), (screen.height * .65f).toInt())
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply { cornerRadius = 14 * dp; setColor(0xFF1F1F25.toInt()); setStroke((dp).toInt(), ThemeTokens.GREEN) }
+            background = GradientDrawable().apply { cornerRadius = 24 * dp; setColor(ThemeTokens.SURFACE); setStroke(dp.toInt().coerceAtLeast(1), ThemeTokens.STROKE) }
+            setPadding((6 * dp).toInt(), 0, (6 * dp).toInt(), (6 * dp).toInt())
         }
         root.addView(TextView(this).apply {
-            text = "$title   ×"; textSize = 16f; setTextColor(ThemeTokens.GREEN); gravity = Gravity.CENTER
+            text = "$title   ×"; textSize = 17f; setTextColor(ThemeTokens.INK); gravity = Gravity.CENTER
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
             contentDescription = "$title. Fermer le menu"
             setOnClickListener { dismissFloatingMenu() }
-        }, LinearLayout.LayoutParams(-1, (48 * dp).toInt()))
+        }, LinearLayout.LayoutParams(-1, (50 * dp).toInt()))
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         entries.forEach { entry ->
-            list.addView(TextView(this).apply {
-                text = entry.label; textSize = 14f; setTextColor(0xFFF4F4F4.toInt()); gravity = Gravity.CENTER_VERTICAL
-                minHeight = (64 * dp).toInt(); setPadding((14 * dp).toInt(), (8 * dp).toInt(), (14 * dp).toInt(), (8 * dp).toInt())
-                maxLines = 3; ellipsize = android.text.TextUtils.TruncateAt.END
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = (56 * dp).toInt()
+                setPadding((14 * dp).toInt(), (12 * dp).toInt(), (14 * dp).toInt(), (12 * dp).toInt())
+                background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x337DAD88),
+                    GradientDrawable().apply { cornerRadius = 18 * dp; setColor(ThemeTokens.RAISED) }, null)
+                contentDescription = listOfNotNull(entry.label, entry.subtitle, entry.metadata).joinToString(". ")
+                isFocusable = true
                 setOnClickListener { entry.click() }
                 entry.longClick?.let { action -> setOnLongClickListener { action(); true } }
-            }, LinearLayout.LayoutParams(-1, -2))
+            }
+            fun line(value: String, size: Float, color: Int, bold: Boolean = false, spacing: Int = 0) {
+                row.addView(TextView(this).apply {
+                    text = value; textSize = size; setTextColor(color)
+                    if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = (spacing * dp).toInt() })
+            }
+            line(entry.label, 16f, ThemeTokens.INK, bold = entry.metadata != null)
+            entry.subtitle?.takeIf { it.isNotBlank() }?.let { line(it, 14f, ThemeTokens.INK_MUTED, spacing = 6) }
+            entry.metadata?.let { line(it, 12f, ThemeTokens.GREEN, spacing = 8) }
+            list.addView(row, LinearLayout.LayoutParams(-1, -2).apply {
+                leftMargin = (4 * dp).toInt(); rightMargin = (4 * dp).toInt(); bottomMargin = (6 * dp).toInt()
+            })
         }
         root.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
         val bounds = FloatingMenuPlacement.bounds(pillRect(params ?: return), screen, width, height, (6 * dp).toInt(), above)
@@ -2390,15 +2582,18 @@ class OverlayService : Service() {
         if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
         val entries = mutableListOf(MenuEntry("＋ Nouvelle note", { openNote(notes.save(null, "")) }))
         notes.all().forEach { note ->
-            val excerpt = note.text.replace(Regex("\\s+"), " ").take(90)
-            entries += MenuEntry(note.title + if (excerpt.isBlank()) "" else "\n$excerpt", { openNote(note) }, {
+            val excerpt = note.text.replace(Regex("\\s+"), " ").take(140)
+            val date = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
+                .format(java.util.Date(note.updatedAt))
+            val metadata = "Modifiée le $date" + if (note.images.isEmpty()) "" else " · ${note.images.size} image${if (note.images.size > 1) "s" else ""}"
+            entries += MenuEntry(note.title, { openNote(note) }, {
                 showFloatingMenu(note.title, listOf(
                     MenuEntry("Partager / exporter · texte et images", { launchNoteExport(note) }),
                     MenuEntry("Renommer", { renameNote(note) }),
                     MenuEntry("Supprimer", { notes.delete(note.id); showNotesOverlay() }),
                     MenuEntry("Retour aux notes", ::showNotesOverlay),
                 ))
-            })
+            }, subtitle = excerpt.ifBlank { "Note vide · Touchez pour écrire" }, metadata = metadata)
         }
         showFloatingMenu("Mes notes", entries)
     }
@@ -2456,6 +2651,7 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        invalidateNoteInsertion()
         resetVocabularyLearning()
         mediaButtons.clear()
         imageStrip = null

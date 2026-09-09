@@ -177,13 +177,13 @@ Personal project. Do whatever you want with it.
 
 L’APK de chaque branche est disponible dans **Actions → Build WhisperPin APK → Artifacts → whisperpin-debug-apk** une fois la compilation réussie.
 
-Le curseur et le défilement suivent les dernières lignes tant que l’éditeur n’est pas focalisé ; les mises à jour automatiques ne déplacent pas le curseur pendant une correction. En pause, le texte reste librement éditable et le défilement manuel est conservé. La reprise ramène immédiatement à la fin du texte.
+Le défilement suit les dernières lignes tant qu’aucune correction volontaire n’est en cours ; le focus automatique d’Android ne suspend pas ce suivi. Pendant une correction, le curseur et le point de lecture sont conservés. Retour ou reprise du micro libèrent l’éditeur et permettent de suivre les nouveaux mots. Le bouton Modifier agrandit le panneau et ouvre le clavier ; un toucher direct place le curseur avant son ouverture.
 
 ## Pause et reprise de la dictée
 
 Pendant une dictée déjà en cours, un glissement direct vers le bas sur la pastille met en pause au relâchement (56 dp minimum, mouvement principalement vertical). La pastille reste fixe. Pour la déplacer, maintenir d’abord 400 ms jusqu’à la vibration. Un maintien seul ne termine pas la dictée.
 
-La pause coupe et libère le microphone, fige les mises à jour automatiques et garde le champ visible. Le symbole « Ⅱ » indique la pause. Le texte peut être corrigé, complété au clavier ou effacé. Un tap reprend la même session et conserve les ajouts. Le tap suivant termine normalement la dictée, copie le résultat dans le presse-papiers et tente l’insertion dans le champ de l’application.
+La pause coupe et libère le microphone, fige les mises à jour automatiques et garde le champ visible. Le symbole « Ⅱ » indique la pause. Le texte peut être corrigé, complété au clavier ou effacé. Un tap reprend la même session et conserve les ajouts. Pour un message, le tap suivant termine la dictée et tente l’insertion dans le champ de l’application, avec copie selon la disponibilité du champ. Pour une note ouverte volontairement, le tap suivant remet en pause : l’insertion exige le bouton Insérer… puis confirmation.
 
 Vérifier sur **Xiaomi Pad 7** et **Poco F7**, avec le micro intégré puis les écouteurs OnePlus :
 
@@ -212,14 +212,16 @@ Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute
 
 ### Notes locales et menus flottants (0.6.6)
 
-- Glisser directement vers la gauche range la dictée ouverte en note, sans la coller, puis ouvre « Mes notes ». Au repos, le même geste ouvre la liste. Un accès « Mes notes » existe aussi dans les réglages ; « Ranger / Notes » est disponible dans le panneau.
-- Une nouvelle note s’ouvre sans activer le micro et peut être écrite au clavier. Tap sur la pastille : dicter. En pause, un tap reprend après la fenêtre de double tap de 280 ms ; deux taps annulent la dictée et ferment la note, sans supprimer les notes déjà enregistrées.
+- Glisser directement vers la gauche range la dictée ouverte en note, sans la coller, puis ouvre « Mes notes ». Au repos, le même geste ouvre la liste. Un accès « Mes notes » existe aussi dans les réglages ; « Terminer » est disponible dans le panneau d’une note.
+- Une nouvelle note s’ouvre sans activer le micro et peut être écrite au clavier. Tap sur la pastille : dicter. En pause, un tap reprend après la fenêtre de double tap de 280 ms ; pendant la dictée de note, un tap met en pause. Deux taps rangent la note, sans la supprimer ni l’insérer. Un glissement vers le haut réaffiche la note ; seul le bouton Insérer… demande son insertion.
 - Les notes ouvertes sont sauvegardées automatiquement. Le rangement finalise les derniers mots localement. Les titres sont tirés de la première ligne (neuf mots, 60 caractères maximum), sans modèle ni réseau. Les titres renommés sont conservés.
-- Appuyer sur une note la rouvre en pause. Un appui maintenu ouvre Renommer / Supprimer. La liste affiche les notes récemment modifiées en premier.
-- « Coller » conserve la note, termine l’écoute si nécessaire, copie le texte et tente son insertion dans le champ de l’application. Si l’insertion n’est pas possible, utiliser Coller depuis le presse-papiers. La propre fenêtre de DictAI est exclue des cibles d’insertion.
+- Appuyer sur une note la rouvre en pause. Un appui maintenu ouvre Renommer / Supprimer. La liste affiche les notes récemment modifiées en premier, avec titre en gras, aperçu distinct, date de modification et nombre d’images.
+- « Insérer… » termine l’écoute si nécessaire puis présente le texte final à confirmer. « Insérer le texte » tente son insertion dans le champ de l’application ; « Rester dans la note » ne dépose rien. Si l’insertion n’est pas possible, le texte est copié pour collage manuel. La note reste ouverte et conservée après insertion. La propre fenêtre de DictAI est exclue des cibles. Les images se transmettent par l’export PDF/HTML.
 - Le menu des formats est une liste flottante au-dessus de la pastille, ou en dessous si l’espace manque. Les menus restent dans les limites de l’écran et se ferment au toucher extérieur.
 - Les icônes agrandir/réduire et masquer sont en haut à droite, avec des cibles tactiles de 48 dp. Le mode agrandi atteint 82 % de la hauteur disponible. La croix masque seulement le panneau.
 
-Essais sur appareil : écrire une note sans micro, la ranger, ouvrir une autre note et revenir à la première ; dicter/reprendre, annuler par double tap pendant la pause, renommer puis poursuivre, supprimer une seule note, coller dans une autre application ; vérifier les menus aux quatre bords et le verrouillage/redémarrage avec une note ouverte.
+Essais sur appareil : écrire une note sans micro, la ranger, ouvrir une autre note et revenir à la première ; dicter/reprendre, ranger par double tap pendant la pause, renommer puis poursuivre, supprimer une seule note, annuler puis confirmer une insertion dans une autre application ; vérifier les menus aux quatre bords et le verrouillage/redémarrage avec une note ouverte.
 
 Suivi du développement par étapes : [demandes et validations](docs/SUIVI-DEVELOPPEMENT.md). Le 350M reste exclu de la compilation normale. Après l’échec de la réécriture libre, une configuration de copie contrainte est disponible dans un [prototype séparé à essayer sur téléphone](docs/ESSAI-LLM-LOCAL.md) : mots conservés sur le corpus, découpage encore imparfait, latence appareil à mesurer.
+
+Le correctif 0.9.5 et son essai ciblé sont décrits dans [Notes et édition](docs/NOTES-ET-EDITION-0.9.5.md). Les gestes, le clavier et le rendu de cette version restent à vérifier sur appareil ; les tests instrumentés sont compilés sans être exécutés ici.

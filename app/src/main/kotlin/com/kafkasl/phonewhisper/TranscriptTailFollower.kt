@@ -6,10 +6,11 @@ import android.view.inputmethod.BaseInputConnection
 import android.widget.EditText
 import android.widget.ScrollView
 
-/** Scroll after text layout, including while the keyboard keeps the editor focused. */
+/** Follow new speech after layout, leaving the viewport alone throughout an explicit correction. */
 internal class TranscriptTailFollower(
     private val editor: EditText,
     private val scroll: ScrollView,
+    private val editing: () -> Boolean = { editor.isFocused },
     private val enabled: () -> Boolean,
 ) {
     private val state = TranscriptFollowState()
@@ -27,7 +28,7 @@ internal class TranscriptTailFollower(
         true
     }
 
-    val followsTail: Boolean get() = enabled() && state.following
+    val followsTail: Boolean get() = enabled() && state.following && !editing()
 
     fun userInteraction() { state.userInteraction(SystemClock.uptimeMillis()) }
     fun touch(active: Boolean) { touching = active; userInteraction() }
@@ -36,7 +37,8 @@ internal class TranscriptTailFollower(
     fun reset() { editor.removeCallbacks(retry); stopListening(); touching = false; state.reset() }
 
     private fun ready() = enabled() && state.ready(SystemClock.uptimeMillis(), touching,
-        editor.selectionStart != editor.selectionEnd, BaseInputConnection.getComposingSpanStart(editor.text) >= 0)
+        editor.selectionStart != editor.selectionEnd, BaseInputConnection.getComposingSpanStart(editor.text) >= 0,
+        editing = editing())
 
     private fun schedule() {
         editor.removeCallbacks(retry)

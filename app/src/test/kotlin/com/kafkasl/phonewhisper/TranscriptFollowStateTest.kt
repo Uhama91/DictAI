@@ -4,6 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TranscriptFollowStateTest {
+    @Test fun readingAndCorrectingKeepsTheViewportEvenAfterTheTypingTimeout() {
+        val state = TranscriptFollowState()
+        state.userInteraction(1000)
+        state.transcriptChanged()
+        assertFalse(state.ready(10000, false, false, false, editing = true))
+        assertTrue(state.ready(10000, false, false, false, editing = false))
+    }
+
     @Test fun newRecognitionFollowsWithoutDependingOnEditorFocus() {
         val state = TranscriptFollowState()
         state.transcriptChanged()

@@ -3,6 +3,8 @@
     <style name="Theme.PhoneWhisper" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Accent Colors -->
         <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="android:colorAccent">@color/primary</item>
         <item name="colorPrimaryContainer">@color/primary_container</item>
         <item name="colorOnPrimaryContainer">@color/on_primary_container</item>
         

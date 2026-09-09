@@ -192,6 +192,8 @@ internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L)
         START_RECORDING,
         RESUME_RECORDING,
         STOP_RECORDING,
+        PAUSE_RECORDING,
+        SAVE_AND_CLOSE_NOTE,
         CANCEL_RECORDING,
         CANCEL_RECORDING_AND_OPEN_APP,
         ARM_PROCESSING_WINDOW,

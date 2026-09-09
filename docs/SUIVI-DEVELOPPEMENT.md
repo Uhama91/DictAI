@@ -2,6 +2,10 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Interaction notes et correction — 0.9.5 construite, publication en cours
+
+Retour d’Ullie : curseur difficile à placer au premier toucher, clavier qui tarde à changer de champ, titre/aperçu confondus et insertions accidentelles après ouverture volontaire d’une note. Implémentation : contexte NOTE persistant, tap pause/reprise, bouton Insérer… avec confirmation ponctuelle, note conservée après insertion, Terminer pour la ranger. Le message reste direct. Correction : acquisition coordonnée du focus/clavier, bouton Modifier, suivi suspendu seulement pendant l’édition volontaire. Liste des notes hiérarchisée et palette sombre plus chaude/arrondie. [Parcours, mécanismes et essai ciblé](NOTES-ET-EDITION-0.9.5.md). Revue indépendante du code et vérification locale complètes : 440 tests JVM / 63 suites, 18 tests du contrôleur APK, contrat natif, signature et alignement réussis ; tests Android compilés, non exécutés. Publication en cours. Aucun audit visuel/tactile Android exécuté, faute d’appareil.
+
 ## Direction actuelle : messages et notes visuelles cohabitent sur Android
 
 Ullie conserve la pastille et le fonctionnement actuel ; le portage iOS est écarté pour l’instant. **Précision explicite : le parcours message reste à part entière.** Dicter, voir/corriger le texte dans le panneau DictAI et l’insérer volontairement dans le champ cible doit cohabiter avec la prise de notes ; ne pas imposer une note ou un export à chaque dictée, ni remplacer les gestes actuels par un nouveau sélecteur obligatoire.

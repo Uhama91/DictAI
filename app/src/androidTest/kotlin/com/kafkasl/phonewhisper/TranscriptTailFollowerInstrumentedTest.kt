@@ -10,7 +10,7 @@ import org.junit.Test
 
 /** Requires an Android device; exercises real EditText/ScrollView layout, not a JVM geometry mock. */
 class TranscriptTailFollowerInstrumentedTest {
-    @Test fun focusedEditorKeepsItsCaretButShowsTheWholeLastLineAfterTextAndResize() {
+    @Test fun correctionKeepsTheViewportAndTailFollowingResumesAfterEditing() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.runOnMainSync {
             val editor = EditText(instrumentation.targetContext).apply {
@@ -29,7 +29,8 @@ class TranscriptTailFollowerInstrumentedTest {
             layout(160)
             editor.requestFocus()
             editor.setSelection(4)
-            val follower = TranscriptTailFollower(editor, scroll) { true }
+            var editing = true
+            val follower = TranscriptTailFollower(editor, scroll, editing = { editing }) { true }
             try {
                 editor.append("\nNouveaux mots dictés")
                 editor.setSelection(4)
@@ -38,11 +39,16 @@ class TranscriptTailFollowerInstrumentedTest {
                 scroll.viewTreeObserver.dispatchOnPreDraw()
                 assertEquals(4, editor.selectionStart)
                 assertEquals(0, editor.scrollY)
-                assertTrue(editor.bottom <= scroll.scrollY + scroll.height - scroll.paddingBottom)
+                assertEquals(0, scroll.scrollY)
+                assertFalse(follower.followsTail)
                 layout(100)
                 follower.resized()
                 scroll.viewTreeObserver.dispatchOnPreDraw()
                 assertEquals(4, editor.selectionStart)
+                assertEquals(0, scroll.scrollY)
+                editing = false
+                follower.changed()
+                scroll.viewTreeObserver.dispatchOnPreDraw()
                 assertTrue(editor.bottom <= scroll.scrollY + scroll.height - scroll.paddingBottom)
             } finally { follower.reset() }
         }
