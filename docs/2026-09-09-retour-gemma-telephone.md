@@ -61,4 +61,6 @@ Le cas reproduit conserve maintenant tous les mots, dont normalement, avec salut
 
 La correction porte sur la cause reproduite du rejet ; elle ne garantit pas tous les mails ni une latence inférieure aux 5,590 s de l’essai téléphone. Les erreurs de regroupement de listes et les autres reformulations restent des limites. Les résultats finaux de compilation et de publication de 0.8.2 sont consignés séparément.
 
+0.8.2 publiée et téléchargée pour vérification : [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34325226264/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34325226264), [rapport de vérification](VERIFICATION-GEMMA-0.8.2.md). Elle inclut aussi la conservation des diagnostics introduite en 0.8.1 ; Gemma déjà téléchargé est conservé lors de la mise à jour.
+
 Ne pas modifier le délai de cinq secondes, remplacer le modèle ou relâcher globalement la fidélité sur la seule base d’un bloc de texte. Gemma reste la base d’essai ; priorité à l’identification de l’échec des mails longs avec le ressenti de faible latence conservé.

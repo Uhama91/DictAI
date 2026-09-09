@@ -247,5 +247,22 @@
       "accepted": true,
       "source_lexemes_preserved": true
     }
-  ]
+  ],
+  "settings": {
+    "backend": "CPU",
+    "threads": 2,
+    "max_num_tokens": 4096,
+    "thinking": false,
+    "thinking_budget": 0,
+    "temperature": 0.1,
+    "top_k": 50,
+    "top_p": 0.95,
+    "seed": 1234,
+    "speculative_decoding": false,
+    "deadline_seconds": 45,
+    "output_token_budget": "(source character count + 128), clamped to 192..2048"
+  },
+  "model_revision": "b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1",
+  "model_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+  "restoration_source_commit": "38ddfff38a045301908d484883b3f09ed17253fc"
 }

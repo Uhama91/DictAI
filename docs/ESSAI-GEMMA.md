@@ -1,10 +1,10 @@
-# DictAI 0.8.1 — essai Gemma sur téléphone
+# DictAI 0.8.2 — essai Gemma sur téléphone
 
 Ullie a choisi Gemma après la recherche comparative. Le prototype utilise Gemma 4 E2B dans LiteRT-LM 0.17.0, sur GPU, avec MTP activé et thinking désactivé (budget zéro). Nemotron reste le moteur de transcription. Ce document décrit l'essai et ses limites ; il ne remplace pas une mesure sur le POCO F7.
 
 ## Installation depuis le téléphone
 
-**[Télécharger directement l'APK Gemma 0.8.1](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34323447465/dictai-local-layout-test.apk)** — 78 551 445 octets, environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34323447465), [construction Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34323447465). Le téléchargement public et son empreinte ont été vérifiés après publication. Installer en mise à jour conserve Gemma déjà téléchargé.
+**[Télécharger directement l'APK Gemma 0.8.2](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34325226264/dictai-local-layout-test.apk)** — 78 567 829 octets, environ 79 Mo. [Publication GitHub](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34325226264), [construction Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34325226264). Le téléchargement public et son empreinte ont été vérifiés après publication. Installer en mise à jour conserve Gemma déjà téléchargé.
 
 Installer l'APK de la prerelease Gemma, puis ouvrir DictAI et toucher **Installer Gemma 4 E2B** dans les réglages de post-traitement. Le modèle officiel fait 2 588 147 712 octets, environ 2,6 Go. Il est téléchargé une seule fois depuis le dépôt officiel épinglé. Garder cet écran ouvert ; quitter l'application met le téléchargement en pause et une nouvelle ouverture de la ligne permet de le reprendre.
 

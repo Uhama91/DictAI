@@ -14,3 +14,12 @@ Deux générations CPU sur ordinateur reproduisent le rejet du mail long (normal
 28 sorties précédemment enregistrées ont également été repassées dans la projection : 18 acceptées, toutes avec les unités lexicales exactes de la source. Ce contrôle n’est pas une nouvelle mesure du modèle ni un nouveau taux de réussite représentatif.
 
 Le modèle, le prompt et les délais sont inchangés. La restauration est limitée aux petites omissions certaines dans les mails ; les substitutions, ajouts et formats ambigus restent rejetés. Aucune mesure de latence GPU sur téléphone n’a été effectuée par Codex. Le rapport utilisateur sur 0.8.0 reste la mesure réelle : 4 957 ms d’attente finale et 5 590 ms jusqu’à insertion sur le mail en échec.
+
+## Publication vérifiée
+
+- Source : `38ddfff38a045301908d484883b3f09ed17253fc`.
+- [GitHub Actions 34325226264](https://github.com/Uhama91/DictAI/actions/runs/34325226264) : construction, tests JVM, 18 tests Python, signature, alignement et publication réussis.
+- Artefact Actions `dictai-local-layout-test`, identifiant `10093571492`.
+- [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34325226264/dictai-local-layout-test.apk), [prerelease publique](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34325226264).
+- APK publiée : 78 567 829 octets ; SHA-256 `624f4a623df77d8d6d9544f8dde7563b549ec7d85b8959d1668f85fcf51abc5a`, identique à l’APK locale vérifiée.
+- Téléchargement HTTP 200 complet vérifié : taille et SHA identiques à `SHA256SUMS`, au journal Actions et à l’empreinte de l’asset GitHub.
