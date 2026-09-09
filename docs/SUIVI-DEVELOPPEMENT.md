@@ -2,6 +2,18 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Retour 10:08 — overlay, mode Texte et attente Mail — 0.8.3
+
+Nouveau diagnostic réel reçu : Mail, appel natif oui, calcul en attente, délai final dépassé à 5 003 ms, arrêt → insertion 5 846 ms. Il confirme le manque de marge du mail plus long. Ullie juge les listes locales globalement satisfaisantes malgré les deux premiers produits regroupés et remet en priorité le suivi de la dernière ligne après correction dans le petit overlay.
+
+Correctifs locaux :
+- Le suivi du texte ne dépend plus de `EditText.hasFocus()`. Défilement après mise en page, reprise après 900 ms sans interaction ; aucun déplacement forcé du curseur. Sélection, composition clavier et toucher suspendent le suivi. Redimensionnement et clavier conservé pris en compte.
+- Mode Texte : nettoyage final déterministe FR/EN, réglage activé par défaut et désactivable. Hésitations non citées et répétitions limitées de pronoms ; vocabulaire, identifiants, citations, nombres, négations et répétitions expressives protégés. Aucun nettoyage global après retouche manuelle. Ponctuation de quelques questions explicites ; les questions implicites et reformulations ne sont pas résolues.
+- Mails simples : salutation, corps, fermeture explicite et signature sont séparés directement, puis validation complète des mots et signes techniques. Cette voie contourne même un ancien calcul en cours ; aucune hausse du délai de 5 s. Les mails ambigus restent confiés à Gemma, avec ses limites. Listes inchangées.
+- Le banc contient onze cas répétés deux fois ; il distingue voie directe et Gemma. L’ancien mail long conserve un essai Gemma seul pour comparaison ; le nouveau mail est testé avec la voie directe de l’overlay.
+
+357 tests JVM réussis dans 53 suites ; APK application et tests instrumentés compilées, signature et alignement 16 Ko vérifiés. Publication Actions en cours. Le test instrumenté de géométrie EditText/ScrollView avec focus conservé est compilé mais son exécution reste à faire sur Android. [Vérification](VERIFICATION-GEMMA-0.8.3.md). Aucun appareil n’est connecté à Codex. Voir [analyse](2026-09-09-retour-gemma-telephone.md#retour-1008--délai-dépassé-et-correction-dans-loverlay).
+
 ## Choix Gemma — prototype 0.8.0
 
 **Retour 0.8.2 reçu :** le mail long est validé deux fois sur le GPU du POCO F7, avec normalement rétabli et paragraphes corrects. Durées 5 136 / 4 978 ms : la correction de fidélité est confirmée pour ce cas, mais la finalisation réelle reste fragile face à la limite de 5 000 ms, contrairement au banc qui peut attendre 20 s. [Résultats complets et limites](2026-09-09-retour-gemma-telephone.md#banc-082-sur-le-poco-f7--correction-confirmée-marge-de-temps-insuffisante). Les autres échecs de listes et mails anglais persistent. Priorité suivante : vitesse et régularité des mails longs ; ne pas remplacer cette priorité par un simple allongement de l’attente. Pas de nouvelle APK pour ce rapport seul.

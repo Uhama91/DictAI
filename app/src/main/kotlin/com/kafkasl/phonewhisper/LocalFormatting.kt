@@ -15,6 +15,7 @@ internal data class LocalFormatRequest(
     val protectedTerms: List<String> = emptyList(),
     val layoutKind: LocalLayoutKind? = null,
     val validation: LocalFormatValidation = LocalFormatValidation.EXACT_LAYOUT,
+    val simpleEmailLayout: Boolean = false,
 ) {
     fun prompt(): String {
         fun safe(value: String) = value.replace("<|", "< |")
@@ -33,6 +34,11 @@ internal data class LocalFormatRequest(
     fun outputTokenBudget(): Int = (text.length + 128).coerceIn(192, 2048)
 
     fun layoutPolicy(): FaithfulLayout? = layoutKind?.let { FaithfulLayout.create(text, it) }
+
+    fun directOutput(): String? = layoutPolicy()?.directResult?.let(::acceptOutput)
+        ?: if (simpleEmailLayout && layoutKind == LocalLayoutKind.EMAIL &&
+            validation == LocalFormatValidation.GEMMA_PROJECTION)
+            SimpleEmailLayout.format(text)?.let(::acceptOutput) else null
 
     fun acceptOutput(text: String?): String? {
         val value = when {
@@ -128,16 +134,14 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
                 return null
             }
             finalizing = true
-            // A direct acknowledgment must bypass an old model load/prefill completely.
-            request.layoutPolicy()?.directResult?.let { direct ->
-                request.acceptOutput(direct)?.let { accepted ->
-                    backend.cancel()
-                    pending?.complete(null, "cancelled")
-                    pending = null
-                    route = "direct"
-                    record("applied")
-                    return accepted
-                }
+            // A direct acknowledgment or simple mail bypasses old model work completely.
+            request.directOutput()?.let { accepted ->
+                backend.cancel()
+                pending?.complete(null, "cancelled")
+                pending = null
+                route = "direct"
+                record("applied")
+                return accepted
             }
             route = when {
                 completed?.request == request -> "cache"

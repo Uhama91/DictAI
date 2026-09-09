@@ -81,7 +81,7 @@ internal class LocalFormatEngine(context: Context) : AutoCloseable {
             // Reject unsupported/oversized layouts before queueing any load or native work.
             val policy = call.policy ?: return null
             // No engine load or GPU work for an acknowledgment.
-            policy.directResult?.let { return it }
+            request.directOutput()?.let { return it }
             jobs.add(call)
             ownedJobs.add(call)
             try {

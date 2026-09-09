@@ -78,3 +78,18 @@ PSS processus 1 753 → 1 947 Mio, RAM disponible 2 183 → 2 559 Mio, état the
 Suite prioritaire : rendre la finalisation des mails longs plus rapide et régulière avec les mots conservés. Ne pas présenter une simple hausse du délai comme une amélioration de vitesse. Les cas de regroupement et les rejets anglais restent distincts. Aucun changement d’application ni nouvelle APK n’est réalisé à la réception de ce seul rapport.
 
 Ne pas modifier le délai de cinq secondes, remplacer le modèle ou relâcher globalement la fidélité sur la seule base d’un bloc de texte. Gemma reste la base d’essai ; priorité à l’identification de l’échec des mails longs avec le ressenti de faible latence conservé.
+
+
+## Retour 10:08 — délai dépassé et correction dans l’overlay
+
+Rapport fourni par Ullie le 9 septembre, 0.8.2, 10:08:10 +0200 : format Mail, local, modèle chargé en 7 472 ms auparavant, calcul en attente, appel natif effectué, attente finale 5 003 ms, post-traitement 5 007 ms et arrêt → insertion 5 846 ms. Le résultat est la transcription source en une ligne. Il s’agit bien cette fois d’un délai dépassé, pas du rejet de fidélité du premier mail. Le rapport ne sépare pas le temps de file du temps natif : ne pas attribuer toutes les cinq secondes à la file.
+
+Le nouveau texte commence par Bonjour, voici le nouveau test concernant la génération d’un nouveau mail, se termine par Cordialement, Monsieur le Testeur et dépasse la longueur du cas du banc précédent. Sa source exacte est ajoutée au test `SimpleEmailLayoutTest` et au banc intégré.
+
+Ullie signale aussi que la dernière ligne devient tronquée dans le petit overlay après correction ; la vue reste près de l’avant-dernière ligne. Le code cessait explicitement le suivi dès que l’éditeur avait le focus, or celui-ci reste acquis après saisie. 0.8.3 dissocie curseur et défilement : attente de fin de mise en page, remise à zéro du défilement interne de l’EditText, positionnement du ScrollView au bas réel, y compris après redimensionnement. Le suivi attend 900 ms sans interaction et respecte sélection, composition et toucher. Un nouveau texte déclenche le suivi ; une retouche seule ne déplace pas automatiquement la vue.
+
+Pour le mode Texte, le LLM reste absent en local. Le nouveau réglage Nettoyage léger du texte active des règles finales FR/EN, partagées également avec l’entrée du mode cloud. Il supprime certains euh/uh/um non cités et je je/I I ; il conserve nous nous, vous vous, très très, les négations, les nombres, les citations et les termes du vocabulaire. Une retouche manuelle désactive ce nettoyage global pour la dictée. Quelques formes interrogatives explicites reçoivent un point d’interrogation ; aucune compréhension générale des questions implicites n’est annoncée. Le cloud choisi explicitement conserve sa réécriture existante.
+
+Le mail conventionnel bénéficie d’une disposition directe de la salutation, du corps et de la signature. Seuls les cas avec bornes reconnues et signature non ambiguë passent ; chaque mot reste vérifié par la projection stricte. Citations, fermetures multiples, destinataire incertain et post-scriptum non reconnu restent hors de cette voie. Cette opération ne génère pas tous les mots via Gemma ; elle n’attend pas une génération obsolète pour terminer. Les autres mails restent soumis à la limite finale de 5 000 ms. Le modèle, le prompt, GPU/MTP et thinking off sont conservés.
+
+Le banc distingue explicitement le traitement direct et le LLM : ne pas présenter la durée directe comme une accélération de Gemma. Onze sources, deux passages, avec un ancien mail long forcé via Gemma pour comparaison. Les résultats téléphone de 0.8.3 restent à recevoir ; les tests JVM et la compilation ne valident pas le rendu HyperOS ni sa latence réelle.

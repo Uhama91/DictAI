@@ -106,6 +106,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
         val list = PostProcessingFormats.builtins.first { it.id == "list" }.instructions
         val email = PostProcessingFormats.builtins.first { it.id == "email" }.instructions
         val longMail = "Bonjour, voici un nouveau test pour voir si le format a bien été pris en compte lors de la création et la génération de ce nouveau texte qui sans être mis en forme sous forme de mail. La première fois quand ça a été un message assez court la mise en forme a été réalisée, la deuxième, la troisième quatrième fois n'a pas fonctionné comme il faut la mise en forme n'a pas été prise en compte, et en voici la preuve à nouveau normalement, cordialement, Monsieur le Testeur"
+        val latestLongMail = "Bonjour, voici le nouveau test concernant la génération d'un nouveau mail qui doit être mis en forme par le modèle en local, donc le but, c'est de rédiger un mail suffisamment long pour solliciter le travail du modèle en local et qu'il fasse la mise en forme du texte comme il faut l'intérêt d'avoir la mise en forme en locale, c'est aussi de ne pas fournir de données au modèle cloud et d'avoir une génération peut-être un peu plus lente, mais l'idée, c'est aussi d'avoir une latence suffisamment basse pour que l'expérience reste agréable pour un utilisateur qui veut envoyer un mail et que le post traitement soit correct aussi je ne sais pas si le mail est suffisamment long là actuellement mais l'idée est vraiment que je puisse réaliser ce travail là en étant suffisamment satisfait au niveau latence. Cordialement, Monsieur le Testeur"
         return listOf(
             Case("FR · liste avec noms et nombres", LocalFormatRequest(
                 "Demain, appeler Maëlys pour confirmer les 23 élèves, imprimer 2 fiches par élève et apporter les cahiers bleus.",
@@ -143,11 +144,16 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                 "green tea whole wheat bread apple juice", list, "English", layoutKind = LocalLayoutKind.LIST),
                 listOf("green", "tea", "wheat", "bread", "juice"),
                 grouping = LayoutGroupingExpectation(setOf(2, 5), allowed = setOf(2, 5))),
-            Case("FR · mail long · omission à rétablir", LocalFormatRequest(
+            Case("FR · mail long · Gemma seul (comparaison 0.8.2)", LocalFormatRequest(
                 longMail, email, "French", listOf("Monsieur le Testeur"), LocalLayoutKind.EMAIL),
                 listOf("Bonjour", "pas", "normalement", "cordialement", "Monsieur", "Testeur"),
                 grouping = LayoutGroupingExpectation(setOf(1, longMail.split(' ').indexOf("cordialement,")))),
-        ).map { it.copy(request = it.request.copy(validation = LocalFormatValidation.GEMMA_PROJECTION)) }
+            Case("FR · mail long · délai dépassé en dictée · voie directe", LocalFormatRequest(
+                latestLongMail, email, "French", listOf("Monsieur le Testeur"), LocalLayoutKind.EMAIL),
+                listOf("Bonjour", "ne", "pas", "latence", "Cordialement", "Testeur"),
+                grouping = LayoutGroupingExpectation(setOf(1, latestLongMail.split(' ').indexOf("Cordialement,")))),
+        ).map { it.copy(request = it.request.copy(validation = LocalFormatValidation.GEMMA_PROJECTION,
+            simpleEmailLayout = "Gemma seul" !in it.name)) }
     }
 
     private fun runBenchmark() {
@@ -158,6 +164,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
             append("${examples.size} exemples synthétiques × 2 passages, sans cloud.\n")
             append("Moteur partagé avec l’overlay. Le premier essai indique si Gemma était déjà chargé. Caches système/GPU non vidés.\n")
             append("Configuration : LiteRT-LM 0.17.0 · GPU · MTP activé · thinking désactivé (budget 0).\n")
+            append("Mails simples : disposition directe si salutation et signature sont explicites ; sinon Gemma. Les réponses directes ne mesurent pas le LLM. Le cas Gemma seul conserve le chemin 0.8.2 pour comparaison.\n")
             append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Le texte est validé avant publication.\n")
             append("Mesure isolée : ne comprend pas l'arrêt ASR, l'affichage ni l'insertion dans une autre application.\n")
             append("La conservation du texte et les critères ciblés de regroupement sont évalués séparément. Un critère réussi ne valide pas tous les formats.\n\n")
@@ -186,7 +193,8 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     report.append("Passage $pass · ${example.name} · ${if (preparation?.wasAlreadyLoaded == false) "chargement effectué" else "moteur chargé"}\n")
                     report.append("Chargement : ${preparation?.takeUnless { it.wasAlreadyLoaded }?.let { "${it.loadMs} ms" } ?: "déjà effectué"}\n")
                     preparation?.let { report.append("Attente de préparation (file comprise) : ${it.waitMs} ms\n") }
-                    report.append("Premier fragment : ${firstTextMs?.let { "$it ms" } ?: if (example.request.layoutPolicy()?.directResult != null) "sans appel LLM" else "aucun"} ; fin : $totalMs ms\n")
+                    report.append("Traitement : ${if (example.request.directOutput() != null) "direct local, sans appel LLM" else "Gemma"}\n")
+                    report.append("Premier fragment : ${firstTextMs?.let { "$it ms" } ?: if (example.request.directOutput() != null) "sans appel LLM" else "aucun"} ; fin : $totalMs ms\n")
                     report.append("Conservation du texte : ${if (output != null) "validée" else "rejetée"}\n")
                     val restoredWords = if (output != null && raw != null)
                         GemmaFaithfulLayout.restoredWordCount(raw, output) else 0

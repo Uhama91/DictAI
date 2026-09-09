@@ -1,7 +1,6 @@
 package com.kafkasl.phonewhisper
 
 import android.app.Notification
-import androidx.core.view.doOnLayout
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -202,6 +201,7 @@ class OverlayService : Service() {
     private var formatDialog: AlertDialog? = null
     private var livePanel: FrameLayout? = null
     private var liveScroll: ScrollView? = null
+    private var tailFollower: TranscriptTailFollower? = null
     private var panelTitle: TextView? = null
     private var panelFormat: TextView? = null
     private var panelExpandButton: ImageButton? = null
@@ -408,6 +408,7 @@ class OverlayService : Service() {
             format = PostProcessingFormats(this).selected(),
             localFormattingEnabled = prefs.formattingEngine == "local",
             numberStyle = prefs.numberStyle,
+            lightTextCleanup = prefs.lightTextCleanup,
         )
         val bufSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
@@ -470,6 +471,7 @@ class OverlayService : Service() {
             activeRun = run
             val restored = recoveredDraft
             resetVocabularyLearning()
+            tailFollower?.reset()
             editableTranscript.clear()
             if (restored != null) editableTranscript.edit(restored)
             updatingLiveText = true
@@ -724,6 +726,7 @@ class OverlayService : Service() {
         val format: PostProcessingFormat = PostProcessingFormats.builtins.first(),
         val localFormattingEnabled: Boolean = false,
         val numberStyle: NumberStyle = NumberStyle.DIGITS,
+        val lightTextCleanup: Boolean = true,
     )
 
     private fun processStoppedRecording(capture: RecordingCapture) {
@@ -742,7 +745,11 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        val localText = editableTranscript.resolveFinal(r.text?.let { normalizeRecognizedText(it, capture.options) })
+        val resolvedText = editableTranscript.resolveFinal(r.text?.let { normalizeRecognizedText(it, capture.options) })
+        val formatStarted = SystemClock.elapsedRealtime()
+        val lightCleanupApplied = !resolvedText.isNullOrBlank() && capture.options.lightTextCleanup &&
+            capture.options.format.id == "cleanup" && !editableTranscript.hasUserEdits()
+        val localText = if (lightCleanupApplied) LightTextCleanup.apply(resolvedText!!, protectedVocabularyTerms(resolvedText)) else resolvedText
         if (run.cancellation.isCancelled) {
             return
         }
@@ -757,14 +764,12 @@ class OverlayService : Service() {
             }
             return
         }
-        val formatStarted = SystemClock.elapsedRealtime()
         var localDirect = false
         var localDiagnostic: LocalFinishDiagnostic? = null
         val localFormatted = if (!localText.isNullOrBlank() && capture.options.localFormattingEnabled &&
             capture.options.format.instructions.isNotBlank()) {
             val request = localFormatRequest(localText, capture.options, applyVocabulary = false)
-            val policy = request.layoutPolicy()
-            localDirect = policy?.directResult != null
+            localDirect = request.directOutput() != null
             main.post {
                 if (isCurrentRun(run) && !run.cancellation.isCancelled) {
                     run.formatStage = when {
@@ -891,6 +896,7 @@ class OverlayService : Service() {
                                 injection = result,
                                 cloudSuppressed = capture.options.cloudSuppressedForSensitiveTarget,
                                 modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
+                                lightTextCleanup = lightCleanupApplied,
                             )
                             prefs.recordPostprocessingDiagnostic(diagnostic,
                                 formatRequested = capture.options.format.instructions.isNotBlank())
@@ -1102,7 +1108,7 @@ class OverlayService : Service() {
             isRecording = state == State.RECORDING,
             cancellation = run.cancellation,
         ) {
-            val display = editableTranscript.update(run.formatOptions?.let { normalizeRecognizedText(text, it) } ?: text)
+            val display = editableTranscript.update(normalizeRecognizedText(text, run.formatOptions))
             scheduleLocalFormatting(run, display)
             persistDraft(display)
             val editor = liveText ?: return@publishIfAllowed
@@ -1123,19 +1129,8 @@ class OverlayService : Service() {
     }
 
     private fun scrollTranscriptToEnd(run: ActiveDictationRun) {
-        val editor = liveText ?: return
         if (!isCurrentRun(run) || state != State.RECORDING) return
-        // A live ASR update must not move the caret while the user is correcting a word.
-        if (editor.hasFocus() || editor.selectionStart != editor.selectionEnd) return
-        editor.setSelection(editor.length())
-        editor.doOnLayout {
-            if (isCurrentRun(run) && state == State.RECORDING && !editor.hasFocus() && editor.selectionStart == editor.selectionEnd) {
-                editor.setSelection(editor.length())
-                liveScroll?.let { panel ->
-                    panel.scrollTo(0, (editor.bottom + panel.paddingBottom - panel.height).coerceAtLeast(0))
-                }
-            }
-        }
+        tailFollower?.changed()
     }
 
     private fun localFormatRequest(text: String, options: RecordingOptions, applyVocabulary: Boolean = true): LocalFormatRequest {
@@ -1152,7 +1147,8 @@ class OverlayService : Service() {
             else -> null
         } else null
         return LocalFormatRequest(source, options.format.instructions + numbers, options.language.cleanupLanguageName, spellings, layout,
-            validation = if (layout != null) LocalFormatValidation.GEMMA_PROJECTION else LocalFormatValidation.EXACT_LAYOUT)
+            validation = if (layout != null) LocalFormatValidation.GEMMA_PROJECTION else LocalFormatValidation.EXACT_LAYOUT,
+            simpleEmailLayout = true)
     }
 
     private fun protectedVocabularyTerms(text: String): List<String> = Vocabulary.corrections(this)
@@ -1460,6 +1456,7 @@ class OverlayService : Service() {
             override fun onSelectionChanged(start: Int, end: Int) {
                 super.onSelectionChanged(start, end)
                 if (liveText === this && !updatingLiveText && !liveEditorChanging && isTranscriptEditable()) {
+                    tailFollower?.userInteraction()
                     vocabularyTracker.onSelectionChanged(text.toString(), start, end)
                     vocabularySuggestion = null
                     setVocabularySuggestionVisible(false)
@@ -1477,6 +1474,7 @@ class OverlayService : Service() {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
                     liveEditorChanging = true
                     if (!updatingLiveText && isTranscriptEditable()) {
+                        tailFollower?.userInteraction()
                         vocabularyTracker.beforeChange(s.toString(), start, count, after, selectionStart, selectionEnd)
                         vocabularySuggestion = null
                         setVocabularySuggestionVisible(false)
@@ -1499,6 +1497,10 @@ class OverlayService : Service() {
                 }
             })
             setOnTouchListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> tailFollower?.touch(true)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> tailFollower?.touch(false)
+                }
                 if (event.actionMasked == MotionEvent.ACTION_DOWN && isTranscriptEditable()) {
                     liveParams?.let { layout ->
                         layout.flags = layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
@@ -1519,12 +1521,26 @@ class OverlayService : Service() {
         val safeScreen = screenRect()
         livePanelW = min((312 * dp).toInt(), (safeScreen.width - (16 * dp).toInt()).coerceAtLeast(1))
         livePanelH = liveView.lineHeight * 3 + panelHPadding
-        val scroll = ScrollView(this).apply {
+        val scroll = object : ScrollView(this) {
+            override fun requestChildRectangleOnScreen(child: View, rectangle: android.graphics.Rect, immediate: Boolean): Boolean {
+                if (tailFollower?.followsTail == true) return false
+                return super.requestChildRectangleOnScreen(child, rectangle, immediate)
+            }
+        }.apply {
             isVerticalScrollBarEnabled = true
             overScrollMode = View.OVER_SCROLL_NEVER
+            setOnTouchListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> tailFollower?.touch(true)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> tailFollower?.touch(false)
+                }
+                false
+            }
             setPadding((12 * dp).toInt(), 0, (12 * dp).toInt(), (10 * dp).toInt())
             addView(liveView, FrameLayout.LayoutParams(-1, -2))
+            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> tailFollower?.resized() }
         }
+        tailFollower = TranscriptTailFollower(liveView, scroll) { state == State.RECORDING && activeRun != null }
         val livePanel = FrameLayout(this).apply {
             visibility = View.GONE
             background = GradientDrawable().apply {
@@ -2087,6 +2103,7 @@ class OverlayService : Service() {
         try { if (livePanelAdded) livePanel?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         livePanelAdded = false
+        tailFollower?.reset(); tailFollower = null
         container = null; pill = null; wave = null; loader = null; pauseIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; panelFormat = null; livePanel = null; liveParams = null
         super.onDestroy()
     }

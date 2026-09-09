@@ -99,14 +99,14 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.8.2 Android ARM64 : prototype Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
+            'DictAI 0.8.3 Android ARM64 : prototype Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
             'Installez cette APK en mise à jour : le modèle Gemma déjà téléchargé est conservé. Pour une première installation, touchez Installer Gemma 4 E2B : téléchargement unique de 2,6 Go, reprenable et vérifié.' \
-            'Dernier post-traitement conserve maintenant le dernier format demandé même après une dictée en mode Texte. Le bouton Dernière dictée permet également de lire le rapport le plus récent. Aucun texte dicté n’est ajouté aux diagnostics.' \
-            'Le format affiché et la finalisation utilisent les mêmes options immuables, fixées au début de la dictée ; les replis implicites vers Texte à l’arrêt sont supprimés.' \
-            'Les mails mis en forme avec une petite omission peuvent maintenant être reconstruits à partir de la transcription originale : tous les mots sont rétablis à leur position, sans autre appel au modèle. Les ajouts, remplacements, changements d’ordre, troncatures et alignements ambigus restent refusés.' \
-            'Correction du cas reproduit où Gemma supprimait normalement avant cordialement. Le banc inclut désormais dix exemples, dont ce mail long ; les mots rétablis sont comptés dans le diagnostic. Le modèle, ses consignes et le délai de cinq secondes restent inchangés.' \
+            'Overlay : le suivi de la dernière ligne reprend après une correction, même si le clavier garde le focus ; le curseur et les sélections restent sous votre contrôle.' \
+            'Mode Texte : nettoyage léger local des hésitations et de certaines répétitions, activé par défaut et désactivable dans les réglages. Aucun appel LLM ; les retouches manuelles sont préservées. Les questions implicites restent une limite.' \
+            'Mail : disposition directe lorsque salutation et signature sont explicites, avec conservation des mots ; Gemma reste utilisé pour les autres cas. Le délai final de cinq secondes est conservé.' \
+            'Le diagnostic distingue traitement direct et génération Gemma. Le banc comporte onze exemples, dont le mail long ayant dépassé le délai et un cas Gemma seul pour comparaison.' \
             'Cette version est expérimentale : aucune latence GPU ni qualité générale n’est garantie sur votre appareil. Une sortie infidèle conserve la transcription. Aucun repli cloud automatique ; votre mode cloud avec clé API reste disponible.' \
             'APK compilée, testée et vérifiée par GitHub Actions. Le poids 350M n’est plus inclus.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.8.2 — mots conservés dans les mails Gemma' --notes-file release-notes.md
+            --title 'DictAI 0.8.3 — suivi du texte et mails simples rapides' --notes-file release-notes.md

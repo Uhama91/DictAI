@@ -75,6 +75,10 @@ class PersistencePrefs internal constructor(private val p: SharedPreferences) {
         get() = p.getBoolean("cloud_cleanup_enabled", false)
         set(v) { p.edit().putBoolean("cloud_cleanup_enabled", v).apply() }
 
+    var lightTextCleanup: Boolean
+        get() = p.getBoolean("light_text_cleanup", true)
+        set(value) { p.edit().putBoolean("light_text_cleanup", value).apply() }
+
     /** Keep existing cloud preferences. Unvalidated local models are restricted to prototype builds. */
     var formattingEngine: String
         get() {

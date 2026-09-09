@@ -236,6 +236,14 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(numberRow)
 
+        val cleanupSwitch = MaterialSwitch(this).apply {
+            isChecked = languagePrefs.lightTextCleanup
+            greenTint()
+            setOnCheckedChangeListener { _, on -> languagePrefs.lightTextCleanup = on }
+        }
+        root.addView(settingsRow("Nettoyage léger du texte",
+            "À la fin : réduit les « euh » et certaines répétitions, sans attente de modèle. Les retouches manuelles sont conservées.", cleanupSwitch))
+
         // Espace automatique en fin de dictée
         root.addView(settingsRow("Mes notes", "Retrouver, créer et modifier vos notes locales") {
             if (!android.provider.Settings.canDrawOverlays(this)) {
