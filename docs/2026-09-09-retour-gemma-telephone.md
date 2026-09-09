@@ -47,4 +47,18 @@ Cinquième essai : Ullie confirme avoir vérifié le choix Mail ; le rapport com
 
 Contrôle du chemin de sélection : le menu de la pastille écrit le format sélectionné, puis `startRec` le capture avant l’enregistrement. Changer les réglages après le démarrage concerne la prochaine dictée. Le code utilisait ensuite une deuxième copie nullable des options ; ses chemins de secours pouvaient construire des options par défaut (Texte). Rien ne démontre que ce secours a été utilisé ici. Dans 0.8.1, les options sont obligatoires et immuables sur `ActiveDictationRun`, et l’arrêt utilise cette même instance que l’overlay et la préparation Gemma, y compris dans le secours de capture. La copie globale nullable et les replis implicites vers Texte sont supprimés.
 
+0.8.1 publiée et vérifiée : [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34323447465/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34323447465), [contrôles](VERIFICATION-GEMMA-0.8.1.md). Suite : essai Mail sur cette version puis copie du diagnostic conservé. Les consignes et le délai Gemma n’ont pas été modifiés en l’absence de diagnostic Mail fiable.
+
+## Diagnostic Mail reçu et correction 0.8.2
+
+Rapport du 9 septembre 2026 à 09:25:39 +0200, version 0.8.0 : **Format Mail**, appel natif oui, nouveau calcul, **sortie rejetée : texte non conservé**. Attente finale 4 957 ms, post-traitement 4 959 ms, arrêt → insertion 5 590 ms. Ce cas est un rejet de fidélité, pas le déclenchement du délai d’attente de cinq secondes. Il confirme que le choix Mail est transmis au moteur dans cet essai.
+
+Reproduction sur ordinateur avec la consigne de production et le même paquet officiel : le mail est structuré mais le mot **normalement** est supprimé avant la fermeture. Tous les autres mots restent dans l’ordre. L’ancien contrôle rejette la totalité du formatage. Le mail court de contrôle est accepté. [Entrées, brut, différences et sortie reconstruite](benchmarks/local-format/gemma4-long-mail-rejection-2026-09-09.json). Les sorties CPU/MTP désactivé peuvent différer de celles du GPU Android ; le mot exact omis sur téléphone n’est pas connu. Les temps CPU ne sont pas une estimation de latence téléphone.
+
+0.8.2 rétablit les petites omissions dans les mails à partir des mots exacts de la source, puis repasse le contrôle strict de fidélité. Maximum trois mots et 5 % des unités lexicales, alignement unique dans l’ordre, premiers/derniers mots conservés. Les nombres, fragments techniques, quotes et coupures incertaines ne sont pas inférés. Les omissions à une coupure de paragraphe ne sont restaurées que devant une fermeture explicite et non ambiguë. Listes, ajouts, substitutions, réordonnancements et troncatures gardent les contrôles précédents.
+
+Le cas reproduit conserve maintenant tous les mots, dont normalement, avec salutation, corps et fermeture séparés. Aucun second appel au modèle et aucun allongement du délai ne sont ajoutés. Le diagnostic expose uniquement le nombre de mots rétablis, pas leur contenu. Le banc passe à dix exemples, dont ce mail long ; son brut avant reconstruction reste visible.
+
+La correction porte sur la cause reproduite du rejet ; elle ne garantit pas tous les mails ni une latence inférieure aux 5,590 s de l’essai téléphone. Les erreurs de regroupement de listes et les autres reformulations restent des limites. Les résultats finaux de compilation et de publication de 0.8.2 sont consignés séparément.
+
 Ne pas modifier le délai de cinq secondes, remplacer le modèle ou relâcher globalement la fidélité sur la seule base d’un bloc de texte. Gemma reste la base d’essai ; priorité à l’identification de l’échec des mails longs avec le ressenti de faible latence conservé.

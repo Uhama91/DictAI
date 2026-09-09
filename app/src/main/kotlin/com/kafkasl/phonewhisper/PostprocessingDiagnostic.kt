@@ -62,6 +62,9 @@ internal object PostprocessingDiagnostic {
                 else "traitement non exécuté ou indisponible"
             }}\n")
             local?.let { append("Attente finale locale : ${it.waitMs} ms\n") }
+            local?.restoredSourceWords?.takeIf { it > 0 }?.let {
+                append("Mots rétablis depuis la transcription : $it (aucun mot inventé)\n")
+            }
         }
         if (cloudSuppressed) append("Cloud désactivé pour ce champ sensible.\n")
         append("Post-traitement : $postprocessMs ms\n")

@@ -73,6 +73,7 @@ internal data class LocalFinishDiagnostic(
     val outcome: String,
     val nativeStarted: Boolean,
     val waitMs: Long,
+    val restoredSourceWords: Int = 0,
 )
 
 /**
@@ -85,6 +86,7 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
         @Volatile var onChunk: ((String) -> Unit)? = null
         @Volatile var nativeStarted = false
         @Volatile var outcome = "pending"
+        var restoredSourceWords = 0
 
         /** Caller holds the session lock; a cancelled job cannot later become applied. */
         fun complete(value: String?, outcome: String) {
@@ -116,9 +118,9 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
     fun finish(request: LocalFormatRequest, timeoutMs: Long, onChunk: (String) -> Unit): String? {
         val started = System.nanoTime()
         var route = "not_called"
-        fun record(outcome: String, nativeStarted: Boolean = false) {
+        fun record(outcome: String, nativeStarted: Boolean = false, restoredSourceWords: Int = 0) {
             lastFinish = LocalFinishDiagnostic(route, outcome, nativeStarted,
-                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L))
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L), restoredSourceWords)
         }
         val job = synchronized(lock) {
             if (closed || request.text.isBlank()) {
@@ -151,7 +153,7 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
         }
         return try {
             job.result.get(timeoutMs, TimeUnit.MILLISECONDS).also {
-                record(job.outcome, job.nativeStarted)
+                record(job.outcome, job.nativeStarted, job.restoredSourceWords)
             }
         } catch (_: TimeoutException) {
             // Freeze the observed state BEFORE cancellation can unblock a late worker.
@@ -219,7 +221,11 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
                             "vocabulary_rejected"
                         else -> "fidelity_rejected"
                     }
-                    if (accepted != null) completed = job
+                    if (accepted != null) {
+                        if (job.request.validation == LocalFormatValidation.GEMMA_PROJECTION && value != null)
+                            job.restoredSourceWords = GemmaFaithfulLayout.restoredWordCount(value, accepted)
+                        completed = job
+                    }
                     job.complete(accepted, outcome)
                 } else job.complete(null, "cancelled")
                 active = null

@@ -4,6 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PostprocessingDiagnosticTest {
+    @Test fun restorationReportsOnlyTheCountAndNeverTheRestoredWords() {
+        val value = report(local = LocalFinishDiagnostic("generated", "applied", true, 700, 1),
+            text = "Bonjour, contenu confidentiel rétabli. Cordialement, Nom privé")
+        assertTrue(value.contains("Mots rétablis depuis la transcription : 1"))
+        assertFalse(value.contains("confidentiel"))
+        assertFalse(value.contains("Nom privé"))
+    }
+
     @Test fun plainTextWithoutNativeCallIsExpectedRatherThanAnEngineFailure() {
         val value = report(local = null, applied = PostprocessingDiagnostic.Applied.ORIGINAL,
             format = "cleanup", runtime = "litert-lm-gpu-mtp-thinking-off")

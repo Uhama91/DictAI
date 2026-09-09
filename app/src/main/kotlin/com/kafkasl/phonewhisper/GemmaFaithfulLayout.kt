@@ -11,13 +11,19 @@ internal object GemmaFaithfulLayout {
     private val LEXEME = Regex("[\\p{L}\\p{M}\\p{N}]+")
     private val BULLET = Regex("^[ \\t]*[•*\\-][ \\t]+(.+)$")
     private const val SENTENCE_PUNCTUATION = ",.;:!?…"
+    private val LETTER_WORD = Regex("[\\p{L}\\p{M}]+")
+    private val EMAIL_CLOSING = Regex("(?iu)^(?:bien\\s+cordialement|cordialement|sincèrement|respectueusement|merci|thanks|thank\\s+you|best\\s+regards|kind\\s+regards|warm\\s+regards|regards|yours\\s+sincerely)\\b")
+
+    /** Metadata only; callers must already have accepted the complete result. */
+    fun restoredWordCount(candidate: String, accepted: String): Int =
+        (LEXEME.findAll(accepted).count() - LEXEME.findAll(candidate).count()).coerceAtLeast(0)
 
     fun accept(request: LocalFormatRequest, output: String?): String? {
         val policy = request.layoutPolicy() ?: return null
         if (output == null || output.length > 32768 || '\u0000' in output) return null
         val clean = LocalFormatOutput.accept(output) ?: return null
         policy.directResult?.takeIf { it == clean }?.let { return it }
-        val candidate = when (policy.kind) {
+        var candidate = when (policy.kind) {
             LocalLayoutKind.LIST -> {
                 val lines = clean.lines().filter { it.isNotBlank() }
                 if (lines.isEmpty()) return null
@@ -26,7 +32,11 @@ internal object GemmaFaithfulLayout {
             LocalLayoutKind.EMAIL -> clean
         }
         val sourceWords = LEXEME.findAll(policy.source).toList()
-        val candidateWords = LEXEME.findAll(candidate).toList()
+        var candidateWords = LEXEME.findAll(candidate).toList()
+        if (policy.kind == LocalLayoutKind.EMAIL && sourceWords.size != candidateWords.size) {
+            candidate = restoreSparseEmailOmissions(policy.source, sourceWords, candidate, candidateWords) ?: return null
+            candidateWords = LEXEME.findAll(candidate).toList()
+        }
         if (sourceWords.isEmpty() || sourceWords.size != candidateWords.size || sourceWords.size > 2048) return null
         if (sourceWords.indices.any {
                 sourceWords[it].value.lowercase(Locale.ROOT) != candidateWords[it].value.lowercase(Locale.ROOT)
@@ -47,6 +57,70 @@ internal object GemmaFaithfulLayout {
             LocalLayoutKind.LIST -> text.lines().filter { it.isNotBlank() }.joinToString("\n") { "• ${it.trim()}" }
             LocalLayoutKind.EMAIL -> text.replace(Regex("\\n[ \\t]*\\n(?:[ \\t]*\\n)+"), "\n\n")
         }
+    }
+
+    /**
+     * Some well-formatted mails drop a few dictated words. Restore them from the source;
+     * never accept the shortened text. A unique subsequence alignment excludes replacements,
+     * additions, reordered words and ambiguous repeated phrases. All strict gap checks still run.
+     */
+    private fun restoreSparseEmailOmissions(
+        source: String, sourceWords: List<MatchResult>, candidate: String, candidateWords: List<MatchResult>,
+    ): String? {
+        val missing = sourceWords.size - candidateWords.size
+        if (missing !in 1..3 || missing * 20 > sourceWords.size || candidateWords.isEmpty()) return null
+        val sourceKeys = sourceWords.map { it.value.lowercase(Locale.ROOT) }
+        val candidateKeys = candidateWords.map { it.value.lowercase(Locale.ROOT) }
+        val forward = IntArray(candidateKeys.size)
+        val backward = IntArray(candidateKeys.size)
+        var cursor = 0
+        for (i in candidateKeys.indices) {
+            while (cursor < sourceKeys.size && sourceKeys[cursor] != candidateKeys[i]) cursor++
+            if (cursor == sourceKeys.size) return null
+            forward[i] = cursor++
+        }
+        cursor = sourceKeys.lastIndex
+        for (i in candidateKeys.indices.reversed()) {
+            while (cursor >= 0 && sourceKeys[cursor] != candidateKeys[i]) cursor--
+            if (cursor < 0) return null
+            backward[i] = cursor--
+        }
+        if (!forward.contentEquals(backward) || forward.first() != 0 || forward.last() != sourceWords.lastIndex) return null
+
+        val restored = StringBuilder(candidate.substring(0, candidateWords.first().range.first))
+        for (i in candidateWords.indices) {
+            if (i > 0) {
+                val previous = forward[i - 1]
+                val next = forward[i]
+                val proposedGap = gap(candidate, candidateWords, i)
+                if (next == previous + 1) restored.append(proposedGap)
+                else {
+                    // Never infer an omitted digit, address part, contraction or quoted fragment.
+                    if ((previous + 1 until next).any { !LETTER_WORD.matches(sourceWords[it].value) }) return null
+                    if ((previous + 1..next).any { index ->
+                            val sourceGap = gap(source, sourceWords, index)
+                            sourceGap.none(::isSpace) || sourceGap.any { !isSpace(it) && it !in SENTENCE_PUNCTUATION }
+                        }) return null
+                    if (proposedGap.any { !isSpace(it) && it !in SENTENCE_PUNCTUATION }) return null
+                    val start = sourceWords[previous].range.last + 1
+                    if ('\n' in proposedGap || '\r' in proposedGap) {
+                        // A word omitted just before an explicit sign-off belongs to the body.
+                        // Other missing-word paragraph boundaries remain too uncertain to apply.
+                        if (!EMAIL_CLOSING.containsMatchIn(candidate.substring(candidateWords[i].range.first))) return null
+                        val omittedStart = sourceWords[previous + 1].range.first
+                        val closing = EMAIL_CLOSING.find(source.substring(omittedStart))
+                        if (closing != null && closing.range.last >= sourceWords[next].range.first - omittedStart) return null
+                        restored.append(source.substring(start, sourceWords[next - 1].range.last + 1))
+                        restored.append(proposedGap)
+                    } else {
+                        restored.append(source.substring(start, sourceWords[next].range.first))
+                    }
+                }
+            }
+            restored.append(candidateWords[i].value)
+        }
+        restored.append(candidate.substring(candidateWords.last().range.last + 1))
+        return restored.toString()
     }
 
     private fun gap(text: String, words: List<MatchResult>, index: Int): String = text.substring(

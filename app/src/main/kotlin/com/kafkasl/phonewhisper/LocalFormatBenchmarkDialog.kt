@@ -105,6 +105,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
     private fun cases(): List<Case> {
         val list = PostProcessingFormats.builtins.first { it.id == "list" }.instructions
         val email = PostProcessingFormats.builtins.first { it.id == "email" }.instructions
+        val longMail = "Bonjour, voici un nouveau test pour voir si le format a bien été pris en compte lors de la création et la génération de ce nouveau texte qui sans être mis en forme sous forme de mail. La première fois quand ça a été un message assez court la mise en forme a été réalisée, la deuxième, la troisième quatrième fois n'a pas fonctionné comme il faut la mise en forme n'a pas été prise en compte, et en voici la preuve à nouveau normalement, cordialement, Monsieur le Testeur"
         return listOf(
             Case("FR · liste avec noms et nombres", LocalFormatRequest(
                 "Demain, appeler Maëlys pour confirmer les 23 élèves, imprimer 2 fiches par élève et apporter les cahiers bleus.",
@@ -142,6 +143,10 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                 "green tea whole wheat bread apple juice", list, "English", layoutKind = LocalLayoutKind.LIST),
                 listOf("green", "tea", "wheat", "bread", "juice"),
                 grouping = LayoutGroupingExpectation(setOf(2, 5), allowed = setOf(2, 5))),
+            Case("FR · mail long · omission à rétablir", LocalFormatRequest(
+                longMail, email, "French", listOf("Monsieur le Testeur"), LocalLayoutKind.EMAIL),
+                listOf("Bonjour", "pas", "normalement", "cordialement", "Monsieur", "Testeur"),
+                grouping = LayoutGroupingExpectation(setOf(1, longMail.split(' ').indexOf("cordialement,")))),
         ).map { it.copy(request = it.request.copy(validation = LocalFormatValidation.GEMMA_PROJECTION)) }
     }
 
@@ -183,6 +188,9 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     preparation?.let { report.append("Attente de préparation (file comprise) : ${it.waitMs} ms\n") }
                     report.append("Premier fragment : ${firstTextMs?.let { "$it ms" } ?: if (example.request.layoutPolicy()?.directResult != null) "sans appel LLM" else "aucun"} ; fin : $totalMs ms\n")
                     report.append("Conservation du texte : ${if (output != null) "validée" else "rejetée"}\n")
+                    val restoredWords = if (output != null && raw != null)
+                        GemmaFaithfulLayout.restoredWordCount(raw, output) else 0
+                    if (restoredWords > 0) report.append("Mots rétablis depuis la transcription : $restoredWords\n")
                     val grouping = example.grouping?.evaluate(example.request, output)
                     report.append("Regroupement ciblé : " + when {
                         example.grouping == null -> "critère non défini"
@@ -205,6 +213,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     report.append("\nEntrée : ${example.request.text}\n")
                     if (output != null) report.append("Sortie :\n$output\n\n")
                     else report.append("Sortie absente ou rejetée par les contrôles techniques/vocabulaire.\nBrut : ${raw ?: "aucun texte retourné"}\n\n")
+                    if (restoredWords > 0) report.append("Brut avant rétablissement des mots sources :\n$raw\n\n")
                     completed++
                     postUpdate("$completed/$totalRuns essais terminés", completed, report.toString())
                 }
