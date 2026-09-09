@@ -164,7 +164,11 @@ internal object GemmaConservativeEditing {
     private fun protectedRanges(source: String, terms: List<String>): List<IntRange> = buildList {
         var start = -1; var close = ' '
         source.forEachIndexed { i, c ->
-            if (start >= 0) { if (c == close) { add(start..i); start = -1 } }
+            if (start >= 0) {
+                val apostropheInWord = c == '\'' && i > 0 && i < source.lastIndex &&
+                    source[i - 1].isLetter() && source[i + 1].isLetter()
+                if (c == close && !apostropheInWord) { add(start..i); start = -1 }
+            }
             else if (c in "\"«“`" || c == '\'' && (i == 0 || source[i - 1].isWhitespace())) {
                 start = i; close = when (c) { '«' -> '»'; '“' -> '”'; else -> c }
             }

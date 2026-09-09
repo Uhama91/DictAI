@@ -2,6 +2,34 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Texte corrigé : retrait fiable des hésitations — 0.9.4 en vérification
+
+Ullie confirme explicitement qu’il utilisait déjà Texte corrigé ; il ne s’agit pas de lui redemander le format. Le code permettait une sortie avec hésitations et un repli inchangé. Préparation déterministe du texte avant modèle et en repli, protection des segments réellement saisis à la main, anticipation cohérente et compteur dans le diagnostic. Aucun changement de modèle, de thinking, des plafonds d’attente ou des autres formats. [Comportement, cas protégés et vérification](HESITATIONS-TEXTE-CORRIGE-0.9.4.md).
+
+## Retour terrain du 9 septembre — mail, liste et captures
+
+Reprise dans une nouvelle conversation Codex à la demande d’Ullie, dans la continuité de la livraison 0.9.3. Retour qualitatif fourni par l’utilisateur ; aucune nouvelle mesure sur appareil effectuée par Codex, aucun diagnostic de routage ni numéro de version installé fourni avec ce message.
+
+- **Mail : rendu satisfaisant sur l’exemple reçu.** « Bonjour, », corps, « Cordialement, » et signature « Monsieur le Testeur. » sont correctement séparés. Ullie confirme que ce mail d’une certaine longueur fonctionne désormais. Ce résultat ne valide pas encore les mails beaucoup plus longs ou à plusieurs sujets.
+- **Liste : réactivité jugée satisfaisante et découpage globalement réussi.** Sept puces reçues : « Des oranges », « Des bananes », « Du lait », « Du riz », « Du poivre », « Un ordinateur », « Des couches de l’eau ». La dernière puce regroupe potentiellement deux articles ; huit puces seraient attendues si couches et eau sont deux éléments distincts. L’entrée ASR brute n’est pas fournie.
+- **Limite signalée : énumération naturelle.** Ullie constate qu’une formulation plus construite, au lieu d’articles cités successivement, n’est pas transformée en liste. Phrase source exacte, sortie correspondante et format sélectionné restent à préciser. Ne pas conclure qu’un discours télégraphique est une obligation du produit.
+- **Capture d’écran :** enregistrement dans le stockage du téléphone et présence dans le presse-papier confirmés par Ullie.
+- **Photo caméra :** prise de photo, enregistrement dans le téléphone et présence dans le presse-papier confirmés par Ullie. Son second retour lève le doute initial sur l’enregistrement de la photo et reconfirme celui de la capture d’écran.
+- **Notes et exports :** récupération d’une note en PDF et en HTML testée avec succès par Ullie via le bouton de récupération des fichiers. Il a vérifié la lisibilité du fichier et l’a fourni à ChatGPT et à Grok ; les deux ont réussi à le lire. Le retour situe cette lecture après l’essai HTML, sans détailler chaque combinaison format/application ni l’interprétation des images intégrées.
+- **Vocabulaire : parcours confirmé sur téléphone.** Ullie a obtenu la proposition de correction du mot « grec avec un K à la fin » (grek) vers « Grok », l’a enregistrée, puis la graphie Grok a été prise en compte dès la deuxième occurrence dictée. Proposition, confirmation et réutilisation sont donc validées dans cet essai ; le geste exact de remplacement n’est pas redétaillé dans ce message.
+- **Nouveau problème : hésitations conservées.** Ullie signale des « euh » spontanés encore présents alors qu’il utilise le moteur Local. Le format actif et une éventuelle retouche manuelle dans cette même dictée ont été demandés pour identifier le chemin réellement exécuté.
+- **Précisions encore ouvertes :** réouverture ultérieure dans DictAI, placement exact des images et interprétation visuelle par les destinataires. Ne plus classer l’enregistrement de la photo, la récupération PDF/HTML ou le parcours de vocabulaire parmi les essais non réalisés.
+
+Inspection du code de la branche actuelle : `GemmaFormattingPrompt.LIST` demande une puce par élément ou action, même sans virgules. Le contrôle de fidélité (`GemmaFaithfulLayout`, `GemmaConservativeEditing`, `LocalFormattingSession`) peut refuser une reformulation ou une omission et laisser le texte source ; il ne garantit pas la justesse de chaque coupure. Le mode Texte ne sollicite pas de LLM ; le format Liste est un choix explicite. Sans entrée exacte et diagnostic, mauvaise segmentation, rejet de fidélité, délai dépassé et format inadapté restent des hypothèses, pas un diagnostic établi.
+
+La capture d’écran et la caméra passent par `OverlayService.copyCapturedImage` : sauvegarde via `CapturedImageGallery` dans Pictures/DictAI puis copie de l’URI ; une solution de repli permet aussi le presse-papier si la sauvegarde échoue. Voir une image dans le presse-papier seul ne prouve donc pas son enregistrement dans la galerie.
+
+Inspection des hésitations : le prompt `GEMMA_EDITING` demande déjà la suppression de euh/heu/uh/um et le validateur l’autorise. Après une retouche manuelle, `OverlayService.processStoppedRecording` utilise `GEMMA_PROJECTION` : le prompt conserve alors tous les mots et la suppression des hésitations n’est plus une correction autorisée. En format Texte, `LightTextCleanup` est un traitement distinct du LLM, activé seulement si son réglage est actif et sans retouche manuelle. Un rejet du résultat ou un délai dépassé peut aussi conserver la source. Ces chemins sont vérifiés dans le code ; aucun d’eux n’est encore attribué avec certitude à l’essai d’Ullie. La réutilisation automatique d’une règle de vocabulaire n’est pas à confondre avec une retouche manuelle.
+
+Vérification ciblée du 9 septembre : **33 tests JVM réussis, sans échec ni test ignoré**, dans `LightTextCleanupTest` (5), `GemmaConservativeEditingTest` (15) et `GemmaFormattingTest` (13), avec la configuration prototype. Ils vérifient les règles et contrôles existants ; ils ne constituent pas une reproduction de la génération GPU ni du chemin suivi sur le téléphone.
+
+Suite ciblée : identifier le format et les retouches de l’essai avec « euh » ; au besoin lire le diagnostic de cette dictée dans Dernier post-traitement → Dernière dictée. Conserver aussi la demande d’exemple naturel qui échoue en Liste pour distinguer segmentation et rejet de fidélité. Aucune modification du modèle, du prompt, du délai ou du code dans cette reprise.
+
 ## Galerie, notes volontaires et vocabulaire lettre par lettre — essai 0.9.3 publié
 
 Nouvelle précision : Ullie efface habituellement lettre par lettre. La suggestion doit suivre le mot source jusqu’au remplacement, y compris AF → CAF et petits groupes. La sauvegarde des captures/photos dans Pictures/DictAI s’ajoute au presse-papier. Les notes avec captures sont rétablies uniquement lors d’une sauvegarde volontaire, avec dix images maximum et exports PDF/HTML autonome. [Fonctionnement, limites et essais](GALERIE-NOTES-VOCABULAIRE-0.9.3.md).

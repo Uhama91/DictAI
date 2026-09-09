@@ -4,6 +4,18 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PostprocessingDiagnosticTest {
+    @Test fun hesitationRemovalIsReportedEvenWhenModelTimesOutWithoutLoggingContent() {
+        val value = PostprocessingDiagnostic.report("test", 0, "corrected", PostprocessingDiagnostic.Requested.LOCAL,
+            PostprocessingDiagnostic.Applied.ORIGINAL, LocalFinishDiagnostic("generated", "wait_timeout", true, 5000),
+            "litert-lm-gpu-mtp-thinking-off", 5000, 5200, "Grok et contenu privé.", InjectionResult.Inserted, false,
+            hesitationsRemoved = 2)
+        assertTrue(value.contains("hésitations retirées localement"))
+        assertTrue(value.contains("Hésitations retirées avant correction : 2"))
+        assertTrue(value.contains("délai d’attente finale dépassé"))
+        assertFalse(value.contains("LLM local appliqué"))
+        assertFalse(value.contains("Grok"))
+        assertFalse(value.contains("contenu privé"))
+    }
     @Test fun restorationReportsOnlyTheCountAndNeverTheRestoredWords() {
         val value = report(local = LocalFinishDiagnostic("generated", "applied", true, 700, 1),
             text = "Bonjour, contenu confidentiel rétabli. Cordialement, Nom privé")

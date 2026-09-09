@@ -24,6 +24,7 @@ internal object PostprocessingDiagnostic {
         cloudSuppressed: Boolean,
         modelLoadMs: Long? = null,
         lightTextCleanup: Boolean = false,
+        hesitationsRemoved: Int = 0,
     ): String = buildString {
         append("DictAI — dernier post-traitement\n")
         append("Application : $version\n")
@@ -34,7 +35,11 @@ internal object PostprocessingDiagnostic {
             Applied.LOCAL_LLM -> "LLM local appliqué"
             Applied.LOCAL_DIRECT -> "traitement direct, sans appel LLM"
             Applied.CLOUD -> "cloud appliqué"
-            Applied.ORIGINAL -> if (lightTextCleanup) "traitement léger local" else "transcription conservée"
+            Applied.ORIGINAL -> when {
+                hesitationsRemoved > 0 -> "hésitations retirées localement, sans réécriture appliquée"
+                lightTextCleanup -> "traitement léger local"
+                else -> "transcription conservée"
+            }
         }}\n")
         if (requested == Requested.LOCAL) {
             append("Modèle : ${LocalFormatEngine.MODEL_FILE}\n")
@@ -71,6 +76,7 @@ internal object PostprocessingDiagnostic {
         }
         if (cloudSuppressed) append("Cloud désactivé pour ce champ sensible.\n")
         if (lightTextCleanup) append("Nettoyage léger du texte : règles locales, sans appel LLM.\n")
+        if (hesitationsRemoved > 0) append("Hésitations retirées avant correction : $hesitationsRemoved · règles locales.\n")
         append("Post-traitement : $postprocessMs ms\n")
         stopToPublicationMs?.let { append("Arrêt → insertion/copie : $it ms\n") }
         val lines = finalText.lines().filter { it.isNotBlank() }

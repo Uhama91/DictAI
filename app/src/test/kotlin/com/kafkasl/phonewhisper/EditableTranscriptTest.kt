@@ -4,6 +4,50 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EditableTranscriptTest {
+    @Test fun `correcting Grok does not protect unrelated dictated hesitations`() {
+        val buffer = EditableTranscript()
+        buffer.update("Je consulte grek euh demain")
+        buffer.edit("Je consulte Grok euh demain")
+        val final = buffer.resolveFinal("Je consulte grek euh demain et euh après")!!
+        val prepared = CorrectedTextPreparation.prepare(final, "corrected", listOf("Grok"), buffer.manualProtection(final))
+        assertEquals("Je consulte Grok demain et après", prepared.text)
+        assertEquals(2, prepared.removed)
+    }
+
+    @Test fun `typed fillers stay protected across backspace and a second edit`() {
+        val buffer = EditableTranscript()
+        buffer.update("Je dis bon ici")
+        buffer.edit("Je dis  ici")
+        buffer.edit("Je dis e ici")
+        buffer.edit("Je dis eu ici")
+        buffer.edit("Je dis euh ici")
+        buffer.update("Je dis bon ici et euh ensuite")
+        buffer.edit("Donc je dis euh ici et euh ensuite")
+        val final = buffer.resolveFinal("Je dis bon ici et euh ensuite demain")!!
+        assertEquals("Donc je dis euh ici et ensuite demain",
+            CorrectedTextPreparation.prepare(final, "corrected", manualRanges = buffer.manualProtection(final)).text)
+    }
+
+    @Test fun `restored drafts are protected but resumed speech can be cleaned`() {
+        val buffer = EditableTranscript()
+        buffer.edit("euh, texte tapé.")
+        val final = buffer.update("euh voici la suite")
+        assertEquals("euh, texte tapé. Voici la suite",
+            CorrectedTextPreparation.prepare(final, "corrected", manualRanges = buffer.manualProtection(final)).text)
+        buffer.clear()
+        val next = buffer.update("euh une nouvelle dictée")
+        assertTrue(buffer.manualProtection(next).isEmpty())
+        assertEquals("une nouvelle dictée", CorrectedTextPreparation.prepare(next, "corrected").text)
+    }
+
+    @Test fun `automatic vocabulary normalization does not create manual protection`() {
+        val buffer = EditableTranscript()
+        val final = buffer.update("Je consulte grek euh demain") { it.replace("grek", "Grok") }
+        assertFalse(buffer.hasUserEdits())
+        assertTrue(buffer.manualProtection(final).isEmpty())
+        assertEquals("Je consulte Grok demain", CorrectedTextPreparation.prepare(final, "corrected").text)
+    }
+
     @Test fun `restored draft remains verbatim before a new recognition session`() {
         val buffer = EditableTranscript()
         buffer.edit("Mon argument corrigé.\n\n")

@@ -6,23 +6,34 @@ internal class EditableTranscript {
     private var protectedWords = 0
     private var edited: String? = null
     private var userEdited = false
+    private var displayed = ""
+    private var manualRanges = emptyList<IntRange>()
 
     @Synchronized fun hasUserEdits(): Boolean = userEdited
+
+    /** Only actual keyboard changes are exempt from explicit hesitation removal. */
+    @Synchronized fun manualProtection(text: String): List<IntRange> =
+        if (text == displayed) manualRanges.toList()
+        else if (userEdited && text.isNotEmpty()) listOf(text.indices) else emptyList()
 
     @Synchronized fun clear() {
         raw = emptyList()
         protectedWords = 0
         edited = null
         userEdited = false
+        displayed = ""
+        manualRanges = emptyList()
     }
 
     @Synchronized fun edit(text: String) {
+        trackChange(text, manual = true)
         userEdited = true
         anchor(text)
     }
 
     /** Insert a context reference without pretending it was a manual wording correction. */
     @Synchronized fun anchor(text: String) {
+        trackChange(text, manual = false)
         edited = text
         protectedWords = raw.size
     }
@@ -34,21 +45,54 @@ internal class EditableTranscript {
         val next = matches.map { it.value }
         if (edited == null) {
             raw = next
-            return transform(text)
+            return transform(text).also { displayed = it }
         }
         protectedWords = mapBoundary(raw, next, protectedWords)
         raw = next
         val tail = transform(matches.getOrNull(protectedWords)?.range?.first?.let { text.substring(it) }.orEmpty())
         val prefix = edited.orEmpty()
-        if (tail.isEmpty()) return prefix
+        if (tail.isEmpty()) return prefix.also { displayed = it }
         val sentenceStart = prefix.trimEnd().lastOrNull() in listOf('.', '!', '?', '…') || prefix.endsWith('\n')
         val continuation = if (sentenceStart) tail.replaceFirstChar { it.titlecase() } else tail
-        return prefix + (if (prefix.isEmpty() || prefix.last().isWhitespace()) "" else " ") + continuation
+        return (prefix + (if (prefix.isEmpty() || prefix.last().isWhitespace()) "" else " ") + continuation)
+            .also { displayed = it }
     }
 
     /** A manually written draft remains publishable when the recognizer returns no speech. */
     @Synchronized fun resolveFinal(recognized: String?, transform: (String) -> String = { it }): String? =
-        if (recognized.isNullOrBlank()) edited else update(recognized, transform)
+        if (recognized.isNullOrBlank()) edited?.also { displayed = it } else update(recognized, transform)
+
+    private fun trackChange(next: String, manual: Boolean) {
+        if (next == displayed) return
+        val prefix = displayed.commonPrefixWith(next).length
+        val suffix = displayed.drop(prefix).commonSuffixWith(next.drop(prefix)).length
+        val oldEnd = displayed.length - suffix
+        val newEnd = next.length - suffix
+        val shift = newEnd - oldEnd
+        val overlapsManual = manualRanges.any { it.first < oldEnd && it.last >= prefix }
+        val ranges = mutableListOf<IntRange>()
+        for (range in manualRanges) {
+            if (range.first < prefix) ranges.add(range.first..minOf(range.last, prefix - 1))
+            if (range.last >= oldEnd) ranges.add(maxOf(range.first, oldEnd) + shift..range.last + shift)
+        }
+        if (manual || overlapsManual) {
+            var start = prefix
+            var end = newEnd
+            // Editing one letter protects the resulting word, including delete-then-type.
+            fun wordChar(c: Char) = c.isLetterOrDigit() || Character.getType(c) == Character.NON_SPACING_MARK.toInt()
+            while (start > 0 && wordChar(next[start - 1])) start--
+            while (end < next.length && wordChar(next[end])) end++
+            if (start < end) ranges.add(start until end)
+        }
+        manualRanges = ranges.filter { !it.isEmpty() && it.first >= 0 && it.last < next.length }
+            .sortedBy { it.first }.fold(mutableListOf()) { merged, range ->
+                if (merged.isNotEmpty() && range.first <= merged.last().last + 1)
+                    merged[merged.lastIndex] = merged.last().first..maxOf(merged.last().last, range.last)
+                else merged.add(range)
+                merged
+            }
+        displayed = next
+    }
 
     /** Align ASR revisions, including inserted/deleted words, without counting user-added words. */
     private fun mapBoundary(old: List<String>, next: List<String>, boundary: Int): Int {

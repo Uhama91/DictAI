@@ -90,6 +90,7 @@ class GemmaConservativeEditingTest {
         val cases = listOf(
             "Conserver le mot euh dans cette phrase" to "Conserver le mot dans cette phrase",
             "Il a dit « le le dossier » hier" to "Il a dit « le dossier » hier",
+            "Il dit 'j'ai euh envie de venir'." to "Il dit 'j'ai envie de venir'.",
             "Nous nous demandons si c'est très très utile" to "Nous demandons si c'est très utile",
             "Non non je ne veux pas cela" to "Non je ne veux pas cela",
             "I had had time to read that that day" to "I had time to read that day",

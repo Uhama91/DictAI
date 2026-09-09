@@ -99,13 +99,12 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.9.3 Android ARM64 : correction du vocabulaire lettre par lettre, captures et photos enregistrées dans Photos / DictAI.' \
-            'Le mot ou petit groupe source est suivi pendant les effacements et la nouvelle saisie, sans sélection obligatoire. La suggestion temporaire nécessite un appui explicite pour enregistrer la règle locale, appliquée pendant la transcription sans LLM.' \
-            'Une capture ou photo est enregistrée dans Pictures/DictAI et copiée au presse-papier. Le collage depuis Gboard dépend toujours de l’application destinataire ; les images sont aussi accessibles depuis son sélecteur de photos.' \
-            'Glisser vers la gauche conserve volontairement la note et ses captures, avec au maximum dix images placées près du texte visible lors de chaque capture. La transcription ordinaire ne reçoit pas de repères image supplémentaires.' \
-            'Mes notes : lire, partager ou enregistrer un PDF ; exporter un HTML autonome avec ses images intégrées. Un agent outillé peut extraire les images du HTML ; leur analyse visuelle n’est pas automatique dans tous les chatbots.' \
-            'Caméra interne conservée. Aucun appel LLM pour les images ou exports. Texte sans LLM, Gemma GPU/MTP avec thinking désactivé et délais inchangés.' \
-            'Tests JVM et compilation APK/tests Android dans Actions. Pas d’appareil Android connecté à Codex : galerie, gestes IME/Gboard et rendu PDF restent à valider sur téléphone.' > release-notes.md
+            'DictAI 0.9.4 Android ARM64 : retrait fiable des hésitations dans Texte corrigé.' \
+            'Les euh/heu/uh/um spontanés sont retirés localement avant Gemma. Le texte nettoyé reste disponible si le modèle échoue, dépasse son délai ou propose une modification refusée.' \
+            'Les corrections manuelles, citations, mentions explicites et graphies du vocabulaire sont protégées. Une retouche de Grok ne conserve plus toutes les hésitations de la dictée.' \
+            'Le diagnostic indique le nombre d’hésitations retirées, sans enregistrer les mots dictés. Modèle Gemma, GPU/MTP, thinking désactivé et délais maximaux conservés.' \
+            'Les modes Texte, Mail et Liste conservent leur comportement. Les captures, photos, notes et exports de 0.9.3 sont conservés ; Ullie a confirmé le stockage, le presse-papier, les exports PDF/HTML et le parcours du vocabulaire.' \
+            'Tests JVM et vérifications de compilation/signature/alignement de l’APK. Le nouveau comportement reste à essayer sur le téléphone ; aucune génération GPU Android effectuée par Codex pour ce correctif.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.9.3 — vocabulaire lettre par lettre, galerie et notes illustrées' --notes-file release-notes.md
+            --title 'DictAI 0.9.4 — hésitations retirées dans Texte corrigé' --notes-file release-notes.md

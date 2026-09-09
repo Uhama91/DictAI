@@ -778,9 +778,12 @@ class OverlayService : Service() {
         }
         val resolvedText = editableTranscript.resolveFinal(r.text) { normalizeRecognizedText(it, capture.options) }
         val formatStarted = SystemClock.elapsedRealtime()
+        val prepared = if (!run.archiveAsNote && resolvedText != null)
+            prepareCorrectedText(resolvedText, capture.options) else null
         val lightCleanupApplied = !resolvedText.isNullOrBlank() && capture.options.lightTextCleanup &&
             capture.options.format.id == "cleanup" && !editableTranscript.hasUserEdits()
-        val localText = if (lightCleanupApplied) LightTextCleanup.apply(resolvedText, protectedVocabularyTerms(resolvedText)) else resolvedText
+        val localText = if (lightCleanupApplied) LightTextCleanup.apply(resolvedText, protectedVocabularyTerms(resolvedText))
+            else prepared?.text ?: resolvedText
         if (run.cancellation.isCancelled) {
             return
         }
@@ -859,6 +862,7 @@ class OverlayService : Service() {
             localFormatted != null && localDirect -> "Local appliqué · sans appel LLM"
             localFormatted != null -> "LLM local appliqué"
             cloudText != null -> "Cloud appliqué"
+            (prepared?.removed ?: 0) > 0 -> "Hésitations retirées · correction indisponible"
             capture.options.format.usesLanguageModel || localDiagnostic != null -> "Traitement indisponible · texte conservé"
             else -> "Sans appel LLM"
         }
@@ -870,7 +874,8 @@ class OverlayService : Service() {
             }
         }
         if (capture.options.format.usesLanguageModel && formatted == null && !localText.isNullOrBlank()) {
-            toast("Mise en forme indisponible : texte conservé sans format.")
+            toast(if ((prepared?.removed ?: 0) > 0) "Mise en forme indisponible : hésitations retirées, texte conservé."
+                else "Mise en forme indisponible : texte conservé sans format.")
         }
         run.localFormatting?.close()
         val postprocessMs = SystemClock.elapsedRealtime() - formatStarted
@@ -935,6 +940,7 @@ class OverlayService : Service() {
                                 cloudSuppressed = capture.options.cloudSuppressedForSensitiveTarget,
                                 modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
                                 lightTextCleanup = lightCleanupApplied,
+                                hesitationsRemoved = prepared?.removed ?: 0,
                             )
                             prefs.recordPostprocessingDiagnostic(diagnostic,
                                 formatRequested = capture.options.format.usesLanguageModel)
@@ -1197,6 +1203,10 @@ class OverlayService : Service() {
     private fun protectedVocabularyTerms(text: String): List<String> = Vocabulary.corrections(this)
         .map { it.second }.filter { it.isNotBlank() && it in text }.distinct().take(64) + NoteImageMarkers.markers(text)
 
+    private fun prepareCorrectedText(text: String, options: RecordingOptions): CorrectedTextPreparation.Result =
+        CorrectedTextPreparation.prepare(text, options.format.id, protectedVocabularyTerms(text),
+            editableTranscript.manualProtection(text))
+
     private fun normalizeRecognizedText(text: String, options: RecordingOptions): String {
         val corrected = Vocabulary.applyCorrections(this, text)
         return NumberFormatting.apply(corrected, options.language, options.numberStyle, protectedVocabularyTerms(corrected))
@@ -1270,7 +1280,7 @@ class OverlayService : Service() {
         val formatter = run.localFormatting ?: return
         val options = run.formatOptions
         val request = text.takeIf { it.isNotBlank() }?.let {
-            localFormatRequest(it, options, applyVocabulary = false)
+            localFormatRequest(prepareCorrectedText(it, options).text, options, applyVocabulary = false)
         }
         if (request == run.formatOfferRequest) return
         run.formatOffer?.let(main::removeCallbacks)

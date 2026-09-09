@@ -53,3 +53,16 @@ Référence Android : [enregistrement de médias dans le stockage partagé](http
 ## Livraison vérifiée
 
 Publication vérifiée le 9 septembre 2026 : [APK directe 0.9.3](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34364610947/dictai-local-layout-test.apk), [GitHub Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34364610947), source `38d88b3ff6d3e93f7b2fa88115b405449f34000a`. Téléchargement public complet HTTP 200, **78 816 652 octets**, SHA-256 `984ecf4c694c5ce73eac95323744c68ace08fa57360fa1244c53c6c3a67bd3ef`. Empreinte identique à l’APK locale finale, à SHA256SUMS, au digest GitHub et au journal CI ; les **1 048 entrées ZIP** sont également identiques. Signature de mise à jour, version code32 / 0.9.3-wp-gemma-test, ABI ARM64 et alignement ZIP/natif 16 Ko vérifiés. **418 tests JVM / 60 suites**, 18 tests du contrôleur d’alignement et contrat natif réussis. APK et tests Android compilés ; tests Android non exécutés, aucun appareil connecté à Codex. Les gestes Gboard, l’overlay, MediaStore/galerie et le rendu PDF restent à vérifier sur téléphone.
+
+
+## Premier retour terrain après livraison — 9 septembre 2026
+
+Ullie confirme que la capture d’écran et la photo sont enregistrées dans le téléphone et présentes dans le presse-papier. Son second retour confirme explicitement le bon enregistrement des deux types d’images.
+
+Il a aussi récupéré une note en PDF et en HTML via le bouton de récupération des fichiers et vérifié que le fichier était lisible. Il l’a fourni à ChatGPT et à Grok : tous deux ont réussi à le lire. Lecture confirmée dans ses essais ; le contenu visuel effectivement interprété et chaque combinaison PDF/HTML avec chaque application ne sont pas détaillés.
+
+Le mail fourni a désormais une salutation, un corps, une fermeture et une signature correctement séparés. La liste est jugée réactive et globalement satisfaisante, avec une coupure potentiellement manquée entre couches et eau et une limite signalée sur les formulations plus naturelles. Le [suivi du retour](SUIVI-DEVELOPPEMENT.md#retour-terrain-du-9-septembre--mail-liste-et-captures) distingue les observations des hypothèses techniques.
+
+Le retour suivant confirme aussi le parcours du vocabulaire : proposition « grek → Grok » (source décrite comme grec écrit avec un K final), enregistrement accepté et graphie corrigée dès la deuxième occurrence dictée. Le geste exact de remplacement n’est pas redétaillé. La récupération PDF/HTML et la réutilisation de la correction sont désormais confirmées par Ullie. La réouverture ultérieure dans DictAI, le placement précis des images et leur interprétation par les destinataires ne sont pas détaillés.
+
+Ullie signale ensuite des « euh » spontanés conservés avec le moteur Local. Le [suivi](SUIVI-DEVELOPPEMENT.md#retour-terrain-du-9-septembre--mail-liste-et-captures) décrit les chemins à distinguer : format actif, retouche manuelle entraînant une conservation stricte, résultat du modèle accepté ou repli sur la source. Ce signalement ne remet pas en cause la correction de vocabulaire qu’il vient de valider. Aucun nouvel essai appareil par Codex ; les résultats de construction ci-dessus restent ceux de la livraison.
