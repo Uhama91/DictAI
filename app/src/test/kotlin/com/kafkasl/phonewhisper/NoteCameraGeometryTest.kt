@@ -3,17 +3,7 @@ package com.kafkasl.phonewhisper
 import org.junit.Assert.*
 import org.junit.Test
 
-class ImagePasteSafetyTest {
-    @Test fun imageCannotReplaceSelectedWordsOrUnknownSelection() {
-        assertEquals(ImagePasteResult.SELECTION_ACTIVE, ImagePasteSafety.allow(true, true, false, 2, 8))
-        assertEquals(ImagePasteResult.SELECTION_ACTIVE, ImagePasteSafety.allow(true, true, false, -1, -1))
-        assertNull(ImagePasteSafety.allow(true, true, false, 8, 8))
-    }
-    @Test fun changedWindowPasswordAndNonEditorAreRejectedBeforeClipboardMutation() {
-        assertEquals(ImagePasteResult.TARGET_CHANGED, ImagePasteSafety.allow(false, true, false, 0, 0))
-        assertEquals(ImagePasteResult.TARGET_CHANGED, ImagePasteSafety.allow(true, true, true, 0, 0))
-        assertEquals(ImagePasteResult.TARGET_CHANGED, ImagePasteSafety.allow(true, false, false, 0, 0))
-    }
+class NoteCameraGeometryTest {
     @Test fun cameraBuffersBoundSizeAndPreserveSupportedAspectRatio() {
         val sizes = listOf(NoteCameraGeometry.Size(4000,3000), NoteCameraGeometry.Size(1920,1080), NoteCameraGeometry.Size(1280,960), NoteCameraGeometry.Size(640,480))
         assertEquals(NoteCameraGeometry.Size(1920,1080), NoteCameraGeometry.chooseSize(sizes, 2048))

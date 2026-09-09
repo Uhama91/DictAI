@@ -31,7 +31,7 @@ class VocabularyCorrectionTrackerTest {
     @Test fun compositionAndDebounceSuppressPartialReplacement() {
         edit("mari", "Mar", 0, 4, 3, 0, 4)
         assertNull(suggestion("Mar", 999))
-        assertNull(suggestion("Mar", 5_000, composing = true))
+        assertNull(suggestion("Mar", 1_000, composing = true))
         edit("Mar", "Marie", 0, 3, 5, at = 5_100)
         assertEquals(VocabularyCorrectionTracker.Suggestion("mari", "Marie"), suggestion("Marie", 6_100))
     }
@@ -94,4 +94,46 @@ class VocabularyCorrectionTrackerTest {
         assertNull(tracker.suggestion("Marie", 3, 3, false, 1_000))
         assertNull(suggestion("Marie demain"))
     }
+    @Test fun gboardStableCompositionMayBeConfirmedWithoutTypingASpace() {
+        edit("cloud", "Claude", 0, 5, 6, 0, 5)
+        assertNull(suggestion("Claude", 1_499, composing = true))
+        val offer = suggestion("Claude", 1_500, composing = true)!!
+        assertEquals(VocabularyCorrectionTracker.Suggestion("cloud", "Claude"), offer)
+        // The keyboard changes its candidate before the tap: the stale offer cannot be saved.
+        edit("Claude", "Claudie", 0, 6, 7, at = 1_600)
+        assertFalse(tracker.consume(offer, "Claudie"))
+    }
+    @Test fun imeCollapsedSelectionStillRemembersTheExplicitDeletedPhrase() {
+        tracker.onSelectionChanged("Bonjour ma yotte", 8, 16)
+        tracker.onSelectionChanged("Bonjour ma yotte", 8, 8)
+        edit("Bonjour ma yotte", "Bonjour ", 8, 8, 0, at = 20)
+        edit("Bonjour ", "Bonjour Maillot", 8, 0, 7, at = 200)
+        assertEquals(VocabularyCorrectionTracker.Suggestion("ma yotte", "Maillot"), suggestion("Bonjour Maillot", 1_200))
+    }
+    @Test fun tentativeSpeechCanBeRevisedWhileTheOfferIsPending() {
+        edit("mari arrive peut etre", "Marie arrive peut etre", 0, 4, 5, 0, 4)
+        tracker.onProgrammaticTextChanged("Marie arrive demain matin")
+        assertEquals(VocabularyCorrectionTracker.Suggestion("mari", "Marie"), suggestion("Marie arrive demain matin"))
+        tracker.onProgrammaticTextChanged("Marion arrive demain matin")
+        assertNull(suggestion("Marion arrive demain matin"))
+    }
+    @Test fun deletionFollowedOnlyBySpeechDoesNotLearnTheContinuation() {
+        edit("cloud", "", 0, 5, 0, 0, 5)
+        tracker.onProgrammaticTextChanged("la suite de la dictée")
+        assertNull(suggestion("la suite de la dictée"))
+    }
+    @Test fun dismissOrExpiryResetDoesNotReofferAfterSpeech() {
+        edit("cloud", "Claude", 0, 5, 6, 0, 5)
+        assertNotNull(suggestion("Claude"))
+        tracker.reset()
+        tracker.onProgrammaticTextChanged("Claude arrive")
+        assertNull(suggestion("Claude arrive"))
+    }
+    @Test fun anUnrelatedEditCannotReuseAnOldSelection() {
+        tracker.onSelectionChanged("cloud arrive", 0, 5)
+        tracker.onSelectionChanged("cloud arrive", 12, 12)
+        edit("cloud arrive", "cloud arriv", 11, 1, 0, 12, 12)
+        assertNull(suggestion("cloud arriv"))
+    }
+
 }

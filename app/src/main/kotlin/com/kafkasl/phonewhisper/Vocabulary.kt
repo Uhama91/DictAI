@@ -17,11 +17,12 @@ object Vocabulary {
     }
     enum class AddResult { ADDED, ALREADY_PRESENT, CONFLICT, INVALID }
     data class Addition(val result: AddResult, val raw: String)
+    private fun key(text: String) = text.trim().replace(Regex("[\\s\\u00a0]+"), " ").lowercase(java.util.Locale.ROOT)
     fun prepareCorrection(raw: String, from: String, to: String): Addition {
         val source = from.trim(); val target = to.trim()
         if (source.isEmpty() || target.isEmpty() || source == target ||
             listOf(source, target).any { it.contains("=>") || it.contains('\n') || it.contains('\r') }) return Addition(AddResult.INVALID, raw)
-        val existing = parseCorrections(raw).filter { it.first.equals(source, ignoreCase = true) }
+        val existing = parseCorrections(raw).filter { key(it.first) == key(source) }
         if (existing.isNotEmpty()) return Addition(
             if (existing.all { it.second == target }) AddResult.ALREADY_PRESENT else AddResult.CONFLICT, raw,
         )
@@ -34,11 +35,23 @@ object Vocabulary {
         return addition.result
     }
     fun applyCorrections(ctx: Context, text: String): String = applyCorrectionsTo(text, corrections(ctx))
+    private data class Compiled(val source: List<Pair<String, String>>, val pattern: Regex?, val rules: List<Pair<String, String>>)
+    @Volatile private var compiled: Compiled? = null
     fun applyCorrectionsTo(text: String, corrections: List<Pair<String, String>>): String {
-        val rules = corrections.filter { it.first.isNotEmpty() }.sortedByDescending { it.first.length }
-        if (rules.isEmpty()) return text
-        val alternatives = rules.joinToString("|") { Regex.escape(it.first) }
-        val rx = Regex("(?iu)(?<![\\p{L}])(?:$alternatives)(?![\\p{L}])")
-        return rx.replace(text) { match -> rules.firstOrNull { it.first.equals(match.value, ignoreCase = true) }?.second ?: match.value }
+        val current = compiled?.takeIf { it.source == corrections } ?: run {
+            val rules = corrections.filter { it.first.isNotBlank() }.sortedByDescending { it.first.length }
+            val alternatives = rules.mapIndexed { index, rule ->
+                val phrase = rule.first.trim().split(Regex("[\\s\\u00a0]+"))
+                    .joinToString("[ \\t\\u00a0]+") { Regex.escape(it) }
+                "(?<r$index>$phrase)"
+            }.joinToString("|")
+            val word = "[\\p{L}\\p{M}\\p{N}_]"
+            Compiled(corrections.toList(), if (rules.isEmpty()) null else Regex("(?iu)(?<!$word)(?:$alternatives)(?!$word)"), rules)
+                .also { compiled = it }
+        }
+        return current.pattern?.replace(text) { match ->
+            val index = current.rules.indices.first { match.groups["r$it"] != null }
+            current.rules[index].second
+        } ?: text
     }
 }

@@ -268,7 +268,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(settingsRow("Espace après chaque dictée",
             "Ajoute un espace à la fin de la transcription", spaceSwitch))
 
-        val vocabRow = settingsRow("Mon vocabulaire", "Corrections explicites (une par ligne)") {
+        val vocabRow = settingsRow("Mon vocabulaire", "Corrections mémorisées depuis l’overlay ou ajoutées ici") {
             val et = EditText(this).apply {
                 setText(Vocabulary.getRaw(this@MainActivity))
                 isSingleLine = false
@@ -323,9 +323,9 @@ class MainActivity : AppCompatActivity() {
         root.addView(settingsRow("Dernier post-traitement", "Dernier format demandé conservé · diagnostic copiable") {
             showPostprocessingDiagnostic()
         })
-        root.addView(settingsRow("Dernier collage d’image", "Champ destinataire · demande de collage · fichier lu") {
+        root.addView(settingsRow("Dernière copie d’image", "Presse-papier Android · collage manuel depuis Gboard") {
             val report = NoteImagePaste.report(this)
-            androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Dernier collage d’image").setMessage(report)
+            androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Dernière copie d’image").setMessage(report)
                 .setPositiveButton("Copier") { _, _ -> DictationClipboard.copy(this, report) }
                 .setNegativeButton("Fermer", null).show()
         })

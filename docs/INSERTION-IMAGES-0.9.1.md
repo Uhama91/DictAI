@@ -1,5 +1,7 @@
 # DictAI 0.9.1 — collage image dans la conversation et caméra interne
 
+> Historique : depuis la demande 0.9.2, les nouvelles captures vont uniquement au presse-papier pour collage manuel depuis Gboard. Aucun nouveau repère ni image ajouté aux notes. Les anciennes notes restent accessibles. Voir [le fonctionnement actuel](PRESSE-PAPIER-VOCABULAIRE-0.9.2.md).
+
 ## Problème et parcours obtenu
 
 Ullie utilise l’application Android **ChatGPT → Remote**. Le parcours 0.9.0 proposait automatiquement un export dès qu’une note contenait une image, au lieu de préparer une pièce jointe dans la conversation déjà ouverte. L’appareil photo externe masquait volontairement la pastille et pouvait la laisser invisible en cas d’interruption.

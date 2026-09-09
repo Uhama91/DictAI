@@ -30,4 +30,29 @@ class VocabularyTest {
             assertEquals(Vocabulary.AddResult.INVALID, Vocabulary.prepareCorrection("", source, target).result)
         }
     }
+    @Test fun noReplacementInsideIdentifiersDigitsOrCombiningMarks() {
+        val source = "cloud cloud2 my_cloud cloud\u0301 Cloud."
+        assertEquals("Claude cloud2 my_cloud cloud\u0301 Claude.", Vocabulary.applyCorrectionsTo(source, listOf("cloud" to "Claude")))
+    }
+    @Test fun phrasesAllowAsrSpacingButNotParagraphBoundaries() {
+        val rules = listOf("ma yotte" to "Maillot")
+        assertEquals("Maillot, Maillot et ma\nyotte", Vocabulary.applyCorrectionsTo("ma  yotte, MA\u00a0YOTTE et ma\nyotte", rules))
+        assertEquals(Vocabulary.AddResult.ALREADY_PRESENT, Vocabulary.prepareCorrection("ma yotte => Maillot", "ma  yotte", "Maillot").result)
+    }
+    @Test fun aNewRuleAppliesToLiveSpeechWithoutChangingTheManualCorrection() {
+        val transcript = EditableTranscript()
+        assertEquals("Je parle à ma yotte", transcript.update("Je parle à ma yotte"))
+        transcript.edit("Je parle à Maillot")
+        val rules = listOf("ma yotte" to "Maillot", "cloud" to "Claude")
+        fun stream(raw: String) = transcript.update(raw) { Vocabulary.applyCorrectionsTo(it, rules) }
+        assertEquals("Je parle à Maillot de Claude", stream("Je parle à ma yotte de cloud"))
+        assertEquals("Je parle à Maillot de Claude et Maillot", stream("Je parle à ma yotte de cloud et ma yotte"))
+    }
+    @Test fun aPhraseCanSpanTwoRecognitionUpdates() {
+        val rules = listOf("ma yotte" to "Maillot")
+        assertEquals("Bonjour ma", Vocabulary.applyCorrectionsTo("Bonjour ma", rules))
+        assertEquals("Bonjour Maillot", Vocabulary.applyCorrectionsTo("Bonjour ma yotte", rules))
+        assertEquals("Bonjour ma yotte", Vocabulary.applyCorrectionsTo("Bonjour ma yotte", emptyList()))
+    }
+
 }

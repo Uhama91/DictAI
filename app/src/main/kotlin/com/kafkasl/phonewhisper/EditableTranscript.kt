@@ -27,16 +27,18 @@ internal class EditableTranscript {
         protectedWords = raw.size
     }
 
-    @Synchronized fun update(text: String): String {
+    // Align the recognizer's words, not vocabulary output: a two-word alias can become one name.
+    // Transform only the unedited continuation so a user's manual prefix is never rewritten.
+    @Synchronized fun update(text: String, transform: (String) -> String = { it }): String {
         val matches = Regex("\\S+").findAll(text).toList()
         val next = matches.map { it.value }
         if (edited == null) {
             raw = next
-            return text
+            return transform(text)
         }
         protectedWords = mapBoundary(raw, next, protectedWords)
         raw = next
-        val tail = matches.getOrNull(protectedWords)?.range?.first?.let { text.substring(it) }.orEmpty()
+        val tail = transform(matches.getOrNull(protectedWords)?.range?.first?.let { text.substring(it) }.orEmpty())
         val prefix = edited.orEmpty()
         if (tail.isEmpty()) return prefix
         val sentenceStart = prefix.trimEnd().lastOrNull() in listOf('.', '!', '?', '…') || prefix.endsWith('\n')
@@ -45,8 +47,8 @@ internal class EditableTranscript {
     }
 
     /** A manually written draft remains publishable when the recognizer returns no speech. */
-    @Synchronized fun resolveFinal(recognized: String?): String? =
-        if (recognized.isNullOrBlank()) edited else update(recognized)
+    @Synchronized fun resolveFinal(recognized: String?, transform: (String) -> String = { it }): String? =
+        if (recognized.isNullOrBlank()) edited else update(recognized, transform)
 
     /** Align ASR revisions, including inserted/deleted words, without counting user-added words. */
     private fun mapBoundary(old: List<String>, next: List<String>, boundary: Int): Int {

@@ -40,11 +40,22 @@ internal fun injectionFeedbackMessage(result: InjectionResult): String? = when (
     InjectionResult.Failed -> "Insertion impossible"
 }
 
+internal fun injectOrCopy(controller: InjectionController?, text: String, copyToClipboard: (String) -> Boolean): InjectionResult =
+    injectOrCopy(controller, text, copyToClipboard, preserveClipboardOnDirectInsert = false)
+
 internal fun injectOrCopy(
     controller: InjectionController?,
     text: String,
     copyToClipboard: (String) -> Boolean,
+    preserveClipboardOnDirectInsert: Boolean,
 ): InjectionResult {
+    if (preserveClipboardOnDirectInsert) {
+        // The controller tries SET_TEXT before its clipboard fallback. Successful direct insertion
+        // leaves the captured image available; a failed insertion must still make text recoverable.
+        val insertion = runCatching { controller?.inject(text) }.getOrNull()
+        if (insertion == InjectionResult.Inserted || insertion == InjectionResult.Copied) return insertion
+        return if (runCatching { copyToClipboard(text) }.getOrDefault(false)) InjectionResult.Copied else InjectionResult.Failed
+    }
     val copied = runCatching { copyToClipboard(text) }.getOrDefault(false)
     val insertion = runCatching { controller?.inject(text) }.getOrNull()
     return when {

@@ -69,4 +69,14 @@ class EditableTranscriptTest {
         buffer.clear()
         assertEquals("nouvelle dictée", buffer.update("nouvelle dictée"))
     }
+    @Test fun `normalization cannot move the raw ASR boundary after a manual edit`() {
+        val buffer = EditableTranscript()
+        val normalize: (String) -> String = { it.replace("vingt trois", "23").replace("ma yotte", "Maillot") }
+        assertEquals("Les 23 élèves", buffer.update("Les vingt trois élèves", normalize))
+        buffer.edit("Les 23 élèves.")
+        assertEquals("Les 23 élèves. Appellent Maillot", buffer.update("Les vingt trois élèves appellent ma yotte", normalize))
+        buffer.edit("Les 23 élèves. Appellent M. Maillot !")
+        assertEquals("Les 23 élèves. Appellent M. Maillot ! Demain", buffer.resolveFinal("Les vingt trois élèves appellent ma yotte demain", normalize))
+    }
+
 }

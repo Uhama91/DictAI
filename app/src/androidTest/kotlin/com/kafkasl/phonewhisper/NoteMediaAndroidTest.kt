@@ -67,4 +67,36 @@ class NoteMediaAndroidTest {
             listOf("transcript_notes", "note_capture").forEach { app.deleteSharedPreferences("test-$id-$it") }
         }
     }
+    @Test fun clipboardCaptureNeedsNoNoteAndDoesNotCreateThumbnailsOrMarkers() {
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        val id = UUID.randomUUID().toString()
+        val dir = File(app.cacheDir, "clipboard-test-$id").apply { mkdirs() }
+        val context = object : ContextWrapper(app) {
+            override fun getFilesDir() = File(dir, "files").apply { mkdirs() }
+            override fun getCacheDir() = File(dir, "cache").apply { mkdirs() }
+            override fun getSharedPreferences(name: String, mode: Int) = app.getSharedPreferences("test-$id-$name", mode)
+        }
+        val store = NoteImageStore(context)
+        try {
+            // More than the old ten-image note limit; each gesture is an independent clipboard item.
+            repeat(11) {
+                val pending = store.beginClipboard(NoteImageKind.SCREENSHOT, true)
+                assertTrue(pending.clipboardOnly)
+                assertEquals("", pending.noteId)
+                val bitmap = Bitmap.createBitmap(20, 10, Bitmap.Config.ARGB_8888)
+                try { store.store(pending.id, bitmap) } finally { bitmap.recycle() }
+                val restored = NoteImageStore(context).pending()!!
+                assertTrue(restored.clipboardOnly)
+                assertNotNull(restored.image)
+                assertTrue(store.file(pending.id).length() > 0)
+                assertFalse(store.thumbnail(pending.id).exists())
+                store.clearPending(pending.id)
+                store.delete(pending.id)
+            }
+        } finally {
+            dir.deleteRecursively()
+            app.deleteSharedPreferences("test-$id-note_capture")
+        }
+    }
+
 }

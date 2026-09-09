@@ -2,6 +2,12 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Presse-papier et vocabulaire — essai 0.9.2 en vérification
+
+Nouvelle priorité explicite : abandonner le collage automatique et les nouvelles notes visuelles. Copier une capture/photo à la fois ; Gboard est le clavier de référence choisi par Ullie. Il colle lui-même chaque image puis termine la dictée pour insérer le texte. La caméra interne est confirmée fonctionnelle par son retour. Les anciennes notes restent conservées.
+
+La suggestion de vocabulaire dans l’overlay est renforcée pour les remplacements via Gboard et les révisions ASR pendant la frappe. Validation explicite, proposition temporaire, corrections locales déterministes pendant le streaming, aucun appel LLM ajouté. [Implémentation, limites et protocole](PRESSE-PAPIER-VOCABULAIRE-0.9.2.md).
+
 ## Collage dans la conversation et viseur interne — essai 0.9.1 publié
 
 Retour utilisateur après 0.9.0 : application **ChatGPT → Remote**, puis autres applications Android (Messenger, WhatsApp, Instagram, Claude…). Le menu de partage automatique est rejeté ; la capture doit tenter une pièce jointe dans la conversation déjà ouverte. La caméra externe fait disparaître la pastille. La correction locale reste satisfaisante sur texte court ; coût plus marqué sur texte long, sans nouvelle demande de modification du moteur.

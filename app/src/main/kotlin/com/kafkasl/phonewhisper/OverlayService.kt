@@ -201,6 +201,8 @@ class OverlayService : Service() {
     private var vocabularyBanner: LinearLayout? = null
     private var vocabularySuggestionText: TextView? = null
     private var vocabularyOffer: Runnable? = null
+    private var vocabularyDismiss: Runnable? = null
+    private var mediaToolbar: LinearLayout? = null
     private val editableTranscript = EditableTranscript()
     private val localFormatter by lazy { LocalFormatEngine(this) }
     private var formatDialog: AlertDialog? = null
@@ -219,8 +221,7 @@ class OverlayService : Service() {
     private var activeNoteId: String? = null
     private val imageStore by lazy { NoteImageStore(this) }
     private var captureWindowsHidden = false
-    private var pendingImageTarget: WhisperAccessibilityService.ImageTarget? = null
-    private var deliveringImageTarget: WhisperAccessibilityService.ImageTarget? = null
+    private var preserveImageClipboard = false
     private var imageDeliveryBusy = false
     private var exportAfterImageDelivery: String? = null
     private var imageStrip: LinearLayout? = null
@@ -393,7 +394,6 @@ class OverlayService : Service() {
 
     private fun startRec() {
         dismissFloatingMenu()
-        WhisperAccessibilityService.connected?.snapshotImageTarget()?.close()
         val requestedAt = SystemClock.uptimeMillis()
         val selectedFormat = PostProcessingFormats(this).selected()
         val cloudRequested = prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled && selectedFormat.usesLanguageModel
@@ -775,7 +775,7 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        val resolvedText = editableTranscript.resolveFinal(r.text?.let { normalizeRecognizedText(it, capture.options) })
+        val resolvedText = editableTranscript.resolveFinal(r.text) { normalizeRecognizedText(it, capture.options) }
         val formatStarted = SystemClock.elapsedRealtime()
         val lightCleanupApplied = !resolvedText.isNullOrBlank() && capture.options.lightTextCleanup &&
             capture.options.format.id == "cleanup" && !editableTranscript.hasUserEdits()
@@ -902,11 +902,13 @@ class OverlayService : Service() {
                                 controller = InjectionGateway.current(),
                                 text = outText,
                                 copyToClipboard = { DictationClipboard.copy(this, it) },
+                                preserveClipboardOnDirectInsert = preserveImageClipboard,
                             )
                         }.getOrElse {
                             Log.w(TAG, "event=injection outcome=failure type=${it.javaClass.simpleName}")
                             InjectionResult.Failed
                         }
+                        if (result != InjectionResult.Failed) preserveImageClipboard = false
                         runCatching {
                             val diagnostic = PostprocessingDiagnostic.report(
                                 version = BuildConfig.VERSION_NAME,
@@ -1145,7 +1147,7 @@ class OverlayService : Service() {
             isRecording = state == State.RECORDING,
             cancellation = run.cancellation,
         ) {
-            val display = editableTranscript.update(normalizeRecognizedText(text, run.formatOptions))
+            val display = editableTranscript.update(text) { normalizeRecognizedText(it, run.formatOptions) }
             scheduleLocalFormatting(run, display)
             persistDraft(display)
             val editor = liveText ?: return@publishIfAllowed
@@ -1197,7 +1199,8 @@ class OverlayService : Service() {
     private fun scheduleVocabularySuggestion(resetTimer: Boolean = true) {
         if (!resetTimer && vocabularyOffer != null) return
         vocabularyOffer?.let(main::removeCallbacks)
-        if (!isTranscriptEditable()) return
+        vocabularyOffer = null
+        if (!isTranscriptEditable() || !vocabularyTracker.hasPending) return
         val offer = Runnable {
             vocabularyOffer = null
             val editor = liveText ?: return@Runnable
@@ -1207,32 +1210,32 @@ class OverlayService : Service() {
                 editor.text.toString(), editor.selectionStart, editor.selectionEnd,
                 composing, SystemClock.elapsedRealtime(),
             )
+            val previous = vocabularySuggestion
             vocabularySuggestion = suggestion
-            vocabularySuggestionText?.text = suggestion?.let { "Mémoriser « ${it.from} » → « ${it.to} »" }.orEmpty()
+            vocabularySuggestionText?.text = suggestion?.let { "Enregistrer dans le vocabulaire\n« ${it.from} » → « ${it.to} »" }.orEmpty()
             setVocabularySuggestionVisible(suggestion != null)
-            if (composing) scheduleVocabularySuggestion()
+            if (suggestion != null && (suggestion != previous || vocabularyDismiss == null)) {
+                vocabularyDismiss?.let(main::removeCallbacks)
+                vocabularyDismiss = Runnable { resetVocabularyLearning() }.also { main.postDelayed(it, 12_000L) }
+            }
+            if (composing && suggestion == null) scheduleVocabularySuggestion()
         }
         vocabularyOffer = offer
         main.postDelayed(offer, vocabularyTracker.settleDelayMillis)
     }
 
     private fun setVocabularySuggestionVisible(visible: Boolean) {
-        val banner = vocabularyBanner ?: return
-        val next = if (visible) View.VISIBLE else View.GONE
-        if (banner.visibility == next) return
-        banner.visibility = next
-        val dp = resources.displayMetrics.density
-        liveScroll?.let { scroll ->
-            scroll.layoutParams = (scroll.layoutParams as FrameLayout.LayoutParams).apply {
-                topMargin = ((120 + if (visible) 64 else 0) * dp).toInt()
-            }
-        }
-        currentAnchor?.let(::positionLivePanel)
+        vocabularyBanner?.visibility = if (visible) View.VISIBLE else View.GONE
+        // Reuse the media toolbar's row: the offer stays reachable in a small overlay without
+        // covering the corrected text, resizing the editor or moving the caret under the finger.
+        mediaToolbar?.visibility = if (visible) View.GONE else View.VISIBLE
     }
 
     private fun resetVocabularyLearning() {
         vocabularyOffer?.let(main::removeCallbacks)
         vocabularyOffer = null
+        vocabularyDismiss?.let(main::removeCallbacks)
+        vocabularyDismiss = null
         vocabularyTracker.reset()
         vocabularySuggestion = null
         setVocabularySuggestionVisible(false)
@@ -1378,7 +1381,7 @@ class OverlayService : Service() {
             }, screen,
             ((if (panelExpanded) 600 else 312) * dp).toInt(),
             if (panelExpanded) (screen.height * 0.82f).toInt() else (liveText?.lineHeight ?: 20) * 3 +
-                ((160 + if (vocabularyBanner?.visibility == View.VISIBLE) 64 else 0) * dp).toInt(),
+                (160 * dp).toInt(),
             (6 * dp).toInt(),
         )
         panelParams.x = bounds.x
@@ -1494,9 +1497,7 @@ class OverlayService : Service() {
                 if (liveText === this && !updatingLiveText && !liveEditorChanging && isTranscriptEditable()) {
                     tailFollower?.userInteraction()
                     vocabularyTracker.onSelectionChanged(text.toString(), start, end)
-                    vocabularySuggestion = null
-                    setVocabularySuggestionVisible(false)
-                    scheduleVocabularySuggestion()
+                    scheduleVocabularySuggestion(resetTimer = false)
                 }
             }
         }.apply {
@@ -1513,6 +1514,8 @@ class OverlayService : Service() {
                         tailFollower?.userInteraction()
                         vocabularyTracker.beforeChange(s.toString(), start, count, after, selectionStart, selectionEnd)
                         vocabularySuggestion = null
+                        vocabularyDismiss?.let(main::removeCallbacks)
+                        vocabularyDismiss = null
                         setVocabularySuggestionVisible(false)
                     }
                 }
@@ -1630,9 +1633,10 @@ class OverlayService : Service() {
         livePanel.addView(panelFormat, FrameLayout.LayoutParams(-1, (24 * dp).toInt()).apply { topMargin = (48 * dp).toInt() })
 
         val mediaRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        mediaToolbar = mediaRow
         listOf(
-            Triple(R.drawable.ic_note_screenshot, "Capturer l’écran dans la note", { captureNoteImage(NoteImageKind.SCREENSHOT) }),
-            Triple(R.drawable.ic_note_camera, "Prendre une photo pour la note", { captureNoteImage(NoteImageKind.CAMERA) }),
+            Triple(R.drawable.ic_note_screenshot, "Capturer l’écran et copier l’image", { captureNoteImage(NoteImageKind.SCREENSHOT) }),
+            Triple(R.drawable.ic_note_camera, "Prendre une photo et copier l’image", { captureNoteImage(NoteImageKind.CAMERA) }),
             Triple(R.drawable.ic_note_share, "Partager ou exporter la note avec ses images", { exportNoteWithImages(automatic = false) }),
         ).forEach { (icon, label, action) ->
             val button = panelIcon(icon, label, action)
@@ -1649,6 +1653,7 @@ class OverlayService : Service() {
         val vocabRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             visibility = View.GONE
+            background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(0xFF24382F.toInt()) }
             setPadding((12 * dp).toInt(), 0, 0, 0)
         }
         vocabularySuggestionText = TextView(this).apply {
@@ -1667,7 +1672,7 @@ class OverlayService : Service() {
             setOnClickListener { resetVocabularyLearning() }
         }, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         vocabularyBanner = vocabRow
-        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (64 * dp).toInt()).apply { topMargin = (120 * dp).toInt() })
+        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()).apply { topMargin = (72 * dp).toInt() })
 
         // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
@@ -1908,25 +1913,16 @@ class OverlayService : Service() {
     private fun captureNoteImage(kind: NoteImageKind) {
         if (!isTranscriptEditable() || imageStore.pending() != null || imageDeliveryBusy) return
         if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) {
-            toast("Déverrouillez le téléphone pour joindre une image à la note.")
+            toast("Déverrouillez le téléphone pour capturer une image.")
             return
         }
         if (kind == NoteImageKind.SCREENSHOT && WhisperAccessibilityService.connected == null) {
             toast("Activez le service d’accessibilité DictAI pour capturer l’écran.")
             return
         }
-        val text = liveText?.text?.toString().orEmpty()
-        val note = notes.save(activeNoteId, text)
-        if (note.images.size >= NoteImage.MAX_IMAGES) { toast("Cette note contient déjà 10 images."); return }
-        activeNoteId = note.id
-        draftStore.noteId = note.id
-        val pending = runCatching { imageStore.begin(note, kind, state == State.RECORDING) }.getOrElse {
+        val pending = runCatching { imageStore.beginClipboard(kind, state == State.RECORDING) }.getOrElse {
             toast("Capture indisponible : vérifiez l’espace de stockage."); return
         }
-        pendingImageTarget?.close()
-        pendingImageTarget = WhisperAccessibilityService.connected?.snapshotImageTarget()
-        // Anchor at the visible end at the tap, before any asynchronous capture or new ASR words.
-        replaceNoteText(NoteImageMarkers.append(text, pending.number))
         refreshNoteImages()
         releaseTranscriptFocus()
         dismissFloatingMenu()
@@ -1999,14 +1995,13 @@ class OverlayService : Service() {
         if (localEngineLifecycle.isDestroyed()) return
         val pending = imageStore.pending()?.takeIf { it.complete } ?: return
         restoreCaptureWindows()
-        val note = notes.get(pending.noteId)
-        if (note == null) {
-            imageStore.delete(pending.id)
-        } else {
-            val image = pending.image
-            if (image != null && note.images.none { it.id == image.id } && note.images.size < NoteImage.MAX_IMAGES) {
-                notes.save(note.id, note.text, note.images + image)
-            } else if (image == null) {
+        // Complete an old in-flight contextual capture after an update without losing its image.
+        if (!pending.clipboardOnly) {
+            val note = notes.get(pending.noteId)
+            if (note == null) imageStore.delete(pending.id)
+            else if (pending.image != null && note.images.none { it.id == pending.id } && note.images.size < NoteImage.MAX_IMAGES)
+                notes.save(note.id, note.text, note.images + pending.image)
+            else if (pending.image == null) {
                 val text = NoteImageMarkers.remove(note.text, pending.number)
                 notes.save(note.id, text)
                 if (activeNoteId == note.id) replaceNoteText(text)
@@ -2014,63 +2009,33 @@ class OverlayService : Service() {
         }
         imageStore.clearPending(pending.id)
         refreshNoteImages()
-        val target = pendingImageTarget
-        pendingImageTarget = null
-        if (pending.image != null) pasteCapturedImage(pending.image, target, pending.noteId)
-        else { target?.close(); pending.error?.let(::toast) }
+        if (pending.image != null) copyCapturedImage(pending.image, discardSource = pending.clipboardOnly)
+        else pending.error?.let(::toast)
         if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
         else if (pending.kind == NoteImageKind.CAMERA && pending.resumeListening && activeRun != null && state == State.PAUSED)
             resumeRec()
     }
 
-    private fun pasteCapturedImage(image: NoteImage, target: WhisperAccessibilityService.ImageTarget?, noteId: String) {
-        deliveringImageTarget = target
+    private fun copyCapturedImage(image: NoteImage, discardSource: Boolean = false) {
         imageDeliveryBusy = true
         refreshNoteImages()
-        thread(name = "dictai-image-paste") {
+        thread(name = "dictai-image-clipboard") {
+            // Copy the already resized JPEG bytes: no numbering, second encoding or LLM.
             val prepared = runCatching { NoteImagePaste.prepare(this, image) }
+            if (discardSource) imageStore.delete(image.id)
             main.post {
-                if (localEngineLifecycle.isDestroyed()) { target?.close(); return@post }
-                if (prepared.isFailure) {
-                    target?.close(); finishImageDelivery(); toast("Image enregistrée dans la note ; préparation du collage impossible.")
-                    return@post
-                }
-                val uri = prepared.getOrThrow()
-                NoteImagePaste.begin(this, uri, image.number, target?.packageName)
-                releaseTranscriptFocus()
-                // The camera dialog must finish and return focus before checking the original editor.
-                main.postDelayed({
-                    val result = try {
-                        if (activeNoteId != noteId) ImagePasteResult.TARGET_CHANGED
-                        else if (target == null) ImagePasteResult.NO_TARGET
-                        else WhisperAccessibilityService.connected?.pasteImage(target, uri) ?: ImagePasteResult.NO_TARGET
-                    } catch (_: Exception) { ImagePasteResult.FAILED }
-                    finally { target?.close(); deliveringImageTarget = null }
-                    NoteImagePaste.record(this, uri, result)
-                    toast(when (result) {
-                        ImagePasteResult.REQUESTED -> "Image ${image.number} : collage demandé dans la conversation."
-                        ImagePasteResult.COPIED -> "Image ${image.number} copiée ; le champ n’a pas accepté le collage."
-                        ImagePasteResult.NO_TARGET -> "Image ${image.number} conservée dans la note ; touchez d’abord le champ de la conversation."
-                        ImagePasteResult.SELECTION_ACTIVE -> "Image conservée : terminez la sélection de texte avant de la coller."
-                        ImagePasteResult.TARGET_CHANGED -> "Image conservée : le champ de la conversation a changé."
-                        ImagePasteResult.FAILED -> "Image conservée dans la note ; collage indisponible."
-                    })
-                    // An immediate stop must not overwrite an image clipboard still being read.
-                    val started = SystemClock.uptimeMillis()
-                    fun awaitRead() {
-                        if (localEngineLifecycle.isDestroyed()) return
-                        if (result != ImagePasteResult.REQUESTED || NoteImagePaste.read(this, uri) || SystemClock.uptimeMillis() - started >= 1_200)
-                            finishImageDelivery()
-                        else main.postDelayed({ awaitRead() }, 60)
-                    }
-                    awaitRead()
-                }, 300)
+                if (localEngineLifecycle.isDestroyed()) return@post
+                val copied = prepared.getOrNull()?.let { NoteImagePaste.copy(this, it) } == true
+                if (copied) preserveImageClipboard = true
+                NoteImagePaste.recordCopy(this, image.kind, copied)
+                toast(if (copied) "Image copiée. Collez-la dans votre conversation avant la prochaine capture."
+                    else "Impossible de copier l’image. Réessayez la capture.")
+                finishImageDelivery()
             }
         }
     }
 
     private fun finishImageDelivery() {
-        deliveringImageTarget?.close(); deliveringImageTarget = null
         imageDeliveryBusy = false
         refreshNoteImages()
         if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
@@ -2093,8 +2058,8 @@ class OverlayService : Service() {
         val images = notes.get(activeNoteId)?.images.orEmpty()
         val pending = imageStore.pending()
         val editable = isTranscriptEditable() && !imageDeliveryBusy
-        mediaButtons.forEachIndexed { index, button ->
-            button.isEnabled = editable && pending == null && (index == 2 || images.size < NoteImage.MAX_IMAGES)
+        mediaButtons.forEach { button ->
+            button.isEnabled = editable && pending == null
             button.alpha = if (button.isEnabled) 1f else .4f
         }
         val strip = imageStrip ?: return
@@ -2104,9 +2069,9 @@ class OverlayService : Service() {
         strip.removeAllViews()
         val dp = resources.displayMetrics.density
         if (images.isEmpty() || pending != null) strip.addView(TextView(this).apply {
-            text = if (pending != null) "Capture… ×" else "0/10"; textSize = 11f; setTextColor(0xFFBBBBBB.toInt())
+            text = if (pending != null) "Capture… ×" else ""; textSize = 11f; setTextColor(0xFFBBBBBB.toInt())
             minWidth = (48 * dp).toInt(); minHeight = (40 * dp).toInt()
-            contentDescription = if (pending != null) "Annuler la capture en attente" else "0 image sur 10"
+            contentDescription = if (pending != null) "Annuler la capture en attente" else ""
             if (pending != null) setOnClickListener {
                 imageStore.fail(pending.id, "Capture annulée.")
                 finishPendingImage()
@@ -2120,9 +2085,9 @@ class OverlayService : Service() {
                 setOnClickListener { previewNoteImage(image) }
                 setOnLongClickListener {
                     if (imageStore.pending() == null && !imageDeliveryBusy && isTranscriptEditable()) showFloatingMenu("Image ${image.number}", listOf(
-                        MenuEntry("Coller dans la conversation ouverte", {
+                        MenuEntry("Copier l’image", {
                             dismissFloatingMenu()
-                            activeNoteId?.let { pasteCapturedImage(image, WhisperAccessibilityService.connected?.snapshotImageTarget(), it) }
+                            copyCapturedImage(image)
                         }),
                         MenuEntry("Retirer cette image de la note", { removeNoteImage(image) }),
                         MenuEntry("Retour", ::dismissFloatingMenu),
@@ -2298,10 +2263,13 @@ class OverlayService : Service() {
         // Let focus return to the underlying app before resolving its text field.
         main.post {
             val result = runCatching {
-                injectOrCopy(InjectionGateway.current(), text, { DictationClipboard.copy(this, it) })
+                injectOrCopy(InjectionGateway.current(), text, { DictationClipboard.copy(this, it) }, preserveClipboardOnDirectInsert = preserveImageClipboard)
             }.getOrDefault(InjectionResult.Failed)
             injectionFeedbackMessage(result)?.let(::toast)
-            if (result != InjectionResult.Failed) clearOpenDraft()
+            if (result != InjectionResult.Failed) {
+                preserveImageClipboard = false
+                clearOpenDraft()
+            }
             else {
                 setState(State.PAUSED)
                 panelHidden = false
@@ -2422,11 +2390,10 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
-        pendingImageTarget?.close(); pendingImageTarget = null
-        deliveringImageTarget?.close(); deliveringImageTarget = null
         resetVocabularyLearning()
         mediaButtons.clear()
         imageStrip = null
+        mediaToolbar = null
         localFormatter.close()
         dismissFloatingMenu()
         formatDialog?.dismiss()
