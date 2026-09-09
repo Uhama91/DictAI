@@ -2,6 +2,18 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Priorité utilisateur précisée : nettoyage utile en local
+
+Après les résultats du banc 0.9.4, Ullie précise qu’il n’attend pas une transcription parfaite comparable à celle d’un puissant modèle cloud. **La priorité est le retrait des hésitations/onomatopées parasites et répétitions involontaires, la correction des maladresses et la cohérence des phrases**, en conservant son intention. Un résultat majoritairement propre et agréable à utiliser convient. Les listes et les paragraphes deviennent des améliorations secondaires ; leurs scores ne doivent pas masquer un nettoyage réussi ni déclencher seuls de nouvelles optimisations ou une hausse de latence. Cette précision prévaut sur un classement technique mettant le découpage des listes en première priorité.
+
+## Banc téléphone 0.9.4 reçu — 28 essais complets
+
+Ullie fournit les 14 exemples synthétiques en deux passages, avec résultats identiques entre passages et durées différentes. **26 appels Gemma : 20 acceptés, 6 rejetés ; deux réponses directes à part. Les dix essais de listes sont acceptés lexicalement mais échouent sur les coupures.** Les six rejets concernent deux mails anglais avec signature ajoutée/dupliquée et l’ancien mail français long avec des mots ajoutés/omis. Le texte français retire euh et corrige les répétitions/accords, mais manque son deuxième paragraphe ; le texte anglais et le mail français à trois sujets atteignent leurs nombres de paragraphes ciblés.
+
+Durées appel + validation : **1 292 à 9 135 ms**, médiane 2 224,5 ms ; 6 appels dépassent 5 s, 2 dépassent 8 s, aucun ne dépasse 10 s. Mesure isolée, moteur chargé, hors arrêt ASR et insertion ; pas de conclusion sur le délai complet de dictée. PSS 1 992 → 1 966 Mio, état thermique 0 → 0, sans mesure des pics.
+
+Inspection du code : le banc utilise le moteur et ses contrôles mais **ne passe pas par le nouveau `CorrectedTextPreparation` de l’overlay**. Le retrait de euh dans son exemple ne valide pas à lui seul la préparation et le repli de Texte corrigé en 0.9.4. Le format de l’utilisateur est déjà confirmé ; ne plus le redemander. Les cinq listes du banc donnent désormais des exemples exacts pour le travail de segmentation, dont une phrase d’actions. [Analyse et suites ciblées](2026-09-09-retour-gemma-0.9.4.md), [données complètes](benchmarks/local-format/gemma4-poco-f7-094-user-2026-09-09.json). Cette réception n’ajoute aucune modification applicative ni nouvelle APK.
+
 ## Texte corrigé : retrait fiable des hésitations — 0.9.4 publiée et vérifiée
 
 Ullie confirme explicitement qu’il utilisait déjà Texte corrigé ; il ne s’agit pas de lui redemander le format. Le code permettait une sortie avec hésitations et un repli inchangé. Préparation déterministe du texte avant modèle et en repli, protection des segments réellement saisis à la main, anticipation cohérente et compteur dans le diagnostic. Aucun changement de modèle, de thinking, des plafonds d’attente ou des autres formats. [Comportement, cas protégés et vérification](HESITATIONS-TEXTE-CORRIGE-0.9.4.md).

@@ -16,6 +16,8 @@ Les modes Texte, Mail, Liste et les formats personnels gardent leur comportement
 
 ## Diagnostic et essai ciblé
 
+Le [banc téléphone complet reçu en 0.9.4](2026-09-09-retour-gemma-0.9.4.md) retire euh dans son exemple français aux deux passages. Il appelle directement Gemma et la validation ; il ne traverse pas `CorrectedTextPreparation` dans l’overlay. Ce résultat confirme le comportement du modèle sur cet exemple, mais ne valide pas à lui seul le nouveau nettoyage avant modèle, les retouches manuelles ou le repli. Ne pas demander à Ullie de relancer les 28 essais pour cette vérification ciblée.
+
 Dernier post-traitement indique **Hésitations retirées avant correction : N · règles locales** lorsqu’un retrait a eu lieu. En cas d’échec du modèle, le rapport distingue ce nettoyage réussi de la correction non appliquée. Le compteur ne contient aucun texte dicté ni terme du vocabulaire.
 
 Sur téléphone, sélectionner Texte corrigé, dicter « Euh, je consulte Grok et euh je garde les 23 dossiers ». Résultat attendu : « Je consulte Grok et je garde les 23 dossiers. » Vérifier aussi une correction de Grok au milieu de la même dictée suivie de nouvelles hésitations. Une citation volontaire contenant euh doit rester intacte.
