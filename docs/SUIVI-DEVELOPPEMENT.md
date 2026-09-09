@@ -2,6 +2,14 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Direction actuelle : messages et notes visuelles cohabitent sur Android
+
+Ullie conserve la pastille et le fonctionnement actuel ; le portage iOS est écarté pour l’instant. **Précision explicite : le parcours message reste à part entière.** Dicter, voir/corriger le texte dans le panneau DictAI et l’insérer volontairement dans le champ cible doit cohabiter avec la prise de notes ; ne pas imposer une note ou un export à chaque dictée, ni remplacer les gestes actuels par un nouveau sélecteur obligatoire.
+
+DictAI doit aussi permettre de créer rapidement une note en pause, capturer l’écran ou prendre une photo, commenter en dictée directe avec Nemotron ou au clavier, agrandir le panneau, puis récupérer le contexte complet en PDF/HTML pour un agent IA. La tablette et le stylet font partie des usages à travailler ; aucun canevas d’écriture ou de dessin libre n’est encore implémenté ni précisément demandé.
+
+Priorité à la fluidité de cette prise de notes et au lien entre images et commentaires. Le nettoyage local reste utile à ce parcours, avec les attentes réalistes précisées ci-dessous. Les deux exports existent : HTML autonome avec JPEG intégrés, PDF avec texte sélectionnable et images. La lecture visuelle par le destinataire reste distincte de l’ouverture du fichier ; ne pas annoncer de compatibilité universelle ni redemander les validations de stockage/exports déjà reçues. [Direction, fonctionnement vérifié et critères de suite](2026-09-09-orientation-notes-android.md). Documentation uniquement à cette étape ; aucun changement des gestes ou de l’application.
+
 ## Priorité utilisateur précisée : nettoyage utile en local
 
 Après les résultats du banc 0.9.4, Ullie précise qu’il n’attend pas une transcription parfaite comparable à celle d’un puissant modèle cloud. **La priorité est le retrait des hésitations/onomatopées parasites et répétitions involontaires, la correction des maladresses et la cohérence des phrases**, en conservant son intention. Un résultat majoritairement propre et agréable à utiliser convient. Les listes et les paragraphes deviennent des améliorations secondaires ; leurs scores ne doivent pas masquer un nettoyage réussi ni déclencher seuls de nouvelles optimisations ou une hausse de latence. Cette précision prévaut sur un classement technique mettant le découpage des listes en première priorité.
