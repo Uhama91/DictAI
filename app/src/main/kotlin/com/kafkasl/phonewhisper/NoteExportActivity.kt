@@ -70,6 +70,19 @@ class NoteExportActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
+    override fun finish() {
+        // Restore only the paused note which was visible when this temporary task opened.
+        // Leaving the chooser or reader open must not put the editor over the destination app.
+        if (intent.getBooleanExtra("restoreNote", false)) {
+            intent.putExtra("restoreNote", false)
+            runCatching {
+                startService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_EXPORT_CLOSED)
+                    .putExtra("noteId", intent.getStringExtra("noteId")))
+            }
+        }
+        super.finish()
+    }
+
     private fun prepare(next: Format, ready: () -> Unit) {
         if (busy) return
         if (documents.isNotEmpty() && format == next) { ready(); return }
@@ -105,7 +118,7 @@ class NoteExportActivity : Activity() {
             android.util.Log.i("DictAI", "event=note_export format=$next images=${note.images.size} elapsed_ms=$elapsed success=${result.isSuccess}")
             runOnUiThread {
                 busy = false
-                if (isDestroyed) return@runOnUiThread
+                if (isDestroyed || isFinishing) return@runOnUiThread
                 actions.forEach { it.isEnabled = true }
                 if (result.isSuccess) {
                     documents = result.getOrThrow(); format = next

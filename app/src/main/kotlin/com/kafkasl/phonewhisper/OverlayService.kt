@@ -148,6 +148,7 @@ class OverlayService : Service() {
         private const val NOTIF_ID = 1001
         private const val SAMPLE_RATE = 16000
         const val ACTION_CAPTURE_RESULT = "com.uhama.whisperpin.CAPTURE_RESULT"
+        const val ACTION_EXPORT_CLOSED = "com.uhama.whisperpin.EXPORT_CLOSED"
         const val ACTION_OPEN_NOTES = "com.uhama.whisperpin.OPEN_NOTES"
         const val ACTION_ARM_MIC = "com.uhama.whisperpin.ARM_MIC"
         const val ACTION_PREPARE_LOCAL_FORMAT = "com.uhama.whisperpin.PREPARE_LOCAL_FORMAT"
@@ -271,6 +272,11 @@ class OverlayService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CAPTURE_RESULT) finishPendingImage()
+        if (intent?.action == ACTION_EXPORT_CLOSED && state == State.PAUSED &&
+            activeNoteId != null && activeNoteId == intent.getStringExtra("noteId")) {
+            panelHidden = false
+            setLivePreviewVisible(true)
+        }
         if (intent?.action == ACTION_ARM_MIC) {
             promoteMic()
             // Si le modèle local n'était pas dispo au démarrage (pas encore téléchargé),
@@ -2115,8 +2121,16 @@ class OverlayService : Service() {
     private fun launchNoteExport(note: TranscriptNote, automatic: Boolean = false) {
         dismissFloatingMenu()
         releaseTranscriptFocus()
-        startActivity(Intent(this, NoteExportActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .putExtra("noteId", note.id).putExtra("autoShare", automatic))
+        val restoreNote = livePreviewVisible && activeNoteId == note.id && state == State.PAUSED
+        panelHidden = true
+        setLivePreviewVisible(false)
+        runCatching {
+            startActivity(Intent(this, NoteExportActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra("noteId", note.id).putExtra("autoShare", automatic).putExtra("restoreNote", restoreNote))
+        }.onFailure {
+            if (restoreNote) { panelHidden = false; setLivePreviewVisible(true) }
+            toast("Impossible d’ouvrir l’export. La note est conservée.")
+        }
     }
 
     private fun persistDraft(text: String) {

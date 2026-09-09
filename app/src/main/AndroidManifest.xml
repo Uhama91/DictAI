@@ -41,8 +41,10 @@
             android:launchMode="singleTop" />
 
         <activity android:name=".NoteCameraActivity" android:exported="false"
+            android:taskAffinity=""
             android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".NoteExportActivity" android:exported="false"
+            android:taskAffinity=""
             android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
         <provider android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.note_files" android:exported="false"
