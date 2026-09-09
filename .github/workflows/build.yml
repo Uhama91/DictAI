@@ -99,11 +99,13 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.8.0 Android ARM64 : prototype Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
-            'Installez cette APK, ouvrez DictAI puis touchez Installer Gemma 4 E2B : téléchargement unique de 2,6 Go, reprenable et vérifié. Le modèle est ensuite utilisable hors ligne.' \
-            'Choisissez Local puis Liste ou Mail. Le menu Tester Gemma sur ce téléphone mesure neuf exemples FR/EN ; Dernier post-traitement indique le moteur réellement appliqué et le délai final.' \
+            'DictAI 0.8.1 Android ARM64 : prototype Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
+            'Installez cette APK en mise à jour : le modèle Gemma déjà téléchargé est conservé. Pour une première installation, touchez Installer Gemma 4 E2B : téléchargement unique de 2,6 Go, reprenable et vérifié.' \
+            'Dernier post-traitement conserve maintenant le dernier format demandé même après une dictée en mode Texte. Le bouton Dernière dictée permet également de lire le rapport le plus récent. Aucun texte dicté n’est ajouté aux diagnostics.' \
+            'Le format affiché et la finalisation utilisent les mêmes options immuables, fixées au début de la dictée ; les replis implicites vers Texte à l’arrêt sont supprimés.' \
+            'Le banc ne présente plus les mots comme absents lorsque la réponse a été rejetée. Le mode Texte indique clairement qu’aucun appel LLM n’est prévu. Le modèle, ses consignes et le délai de cinq secondes restent inchangés ; cette version sert à identifier la cause des mails longs sans mise en forme.' \
             'Cette version est expérimentale : aucune latence GPU ni qualité générale n’est garantie sur votre appareil. Une sortie infidèle conserve la transcription. Aucun repli cloud automatique ; votre mode cloud avec clé API reste disponible.' \
             'APK compilée, testée et vérifiée par GitHub Actions. Le poids 350M n’est plus inclus.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.8.0 — essai Gemma sur GPU' --notes-file release-notes.md
+            --title 'DictAI 0.8.1 — diagnostic des formats Gemma' --notes-file release-notes.md

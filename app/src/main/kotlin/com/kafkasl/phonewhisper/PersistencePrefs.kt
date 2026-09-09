@@ -1,9 +1,10 @@
 package com.kafkasl.phonewhisper
 
 import android.content.Context
+import android.content.SharedPreferences
 
-class PersistencePrefs(ctx: Context) {
-    private val p = ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE)
+class PersistencePrefs internal constructor(private val p: SharedPreferences) {
+    constructor(ctx: Context) : this(ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE))
 
     init { migrateCloudCleanupPreferences() }
 
@@ -42,9 +43,19 @@ class PersistencePrefs(ctx: Context) {
         get() = p.getString("last_error", null)
         set(v) { p.edit().putString("last_error", v).apply() }
 
-    internal var lastPostprocessingDiagnostic: String?
+    internal val lastPostprocessingDiagnostic: String?
         get() = p.getString("last_postprocessing_diagnostic", null)
-        set(value) { p.edit().putString("last_postprocessing_diagnostic", value).apply() }
+
+    internal val lastFormatPostprocessingDiagnostic: String?
+        get() = p.getString("last_format_postprocessing_diagnostic", null)
+
+    /** A plain dictation used to explain an unsuccessful mail must not erase its diagnostic. */
+    internal fun recordPostprocessingDiagnostic(report: String, formatRequested: Boolean) {
+        p.edit().apply {
+            putString("last_postprocessing_diagnostic", report)
+            if (formatRequested) putString("last_format_postprocessing_diagnostic", report)
+        }.apply()
+    }
 
     /** Ajoute automatiquement une espace à la fin de chaque transcription insérée. */
     var trailingSpace: Boolean

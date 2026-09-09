@@ -312,14 +312,8 @@ class MainActivity : AppCompatActivity() {
             gemmaSubtitle = row.findViewWithTag("subtitle")
             root.addView(row)
         }
-        root.addView(settingsRow("Dernier post-traitement", "Moteur utilisé et résultat · diagnostic copiable") {
-            val report = PersistencePrefs(this).lastPostprocessingDiagnostic
-            androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Dernier post-traitement")
-                .setMessage(report ?: "Aucun traitement enregistré.")
-                .setPositiveButton("Copier") { _, _ -> report?.let { DictationClipboard.copy(this, it) } }
-                .setNegativeButton("Fermer", null)
-                .show()
+        root.addView(settingsRow("Dernier post-traitement", "Dernier format demandé conservé · diagnostic copiable") {
+            showPostprocessingDiagnostic()
         })
         if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
             root.addView(settingsRow("Tester Gemma sur ce téléphone", "GPU · sans thinking · vitesse et fidélité FR/EN") {
@@ -381,6 +375,23 @@ class MainActivity : AppCompatActivity() {
         }
         refresh()
         gemmaSubtitle?.text = gemmaInstallLabel()
+    }
+
+    private fun showPostprocessingDiagnostic(latestDictation: Boolean = false) {
+        val prefs = PersistencePrefs(this)
+        val latest = prefs.lastPostprocessingDiagnostic
+        val formatted = prefs.lastFormatPostprocessingDiagnostic
+        val report = if (latestDictation) latest else formatted ?: latest
+        val title = if (!latestDictation && formatted != null) "Dernier format demandé" else "Dernière dictée"
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(report ?: "Aucun traitement enregistré. Après un essai Mail ou Liste, son diagnostic restera disponible ici même après une dictée en mode Texte.")
+            .setPositiveButton("Copier") { _, _ -> report?.let { DictationClipboard.copy(this, it) } }
+            .setNegativeButton("Fermer", null)
+        if (!latestDictation && formatted != null && latest != null && latest != formatted) {
+            dialog.setNeutralButton("Dernière dictée") { _, _ -> showPostprocessingDiagnostic(latestDictation = true) }
+        }
+        dialog.show()
     }
 
     private fun gemmaInstallLabel(): String = if (GemmaModelStore(this).installedModel() != null)

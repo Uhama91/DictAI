@@ -176,8 +176,6 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     val totalMs = SystemClock.elapsedRealtime() - start
                     if (cancelled.get()) break@runs
                     val output = example.request.acceptOutput(raw)
-                    val missing = example.expected.filterNot { hasTerm(output.orEmpty(), it) }
-                    val unwanted = example.forbidden.filter { hasTerm(output.orEmpty(), it) }
                     if (cold) report.append("Calcul : ${engine.runtimeName()}\n\n")
                     if (cold) engine.lastLoadMs()?.let { report.append("Dernière initialisation du moteur partagé : $it ms\n\n") }
                     report.append("Passage $pass · ${example.name} · ${if (preparation?.wasAlreadyLoaded == false) "chargement effectué" else "moteur chargé"}\n")
@@ -195,9 +193,15 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     if (grouping != null && !grouping.passed) {
                         report.append("Coupures après le mot n° : manquantes ${grouping.missing.sorted()} ; inattendues ${grouping.unexpected.sorted()}\n")
                     }
-                    report.append("Repères de contenu : ${example.expected.size - missing.size}/${example.expected.size}")
-                    if (missing.isNotEmpty()) report.append(" ; absents : ${missing.joinToString()}")
-                    if (unwanted.isNotEmpty()) report.append(" ; ajouts à vérifier : ${unwanted.joinToString()}")
+                    if (output == null) {
+                        report.append("Repères de contenu : non évalués (aucune sortie validée)")
+                    } else {
+                        val missing = example.expected.filterNot { hasTerm(output, it) }
+                        val unwanted = example.forbidden.filter { hasTerm(output, it) }
+                        report.append("Repères de contenu : ${example.expected.size - missing.size}/${example.expected.size}")
+                        if (missing.isNotEmpty()) report.append(" ; absents : ${missing.joinToString()}")
+                        if (unwanted.isNotEmpty()) report.append(" ; ajouts à vérifier : ${unwanted.joinToString()}")
+                    }
                     report.append("\nEntrée : ${example.request.text}\n")
                     if (output != null) report.append("Sortie :\n$output\n\n")
                     else report.append("Sortie absente ou rejetée par les contrôles techniques/vocabulaire.\nBrut : ${raw ?: "aucun texte retourné"}\n\n")

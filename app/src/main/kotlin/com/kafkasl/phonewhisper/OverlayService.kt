@@ -161,6 +161,7 @@ class OverlayService : Service() {
 
     private class ActiveDictationRun(
         val session: DictationAsrSession,
+        val formatOptions: RecordingOptions,
         val cancellation: DictationCancellationCoordinator = DictationCancellationCoordinator(),
     ) {
         val captureGate = RecordingCaptureGate()
@@ -175,7 +176,6 @@ class OverlayService : Service() {
         var localFormatting: LocalFormattingSession? = null
         var formatOffer: Runnable? = null
         var formatOfferRequest: LocalFormatRequest? = null
-        var formatOptions: RecordingOptions? = null
         var stoppedAtMs = 0L
         var firstFormatVisible = false
         var formatStage: String? = null
@@ -220,7 +220,6 @@ class OverlayService : Service() {
     @Volatile private var asrEngine: DictationAsrEngine? = null
     @Volatile private var asrSession: DictationAsrSession? = null
     @Volatile private var activeRun: ActiveDictationRun? = null
-    private var recordingOptions: RecordingOptions? = null
     @Volatile private var loadedModelName: String? = null
     private var baseButtonW = 0
     private var baseButtonH = 0
@@ -455,8 +454,7 @@ class OverlayService : Service() {
             toast("Dictée déjà en cours.")
             return
         }
-        val run = ActiveDictationRun(started.session)
-        run.formatOptions = options
+        val run = ActiveDictationRun(started.session, options)
         if (options.localFormattingEnabled && options.format.id in setOf("list", "email")) {
             localFormatter.warm()
             run.localFormatting = LocalFormattingSession(localFormatter.backend())
@@ -468,7 +466,6 @@ class OverlayService : Service() {
         try {
             audioRecord = ar
             pcm = recordingPcm
-            recordingOptions = options
             asrSession = started.session
             activeRun = run
             val restored = recoveredDraft
@@ -493,7 +490,6 @@ class OverlayService : Service() {
             if (audioRecord === ar) audioRecord = null
             recordThread = null
             pcm = null
-            recordingOptions = null
             run.cancellation.cancel()
             if (activeRun === run) activeRun = null
             try { ar.stop() } catch (_: Throwable) {}
@@ -673,17 +669,10 @@ class OverlayService : Service() {
                     run = run,
                     pcm = pcm?.toByteArray() ?: ByteArray(0),
                     session = asrSession ?: run.session,
-                    options = recordingOptions ?: RecordingOptions(
-                        language = DictationLanguage.FRENCH,
-                        asrMode = DictationAsrMode.BATCH,
-                        cloudCleanupEnabled = false,
-                        cloudSuppressedForSensitiveTarget = false,
-                        cloudModel = CloudModelCatalog.default,
-                    ),
+                    options = run.formatOptions,
                 )
                 pcm = null
                 asrSession = null
-                recordingOptions = null
             },
         )
         run.completion.markWorkerStarted()
@@ -694,13 +683,7 @@ class OverlayService : Service() {
                         val stoppedCapture = capture ?: RecordingCapture(
                             run,
                             ByteArray(0), null,
-                            RecordingOptions(
-                                DictationLanguage.FRENCH,
-                                DictationAsrMode.BATCH,
-                                false,
-                                false,
-                                CloudModelCatalog.default,
-                            ),
+                            run.formatOptions,
                         )
                         processStoppedRecording(stoppedCapture)
                     }
@@ -885,7 +868,7 @@ class OverlayService : Service() {
                             InjectionResult.Failed
                         }
                         runCatching {
-                            prefs.lastPostprocessingDiagnostic = PostprocessingDiagnostic.report(
+                            val diagnostic = PostprocessingDiagnostic.report(
                                 version = BuildConfig.VERSION_NAME,
                                 timestampMs = System.currentTimeMillis(),
                                 formatId = capture.options.format.id,
@@ -909,6 +892,8 @@ class OverlayService : Service() {
                                 cloudSuppressed = capture.options.cloudSuppressedForSensitiveTarget,
                                 modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
                             )
+                            prefs.recordPostprocessingDiagnostic(diagnostic,
+                                formatRequested = capture.options.format.instructions.isNotBlank())
                         }.onFailure {
                             Log.w(TAG, "event=postprocess_diagnostic outcome=unavailable type=${it.javaClass.simpleName}")
                         }
@@ -946,7 +931,6 @@ class OverlayService : Service() {
                 // Discard only once AudioRecord.read() can no longer write to this session.
                 asrSession = null
                 pcm = null
-                recordingOptions = null
             },
         )
         thread(name = "dictai-cancel-rec") {
@@ -1244,7 +1228,7 @@ class OverlayService : Service() {
     /** Prepare at natural pauses; an ASR revision or a user edit invalidates the old source key. */
     private fun scheduleLocalFormatting(run: ActiveDictationRun, text: String) {
         val formatter = run.localFormatting ?: return
-        val options = run.formatOptions ?: return
+        val options = run.formatOptions
         val request = text.takeIf { it.isNotBlank() }?.let {
             localFormatRequest(it, options, applyVocabulary = false)
         }

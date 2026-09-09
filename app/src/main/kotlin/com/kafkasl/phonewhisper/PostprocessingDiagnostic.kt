@@ -57,7 +57,9 @@ internal object PostprocessingDiagnostic {
                 "backend_empty" -> "moteur sans résultat complet"
                 "backend_error", "error" -> "erreur du moteur"
                 "cancelled", "interrupted" -> "calcul interrompu"
-                else -> "traitement non exécuté ou indisponible"
+                else -> if (formatId == "cleanup" && local == null && applied == Applied.ORIGINAL)
+                    "mode Texte : aucun appel au LLM prévu"
+                else "traitement non exécuté ou indisponible"
             }}\n")
             local?.let { append("Attente finale locale : ${it.waitMs} ms\n") }
         }

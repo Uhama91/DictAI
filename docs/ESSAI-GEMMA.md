@@ -18,6 +18,8 @@ Choisir **Local** dans **Moteur de post-traitement**, puis **Liste** ou **Mail**
 
 Après une dictée, ouvrir **Dernier post-traitement** et copier le diagnostic. Il indique le modèle, la route réellement appliquée, la configuration GPU/MTP/thinking, le délai de finalisation et l'arrêt vers insertion/copie. Ce diagnostic ne contient ni dictée, ni vocabulaire, ni clé API. Le cloud reste un choix explicite avec la clé de l'utilisateur ; aucune bascule automatique n'est effectuée.
 
+À partir de 0.8.1, ce menu présente par défaut le **dernier format demandé**, même si une dictée en mode Texte a été faite ensuite. Son titre et la date du rapport permettent de le reconnaître. Le bouton **Dernière dictée** donne accès au rapport le plus récent de tous les modes. La mise à jour ne peut pas récupérer un rapport déjà écrasé par 0.8.0 : effectuer un essai Mail après installation, puis copier ce diagnostic. Le format est fixé au démarrage et partagé par l’affichage et la finalisation ; le choisir avant de commencer à dicter.
+
 ## Mesure reproductible
 
 **Tester Gemma sur ce téléphone** exécute neuf sources FR/EN, deux passages, dont deux réponses directes sans appel au modèle. Les sources comprennent listes sans virgules, compléments à conserver, nombres, négations et signatures. Les critères de regroupement sont distincts de la conservation du texte. Le résultat brut des exemples synthétiques est disponible dans le rapport du banc pour expliquer les refus.

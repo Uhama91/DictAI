@@ -4,6 +4,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PostprocessingDiagnosticTest {
+    @Test fun plainTextWithoutNativeCallIsExpectedRatherThanAnEngineFailure() {
+        val value = report(local = null, applied = PostprocessingDiagnostic.Applied.ORIGINAL,
+            format = "cleanup", runtime = "litert-lm-gpu-mtp-thinking-off")
+        assertTrue(value.contains("mode Texte : aucun appel au LLM prévu"))
+        assertTrue(value.contains("Appel natif pour ce résultat : non"))
+        assertFalse(value.contains("traitement non exécuté ou indisponible"))
+        val missingMail = report(local = null, applied = PostprocessingDiagnostic.Applied.ORIGINAL)
+        assertTrue(missingMail.contains("traitement non exécuté ou indisponible"))
+        assertFalse(missingMail.contains("aucun appel au LLM prévu"))
+    }
+
     @Test fun gemmaGpuConfigurationAndMissingModelAreExplicit() {
         val value = report(runtime = "litert-lm-gpu-mtp-thinking-off")
         assertTrue(value.contains("gemma-4-E2B-it.litertlm"))
