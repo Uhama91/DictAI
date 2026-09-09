@@ -2,6 +2,8 @@
 
 Version Android ARM64 : `0.9.5-wp-gemma-test`, code 34. Cette livraison répond au retour d’Ullie sur les insertions accidentelles d’une note, la précision du curseur et la séparation titre/aperçu. La pastille reste le point d’entrée des messages et des notes.
 
+**[Télécharger directement l’APK 0.9.5](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34404357683/dictai-local-layout-test.apk)** — environ 79 Mo, à installer en mise à jour. [Construction vérifiée](https://github.com/Uhama91/DictAI/actions/runs/34404357683).
+
 ## Comportements
 
 | Intention | Appui sur la pastille pendant la dictée | Sortie vers une autre application |
@@ -27,7 +29,7 @@ Les contrastes calculés sur les couleurs opaques sont de 12,60:1 pour le texte 
 
 ## Vérification et limites
 
-Vérification locale finale : **440 tests JVM dans 63 suites, zéro échec**, 18 tests du contrôleur APK, contrat natif transcribe.cpp, signature et alignement ELF/ZIP 16 Ko réussis. Les tests Android ont été compilés. APK de 78 865 904 octets, SHA-256 `ea2e8ee4e751a86329ec3ca7601f7ae3ef74862ac1a3a9d103289a859a89e8a8`, certificat identique à 0.9.4. Publication en cours.
+Publication vérifiée le 9 septembre 2026 : [APK directe 0.9.5](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34404357683/dictai-local-layout-test.apk), [release](https://github.com/Uhama91/DictAI/releases/tag/gemma-test-34404357683), [GitHub Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34404357683). Source `633d83cfdc6422dead8e4ffb395e6d54487aa96d`. Téléchargement public HTTP 200, **78 865 904 octets**, SHA-256 `ea2e8ee4e751a86329ec3ca7601f7ae3ef74862ac1a3a9d103289a859a89e8a8`. Empreinte identique à l’APK locale, à SHA256SUMS, au digest GitHub et au journal CI ; les **1 048 entrées ZIP** sont identiques. Certificat de mise à jour identique à 0.9.4, version code34 et alignement ELF/ZIP 16 Ko vérifiés. **440 tests JVM / 63 suites**, 18 tests du contrôleur APK et contrat natif réussis ; tests Android compilés localement et en CI, sans exécution sur appareil.
 
 La revue indépendante du code a vérifié les destinations, les confirmations et les captures différées. Ses deux remarques ont été corrigées : réouverture prioritaire du panneau masqué et distinction entre focus automatique et édition volontaire.
 
