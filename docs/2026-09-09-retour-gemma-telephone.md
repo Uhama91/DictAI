@@ -95,3 +95,16 @@ Le mail conventionnel bénéficie d’une disposition directe de la salutation, 
 Le banc distingue explicitement le traitement direct et le LLM : ne pas présenter la durée directe comme une accélération de Gemma. Onze sources, deux passages, avec un ancien mail long forcé via Gemma pour comparaison. Les résultats téléphone de 0.8.3 restent à recevoir ; les tests JVM et la compilation ne valident pas le rendu HyperOS ni sa latence réelle.
 
 0.8.3 publiée et téléchargement public vérifié : [APK directe](https://github.com/Uhama91/DictAI/releases/download/gemma-test-34329249048/dictai-local-layout-test.apk), [Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/34329249048), [contrôles et limites](VERIFICATION-GEMMA-0.8.3.md). 357 tests JVM et 18 tests Python réussis ; test Android du défilement compilé, non exécuté. Installation en mise à jour conserve le modèle.
+
+
+## Réévaluation du plafond de cinq secondes — 0.8.4
+
+Ullie demande de mesurer le temps complet au-delà de cinq secondes : un léger dépassement ne justifie pas de jeter une mise en forme presque terminée. Le banc téléphone de l’ancien mail long (4 978 / 5 136 ms) étaye cette objection. Le dernier mail manuel a été interrompu après 5 003 ms d’attente finale ; sa durée GPU complète reste inconnue.
+
+Sur l’ordinateur, l’ancien mail long avait terminé en 15 399 ms et le court en 7 281 ms, CPU deux threads. Une nouvelle génération du dernier mail de 144 mots termine en 24 923 ms, premier fragment à 6 457 ms, sans changement lexical et avec mise en paragraphes acceptée. [Source, sortie et paramètres](benchmarks/local-format/gemma4-latest-long-mail-host-duration-2026-09-09.json). Essai CPU isolé, moteur déjà chargé, aucune construction Gradle simultanée, limite de 45 s non atteinte. Les conditions CPU/MTP diffèrent du GPU du téléphone ; ne pas utiliser un ratio pour annoncer une durée Android.
+
+0.8.4 rétablit la génération Gemma pour les mails de 60 mots ou plus. La limite de finalisation Mail devient 8 000 ms comme marge d’essai, sans délai minimum ; les autres formats gardent 5 000 ms. Ce réglage augmente la possibilité de terminer, pas le débit du modèle. Le diagnostic contient le plafond réellement utilisé. Un message long peut encore échouer par dépassement ou fidélité ; ces états restent distincts.
+
+Le nouveau menu Mesurer les mails longs avec Gemma exécute uniquement les deux sources longues, chacune deux fois, sans règle de mise en page directe. Il appelle le moteur jusqu’à son plafond de 20 000 ms, hors préchargement initial mais file comprise. Les mesures séparent attente avant natif, génération jusqu’au retour, validation et écarts à 5/8 s. Elles n’incluent pas arrêt ASR ni insertion et ne prédisent donc pas exactement le délai d’une dictée anticipée. Si un essai expire, le rapport indique une attente observée et une durée nécessaire inconnue ; il ne transforme pas le timeout en temps de génération complète.
+
+Étape suivante sur téléphone : installer la version publiée, ouvrir ce menu avec la dictée au repos, attendre les quatre résultats et copier le rapport. Ne pas désactiver le thinking off ni changer de modèle pour cette comparaison. La limite finale définitive dépendra de ces mesures et du ressenti d’Ullie.

@@ -35,8 +35,15 @@ internal data class LocalFormatRequest(
 
     fun layoutPolicy(): FaithfulLayout? = layoutKind?.let { FaithfulLayout.create(text, it) }
 
+    /** Trial margin for actual mail generation; this is a maximum, never a minimum delay. */
+    fun finalWaitMs(): Long = if (layoutKind == LocalLayoutKind.EMAIL) 8_000L else 5_000L
+
+    // Long mails must exercise Gemma, including conventional greetings and signatures.
+    fun isLongEmail(): Boolean = layoutKind == LocalLayoutKind.EMAIL &&
+        Regex("[^\\s\\p{Z}\\u0085]+").findAll(text).take(60).count() >= 60
+
     fun directOutput(): String? = layoutPolicy()?.directResult?.let(::acceptOutput)
-        ?: if (simpleEmailLayout && layoutKind == LocalLayoutKind.EMAIL &&
+        ?: if (simpleEmailLayout && layoutKind == LocalLayoutKind.EMAIL && !isLongEmail() &&
             validation == LocalFormatValidation.GEMMA_PROJECTION)
             SimpleEmailLayout.format(text)?.let(::acceptOutput) else null
 
@@ -80,6 +87,7 @@ internal data class LocalFinishDiagnostic(
     val nativeStarted: Boolean,
     val waitMs: Long,
     val restoredSourceWords: Int = 0,
+    val waitLimitMs: Long? = null,
 )
 
 /**
@@ -126,7 +134,7 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
         var route = "not_called"
         fun record(outcome: String, nativeStarted: Boolean = false, restoredSourceWords: Int = 0) {
             lastFinish = LocalFinishDiagnostic(route, outcome, nativeStarted,
-                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L), restoredSourceWords)
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L), restoredSourceWords, timeoutMs)
         }
         val job = synchronized(lock) {
             if (closed || request.text.isBlank()) {

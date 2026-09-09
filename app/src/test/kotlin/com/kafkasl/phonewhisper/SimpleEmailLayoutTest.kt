@@ -9,9 +9,11 @@ class SimpleEmailLayoutTest {
     private fun request(text: String, terms: List<String> = emptyList()) = LocalFormatRequest(
         text, "Mail", "French", terms, LocalLayoutKind.EMAIL, LocalFormatValidation.GEMMA_PROJECTION, true)
 
-    @Test fun structuresLongMailWithoutRegeneratingItsBody() {
+    @Test fun longMailRemainsStructurableButProductionSendsItToGemma() {
         val source = LONG_MAIL
-        val output = request(source, listOf("Monsieur le Testeur")).directOutput()!!
+        val request = request(source, listOf("Monsieur le Testeur"))
+        assertNull(request.directOutput())
+        val output = request.acceptOutput(SimpleEmailLayout.format(source))!!
         assertEquals("Bonjour,\n\n" + source.substringAfter("Bonjour, ").substringBefore(" Cordialement,") +
             "\n\nCordialement,\n\nMonsieur le Testeur", output)
         assertEquals(words(source), words(output))
@@ -63,8 +65,9 @@ class SimpleEmailLayoutTest {
             LocalFormattingSession(backend).use { session ->
                 session.offer(request("Bonjour voici mon mail encore incomplet"))
                 assertTrue(entered.await(1, TimeUnit.SECONDS))
-                val result = session.finish(request(LONG_MAIL), 1L) { fail("No generated fragment") }
-                assertEquals(request(LONG_MAIL).directOutput(), result)
+                val mail = request("Bonjour voici mon nouveau message pour confirmer les 23 élèves cordialement M. Martin")
+                val result = session.finish(mail, 1L) { fail("No generated fragment") }
+                assertEquals(mail.directOutput(), result)
                 assertEquals("direct", session.lastFinish?.route)
                 assertEquals(false, session.lastFinish?.nativeStarted)
                 assertEquals("applied", session.lastFinish?.outcome)

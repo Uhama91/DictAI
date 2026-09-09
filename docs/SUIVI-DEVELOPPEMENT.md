@@ -2,6 +2,20 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Mesurer les mails au-delà de cinq secondes — 0.8.4
+
+Demande actuelle d’Ullie : laisser Gemma terminer les mails sur téléphone au-delà de 5 s avant de conclure à une latence trop forte. Le banc précédent a déjà donné 5 136 ms, soit seulement 136 ms au-delà du plafond. Cette demande prime sur l’ancienne consigne de ne pas modifier le délai sur la seule base d’un bloc de texte.
+
+Mesures hôte retrouvées : 15 399 ms pour l’ancien mail long, 7 281 ms pour le court, CPU deux threads. Nouvelle génération complète du dernier mail (144 mots) : 24 923 ms, premier fragment 6 457 ms, tous les mots conservés et sortie acceptée. Thinking off, MTP désactivé sur CPU ; aucune prédiction de latence téléphone à partir de ce temps. [Mesure brute](benchmarks/local-format/gemma4-latest-long-mail-host-duration-2026-09-09.json).
+
+Implémentation 0.8.4 en vérification :
+- Les mails de 60 mots ou plus retournent à Gemma, même avec une salutation et une signature explicites. Pas de raccourci direct pour les deux mails longs de l’utilisateur.
+- Attente finale Mail portée à 8 s, à titre de marge d’essai. Résultat utilisé dès qu’il est prêt et validé, sans attente minimale imposée. Liste : 5 s. Le diagnostic enregistre la limite réellement utilisée.
+- Menu **Mesurer les mails longs avec Gemma** : deux mails × deux passages, jusqu’à 20 s par appel, sans limite de 5/8 s dans ce banc. Initialisation mesurée séparément ; attente avant natif, premier fragment, retour moteur, validation, écarts à 5/8 s. Un essai interrompu ne prétend pas connaître sa durée totale.
+- Modèle, prompt, GPU/MTP et thinking off conservés. Le corps des mails n’est pas réécrit par les règles rapides lors de ces essais. Les autres correctifs 0.8.3 sont conservés.
+
+Les tests de finalisation comprennent un moteur simulé terminant après 5,15 s. Les mesures GPU Android et la limite définitive restent à décider à partir du rapport du téléphone ; aucun appareil connecté à Codex. 361 tests JVM dans 54 suites réussis, APK compilée/signée/alignée 16 Ko et contrat du paquet vérifié. [Vérification](VERIFICATION-GEMMA-0.8.4.md). Publication Actions en cours.
+
 ## Retour 10:08 — overlay, mode Texte et attente Mail — 0.8.3
 
 Nouveau diagnostic réel reçu : Mail, appel natif oui, calcul en attente, délai final dépassé à 5 003 ms, arrêt → insertion 5 846 ms. Il confirme le manque de marge du mail plus long. Ullie juge les listes locales globalement satisfaisantes malgré les deux premiers produits regroupés et remet en priorité le suivi de la dernière ligne après correction dans le petit overlay.

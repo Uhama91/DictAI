@@ -781,7 +781,7 @@ class OverlayService : Service() {
                 }
             }
             val session = run.localFormatting
-            session?.finish(request, 5_000L) { chunk ->
+            session?.finish(request, request.finalWaitMs()) { chunk ->
                 val preview = request.previewOutput(chunk)
                 if (preview != null) main.post {
                     if (isCurrentRun(run) && state == State.TRANSCRIBING && !run.cancellation.isCancelled) {

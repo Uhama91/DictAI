@@ -63,6 +63,7 @@ internal object PostprocessingDiagnostic {
                 else "traitement non exécuté ou indisponible"
             }}\n")
             local?.let { append("Attente finale locale : ${it.waitMs} ms\n") }
+            local?.waitLimitMs?.let { append("Limite d’attente finale : $it ms\n") }
             local?.restoredSourceWords?.takeIf { it > 0 }?.let {
                 append("Mots rétablis depuis la transcription : $it (aucun mot inventé)\n")
             }

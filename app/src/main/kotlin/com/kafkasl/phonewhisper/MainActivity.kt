@@ -332,6 +332,14 @@ class MainActivity : AppCompatActivity() {
                     localFormatBenchmark = LocalFormatBenchmarkDialog(this).also { it.show() }
                 }
             })
+            root.addView(settingsRow("Mesurer les mails longs avec Gemma", "Deux mails × deux passages · jusqu’à 20 s par calcul · résultat copiable") {
+                if (GemmaModelStore(this).installedModel() == null) {
+                    showGemmaDownload()
+                } else if (localFormatBenchmark?.isShowing != true) {
+                    localFormatBenchmark?.close()
+                    localFormatBenchmark = LocalFormatBenchmarkDialog(this, longMailsOnly = true).also { it.show() }
+                }
+            })
         }
 
         root.addView(settingsRow("Modèle cloud", languagePrefs.cloudModel().label) {

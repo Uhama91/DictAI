@@ -17,9 +17,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /** Synthetic local benchmark. No dictation, credentials or cloud are read. */
-internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoCloseable {
+internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private val longMailsOnly: Boolean = false) : AutoCloseable {
     private val activityRef = WeakReference(activity)
     private val main = Handler(Looper.getMainLooper())
     private val engine = LocalFormatEngine(activity.applicationContext)
@@ -33,7 +34,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
     private var reportView: TextView? = null
     private var latestReport = ""
     private var finished = false
-    private val examples by lazy { cases() }
+    private val examples by lazy { cases().filter { !longMailsOnly || it.longMail } }
     private val totalRuns get() = examples.size * 2
     val isShowing: Boolean get() = dialog?.isShowing == true
 
@@ -57,7 +58,8 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
             content.addView(this, LinearLayout.LayoutParams(-1, dp(12)))
         }
         val report = TextView(activity).apply {
-            text = "${totalRuns} essais français/anglais, dont 2 messages courts sans appel LLM.\nLe chargement est mesuré si Gemma n’est pas déjà prêt.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
+            text = if (longMailsOnly) "Deux mails longs, deux passages chacun, entièrement traités par Gemma.\nChaque calcul peut durer jusqu’à 20 secondes. La préparation initiale est mesurée séparément.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
+                else "${totalRuns} essais français/anglais, dont ${examples.count { it.request.directOutput() != null } * 2} réponses directes sans appel LLM.\nLe chargement est mesuré si Gemma n’est pas déjà prêt.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
             textSize = 13f
             setTextIsSelectable(true)
             setPadding(0, dp(12), 0, dp(8))
@@ -66,7 +68,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
         content.addView(ScrollView(activity).apply { addView(report) },
             LinearLayout.LayoutParams(-1, (activity.resources.displayMetrics.heightPixels * 0.43f).toInt()))
         val popup = AlertDialog.Builder(activity)
-            .setTitle("Tester le post-traitement local")
+            .setTitle(if (longMailsOnly) "Durée des mails longs · Gemma" else "Tester le post-traitement local")
             .setView(content)
             .setPositiveButton("Copier les résultats", null)
             .setNegativeButton("Annuler", null)
@@ -100,7 +102,8 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
     }
 
     private data class Case(val name: String, val request: LocalFormatRequest,
-        val expected: List<String>, val forbidden: List<String> = emptyList(), val grouping: LayoutGroupingExpectation? = null)
+        val expected: List<String>, val forbidden: List<String> = emptyList(), val grouping: LayoutGroupingExpectation? = null,
+        val longMail: Boolean = false)
 
     private fun cases(): List<Case> {
         val list = PostProcessingFormats.builtins.first { it.id == "list" }.instructions
@@ -147,13 +150,13 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
             Case("FR · mail long · Gemma seul (comparaison 0.8.2)", LocalFormatRequest(
                 longMail, email, "French", listOf("Monsieur le Testeur"), LocalLayoutKind.EMAIL),
                 listOf("Bonjour", "pas", "normalement", "cordialement", "Monsieur", "Testeur"),
-                grouping = LayoutGroupingExpectation(setOf(1, longMail.split(' ').indexOf("cordialement,")))),
-            Case("FR · mail long · délai dépassé en dictée · voie directe", LocalFormatRequest(
+                grouping = LayoutGroupingExpectation(setOf(1, longMail.split(' ').indexOf("cordialement,"))), longMail = true),
+            Case("FR · mail plus long · délai dépassé en dictée · Gemma seul", LocalFormatRequest(
                 latestLongMail, email, "French", listOf("Monsieur le Testeur"), LocalLayoutKind.EMAIL),
                 listOf("Bonjour", "ne", "pas", "latence", "Cordialement", "Testeur"),
-                grouping = LayoutGroupingExpectation(setOf(1, latestLongMail.split(' ').indexOf("Cordialement,")))),
+                grouping = LayoutGroupingExpectation(setOf(1, latestLongMail.split(' ').indexOf("Cordialement,"))), longMail = true),
         ).map { it.copy(request = it.request.copy(validation = LocalFormatValidation.GEMMA_PROJECTION,
-            simpleEmailLayout = "Gemma seul" !in it.name)) }
+            simpleEmailLayout = !it.longMail)) }
     }
 
     private fun runBenchmark() {
@@ -164,7 +167,8 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
             append("${examples.size} exemples synthétiques × 2 passages, sans cloud.\n")
             append("Moteur partagé avec l’overlay. Le premier essai indique si Gemma était déjà chargé. Caches système/GPU non vidés.\n")
             append("Configuration : LiteRT-LM 0.17.0 · GPU · MTP activé · thinking désactivé (budget 0).\n")
-            append("Mails simples : disposition directe si salutation et signature sont explicites ; sinon Gemma. Les réponses directes ne mesurent pas le LLM. Le cas Gemma seul conserve le chemin 0.8.2 pour comparaison.\n")
+            append("Mails longs : Gemma seul, sans disposition directe. Les réponses directes des autres cas ne mesurent pas le LLM.\n")
+            append("Limite du banc : ${LocalFormatEngine.GENERATION_DEADLINE_MS} ms par appel après préparation initiale, file comprise ; aucune coupure à 5 ou 8 secondes.\n")
             append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Le texte est validé avant publication.\n")
             append("Mesure isolée : ne comprend pas l'arrêt ASR, l'affichage ni l'insertion dans une autre application.\n")
             append("La conservation du texte et les critères ciblés de regroupement sont évalués séparément. Un critère réussi ne valide pas tous les formats.\n\n")
@@ -181,13 +185,26 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     val start = SystemClock.elapsedRealtime()
                     val preparation = if (cold) engine.prepareForBenchmarkInfo() else null
                     if (cancelled.get()) break@runs
-                    var firstTextMs: Long? = null
-                    val raw = backend.generate(example.request) { chunk ->
-                        if (chunk.isNotBlank() && firstTextMs == null) firstTextMs = SystemClock.elapsedRealtime() - start
+                    val callStarted = SystemClock.elapsedRealtime()
+                    val firstFragmentAt = AtomicLong(-1)
+                    val nativeStartedAt = AtomicLong(-1)
+                    val generated = runCatching {
+                        backend.generate(example.request, { chunk ->
+                            if (chunk.isNotBlank()) firstFragmentAt.compareAndSet(-1, SystemClock.elapsedRealtime())
+                        }, { nativeStartedAt.compareAndSet(-1, SystemClock.elapsedRealtime()) })
                     }
-                    val totalMs = SystemClock.elapsedRealtime() - start
+                    val returnedAt = SystemClock.elapsedRealtime()
+                    val raw = generated.getOrNull()
+                    val firstTextMs = firstFragmentAt.get().takeIf { it >= 0 }?.minus(start)
+                    val totalMs = returnedAt - start
                     if (cancelled.get()) break@runs
                     val output = example.request.acceptOutput(raw)
+                    val timing = LocalGenerationTiming(
+                        nativeStartedAt.get().takeIf { it >= 0 }?.minus(callStarted),
+                        firstFragmentAt.get().takeIf { it >= 0 }?.minus(callStarted),
+                        returnedAt - callStarted, SystemClock.elapsedRealtime() - returnedAt,
+                        generated.isSuccess && !raw.isNullOrBlank(),
+                    )
                     if (cold) report.append("Calcul : ${engine.runtimeName()}\n\n")
                     if (cold) engine.lastLoadMs()?.let { report.append("Dernière initialisation du moteur partagé : $it ms\n\n") }
                     report.append("Passage $pass · ${example.name} · ${if (preparation?.wasAlreadyLoaded == false) "chargement effectué" else "moteur chargé"}\n")
@@ -195,6 +212,11 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     preparation?.let { report.append("Attente de préparation (file comprise) : ${it.waitMs} ms\n") }
                     report.append("Traitement : ${if (example.request.directOutput() != null) "direct local, sans appel LLM" else "Gemma"}\n")
                     report.append("Premier fragment : ${firstTextMs?.let { "$it ms" } ?: if (example.request.directOutput() != null) "sans appel LLM" else "aucun"} ; fin : $totalMs ms\n")
+                    report.append(timing.report())
+                    if (generated.isFailure) {
+                        failed = true
+                        report.append("Calcul interrompu (${generated.exceptionOrNull()!!.javaClass.simpleName}), sans publication de résultat partiel.\n")
+                    }
                     report.append("Conservation du texte : ${if (output != null) "validée" else "rejetée"}\n")
                     val restoredWords = if (output != null && raw != null)
                         GemmaFaithfulLayout.restoredWordCount(raw, output) else 0
@@ -224,6 +246,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity) : AutoClo
                     if (restoredWords > 0) report.append("Brut avant rétablissement des mots sources :\n$raw\n\n")
                     completed++
                     postUpdate("$completed/$totalRuns essais terminés", completed, report.toString())
+                    if (generated.isFailure) break@runs
                 }
             }
         } catch (error: Throwable) {

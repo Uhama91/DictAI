@@ -99,14 +99,14 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.8.3 Android ARM64 : prototype Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
+            'DictAI 0.8.4 Android ARM64 : prototype Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
             'Installez cette APK en mise à jour : le modèle Gemma déjà téléchargé est conservé. Pour une première installation, touchez Installer Gemma 4 E2B : téléchargement unique de 2,6 Go, reprenable et vérifié.' \
-            'Overlay : le suivi de la dernière ligne reprend après une correction, même si le clavier garde le focus ; le curseur et les sélections restent sous votre contrôle.' \
-            'Mode Texte : nettoyage léger local des hésitations et de certaines répétitions, activé par défaut et désactivable dans les réglages. Aucun appel LLM ; les retouches manuelles sont préservées. Les questions implicites restent une limite.' \
-            'Mail : disposition directe lorsque salutation et signature sont explicites, avec conservation des mots ; Gemma reste utilisé pour les autres cas. Le délai final de cinq secondes est conservé.' \
-            'Le diagnostic distingue traitement direct et génération Gemma. Le banc comporte onze exemples, dont le mail long ayant dépassé le délai et un cas Gemma seul pour comparaison.' \
+            'Les mails longs sont de nouveau générés par Gemma : aucune disposition directe à partir de 60 mots. GPU, MTP et thinking désactivé sont conservés.' \
+            'La dictée Mail dispose désormais de huit secondes au maximum pour attendre le résultat. Cette marge d’essai ne force pas à attendre huit secondes et ne prouve pas une accélération du modèle.' \
+            'Nouveau menu Mesurer les mails longs avec Gemma : deux mails, deux passages chacun, jusqu’à vingt secondes par calcul, sans raccourci. Rapport copiable séparant préparation, file, génération et validation, avec écart aux seuils de cinq et huit secondes.' \
+            'Les corrections du suivi de l’overlay et le nettoyage léger du texte de 0.8.3 sont conservés.' \
             'Cette version est expérimentale : aucune latence GPU ni qualité générale n’est garantie sur votre appareil. Une sortie infidèle conserve la transcription. Aucun repli cloud automatique ; votre mode cloud avec clé API reste disponible.' \
             'APK compilée, testée et vérifiée par GitHub Actions. Le poids 350M n’est plus inclus.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.8.3 — suivi du texte et mails simples rapides' --notes-file release-notes.md
+            --title 'DictAI 0.8.4 — mesurer Gemma au-delà de cinq secondes' --notes-file release-notes.md
