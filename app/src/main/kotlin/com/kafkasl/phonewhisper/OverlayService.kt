@@ -147,6 +147,7 @@ class OverlayService : Service() {
         private const val CHANNEL_ID = "whisperpin_overlay"
         private const val NOTIF_ID = 1001
         private const val SAMPLE_RATE = 16000
+        const val ACTION_CAPTURE_RESULT = "com.uhama.whisperpin.CAPTURE_RESULT"
         const val ACTION_OPEN_NOTES = "com.uhama.whisperpin.OPEN_NOTES"
         const val ACTION_ARM_MIC = "com.uhama.whisperpin.ARM_MIC"
         const val ACTION_PREPARE_LOCAL_FORMAT = "com.uhama.whisperpin.PREPARE_LOCAL_FORMAT"
@@ -167,7 +168,10 @@ class OverlayService : Service() {
         @Volatile var pauseWorker: Thread? = null
         var resumeAfterPause = false
         var archiveAsNote = false
+        var exportNote = false
+        var automaticNoteShare = true
         var finishAfterPause = false
+        var finishAfterCapture = false
         var pendingPreview: Pair<String, String>? = null
         val finalPublication = DictationFinalPublicationGate(DOUBLE_TAP_MS)
         val completion = DictationRunCompletionGate()
@@ -212,6 +216,12 @@ class OverlayService : Service() {
     private var recoveredDraft: String? = null
     private val notes by lazy { TranscriptNotes(AndroidTranscriptNoteStorage(this)) }
     private var activeNoteId: String? = null
+    private val imageStore by lazy { NoteImageStore(this) }
+    private var captureWindowsHidden = false
+    private var imageStrip: LinearLayout? = null
+    private var mediaButtons = mutableListOf<ImageButton>()
+    private var shownImageIds = emptyList<String>()
+
     private var floatingMenu: View? = null
     private var params: WindowManager.LayoutParams? = null
     private var liveParams: WindowManager.LayoutParams? = null
@@ -253,11 +263,14 @@ class OverlayService : Service() {
             setState(State.PAUSED)
             setLivePreviewVisible(true)
         }
+        recoverPendingImage()
+        refreshNoteImages()
         ensureLocalLoaded()
         warmLocalFormatter()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_CAPTURE_RESULT) finishPendingImage()
         if (intent?.action == ACTION_ARM_MIC) {
             promoteMic()
             // Si le modèle local n'était pas dispo au démarrage (pas encore téléchargé),
@@ -563,7 +576,7 @@ class OverlayService : Service() {
                 if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed() || state != State.PAUSING) return@post
                 setState(State.PAUSED)
                 vibrate(20)
-                if (run.archiveAsNote || run.finishAfterPause) {
+                if (run.archiveAsNote || run.finishAfterPause || run.finishAfterCapture) {
                     stopRec()
                 } else if (run.resumeAfterPause) {
                     run.resumeAfterPause = false
@@ -642,6 +655,11 @@ class OverlayService : Service() {
     private fun stopRec() {
         if (state != State.RECORDING && state != State.PAUSED) return
         val run = activeRun ?: return
+        if (imageStore.pending()?.let { it.noteId == activeNoteId && !it.complete } == true) {
+            run.finishAfterCapture = true
+            if (state == State.RECORDING) pauseRec()
+            return
+        }
         run.captureGate.pause()
         formatDialog?.dismiss()
         liveText?.isEnabled = false
@@ -851,7 +869,7 @@ class OverlayService : Service() {
         var finalText = localFormatted ?: cloudText?.let {
             NumberFormatting.apply(it, capture.options.language, capture.options.numberStyle, protectedVocabularyTerms(it))
         } ?: localText
-        if (!finalText.isNullOrBlank() && !editableTranscript.hasUserEdits()) {
+        if (!finalText.isNullOrBlank() && !editableTranscript.hasUserEdits() && NoteImageMarkers.markers(finalText).isEmpty()) {
             finalText = FinalPunctuation.apply(finalText, capture.options.format.id)
         }
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
@@ -862,7 +880,10 @@ class OverlayService : Service() {
             if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed()) return@post
             run.finalPublication.submit(SystemClock.uptimeMillis()) {
                 val published = run.cancellation.publishIfActive {
-                    if (!outText.isNullOrBlank()) {
+                    if (run.exportNote || notes.get(activeNoteId)?.images?.isNotEmpty() == true) {
+                        val saved = notes.save(activeNoteId, outText ?: liveText?.text?.toString().orEmpty())
+                        main.post { launchNoteExport(saved, automatic = run.automaticNoteShare) }
+                    } else if (!outText.isNullOrBlank()) {
                         activeNoteId?.let { notes.save(it, outText) }
                         Log.i(TAG, "event=dictation_publish stop_to_text_ms=${if (run.stoppedAtMs > 0) SystemClock.elapsedRealtime() - run.stoppedAtMs else -1}")
                         val result = runCatching {
@@ -1041,6 +1062,7 @@ class OverlayService : Service() {
         recoveredDraft = null
         activeNoteId = null
         draftStore.clear()
+        refreshNoteImages()
         if (asrSession === run.session) asrSession = null
         tapCoordinator.reset()
         setLivePreviewVisible(false)
@@ -1085,6 +1107,7 @@ class OverlayService : Service() {
             // Bordure lumineuse pendant la transcription.
             if (s == State.TRANSCRIBING) loader?.start() else loader?.stop()
             updateNotif()
+            refreshNoteImages()
             currentAnchor?.let(::positionLivePanel)
             // Tant qu'une dictée est active, la pastille reste pleinement allumée (jamais de dim).
             if (s == State.IDLE || s == State.MIC_UNARMED) {
@@ -1144,14 +1167,16 @@ class OverlayService : Service() {
             NumberStyle.WORDS -> " Spell out quantities in the transcript language."
             NumberStyle.UNCHANGED -> " Preserve the original representation of numbers."
         }
-        val layout = if (options.localFormattingEnabled) options.format.localLayoutKind else null
-        return LocalFormatRequest(source, options.format.instructions + numbers, options.language.cleanupLanguageName, spellings, layout,
+        val hasImageReferences = NoteImageMarkers.markers(source).isNotEmpty()
+        val layout = if (options.localFormattingEnabled || hasImageReferences)
+            options.format.localLayoutKind ?: if (hasImageReferences) LocalLayoutKind.TEXT else null else null
+        return LocalFormatRequest(source, options.format.instructions + numbers + if (NoteImageMarkers.markers(source).isEmpty()) "" else NoteImageMarkers.INSTRUCTIONS, options.language.cleanupLanguageName, spellings, layout,
             validation = if (layout != null) LocalFormatValidation.GEMMA_EDITING else LocalFormatValidation.EXACT_LAYOUT,
             simpleEmailLayout = true)
     }
 
     private fun protectedVocabularyTerms(text: String): List<String> = Vocabulary.corrections(this)
-        .map { it.second }.filter { it.isNotBlank() && it in text }.distinct().take(64)
+        .map { it.second }.filter { it.isNotBlank() && it in text }.distinct().take(64) + NoteImageMarkers.markers(text)
 
     private fun normalizeRecognizedText(text: String, options: RecordingOptions): String {
         val corrected = Vocabulary.applyCorrections(this, text)
@@ -1188,7 +1213,7 @@ class OverlayService : Service() {
         val dp = resources.displayMetrics.density
         liveScroll?.let { scroll ->
             scroll.layoutParams = (scroll.layoutParams as FrameLayout.LayoutParams).apply {
-                topMargin = ((72 + if (visible) 64 else 0) * dp).toInt()
+                topMargin = ((120 + if (visible) 64 else 0) * dp).toInt()
             }
         }
         currentAnchor?.let(::positionLivePanel)
@@ -1240,7 +1265,7 @@ class OverlayService : Service() {
     }
 
     private fun setLivePreviewVisible(requested: Boolean) {
-        val show = requested && !panelHidden
+        val show = requested && !panelHidden && !captureWindowsHidden
         val panel = livePanel ?: return
         if (livePreviewVisible == show && panel.visibility == if (show) View.VISIBLE else View.GONE) return
         livePreviewVisible = show
@@ -1342,7 +1367,7 @@ class OverlayService : Service() {
             }, screen,
             ((if (panelExpanded) 600 else 312) * dp).toInt(),
             if (panelExpanded) (screen.height * 0.82f).toInt() else (liveText?.lineHeight ?: 20) * 3 +
-                ((112 + if (vocabularyBanner?.visibility == View.VISIBLE) 64 else 0) * dp).toInt(),
+                ((160 + if (vocabularyBanner?.visibility == View.VISIBLE) 64 else 0) * dp).toInt(),
             (6 * dp).toInt(),
         )
         panelParams.x = bounds.x
@@ -1548,7 +1573,7 @@ class OverlayService : Service() {
                 setColor(0xFF1F1F25.toInt())
                 setStroke((1.2f * dp).toInt(), ThemeTokens.GREEN)
             }
-            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (72 * dp).toInt() })
+            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (120 * dp).toInt() })
         }
         livePanel.setOnApplyWindowInsetsListener { _, insets ->
             val nextInset = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
@@ -1593,6 +1618,23 @@ class OverlayService : Service() {
         }
         livePanel.addView(panelFormat, FrameLayout.LayoutParams(-1, (24 * dp).toInt()).apply { topMargin = (48 * dp).toInt() })
 
+        val mediaRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        listOf(
+            Triple(R.drawable.ic_note_screenshot, "Capturer l’écran dans la note", { captureNoteImage(NoteImageKind.SCREENSHOT) }),
+            Triple(R.drawable.ic_note_camera, "Prendre une photo pour la note", { captureNoteImage(NoteImageKind.CAMERA) }),
+            Triple(R.drawable.ic_note_share, "Partager ou exporter la note avec ses images", { exportNoteWithImages(automatic = false) }),
+        ).forEach { (icon, label, action) ->
+            val button = panelIcon(icon, label, action)
+            mediaButtons += button
+            mediaRow.addView(button, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
+        }
+        imageStrip = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        mediaRow.addView(android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(imageStrip, android.view.ViewGroup.LayoutParams(-2, -1))
+        }, LinearLayout.LayoutParams(0, -1, 1f))
+        livePanel.addView(mediaRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()).apply { topMargin = (72 * dp).toInt() })
+
         val vocabRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             visibility = View.GONE
@@ -1614,7 +1656,7 @@ class OverlayService : Service() {
             setOnClickListener { resetVocabularyLearning() }
         }, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         vocabularyBanner = vocabRow
-        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (64 * dp).toInt()).apply { topMargin = (72 * dp).toInt() })
+        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (64 * dp).toInt()).apply { topMargin = (120 * dp).toInt() })
 
         // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
@@ -1852,6 +1894,231 @@ class OverlayService : Service() {
         updatePillLayout()
     }
 
+    private fun captureNoteImage(kind: NoteImageKind) {
+        if (!isTranscriptEditable() || imageStore.pending() != null) return
+        if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) {
+            toast("Déverrouillez le téléphone pour joindre une image à la note.")
+            return
+        }
+        if (kind == NoteImageKind.SCREENSHOT && WhisperAccessibilityService.connected == null) {
+            toast("Activez le service d’accessibilité DictAI pour capturer l’écran.")
+            return
+        }
+        val text = liveText?.text?.toString().orEmpty()
+        val note = notes.save(activeNoteId, text)
+        if (note.images.size >= NoteImage.MAX_IMAGES) { toast("Cette note contient déjà 10 images."); return }
+        activeNoteId = note.id
+        draftStore.noteId = note.id
+        val pending = runCatching { imageStore.begin(note, kind, state == State.RECORDING) }.getOrElse {
+            toast("Capture indisponible : vérifiez l’espace de stockage."); return
+        }
+        // Anchor at the visible end at the tap, before any asynchronous capture or new ASR words.
+        replaceNoteText(NoteImageMarkers.append(text, pending.number))
+        refreshNoteImages()
+        releaseTranscriptFocus()
+        dismissFloatingMenu()
+        formatDialog?.dismiss()
+        if (kind == NoteImageKind.CAMERA) {
+            if (state == State.RECORDING) pauseRec()
+            launchCameraWhenPaused(pending)
+        } else {
+            captureWindowsHidden = true
+            container?.visibility = View.INVISIBLE
+            setLivePreviewVisible(false)
+            // Let compositor and IME consume the hide before taking the display snapshot.
+            main.postDelayed({
+                if (imageStore.pending()?.let { it.id == pending.id && !it.complete } != true) return@postDelayed
+                val accessibility = WhisperAccessibilityService.connected
+                if (localEngineLifecycle.isDestroyed()) {
+                    imageStore.fail(pending.id, "Capture interrompue.")
+                    return@postDelayed
+                }
+                if (accessibility == null) {
+                    restoreCaptureWindows()
+                    imageStore.fail(pending.id, "Service de capture indisponible.")
+                    finishPendingImage()
+                } else NoteScreenshot.capture(accessibility, imageStore, pending.id,
+                    { if (imageStore.pending()?.id == pending.id) restoreCaptureWindows() }, ::finishPendingImage)
+            }, 250)
+        }
+    }
+
+    private fun launchCameraWhenPaused(pending: PendingNoteCapture) {
+        if (localEngineLifecycle.isDestroyed() || imageStore.pending()?.id != pending.id) return
+        if (state == State.PAUSING) { main.postDelayed({ launchCameraWhenPaused(pending) }, 60); return }
+        if (state != State.PAUSED) {
+            imageStore.fail(pending.id, "Photo interrompue : note conservée.")
+            finishPendingImage()
+            return
+        }
+        try {
+            captureWindowsHidden = true
+            container?.visibility = View.INVISIBLE
+            setLivePreviewVisible(false)
+            startActivity(Intent(this, NoteCameraActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra("captureId", pending.id))
+        } catch (_: Exception) {
+            restoreCaptureWindows()
+            imageStore.fail(pending.id, "Impossible d’ouvrir l’appareil photo.")
+            finishPendingImage()
+        }
+    }
+
+    private fun restoreCaptureWindows() {
+        if (localEngineLifecycle.isDestroyed()) return
+        captureWindowsHidden = false
+        container?.visibility = View.VISIBLE
+        setLivePreviewVisible(isTranscriptEditable())
+    }
+
+    private fun recoverPendingImage() {
+        val pending = imageStore.pending() ?: return
+        if (!pending.complete && pending.kind == NoteImageKind.SCREENSHOT)
+            imageStore.fail(pending.id, "Capture interrompue : texte conservé.")
+        // The system camera activity owns its result across process recreation.
+        finishPendingImage()
+    }
+
+    private fun finishPendingImage() {
+        if (localEngineLifecycle.isDestroyed()) return
+        val pending = imageStore.pending()?.takeIf { it.complete } ?: return
+        restoreCaptureWindows()
+        val note = notes.get(pending.noteId)
+        if (note == null) {
+            imageStore.delete(pending.id)
+        } else {
+            val image = pending.image
+            if (image != null && note.images.none { it.id == image.id } && note.images.size < NoteImage.MAX_IMAGES) {
+                notes.save(note.id, note.text, note.images + image)
+            } else if (image == null) {
+                val text = NoteImageMarkers.remove(note.text, pending.number)
+                notes.save(note.id, text)
+                if (activeNoteId == note.id) replaceNoteText(text)
+            }
+        }
+        imageStore.clearPending(pending.id)
+        refreshNoteImages()
+        if (pending.image != null) toast("Image ${pending.number} ajoutée à la note.")
+        else pending.error?.let(::toast)
+        if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
+        else if (pending.kind == NoteImageKind.CAMERA && pending.resumeListening && activeRun != null && state == State.PAUSED)
+            resumeRec()
+    }
+
+    private fun replaceNoteText(text: String) {
+        resetVocabularyLearning()
+        editableTranscript.anchor(text)
+        updatingLiveText = true
+        try { liveText?.setText(text) } finally { updatingLiveText = false }
+        if (recoveredDraft != null || activeRun == null) recoveredDraft = text
+        persistDraft(text)
+        tailFollower?.changed()
+    }
+
+    private fun refreshNoteImages() {
+        val images = notes.get(activeNoteId)?.images.orEmpty()
+        val pending = imageStore.pending()
+        val editable = isTranscriptEditable()
+        mediaButtons.forEachIndexed { index, button ->
+            button.isEnabled = editable && pending == null && (index == 2 || images.size < NoteImage.MAX_IMAGES)
+            button.alpha = if (button.isEnabled) 1f else .4f
+        }
+        val strip = imageStrip ?: return
+        val ids = images.map { it.id } + listOfNotNull(pending?.id)
+        if (shownImageIds == ids && strip.childCount > 0) return
+        shownImageIds = ids
+        strip.removeAllViews()
+        val dp = resources.displayMetrics.density
+        if (images.isEmpty() || pending != null) strip.addView(TextView(this).apply {
+            text = if (pending != null) "Capture… ×" else "0/10"; textSize = 11f; setTextColor(0xFFBBBBBB.toInt())
+            minWidth = (48 * dp).toInt(); minHeight = (40 * dp).toInt()
+            contentDescription = if (pending != null) "Annuler la capture en attente" else "0 image sur 10"
+            if (pending != null) setOnClickListener {
+                imageStore.fail(pending.id, "Capture annulée.")
+                finishPendingImage()
+            }
+        })
+        images.forEach { image ->
+            val frame = FrameLayout(this)
+            val thumb = android.widget.ImageView(this).apply {
+                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                contentDescription = "Image ${image.number}, ${image.kind.label}. Appuyer pour voir, maintenir pour retirer."
+                setOnClickListener { previewNoteImage(image) }
+                setOnLongClickListener {
+                    if (imageStore.pending() == null && isTranscriptEditable()) showFloatingMenu("Image ${image.number}", listOf(
+                        MenuEntry("Retirer cette image de la note", { removeNoteImage(image) }),
+                        MenuEntry("Retour", ::dismissFloatingMenu),
+                    ))
+                    true
+                }
+            }
+            frame.addView(thumb, FrameLayout.LayoutParams(-1, -1))
+            frame.addView(TextView(this).apply {
+                text = image.number.toString(); textSize = 10f; setTextColor(android.graphics.Color.WHITE)
+                setBackgroundColor(0xBB000000.toInt()); setPadding((3 * dp).toInt(), 0, (3 * dp).toInt(), 0)
+            }, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END))
+            strip.addView(frame, LinearLayout.LayoutParams((44 * dp).toInt(), (40 * dp).toInt()).apply { marginEnd = (4 * dp).toInt() })
+            thread(name = "dictai-note-thumbnail") {
+                val bitmap = runCatching { NoteImageStore.decode(imageStore.thumbnail(image.id), 160) }.getOrNull()
+                main.post { if (!localEngineLifecycle.isDestroyed() && image.id in shownImageIds) thumb.setImageBitmap(bitmap) else bitmap?.recycle() }
+            }
+        }
+    }
+
+    private fun previewNoteImage(image: NoteImage) {
+        if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) return
+        val view = android.widget.ImageView(this).apply {
+            adjustViewBounds = true
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            minimumHeight = (200 * resources.displayMetrics.density).toInt()
+        }
+        val dialog = AlertDialog.Builder(this).setTitle("Image ${image.number} · ${image.kind.label}")
+            .setView(view).setPositiveButton("Fermer", null).create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        formatDialog = dialog
+        dialog.setOnDismissListener { view.setImageDrawable(null); if (formatDialog === dialog) formatDialog = null }
+        dialog.show()
+        thread(name = "dictai-note-preview") {
+            val bitmap = runCatching { NoteImageStore.decode(imageStore.file(image.id), 1600) }.getOrNull()
+            main.post { if (dialog.isShowing) view.setImageBitmap(bitmap) else bitmap?.recycle() }
+        }
+    }
+
+    private fun removeNoteImage(image: NoteImage) {
+        if (!isTranscriptEditable() || imageStore.pending() != null) return
+        val note = notes.get(activeNoteId) ?: return
+        if (note.images.none { it.id == image.id }) return
+        dismissFloatingMenu()
+        val text = NoteImageMarkers.remove(liveText?.text?.toString().orEmpty(), image.number)
+        notes.save(note.id, text, note.images.filter { it.id != image.id })
+        replaceNoteText(text)
+        imageStore.delete(image.id)
+        refreshNoteImages()
+    }
+
+    private fun exportNoteWithImages(automatic: Boolean = true) {
+        if (!isTranscriptEditable() || imageStore.pending() != null) return
+        val run = activeRun
+        if (run != null) {
+            run.exportNote = true
+            run.automaticNoteShare = automatic
+            run.finishAfterPause = true
+            if (state != State.PAUSING) stopRec()
+        } else {
+            val note = notes.save(activeNoteId, liveText?.text?.toString().orEmpty())
+            activeNoteId = note.id
+            draftStore.noteId = note.id
+            launchNoteExport(note, automatic = automatic)
+        }
+    }
+
+    private fun launchNoteExport(note: TranscriptNote, automatic: Boolean = false) {
+        dismissFloatingMenu()
+        releaseTranscriptFocus()
+        startActivity(Intent(this, NoteExportActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .putExtra("noteId", note.id).putExtra("autoShare", automatic))
+    }
+
     private fun persistDraft(text: String) {
         draftStore.save(text)
         activeNoteId?.let { id ->
@@ -1865,6 +2132,7 @@ class OverlayService : Service() {
         recoveredDraft = null
         activeNoteId = null
         draftStore.clear()
+        refreshNoteImages()
         setLivePreviewVisible(false)
         setState(if (micArmed) State.IDLE else State.MIC_UNARMED)
     }
@@ -1883,6 +2151,7 @@ class OverlayService : Service() {
 
     private fun archiveOrShowNotes() {
         tapCoordinator.reset()
+        if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
         if (state == State.TRANSCRIBING || state == State.CANCELLING) {
             toast("Patientez jusqu’à la fin du traitement.")
             return
@@ -1913,6 +2182,7 @@ class OverlayService : Service() {
         updatingLiveText = false
         liveText?.isEnabled = true
         liveText?.hint = "Écrivez ici, ou appuyez sur la pastille pour dicter"
+        refreshNoteImages()
         draftStore.save(note.text)
         panelHidden = false
         setState(State.PAUSED)
@@ -1921,6 +2191,8 @@ class OverlayService : Service() {
 
     private fun exportOpenNote() {
         if (!isTranscriptEditable()) return
+        if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
+        if (notes.get(activeNoteId)?.images?.isNotEmpty() == true) { exportNoteWithImages(); return }
         tapCoordinator.reset()
         val text = liveText?.text?.toString().orEmpty()
         val note = notes.save(activeNoteId, text)
@@ -1994,11 +2266,13 @@ class OverlayService : Service() {
     }
 
     private fun showNotesOverlay() {
+        if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
         val entries = mutableListOf(MenuEntry("＋ Nouvelle note", { openNote(notes.save(null, "")) }))
         notes.all().forEach { note ->
             val excerpt = note.text.replace(Regex("\\s+"), " ").take(90)
             entries += MenuEntry(note.title + if (excerpt.isBlank()) "" else "\n$excerpt", { openNote(note) }, {
                 showFloatingMenu(note.title, listOf(
+                    MenuEntry("Partager / exporter · texte et images", { launchNoteExport(note) }),
                     MenuEntry("Renommer", { renameNote(note) }),
                     MenuEntry("Supprimer", { notes.delete(note.id); showNotesOverlay() }),
                     MenuEntry("Retour aux notes", ::showNotesOverlay),
@@ -2062,6 +2336,8 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         resetVocabularyLearning()
+        mediaButtons.clear()
+        imageStrip = null
         localFormatter.close()
         dismissFloatingMenu()
         formatDialog?.dismiss()

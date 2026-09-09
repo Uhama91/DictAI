@@ -10,6 +10,7 @@ internal object GemmaFormattingPrompt {
             LocalLayoutKind.TEXT -> TEXT
             null -> "Keep the existing layout."
         })
+        if (NoteImageMarkers.markers(request.text).isNotEmpty()) append(NoteImageMarkers.INSTRUCTIONS)
         if (request.protectedTerms.isNotEmpty()) {
             append("\nKeep these user spellings exactly: ")
             append(request.protectedTerms.joinToString(", ") { it.replace("<|", "< |") })

@@ -22,8 +22,8 @@ android {
         minSdk = 30
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
-        versionCode = 28
-        versionName = if (localFormatPrototype) "0.8.5-wp-gemma-test" else "0.8.5-wp"
+        versionCode = 29
+        versionName = if (localFormatPrototype) "0.9.0-wp-gemma-test" else "0.9.0-wp"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }

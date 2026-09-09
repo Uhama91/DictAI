@@ -60,7 +60,7 @@ internal data class LocalFormatRequest(
             validation == LocalFormatValidation.GEMMA_EDITING -> GemmaConservativeEditing.accept(this, text)
             else -> layoutPolicy()?.accept(text)
         }
-        return value?.takeIf { output -> protectedTerms.all { it in output } }
+        return value?.takeIf { output -> protectedTerms.all { it in output } && NoteImageMarkers.preserved(this.text, output) }
     }
 
     /** Free generation remains private until all source words have been verified. */

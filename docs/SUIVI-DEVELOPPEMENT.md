@@ -2,6 +2,12 @@
 
 Mis à jour le 9 septembre 2026. Travail en cours dans Codex sur la branche existante. Procéder par étapes testées, à la demande d’Ullie ; ne pas oublier les demandes suivantes et ne pas les considérer comme déjà livrées.
 
+## Notes visuelles et exports — 0.9.0 en vérification
+
+Demande et précisions du 9 septembre : captures sous l’overlay, photos caméra, dix images maximum, références au moment du geste, transfert groupé vers une conversation. PDF réservé à la lecture personnelle ; HTML autonome avec images intégrées pour l’archive. Ne pas présenter ces documents comme une solution de collage universel. Le partage multiple Android dépend des applications destinataires ; aucun test réel de réception mobile n’est encore effectué. Les images ne doivent pas être envoyées à Gemma ou au moteur cloud de correction.
+
+Implémentation et limites : [notes avec images](NOTES-AVEC-IMAGES.md). Version en cours de compilation et de vérification ; ne pas considérer l’APK comme publiée tant que le lien et les contrôles ne sont pas consignés.
+
 ## Correction souple, dix secondes et choix explicite du texte — 0.8.5
 
 Demande actuelle : autoriser les corrections de forme et les répétitions inutiles sans changer le contenu, structurer aussi le corps des mails longs, et essayer dix secondes de finalisation locale. **Précision ultérieure prioritaire : ne pas activer le LLM automatiquement selon la longueur du mode Texte.** Une note longue doit pouvoir être copiée sans passer dans le modèle.

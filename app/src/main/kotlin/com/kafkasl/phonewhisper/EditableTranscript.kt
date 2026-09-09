@@ -5,16 +5,24 @@ internal class EditableTranscript {
     private var raw = emptyList<String>()
     private var protectedWords = 0
     private var edited: String? = null
+    private var userEdited = false
 
-    @Synchronized fun hasUserEdits(): Boolean = edited != null
+    @Synchronized fun hasUserEdits(): Boolean = userEdited
 
     @Synchronized fun clear() {
         raw = emptyList()
         protectedWords = 0
         edited = null
+        userEdited = false
     }
 
     @Synchronized fun edit(text: String) {
+        userEdited = true
+        anchor(text)
+    }
+
+    /** Insert a context reference without pretending it was a manual wording correction. */
+    @Synchronized fun anchor(text: String) {
         edited = text
         protectedWords = raw.size
     }

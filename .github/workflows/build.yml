@@ -99,14 +99,14 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma-test-$GITHUB_RUN_ID"
           printf '%s\n' \
-            'DictAI 0.8.5 Android ARM64 : Gemma 4 E2B, LiteRT-LM GPU + MTP, thinking désactivé.' \
-            'Installez cette APK en mise à jour : Gemma déjà téléchargé est conservé. Première installation : touchez Installer Gemma 4 E2B pour le téléchargement unique de 2,6 Go, reprenable et vérifié.' \
-            'Le menu des formats propose Texte (sans LLM) et Texte corrigé (local ou cloud selon les réglages). Texte reste le choix initial, y compris pour les notes longues ; aucune activation automatique de l’IA selon la longueur.' \
-            'Les mails et textes corrigés de 60 mots ou plus disposent de dix secondes au maximum pour terminer le calcul local. Une réponse prête est utilisée immédiatement. Mails courts : huit secondes ; listes et textes corrigés courts : cinq secondes.' \
-            'Gemma peut corriger certaines fautes de forme, retirer les hésitations et répétitions adjacentes et structurer le corps du texte en paragraphes. Les changements de contenu non reconnus conservent la transcription source.' \
-            'Le banc distingue les corrections autorisées des critères de structure et mesure les paragraphes du corps, ainsi que les écarts à cinq, huit et dix secondes. La limite du banc reste vingt secondes.' \
-            'Essai expérimental : les tests sur ordinateur ne mesurent pas la latence GPU Android. Aucun repli cloud automatique ; le cloud se choisit avec votre clé API.' \
-            'APK compilée, testée et vérifiée par GitHub Actions.' > release-notes.md
+            'DictAI 0.9.0 Android ARM64 : notes avec captures d’écran et photos, jusqu’à dix images.' \
+            'La bande du panneau propose capture, caméra, partage et miniatures. Chaque image reçoit un repère au moment du geste ; les images restent dans la note locale.' \
+            'Partager le texte et les images prépare un fichier texte complet et les JPEG numérotés pour le sélecteur Android. La réception dépend de chaque application : aucun collage universel ni envoi automatique dans une conversation déjà ouverte.' \
+            'PDF sur demande pour la lecture, avec les images dans le contexte. Export HTML autonome avec images intégrées, sans dossier compagnon. Enregistrement dans un dossier au choix.' \
+            'Le mode Texte reste sans LLM. Capture et exports ne nécessitent aucun modèle ; Gemma/local ou cloud restent limités à la correction explicite du texte. Aucun envoi automatique des images au cloud.' \
+            'Android doit autoriser les captures au service d’accessibilité : une réactivation du service peut être nécessaire après mise à jour. Écrans protégés respectés ; téléphone déverrouillé pour les images et exports.' \
+            'Gemma déjà téléchargé est conservé. GPU + MTP, thinking désactivé, délais et formats de 0.8.5 conservés.' \
+            'APK compilée et tests JVM vérifiés dans GitHub Actions. Le rendu PDF, la capture sans overlay, la caméra et les applications de destination restent à essayer sur appareil Android.' > release-notes.md
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.8.5 — correction souple et choix du texte sans IA' --notes-file release-notes.md
+            --title 'DictAI 0.9.0 — notes avec photos, captures et exports' --notes-file release-notes.md

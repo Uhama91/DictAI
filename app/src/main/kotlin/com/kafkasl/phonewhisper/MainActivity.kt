@@ -245,7 +245,7 @@ class MainActivity : AppCompatActivity() {
             "À la fin : réduit les « euh » et certaines répétitions, sans attente de modèle. Les retouches manuelles sont conservées.", cleanupSwitch))
 
         // Espace automatique en fin de dictée
-        root.addView(settingsRow("Mes notes", "Retrouver, créer et modifier vos notes locales") {
+        root.addView(settingsRow("Mes notes", "Texte, captures et photos · partager ou exporter") {
             if (!android.provider.Settings.canDrawOverlays(this)) {
                 startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
             } else startForegroundService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_OPEN_NOTES))

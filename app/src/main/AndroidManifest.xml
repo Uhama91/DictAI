@@ -40,6 +40,16 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:launchMode="singleTop" />
 
+        <activity android:name=".NoteCameraActivity" android:exported="false"
+            android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".NoteExportActivity" android:exported="false"
+            android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.note_files" android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/note_file_paths" />
+        </provider>
+
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

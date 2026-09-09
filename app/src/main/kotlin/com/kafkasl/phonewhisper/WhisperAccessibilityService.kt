@@ -12,9 +12,12 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
 
     companion object {
         private const val TAG = "WhisperPin"
+        @Volatile internal var connected: WhisperAccessibilityService? = null
+            private set
     }
 
     override fun onServiceConnected() {
+        connected = this
         InjectionGateway.register(this)
         try {
             startForegroundService(Intent(this, OverlayService::class.java))
@@ -27,6 +30,7 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
     override fun onInterrupt() {}
 
     override fun onDestroy() {
+        if (connected === this) connected = null
         InjectionGateway.unregister(this)
         super.onDestroy()
     }
