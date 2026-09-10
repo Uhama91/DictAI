@@ -32,6 +32,20 @@ class OverlayTranscriptEditorAndroidTest {
                 assertTrue(editor.isEditing)
                 assertEquals(expected, editor.selectionStart)
                 assertEquals(expected, editor.selectionEnd)
+                // A tail-follow update may have moved the ScrollView while the
+                // editor stayed focused.  The next tap must use the word under
+                // the finger rather than restoring the previous caret.
+                val laterX = editor.totalPaddingLeft + editor.layout.getPrimaryHorizontal(20)
+                val laterY = (editor.totalPaddingTop + editor.layout.getLineBottom(0) / 2).toFloat()
+                val laterExpected = editor.getOffsetForPosition(laterX, laterY)
+                val laterDown = MotionEvent.obtain(1200L, 1200L, MotionEvent.ACTION_DOWN, laterX, laterY, 0)
+                val laterUp = MotionEvent.obtain(1200L, 1300L, MotionEvent.ACTION_UP, laterX, laterY, 0)
+                try {
+                    editor.onTouchEvent(laterDown)
+                    editor.onTouchEvent(laterUp)
+                    assertEquals(laterExpected, editor.selectionStart)
+                    assertEquals(laterExpected, editor.selectionEnd)
+                } finally { laterDown.recycle(); laterUp.recycle() }
                 editor.endEditing()
                 assertFalse(editor.isEditing)
                 editor.requestFocus()

@@ -54,7 +54,11 @@ internal open class OverlayTranscriptEditor(context: Context) : EditText(context
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             keyboard.beginTouch()
             downX = event.x; downY = event.y; moved = false
-            initialOffset = if (!isEditing || !hasWindowFocus() || !isFocused) getOffsetForPosition(event.x, event.y) else null
+            // Capture the visible word before the overlay acquires focus or the
+            // IME moves the panel.  This also matters for later taps while the
+            // editor is already focused: the tail follower may have moved the
+            // viewport since the previous correction.
+            initialOffset = getOffsetForPosition(event.x, event.y)
             initialText = text.toString()
             beginEditing()
         } else if (event.actionMasked == MotionEvent.ACTION_MOVE &&

@@ -8,7 +8,6 @@ class TranscriptFollowStateTest {
         val state = TranscriptFollowState()
         state.userInteraction(1000)
         state.transcriptChanged()
-        assertFalse(state.ready(10000, false, false, false, editing = true))
         assertTrue(state.ready(10000, false, false, false, editing = false))
     }
 
@@ -21,19 +20,27 @@ class TranscriptFollowStateTest {
         assertFalse(state.pending)
     }
 
-    @Test fun typingSelectionAndCompositionKeepOwnershipUntilSettled() {
+    @Test fun typingSelectionAndCompositionKeepCaretOwnershipUntilSettledThenFollowViewport() {
         val state = TranscriptFollowState()
         state.userInteraction(1000)
         state.transcriptChanged()
         assertFalse(state.ready(1899, false, false, false))
         assertFalse(state.ready(1900, true, false, false))
         assertFalse(state.ready(1900, false, true, false))
-        assertFalse(state.ready(1900, false, false, true))
+        assertTrue(state.ready(1900, false, false, true))
         assertTrue(state.ready(1900, false, false, false))
         state.followed()
         state.userInteraction(2000)
         assertFalse(state.following)
         assertFalse(state.ready(4000, false, false, false)) // no new text: do not jump from the edit.
+    }
+
+    @Test fun editingFlagDoesNotBlockSettledRecognitionFromFollowingTheTail() {
+        val state = TranscriptFollowState()
+        state.userInteraction(1000)
+        state.transcriptChanged()
+
+        assertTrue(state.ready(1900, false, false, false, editing = true))
     }
 
     @Test fun aNewDictationDoesNotInheritOldEditingOrScrollRequests() {

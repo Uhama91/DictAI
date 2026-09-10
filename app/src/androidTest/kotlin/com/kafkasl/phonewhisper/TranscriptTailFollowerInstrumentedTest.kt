@@ -30,8 +30,10 @@ class TranscriptTailFollowerInstrumentedTest {
             editor.requestFocus()
             editor.setSelection(4)
             var editing = true
-            val follower = TranscriptTailFollower(editor, scroll, editing = { editing }) { true }
+            var clock = 1000L
+            val follower = TranscriptTailFollower(editor, scroll, editing = { editing }, clock = { clock }) { true }
             try {
+                follower.userInteraction()
                 editor.append("\nNouveaux mots dictés")
                 editor.setSelection(4)
                 follower.changed()
@@ -41,15 +43,13 @@ class TranscriptTailFollowerInstrumentedTest {
                 assertEquals(0, editor.scrollY)
                 assertEquals(0, scroll.scrollY)
                 assertFalse(follower.followsTail)
+                clock = 2000L
                 layout(100)
                 follower.resized()
                 scroll.viewTreeObserver.dispatchOnPreDraw()
                 assertEquals(4, editor.selectionStart)
-                assertEquals(0, scroll.scrollY)
-                editing = false
-                follower.changed()
-                scroll.viewTreeObserver.dispatchOnPreDraw()
                 assertTrue(editor.bottom <= scroll.scrollY + scroll.height - scroll.paddingBottom)
+                assertTrue(follower.followsTail)
             } finally { follower.reset() }
         }
     }

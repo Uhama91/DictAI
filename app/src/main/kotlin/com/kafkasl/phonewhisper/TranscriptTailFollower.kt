@@ -11,6 +11,7 @@ internal class TranscriptTailFollower(
     private val editor: EditText,
     private val scroll: ScrollView,
     private val editing: () -> Boolean = { editor.isFocused },
+    private val clock: () -> Long = SystemClock::uptimeMillis,
     private val enabled: () -> Boolean,
 ) {
     private val state = TranscriptFollowState()
@@ -28,15 +29,16 @@ internal class TranscriptTailFollower(
         true
     }
 
-    val followsTail: Boolean get() = enabled() && state.following && !editing()
+    /** Following is a viewport policy; it must not move the caret while editing. */
+    val followsTail: Boolean get() = enabled() && state.following
 
-    fun userInteraction() { state.userInteraction(SystemClock.uptimeMillis()) }
+    fun userInteraction() { state.userInteraction(clock()) }
     fun touch(active: Boolean) { touching = active; userInteraction() }
     fun changed() { state.transcriptChanged(); schedule() }
     fun resized() { if (state.following || state.pending) changed() }
     fun reset() { editor.removeCallbacks(retry); stopListening(); touching = false; state.reset() }
 
-    private fun ready() = enabled() && state.ready(SystemClock.uptimeMillis(), touching,
+    private fun ready() = enabled() && state.ready(clock(), touching,
         editor.selectionStart != editor.selectionEnd, BaseInputConnection.getComposingSpanStart(editor.text) >= 0,
         editing = editing())
 

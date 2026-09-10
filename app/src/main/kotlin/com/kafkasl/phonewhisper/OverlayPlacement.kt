@@ -1,5 +1,6 @@
 package com.kafkasl.phonewhisper
 
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 enum class Edge { LEFT, TOP, RIGHT, BOTTOM }
@@ -15,8 +16,43 @@ data class Rect(val x: Int, val y: Int, val width: Int, val height: Int) {
     val centerY: Int get() = y + height / 2
 }
 
+data class TranscriptPanelLayout(
+    val compact: Boolean,
+    val showMedia: Boolean,
+    val showActions: Boolean,
+    val showFormat: Boolean,
+    val actionsTop: Int,
+    val transcriptTop: Int,
+)
+
 /** Pure geometry for the movable overlay pill and its non-touchable transcript panel. */
 object OverlayPlacement {
+    /**
+     * Returns the part of the safe display that is still visible above the IME.
+     *
+     * Window insets are normally expressed from the window's bottom edge while
+     * [Rect] uses absolute display coordinates.  Callers therefore pass the
+     * already converted absolute IME top.  A visible display frame is accepted
+     * as a fallback for OEMs that do not report IME insets to an overlay using
+     * ADJUST_NOTHING.
+     */
+    fun screenAboveKeyboard(
+        fullScreen: Rect,
+        imeTop: Int? = null,
+        visibleFrameBottom: Int? = null,
+    ): Rect {
+        val reportedImeTop = imeTop
+            ?.takeIf { it >= fullScreen.y && it < fullScreen.bottom }
+            ?.coerceIn(fullScreen.y, fullScreen.bottom)
+        val frameBottom = visibleFrameBottom
+            ?.takeIf { it > fullScreen.y }
+            ?.coerceIn(fullScreen.y, fullScreen.bottom)
+        // Prefer the absolute metrics top when Android reports one.  The visible
+        // frame is otherwise the useful signal when an overlay receives insets at 0.
+        val bottom = reportedImeTop ?: min(fullScreen.bottom, frameBottom ?: fullScreen.bottom)
+        return fullScreen.copy(height = (bottom - fullScreen.y).coerceAtLeast(1))
+    }
+
     fun snap(position: Point, pill: Rect, screen: Rect): Anchor {
         val point = clampPill(position, pill, screen)
         val distances = listOf(
@@ -76,6 +112,36 @@ object OverlayPlacement {
         val size = Rect(0, 0, desiredWidth.coerceIn(1, availableWidth), desiredHeight.coerceIn(1, availableHeight))
         val position = panelPosition(edge, pill, size, screen, m)
         return Rect(position.x, position.y, size.width, size.height)
+    }
+
+    /** Chooses a non-overlapping transcript header for the available panel height. */
+    fun transcriptPanelLayout(
+        panelHeight: Int,
+        toolbarHeight: Int,
+        formatHeight: Int,
+        mediaHeight: Int,
+        actionsHeight: Int,
+        minimumTextHeight: Int,
+    ): TranscriptPanelLayout {
+        val fullHeader = toolbarHeight + formatHeight + mediaHeight + actionsHeight
+        val canKeepMedia = panelHeight >= fullHeader + minimumTextHeight
+        val canKeepActions = panelHeight >= toolbarHeight + formatHeight + actionsHeight + minimumTextHeight
+        val canKeepFormat = panelHeight >= toolbarHeight + formatHeight + minimumTextHeight
+        val actionsTop = if (canKeepMedia) toolbarHeight + formatHeight + mediaHeight else toolbarHeight + formatHeight
+        val transcriptTop = when {
+            canKeepMedia -> fullHeader
+            canKeepActions -> toolbarHeight + formatHeight + actionsHeight
+            canKeepFormat -> toolbarHeight + formatHeight
+            else -> toolbarHeight
+        }
+        return TranscriptPanelLayout(
+            compact = !canKeepMedia,
+            showMedia = canKeepMedia,
+            showActions = canKeepActions,
+            showFormat = canKeepFormat,
+            actionsTop = actionsTop,
+            transcriptTop = transcriptTop,
+        )
     }
 
     fun clampPill(point: Point, pill: Rect, screen: Rect): Point = Point(

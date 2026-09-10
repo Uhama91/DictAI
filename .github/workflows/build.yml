@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[local-layout-test]')) }}
+  PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[local-layout-test]') || contains(github.event.head_commit.message, '[local-layout-artifact]'))) }}
 
 jobs:
   build:

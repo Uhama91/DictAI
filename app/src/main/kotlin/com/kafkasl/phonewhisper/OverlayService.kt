@@ -186,6 +186,9 @@ class OverlayService : Service() {
         var stoppedAtMs = 0L
         var firstFormatVisible = false
         var formatStage: String? = null
+        var startRequestedAtMs = 0L
+        @Volatile var readerStartedAtMs = 0L
+        @Volatile var firstAudioAtMs = 0L
     }
 
     private val prefs by lazy { PersistencePrefs(this) }
@@ -215,8 +218,11 @@ class OverlayService : Service() {
     private var panelTitle: TextView? = null
     private var panelFormat: TextView? = null
     private var panelExpandButton: ImageButton? = null
+    private var editorActionsRow: LinearLayout? = null
     private var keyboardInset = 0
     private var panelExpanded = false
+    private var panelCompact = false
+    private var lastPanelScreen: Rect? = null
     private var panelHidden = false
     private val draftStore by lazy { DictationDraftStore(this) }
     private var recoveredDraft: String? = null
@@ -404,7 +410,7 @@ class OverlayService : Service() {
 
     private fun startRec() {
         dismissFloatingMenu()
-        val requestedAt = SystemClock.uptimeMillis()
+        val requestedAt = SystemClock.elapsedRealtime()
         val selectedFormat = PostProcessingFormats(this).selected()
         val cloudRequested = prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled && selectedFormat.usesLanguageModel
         val targetSensitive = cloudRequested && runCatching {
@@ -498,13 +504,25 @@ class OverlayService : Service() {
             run.cancellation.onCancel { run.localFormatting?.close() }
         }
         run.cancellation.onCancel { started.session.cancel() }
+        run.startRequestedAtMs = requestedAt
         val ar = recorder.audioRecord
         val recordingPcm = java.io.ByteArrayOutputStream()
+        var readerThread: Thread? = null
         try {
             audioRecord = ar
             pcm = recordingPcm
             asrSession = started.session
             activeRun = run
+            // Publish the recording state and start draining AudioRecord before
+            // draft persistence and panel layout work.  The hardware buffer can
+            // otherwise fill while the main thread prepares the overlay, which
+            // is most visible as missing words at the beginning of a sentence.
+            // setState also refreshes the notification, note thumbnails and
+            // panel layout synchronously on the main looper.  Publish the state
+            // field first so the reader can drain AudioRecord during that work.
+            state = State.RECORDING
+            readerThread = launchAudioReader(run, ar, recordingPcm, bufSize)
+            setState(State.RECORDING)
             val restored = recoveredDraft
             resetVocabularyLearning()
             tailFollower?.reset()
@@ -518,22 +536,37 @@ class OverlayService : Service() {
             if (restored == null) { panelHidden = !prefs.showTranscript; panelExpanded = false }
             recoveredDraft = null
             persistDraft(liveText?.text?.toString().orEmpty())
-            setState(State.RECORDING)
             setLivePreviewVisible(true)
             vibrate(20)
-            launchAudioReader(run, ar, recordingPcm, bufSize)
-            Log.i(TAG, "event=audio_start outcome=ready elapsed_ms=${SystemClock.uptimeMillis() - requestedAt}")
+            Log.i(TAG, "event=audio_start outcome=ready elapsed_ms=${SystemClock.elapsedRealtime() - requestedAt}")
         } catch (t: Throwable) {
+            run.captureGate.pause()
             if (asrSession === started.session) asrSession = null
             if (audioRecord === ar) audioRecord = null
             recordThread = null
             pcm = null
             run.cancellation.cancel()
-            if (activeRun === run) activeRun = null
-            try { ar.stop() } catch (_: Throwable) {}
-            try { ar.release() } catch (_: Throwable) {}
-            setLivePreviewVisible(false)
-            setState(State.IDLE)
+            val coordinator = RecordingStopCoordinator(
+                recordThread = readerThread,
+                stopRecorder = { ar.stop() },
+                releaseRecorder = { ar.release() },
+                snapshot = {},
+            )
+            // Keep the run busy until both AudioRecord and the native session
+            // have exited; a second tap must not open another microphone first.
+            setState(State.CANCELLING)
+            thread(name = "dictai-start-failure-stop") {
+                if (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS) == RecordingStopCoordinator.Result.TimedOut) {
+                    coordinator.awaitExitThenRelease()
+                }
+                awaitSessionExit(run)
+                main.post {
+                    if (localEngineLifecycle.isDestroyed() || activeRun !== run) return@post
+                    activeRun = null
+                    setLivePreviewVisible(false)
+                    setState(State.IDLE)
+                }
+            }
             Log.w(TAG, "event=audio_start outcome=publication_failure type=${t.javaClass.simpleName}")
         }
     }
@@ -543,17 +576,27 @@ class OverlayService : Service() {
         recorder: AudioRecord,
         recordingPcm: java.io.ByteArrayOutputStream,
         bufferSize: Int,
-    ) {
+    ): Thread {
         val reader = Thread({
+            run.readerStartedAtMs = SystemClock.elapsedRealtime()
+            Log.i(TAG, "event=audio_reader_start startup_ms=${run.readerStartedAtMs - run.startRequestedAtMs}")
             // Read 20 ms at a time; the recorder keeps its larger hardware buffer.
             val buf = ByteArray(minOf(bufferSize, SAMPLE_RATE / 50 * 2))
+            var firstFrame = true
             try {
                 while (state == State.RECORDING && isCurrentRun(run)) {
                     val n = recorder.read(buf, 0, buf.size)
-                    if (n > 0) run.captureGate.deliver {
-                        recordingPcm.write(buf, 0, n)
-                        run.session.acceptPcm16(buf, n)
-                        wave?.setLevel(rmsLevel(buf, n))
+                    if (n > 0) {
+                        if (firstFrame) {
+                            firstFrame = false
+                            run.firstAudioAtMs = SystemClock.elapsedRealtime()
+                            Log.i(TAG, "event=audio_first_frame startup_ms=${run.firstAudioAtMs - run.startRequestedAtMs} bytes=$n peak=${peakAmplitude(buf, n)}")
+                        }
+                        run.captureGate.deliver {
+                            recordingPcm.write(buf, 0, n)
+                            run.session.acceptPcm16(buf, n)
+                            wave?.setLevel(rmsLevel(buf, n))
+                        }
                     }
                     if (n < 0 && state == State.RECORDING) error("audio_read_failed")
                 }
@@ -568,6 +611,18 @@ class OverlayService : Service() {
         }, "dictai-audio-reader")
         recordThread = reader
         reader.start()
+        return reader
+    }
+
+    private fun peakAmplitude(buf: ByteArray, n: Int): Int {
+        var peak = 0
+        var i = 0
+        while (i + 1 < n) {
+            val sample = ((buf[i].toInt() and 0xFF) or (buf[i + 1].toInt() shl 8)).toShort().toInt()
+            peak = maxOf(peak, kotlin.math.abs(sample))
+            i += 2
+        }
+        return peak
     }
 
     private fun pauseRec() {
@@ -626,6 +681,7 @@ class OverlayService : Service() {
         if (state != State.PAUSED || localEngineLifecycle.isDestroyed()) return
         val recordingPcm = pcm ?: return
         var recorder: AudioRecord? = null
+        var readerThread: Thread? = null
         try {
             val bufferSize = AudioRecord.getMinBufferSize(
                 SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
@@ -642,15 +698,32 @@ class OverlayService : Service() {
             audioRecord = resumed
             tapCoordinator.reset()
             run.captureGate.resume()
+            run.startRequestedAtMs = SystemClock.elapsedRealtime()
+            state = State.RECORDING
+            readerThread = launchAudioReader(run, resumed, recordingPcm, bufferSize)
             setState(State.RECORDING)
-            launchAudioReader(run, resumed, recordingPcm, bufferSize)
         } catch (_: Throwable) {
             run.captureGate.pause()
-            try { recorder?.stop() } catch (_: Throwable) {}
-            try { recorder?.release() } catch (_: Throwable) {}
+            recorder?.let { resumed ->
+                val coordinator = RecordingStopCoordinator(
+                    recordThread = readerThread,
+                    stopRecorder = { resumed.stop() },
+                    releaseRecorder = { resumed.release() },
+                    snapshot = {},
+                )
+                setState(State.PAUSING)
+                thread(name = "dictai-resume-failure-stop") {
+                    if (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS) == RecordingStopCoordinator.Result.TimedOut) {
+                        coordinator.awaitExitThenRelease()
+                    }
+                    main.post {
+                        if (localEngineLifecycle.isDestroyed() || activeRun !== run || state != State.PAUSING) return@post
+                        setState(State.PAUSED)
+                    }
+                }
+            }
             audioRecord = null
             recordThread = null
-            setState(State.PAUSED)
             toast("Reprise du micro impossible : texte conservé, réessayez.")
             return
         }
@@ -1203,12 +1276,36 @@ class OverlayService : Service() {
                     // Preserve unchanged spans; automatic transcription always follows the new tail.
                     val prefix = old.commonPrefixWith(display).length
                     val suffix = old.drop(prefix).commonSuffixWith(display.drop(prefix)).length
+                    val selectionStart = editor.selectionStart
+                    val selectionEnd = editor.selectionEnd
                     editor.text.replace(prefix, old.length - suffix, display.substring(prefix, display.length - suffix))
+                    preserveEditorSelection(
+                        editor,
+                        oldStart = prefix,
+                        oldEnd = old.length - suffix,
+                        newEnd = display.length - suffix,
+                        selectionStart = selectionStart,
+                        selectionEnd = selectionEnd,
+                    )
                 } finally { updatingLiveText = false }
             }
             setLivePreviewVisible(true)
             scrollTranscriptToEnd(run)
         }
+    }
+
+    /** Keep a correction's caret stable when a later ASR revision replaces the tail. */
+    private fun preserveEditorSelection(
+        editor: EditText,
+        oldStart: Int,
+        oldEnd: Int,
+        newEnd: Int,
+        selectionStart: Int,
+        selectionEnd: Int,
+    ) {
+        TranscriptSelectionMapping.afterReplacement(
+            selectionStart, selectionEnd, oldStart, oldEnd, newEnd, editor.length(),
+        )?.let { mapped -> runCatching { editor.setSelection(mapped.start, mapped.end) } }
     }
 
     private fun scrollTranscriptToEnd(run: ActiveDictationRun) {
@@ -1273,10 +1370,10 @@ class OverlayService : Service() {
     }
 
     private fun setVocabularySuggestionVisible(visible: Boolean) {
-        vocabularyBanner?.visibility = if (visible) View.VISIBLE else View.GONE
+        vocabularyBanner?.visibility = if (visible && !panelCompact) View.VISIBLE else View.GONE
         // Reuse the media toolbar's row: the offer stays reachable in a small overlay without
         // covering the corrected text, resizing the editor or moving the caret under the finger.
-        mediaToolbar?.visibility = if (visible) View.GONE else View.VISIBLE
+        mediaToolbar?.visibility = if (panelCompact || visible) View.GONE else View.VISIBLE
     }
 
     private fun resetVocabularyLearning() {
@@ -1356,6 +1453,7 @@ class OverlayService : Service() {
     private fun releaseTranscriptFocus() {
         val panel = livePanel ?: return
         keyboardInset = 0
+        lastPanelScreen = null
         liveText?.endEditing()
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(panel.windowToken, 0)
         liveParams?.let { it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE }
@@ -1382,6 +1480,24 @@ class OverlayService : Service() {
 
     private fun pillRect(lp: WindowManager.LayoutParams): Rect = Rect(lp.x, lp.y, lp.width, lp.height)
 
+    /** Resolve the IME top in display coordinates before placing the overlay panel. */
+    private fun screenAboveKeyboard(fullScreen: Rect): Rect {
+        var imeTop: Int? = null
+        try {
+            val metrics = (getSystemService(WINDOW_SERVICE) as WindowManager).currentWindowMetrics
+            val imeBottom = metrics.windowInsets.getInsets(android.view.WindowInsets.Type.ime()).bottom
+            if (imeBottom > 0) imeTop = metrics.bounds.bottom - imeBottom
+        } catch (_: Throwable) {
+            // The visible display frame below remains the OEM fallback.
+        }
+        val visibleFrameBottom = livePanel?.let { panel ->
+            val frame = android.graphics.Rect()
+            panel.getWindowVisibleDisplayFrame(frame)
+            frame.bottom.takeIf { it > fullScreen.y && it < fullScreen.bottom }
+        }
+        return OverlayPlacement.screenAboveKeyboard(fullScreen, imeTop, visibleFrameBottom)
+    }
+
     private fun localFormatStatus(): String = when (localFormatter.runtimeName()) {
         "litert-lm-gpu-mtp-thinking-off" -> "Gemma prêt"
         "loading" -> "Gemma se prépare…"
@@ -1390,13 +1506,57 @@ class OverlayService : Service() {
         else -> "Gemma prévu"
     }
 
+    /** Keep the transcript area usable when the IME leaves only a short panel. */
+    private fun layoutTranscriptRows(panelHeight: Int, dp: Float) {
+        val toolbarHeight = (48 * dp).toInt()
+        val formatHeight = (24 * dp).toInt()
+        val mediaHeight = (48 * dp).toInt()
+        val actionsHeight = (48 * dp).toInt()
+        val minimumTextHeight = maxOf((72 * dp).toInt(), (liveText?.lineHeight ?: (20 * dp).toInt()) * 2 + (20 * dp).toInt())
+        val layout = OverlayPlacement.transcriptPanelLayout(
+            panelHeight, toolbarHeight, formatHeight, mediaHeight, actionsHeight, minimumTextHeight,
+        )
+        panelCompact = layout.compact
+
+        panelFormat?.visibility = if (layout.showFormat) View.VISIBLE else View.GONE
+        val suggestion = vocabularySuggestion != null
+        mediaToolbar?.visibility = if (layout.showMedia && !suggestion) View.VISIBLE else View.GONE
+        vocabularyBanner?.visibility = if (layout.showMedia && suggestion) View.VISIBLE else View.GONE
+
+        val actions = editorActionsRow
+        actions?.visibility = if (layout.showActions) View.VISIBLE else View.GONE
+        if (layout.showActions) {
+            (actions?.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
+                if (lp.topMargin != layout.actionsTop) {
+                    lp.topMargin = layout.actionsTop
+                    actions.layoutParams = lp
+                }
+            }
+        }
+
+        (liveScroll?.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
+            if (lp.topMargin != layout.transcriptTop) {
+                lp.topMargin = layout.transcriptTop
+                liveScroll?.layoutParams = lp
+            }
+        }
+    }
+
+    private fun repositionPanelIfVisibleScreenChanged() {
+        val anchor = currentAnchor ?: return
+        val nextScreen = screenAboveKeyboard(screenRect())
+        if (nextScreen != lastPanelScreen) positionLivePanel(anchor)
+    }
+
     private fun positionLivePanel(anchor: Anchor) {
         val panel = livePanel ?: return
         val panelParams = liveParams ?: return
         if (!livePanelAdded) return
         val dp = resources.displayMetrics.density
         val fullScreen = screenRect()
-        val screen = fullScreen.copy(height = (fullScreen.height - keyboardInset).coerceAtLeast(1))
+        val screen = screenAboveKeyboard(fullScreen)
+        val screenChanged = screen != lastPanelScreen
+        lastPanelScreen = screen
         val inNote = purpose == DictationPurpose.NOTE
         panelTitle?.text = if (inNote) notes.get(activeNoteId)?.title ?: "Nouvelle note" else when (state) {
             State.RECORDING -> "Message · Écoute en cours"
@@ -1440,15 +1600,20 @@ class OverlayService : Service() {
                 if (rect.bottom > screen.bottom) rect.copy(y = (screen.bottom - rect.height).coerceAtLeast(screen.y)) else rect
             }, screen,
             ((if (panelExpanded) 600 else 312) * dp).toInt(),
-            if (panelExpanded) (screen.height * 0.82f).toInt() else (liveText?.lineHeight ?: 20) * 4 +
+            if (panelExpanded) (screen.height - (12 * dp).toInt()).coerceAtLeast(1) else (liveText?.lineHeight ?: 20) * 4 +
                 (188 * dp).toInt(),
             (6 * dp).toInt(),
         )
+        val boundsChanged = panelParams.x != bounds.x || panelParams.y != bounds.y ||
+            panelParams.width != bounds.width || panelParams.height != bounds.height
         panelParams.x = bounds.x
         panelParams.y = bounds.y
         panelParams.width = bounds.width
         panelParams.height = bounds.height
-        try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, panelParams) } catch (_: Exception) {}
+        layoutTranscriptRows(bounds.height, dp)
+        if (screenChanged || boundsChanged) {
+            try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, panelParams) } catch (_: Exception) {}
+        }
     }
 
     private fun updatePillLayout(anchorForPanel: Anchor? = currentAnchor) {
@@ -1654,11 +1819,16 @@ class OverlayService : Service() {
         }
         livePanel.setOnApplyWindowInsetsListener { _, insets ->
             val nextInset = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
-            if (keyboardInset != nextInset) {
-                keyboardInset = nextInset
-                currentAnchor?.let(::positionLivePanel)
-            }
+            keyboardInset = nextInset
+            // ADJUST_NOTHING overlays can receive 0 both before and after the
+            // IME moves. Re-evaluate the absolute metrics/frame on every inset
+            // dispatch; positionLivePanel only updates WindowManager when the
+            // calculated geometry actually changed.
+            repositionPanelIfVisibleScreenChanged()
             insets
+        }
+        livePanel.viewTreeObserver.addOnGlobalLayoutListener {
+            repositionPanelIfVisibleScreenChanged()
         }
         val toolbar = LinearLayout(this).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
         panelTitle = TextView(this).apply {
@@ -1719,6 +1889,7 @@ class OverlayService : Service() {
         }
         noteInsertButton = editorAction("Insérer…", ::requestNoteInsertion)
         noteDoneButton = editorAction("Terminer", ::archiveOrShowNotes)
+        editorActionsRow = editorActions
         livePanel.addView(editorActions, FrameLayout.LayoutParams(-1, (48 * dp).toInt()).apply { topMargin = (120 * dp).toInt() })
 
         val mediaRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -1996,6 +2167,7 @@ class OverlayService : Service() {
         lp.height = baseButtonH
         val panelParams = liveParams
         val text = liveText
+        lastPanelScreen = null
         if (panelParams != null && text != null) {
             val safeScreen = screenRect()
             livePanelW = min((312 * dp).toInt(), (safeScreen.width - (16 * dp).toInt()).coerceAtLeast(1))
