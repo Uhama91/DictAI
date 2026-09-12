@@ -146,6 +146,28 @@ internal fun dispatchResidentClose(
     launch(close)
 }
 
+/**
+ * Maps normalized PCM RMS to the visual wave only. The mapping leaves headroom above ordinary
+ * speech instead of saturating as soon as RMS reaches -24 dBFS; PCM and transcription data are
+ * untouched.
+ */
+internal fun visualWaveLevelFromRms(rms: Double): Float {
+    // Keep silence quiet while giving ordinary syllables more visual travel than the installed
+    // one-pole mapping. A higher full-scale reference leaves room above speech instead of
+    // saturating around -24 dBFS; a smooth floor gate prevents tiny noise changes from jumping.
+    val floor = 0.008
+    val full = 0.24
+    val normalized = ((rms - floor) / (full - floor)).coerceIn(0.0, 1.0)
+    val floorFade = 0.02
+    val gate = (normalized / floorFade).coerceIn(0.0, 1.0)
+    val smoothGate = gate * gate * (3.0 - 2.0 * gate)
+    val gated = normalized * smoothGate
+    // A rational knee is concave but has a finite slope at the floor. It is visual only; the
+    // PCM value sent to ASR is unchanged.
+    val knee = 0.04
+    return (gated * (1.0 + knee) / (gated + knee)).toFloat()
+}
+
 class OverlayService : Service() {
 
     private val overlayPalette: ThemePalette
@@ -227,6 +249,9 @@ class OverlayService : Service() {
     private val localFormatter by lazy { LocalFormatEngine(this) }
     private var formatDialog: AlertDialog? = null
     private var livePanel: FrameLayout? = null
+    /** Transparent envelope for the panel window; the rounded body clips its own children. */
+    private var livePanelBody: FrameLayout? = null
+    private var bubblePointer: OverlayBubblePointerView? = null
     private var liveScroll: ScrollView? = null
     private var tailFollower: TranscriptTailFollower? = null
     private var panelTitle: TextView? = null
@@ -239,6 +264,7 @@ class OverlayService : Service() {
     private var panelTransitionTarget: Rect? = null
     private var panelTransitionRequested = false
     private var lastPanelScreen: Rect? = null
+    private var pillPositionBeforeKeyboard: Point? = null
     private var panelHidden = false
     private val draftStore by lazy { DictationDraftStore(this) }
     private var recoveredDraft: String? = null
@@ -295,6 +321,10 @@ class OverlayService : Service() {
     private var livePanelW = 0
     private var livePanelH = 0
     private var currentAnchor: Anchor? = null
+    private var panelEdge: Edge? = null
+    private var bubblePointerLength = 0
+    private var bubblePointerTargetX = Float.NaN
+    private var bubblePointerTargetY = Float.NaN
     private var livePanelAdded = false
     private var livePreviewVisible = false
     private var lastNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
@@ -800,8 +830,7 @@ class OverlayService : Service() {
         }
         if (count == 0) return 0f
         val rms = Math.sqrt(sum / count) / 32768.0
-        // boost comme DictAI pour réagir à la parole normale
-        return (Math.sqrt(rms) * 4.0).coerceIn(0.0, 1.0).toFloat()
+        return visualWaveLevelFromRms(rms)
     }
 
     private fun stopRec() {
@@ -1363,7 +1392,8 @@ class OverlayService : Service() {
                 setTextColor(colors.ink)
                 setHintTextColor(colors.inkMuted)
             }
-            livePanel?.background = overlayCardBackground(colors.surface, colors.stroke, 24f)
+            livePanelBody?.background = overlayCardBackground(colors.surface, colors.stroke, 24f)
+            bubblePointer?.setColors(colors.surface, colors.stroke)
             panelTitle?.setTextColor(colors.ink)
 
             panelExpandButton?.parent?.let { parent ->
@@ -1800,6 +1830,45 @@ class OverlayService : Service() {
         if (nextScreen != lastPanelScreen) positionLivePanel(anchor)
     }
 
+    /**
+     * Keep the panel's pointer aimed at the pill that is really on screen. Overlay windows using
+     * ADJUST_NOTHING can leave the pill below an opened IME, so temporarily lift that same window
+     * instead of feeding positionLivePanel a fabricated rectangle. The user's anchor is restored
+     * when the safe display returns and is never overwritten by this temporary adjustment.
+     */
+    private fun pillRectForPanel(fullScreen: Rect, screen: Rect): Rect {
+        val lp = params ?: return Rect(0, 0, 0, 0)
+        val pill = Rect(lp.x, lp.y, lp.width, lp.height)
+        val keyboardVisible = screen.bottom < fullScreen.bottom
+        val needsLift = pill.bottom > screen.bottom && keyboardVisible
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val view = container
+        if (needsLift) {
+            if (pillPositionBeforeKeyboard == null) pillPositionBeforeKeyboard = Point(lp.x, lp.y)
+            val liftedY = (screen.bottom - lp.height).coerceAtLeast(screen.y)
+            if (lp.y != liftedY) {
+                lp.y = liftedY
+                if (view != null) runCatching { wm.updateViewLayout(view, lp) }
+            }
+        } else if (!keyboardVisible) {
+            val previous = pillPositionBeforeKeyboard
+            if (previous != null) {
+                val restored = OverlayPlacement.clampPill(
+                    previous,
+                    Rect(0, 0, lp.width, lp.height),
+                    fullScreen,
+                )
+                if (lp.x != restored.x || lp.y != restored.y) {
+                    lp.x = restored.x
+                    lp.y = restored.y
+                    if (view != null) runCatching { wm.updateViewLayout(view, lp) }
+                }
+                pillPositionBeforeKeyboard = null
+            }
+        }
+        return Rect(lp.x, lp.y, lp.width, lp.height)
+    }
+
     private fun positionLivePanel(anchor: Anchor) {
         val panel = livePanel ?: return
         val panelParams = liveParams ?: return
@@ -1824,33 +1893,45 @@ class OverlayService : Service() {
         }
         panelExpandButton?.setImageResource(if (panelExpanded) R.drawable.ic_panel_restore else R.drawable.ic_panel_expand)
         panelExpandButton?.contentDescription = if (panelExpanded) "Réduire le panneau" else "Agrandir le panneau"
-        val bounds = OverlayPlacement.panelBounds(
-            anchor.edge,
-            pillRect(params ?: return).let { rect ->
-                if (rect.bottom > screen.bottom) rect.copy(y = (screen.bottom - rect.height).coerceAtLeast(screen.y)) else rect
-            }, screen,
-            ((if (panelExpanded) 600 else 312) * dp).toInt(),
-            if (panelExpanded) (screen.height - (12 * dp).toInt()).coerceAtLeast(1) else (liveText?.lineHeight ?: 20) * 4 +
-                (188 * dp).toInt(),
-            (6 * dp).toInt(),
+        val actualPill = pillRectForPanel(fullScreen, screen)
+        val pointerLength = bubblePointerLength.coerceAtMost((12 * dp).toInt().coerceAtLeast(0))
+        val panelGap = maxOf((6 * dp).toInt(), pointerLength + (2 * dp).toInt())
+        val desiredWidth = ((if (panelExpanded) 600 else 312) * dp).toInt()
+        val desiredHeight = if (panelExpanded) (screen.height - (12 * dp).toInt()).coerceAtLeast(1) else
+            (liveText?.lineHeight ?: 20) * 4 + (188 * dp).toInt()
+        val edge = OverlayPlacement.viablePanelEdge(
+            anchor.edge, actualPill, screen, desiredWidth, desiredHeight, panelGap,
         )
+        val bodyBounds = OverlayPlacement.panelBounds(
+            edge,
+            actualPill,
+            screen,
+            desiredWidth,
+            desiredHeight,
+            panelGap,
+        )
+        val bounds = OverlayPlacement.bubbleEnvelope(bodyBounds, edge, pointerLength).window
+        val edgeChanged = panelEdge != null && panelEdge != edge
+        val pointerTargetX = (actualPill.centerX - bounds.x).toFloat()
+        val pointerTargetY = (actualPill.centerY - bounds.y).toFloat()
+        val pointerChanged = bubblePointerTargetX != pointerTargetX || bubblePointerTargetY != pointerTargetY
         val boundsChanged = panelParams.x != bounds.x || panelParams.y != bounds.y ||
             panelParams.width != bounds.width || panelParams.height != bounds.height
-        if (!screenChanged && panelTransitionAnimator != null && panelTransitionTarget == bounds) {
+        if (!screenChanged && panelTransitionAnimator != null && panelTransitionTarget == bounds && !pointerChanged) {
             // launchNoteExport adds its child after the first reposition. Keep the
             // already running resize instead of snapping to the same target.
             panelTransitionRequested = false
             return
         }
-        if (screenChanged || boundsChanged) {
-            val animate = panelTransitionRequested && boundsChanged &&
+        if (screenChanged || boundsChanged || pointerChanged || edgeChanged) {
+            val animate = panelTransitionRequested && boundsChanged && !edgeChanged &&
                 panel.visibility == View.VISIBLE && livePanelAdded && panelAnimationsAllowed()
             panelTransitionRequested = false
             if (animate) {
-                animatePanelBounds(panel, panelParams, bounds, dp)
+                animatePanelBounds(panel, panelParams, bounds, edge, pointerLength, dp)
             } else {
                 cancelPanelTransition()
-                applyPanelBounds(panel, panelParams, bounds, dp)
+                applyPanelBounds(panel, panelParams, bounds, edge, pointerLength, dp)
             }
         }
     }
@@ -1860,13 +1941,63 @@ class OverlayService : Service() {
         panel: View,
         panelParams: WindowManager.LayoutParams,
         bounds: Rect,
+        edge: Edge,
+        pointerLength: Int,
         dp: Float,
     ) {
         panelParams.x = bounds.x
         panelParams.y = bounds.y
         panelParams.width = bounds.width
         panelParams.height = bounds.height
-        layoutTranscriptRows(bounds.height, dp)
+        val envelope = OverlayPlacement.bubbleEnvelope(
+            Rect(0, 0,
+                when (edge) {
+                    Edge.LEFT, Edge.RIGHT -> (bounds.width - pointerLength).coerceAtLeast(1)
+                    else -> bounds.width
+                },
+                when (edge) {
+                    Edge.TOP, Edge.BOTTOM -> (bounds.height - pointerLength).coerceAtLeast(1)
+                    else -> bounds.height
+                }),
+            edge,
+            pointerLength,
+        )
+        val bodyLayout = livePanelBody?.layoutParams as? FrameLayout.LayoutParams
+        bodyLayout?.apply {
+            width = when (edge) {
+                Edge.LEFT, Edge.RIGHT -> (bounds.width - pointerLength).coerceAtLeast(1)
+                else -> bounds.width
+            }
+            height = when (edge) {
+                Edge.TOP, Edge.BOTTOM -> (bounds.height - pointerLength).coerceAtLeast(1)
+                else -> bounds.height
+            }
+            leftMargin = envelope.bodyOffsetX
+            topMargin = envelope.bodyOffsetY
+            livePanelBody?.layoutParams = this
+        }
+        val pointerTargetX = params?.let { it.x + it.width / 2 - bounds.x }?.toFloat() ?: 0f
+        val pointerTargetY = params?.let { it.y + it.height / 2 - bounds.y }?.toFloat() ?: 0f
+        bubblePointer?.setGeometry(
+            edge = edge,
+            bodyOffsetX = envelope.bodyOffsetX,
+            bodyOffsetY = envelope.bodyOffsetY,
+            bodyWidth = bodyLayout?.width ?: bounds.width,
+            bodyHeight = bodyLayout?.height ?: bounds.height,
+            pointerLength = pointerLength,
+            targetX = pointerTargetX,
+            targetY = pointerTargetY,
+        )
+        bubblePointerTargetX = pointerTargetX
+        bubblePointerTargetY = pointerTargetY
+        panelEdge = edge
+        layoutTranscriptRows(
+            when (edge) {
+                Edge.TOP, Edge.BOTTOM -> (bounds.height - pointerLength).coerceAtLeast(1)
+                else -> bounds.height
+            },
+            dp,
+        )
         try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, panelParams) } catch (_: Exception) {}
     }
 
@@ -1874,6 +2005,8 @@ class OverlayService : Service() {
         panel: View,
         panelParams: WindowManager.LayoutParams,
         target: Rect,
+        edge: Edge,
+        pointerLength: Int,
         dp: Float,
     ) {
         val from = Rect(panelParams.x, panelParams.y, panelParams.width, panelParams.height)
@@ -1896,6 +2029,8 @@ class OverlayService : Service() {
                     lerp(from.width, to.width, fraction),
                     lerp(from.height, to.height, fraction),
                 ),
+                edge,
+                pointerLength,
                 dp,
             )
             panel.alpha = 0.88f + 0.12f * fraction
@@ -1905,7 +2040,7 @@ class OverlayService : Service() {
                 if (panelTransitionAnimator !== animator) return
                 panelTransitionAnimator = null
                 panelTransitionTarget = null
-                applyPanelBounds(panel, panelParams, to, dp)
+                applyPanelBounds(panel, panelParams, to, edge, pointerLength, dp)
                 panel.alpha = 1f
             }
 
@@ -2135,8 +2270,7 @@ class OverlayService : Service() {
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> tailFollower?.resized() }
         }
         tailFollower = TranscriptTailFollower(liveView, scroll, editing = { liveView.isEditing }) { state == State.RECORDING && activeRun != null }
-        val livePanel = FrameLayout(this).apply {
-            visibility = View.GONE
+        val panelBody = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 cornerRadius = 24 * dp
                 setColor(overlayPalette.surface)
@@ -2145,6 +2279,21 @@ class OverlayService : Service() {
             clipToOutline = true
             elevation = 8 * dp
             addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (48 * dp).toInt() })
+        }
+        val pointer = OverlayBubblePointerView(this).apply {
+            setColors(overlayPalette.surface, overlayPalette.stroke)
+        }
+        val livePanel = FrameLayout(this).apply {
+            visibility = View.GONE
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            clipChildren = false
+            clipToPadding = false
+            elevation = 8 * dp
+            addView(panelBody, FrameLayout.LayoutParams(livePanelW, livePanelH))
+            // The decorative tail is above the body's border only at its short attachment area;
+            // this lets the shared surface hide the otherwise straight seam without changing
+            // the body's clipping for transcript content.
+            addView(pointer, FrameLayout.LayoutParams(-1, -1))
         }
         livePanel.setOnApplyWindowInsetsListener { _, insets ->
             val nextInset = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
@@ -2197,7 +2346,7 @@ class OverlayService : Service() {
         }
         toolbar.addView(expand, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         toolbar.addView(hide, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
-        livePanel.addView(toolbar, FrameLayout.LayoutParams(-1, (48 * dp).toInt(), Gravity.TOP))
+        panelBody.addView(toolbar, FrameLayout.LayoutParams(-1, (48 * dp).toInt(), Gravity.TOP))
         val editorActions = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding((8 * dp).toInt(), 0, (8 * dp).toInt(), 0)
@@ -2215,7 +2364,7 @@ class OverlayService : Service() {
         noteInsertButton = editorAction("Insérer…", ::requestNoteInsertion)
         noteDoneButton = editorAction("Terminer", ::archiveOrShowNotes)
         editorActionsRow = editorActions
-        livePanel.addView(editorActions, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
+        panelBody.addView(editorActions, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
 
         val mediaRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         mediaToolbar = mediaRow
@@ -2236,7 +2385,7 @@ class OverlayService : Service() {
         }
         imageStripScroll = stripScroll
         mediaRow.addView(stripScroll, LinearLayout.LayoutParams(0, -1, 1f))
-        livePanel.addView(mediaRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
+        panelBody.addView(mediaRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
 
         val vocabRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -2260,7 +2409,7 @@ class OverlayService : Service() {
             setOnClickListener { resetVocabularyLearning() }
         }, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         vocabularyBanner = vocabRow
-        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
+        panelBody.addView(vocabRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
 
         // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
@@ -2268,6 +2417,7 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
+            if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
         }
         val initialAnchor = prefs.loadAnchor(pillW, pillH, resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
         val initialPosition = OverlayPlacement.pillPosition(initialAnchor, Rect(0, 0, pillW, pillH), screenRect())
@@ -2279,6 +2429,7 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
+            if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
             // IME insets are handled by positionLivePanel; do not resize the window twice.
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         }
@@ -2334,6 +2485,7 @@ class OverlayService : Service() {
             val screen = screenRect()
             val anchor = OverlayPlacement.snap(Point(lp.x, lp.y), Rect(0, 0, lp.width, lp.height), screen)
             val snapped = OverlayPlacement.pillPosition(anchor, Rect(0, 0, lp.width, lp.height), screen)
+            pillPositionBeforeKeyboard = null
             currentAnchor = anchor
             lp.x = snapped.x
             lp.y = snapped.y
@@ -2357,6 +2509,9 @@ class OverlayService : Service() {
             val dragAnchor = OverlayPlacement.snap(
                 Point(lp.x, lp.y), Rect(0, 0, lp.width, lp.height), screenRect(),
             )
+            // The pointer follows the live window coordinates and the provisional edge while a
+            // drag is in progress; waiting for ACTION_UP would leave it attached to the old side.
+            currentAnchor = dragAnchor
             updatePillLayout(dragAnchor)
         }
 
@@ -2472,7 +2627,15 @@ class OverlayService : Service() {
             return
         }
         container = pillView; pill = pillView; wave = waveView; loader = loaderView
-        liveText = liveView; liveScroll = scroll; this.livePanel = livePanel; params = lp; liveParams = panelParams; currentAnchor = initialAnchor
+        liveText = liveView
+        liveScroll = scroll
+        this.livePanel = livePanel
+        livePanelBody = panelBody
+        bubblePointer = pointer
+        bubblePointerLength = (12 * dp).toInt().coerceAtLeast(1)
+        params = lp
+        liveParams = panelParams
+        currentAnchor = initialAnchor
         // Prepare the hidden editor window before the first microphone tap.
         try {
             wm.addView(livePanel, panelParams)
@@ -2495,6 +2658,9 @@ class OverlayService : Service() {
         // their old geometry is used again.
         if (!themeChanged) dismissFloatingMenu()
         cancelPanelTransition()
+        // A saved temporary keyboard lift belongs to the old display geometry. Rebuild from the
+        // normalized anchor after rotation/density changes instead of restoring stale pixels.
+        pillPositionBeforeKeyboard = null
         val lp = params ?: return
         val dp = resources.displayMetrics.density
         baseButtonW = (74 * dp).toInt()
@@ -2849,14 +3015,14 @@ class OverlayService : Service() {
             onShare = { result -> openNoteExportBridge(result, note, share = true) },
         )
         exportPanel = export
-        livePanel?.let { host ->
+        livePanelBody?.let { host ->
             for (index in 0 until host.childCount) {
                 val child = host.getChildAt(index)
                 exportAccessibilityPrevious[child] = child.importantForAccessibility
                 child.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
             }
         }
-        livePanel?.addView(export, FrameLayout.LayoutParams(-1, -1))
+        livePanelBody?.addView(export, FrameLayout.LayoutParams(-1, -1))
         currentAnchor?.let(::positionLivePanel)
         prepareNoteExport(note, OverlayExportFormat.PDF, automatic)
     }
@@ -3399,7 +3565,7 @@ class OverlayService : Service() {
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         livePanelAdded = false
         tailFollower?.reset(); tailFollower = null
-        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; gestureHint = null; stateIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; imageStripScroll = null; livePanel = null; liveParams = null
+        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; gestureHint = null; stateIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; imageStripScroll = null; livePanelBody = null; bubblePointer = null; livePanel = null; liveParams = null; panelEdge = null; pillPositionBeforeKeyboard = null
         super.onDestroy()
     }
 

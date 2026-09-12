@@ -99,11 +99,7 @@ class MainActivityNativeRenderTest {
         wave.draw(Canvas(rest))
 
         wave.setLevel(1f)
-        wave.start()
-        val tick = CursiveWaveView::class.java.getDeclaredField("tick").apply { isAccessible = true }
-            .get(wave) as Runnable
-        repeat(12) { tick.run() }
-        wave.stop()
+        repeat(12) { wave.advanceForTest(1f / 60f) }
         val voice = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         wave.draw(Canvas(voice))
 
@@ -130,6 +126,55 @@ class MainActivityNativeRenderTest {
         } finally {
             rest.recycle()
             voice.recycle()
+            runCatching { hostController.pause().stop().destroy() }
+        }
+    }
+
+    @Test
+    fun compactWaveWritesNativeAnimationFramesForReview() {
+        val hostController = Robolectric.buildActivity(android.app.Activity::class.java)
+        val host = hostController.create().start().resume().visible().get()
+        val hostRoot = FrameLayout(host)
+        host.setContentView(hostRoot)
+        val width = 148
+        val height = 64
+        val wave = CursiveWaveView(host)
+        hostRoot.addView(wave, FrameLayout.LayoutParams(width, height))
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        hostRoot.measure(widthSpec, heightSpec)
+        hostRoot.layout(0, 0, width, height)
+        val directory = File("build/robolectric-renders/wave-animation").apply { mkdirs() }
+        try {
+            repeat(360) { frame ->
+                // Synthetic RMS syllables follow the same visual mapping as AudioRecord. The
+                // 60 fps sequence is long enough to show attack, release, several peaks, calm,
+                // and a complete spatial cycle without running ASR or opening a microphone.
+                val rms = when (frame) {
+                    in 0..59, in 101..119, in 181..205, in 271..299, in 331..359 -> 0.008
+                    in 60..100 -> 0.02
+                    in 120..180 -> 0.06
+                    in 206..245 -> 0.15
+                    in 246..270 -> 0.02
+                    in 300..330 -> 0.12
+                    else -> 0.008
+                }
+                val level = visualWaveLevelFromRms(rms)
+                wave.setLevel(level)
+                wave.advanceForTest(1f / 60f)
+                Shadows.shadowOf(Looper.getMainLooper()).idle()
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                try {
+                    wave.draw(Canvas(bitmap))
+                    val output = File(directory, "frame-%03d.png".format(frame))
+                    output.outputStream().use { stream -> check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) }
+                    assertTrue("Native animation frame should contain pixels", alphaBounds(bitmap) != null)
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+            assertTrue("Native animation frames should be written", directory.listFiles()?.size == 360)
+        } finally {
             runCatching { hostController.pause().stop().destroy() }
         }
     }

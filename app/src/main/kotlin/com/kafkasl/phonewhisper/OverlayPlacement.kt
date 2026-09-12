@@ -25,8 +25,45 @@ data class TranscriptPanelLayout(
     val transcriptTop: Int,
 )
 
+/** Window envelope for the transcript body and its small decorative pointer. */
+data class BubbleEnvelope(
+    val window: Rect,
+    val bodyOffsetX: Int,
+    val bodyOffsetY: Int,
+)
+
 /** Pure geometry for the movable overlay pill and its non-touchable transcript panel. */
 object OverlayPlacement {
+    /**
+     * Reserve a short, non-touchable pointer space on the side facing the pill. The body remains
+     * rounded and clipped independently, while the transparent envelope can carry the pointer.
+     */
+    fun bubbleEnvelope(body: Rect, edge: Edge, pointerLength: Int): BubbleEnvelope {
+        val length = pointerLength.coerceAtLeast(0)
+        return when (edge) {
+            Edge.LEFT -> BubbleEnvelope(
+                window = Rect(body.x - length, body.y, body.width + length, body.height),
+                bodyOffsetX = length,
+                bodyOffsetY = 0,
+            )
+            Edge.RIGHT -> BubbleEnvelope(
+                window = Rect(body.x, body.y, body.width + length, body.height),
+                bodyOffsetX = 0,
+                bodyOffsetY = 0,
+            )
+            Edge.TOP -> BubbleEnvelope(
+                window = Rect(body.x, body.y - length, body.width, body.height + length),
+                bodyOffsetX = 0,
+                bodyOffsetY = length,
+            )
+            Edge.BOTTOM -> BubbleEnvelope(
+                window = Rect(body.x, body.y, body.width, body.height + length),
+                bodyOffsetX = 0,
+                bodyOffsetY = 0,
+            )
+        }
+    }
+
     /**
      * Returns the part of the safe display that is still visible above the IME.
      *
@@ -112,6 +149,36 @@ object OverlayPlacement {
         val size = Rect(0, 0, desiredWidth.coerceIn(1, availableWidth), desiredHeight.coerceIn(1, availableHeight))
         val position = panelPosition(edge, pill, size, screen, m)
         return Rect(position.x, position.y, size.width, size.height)
+    }
+
+    /**
+     * Select a side with actual room for the panel. The anchor remains the preference, but a
+     * corner or keyboard can make that side unusable; choosing the largest available side keeps
+     * the rounded body and its pointer separate from the pill at every orientation.
+     */
+    fun viablePanelEdge(
+        preferred: Edge,
+        pill: Rect,
+        screen: Rect,
+        desiredWidth: Int,
+        desiredHeight: Int,
+        margin: Int,
+    ): Edge {
+        val m = margin.coerceAtLeast(0)
+        val candidates = listOf(preferred, Edge.LEFT, Edge.TOP, Edge.RIGHT, Edge.BOTTOM).distinct()
+        fun available(edge: Edge): Int = when (edge) {
+            Edge.LEFT -> screen.right - pill.right - 2 * m
+            Edge.RIGHT -> pill.x - screen.x - 2 * m
+            Edge.TOP -> screen.bottom - pill.bottom - 2 * m
+            Edge.BOTTOM -> pill.y - screen.y - 2 * m
+        }.coerceAtLeast(0)
+        fun required(edge: Edge): Int = when (edge) {
+            Edge.LEFT, Edge.RIGHT -> desiredWidth.coerceAtLeast(1)
+            Edge.TOP, Edge.BOTTOM -> desiredHeight.coerceAtLeast(1)
+        }
+        return candidates.firstOrNull { available(it) >= required(it) }
+            ?: candidates.maxByOrNull { available(it) }
+            ?: preferred
     }
 
     /** Chooses a non-overlapping transcript header for the available panel height. */

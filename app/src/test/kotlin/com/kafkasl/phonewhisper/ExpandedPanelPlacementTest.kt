@@ -89,4 +89,109 @@ class ExpandedPanelPlacementTest {
             }
         }
     }
+
+    @Test fun `bubble envelope preserves a gap from the real pill at every side`() {
+        val pointerLength = 10
+        val margin = pointerLength + 2
+        for (screen in listOf(Rect(0, 24, 400, 760), Rect(0, 24, 760, 376), Rect(0, 24, 1600, 2400))) {
+            for (edge in Edge.values()) for (offset in listOf(0f, .5f, 1f)) {
+                val point = OverlayPlacement.pillPosition(Anchor(edge, offset), Rect(0, 0, 74, 44), screen)
+                val pill = Rect(point.x, point.y, 74, 44)
+                val selected = OverlayPlacement.viablePanelEdge(edge, pill, screen, 312, 280, margin)
+                val body = OverlayPlacement.panelBounds(selected, pill, screen, 312, 280, margin)
+                val envelope = OverlayPlacement.bubbleEnvelope(body, selected, pointerLength)
+                assertTrue(envelope.window.x >= screen.x)
+                assertTrue(envelope.window.y >= screen.y)
+                assertTrue(envelope.window.right <= screen.right)
+                assertTrue(envelope.window.bottom <= screen.bottom)
+                assertFalse("Bubble body and pointer must not cover the pill", intersects(envelope.window, pill))
+                when (selected) {
+                    Edge.LEFT -> assertEquals(pointerLength, envelope.bodyOffsetX)
+                    Edge.RIGHT -> assertEquals(0, envelope.bodyOffsetX)
+                    Edge.TOP -> assertEquals(pointerLength, envelope.bodyOffsetY)
+                    Edge.BOTTOM -> assertEquals(0, envelope.bodyOffsetY)
+                }
+            }
+        }
+    }
+
+    @Test fun `viable panel edge falls back when the preferred side has no room`() {
+        val screen = Rect(0, 0, 400, 760)
+        val pill = Rect(0, 300, 74, 44)
+        val selected = OverlayPlacement.viablePanelEdge(Edge.RIGHT, pill, screen, 312, 280, 12)
+
+        assertTrue(selected != Edge.RIGHT)
+        val body = OverlayPlacement.panelBounds(selected, pill, screen, 312, 280, 12)
+        assertFalse(intersects(body, pill))
+    }
+
+    @Test fun `drag grid keeps compact and expanded bubble inside viewport without pill overlap`() {
+        val fullScreens = listOf(
+            Rect(0, 24, 400, 760),
+            Rect(0, 24, 760, 376),
+        )
+        val pillSize = Rect(0, 0, 74, 44)
+        val margin = 14
+        val pointerLength = 12
+        val panelSizes: List<Pair<Int, Int?>> = listOf(
+            312 to 268, // compact editor: lineHeight * 4 + 188 at mdpi
+            600 to null, // expanded editor: height is the safe viewport minus 12dp
+        )
+
+        for (full in fullScreens) {
+            val imeTop = full.y + (full.height * .68f).toInt()
+            val viewports = listOf(full, OverlayPlacement.screenAboveKeyboard(full, imeTop = imeTop))
+            for (screen in viewports) {
+                for (xFraction in listOf(.12f, .5f, .88f)) {
+                    for (yFraction in listOf(.12f, .5f, .88f)) {
+                        val raw = Point(
+                            screen.x + (screen.width * xFraction).toInt(),
+                            screen.y + (screen.height * yFraction).toInt(),
+                        )
+                        val pillPoint = OverlayPlacement.clampPill(raw, pillSize, screen)
+                        val pill = Rect(pillPoint.x, pillPoint.y, pillSize.width, pillSize.height)
+                        val preferred = OverlayPlacement.snap(pillPoint, pillSize, screen).edge
+
+                        for ((desiredWidth, requestedHeight) in panelSizes) {
+                            val desiredHeight = requestedHeight ?: (screen.height - 12).coerceAtLeast(1)
+                            val selected = OverlayPlacement.viablePanelEdge(
+                                preferred,
+                                pill,
+                                screen,
+                                desiredWidth,
+                                desiredHeight,
+                                margin,
+                            )
+                            val body = OverlayPlacement.panelBounds(
+                                selected,
+                                pill,
+                                screen,
+                                desiredWidth,
+                                desiredHeight,
+                                margin,
+                            )
+                            val envelope = OverlayPlacement.bubbleEnvelope(body, selected, pointerLength).window
+
+                            assertTrue("body escaped viewport: $full / $screen / $pill", inside(body, screen))
+                            assertTrue("bubble escaped viewport: $full / $screen / $pill", inside(envelope, screen))
+                            assertFalse("bubble covered dragged pill: $full / $screen / $pill", intersects(envelope, pill))
+                            val gap = when (selected) {
+                                Edge.LEFT -> envelope.x - pill.right
+                                Edge.RIGHT -> pill.x - envelope.right
+                                Edge.TOP -> envelope.y - pill.bottom
+                                Edge.BOTTOM -> pill.y - envelope.bottom
+                            }
+                            assertTrue("bubble gap was lost: $full / $screen / $pill", gap >= 2)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun intersects(first: Rect, second: Rect): Boolean =
+        first.x < second.right && first.right > second.x && first.y < second.bottom && first.bottom > second.y
+
+    private fun inside(inner: Rect, outer: Rect): Boolean =
+        inner.x >= outer.x && inner.y >= outer.y && inner.right <= outer.right && inner.bottom <= outer.bottom
 }

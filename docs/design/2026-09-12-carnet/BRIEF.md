@@ -250,3 +250,129 @@ Le détail est consigné dans [`design-qa.md`](../../../design-qa.md).
 - La génération utilise l’outil ImageGen intégré ; le nom d’un modèle ImageGen
   récent peut documenter le contexte, mais le modèle exact de l’outil intégré
   n’est pas sélectionnable ici et ne doit pas être affirmé.
+
+## Révision du mouvement et état de sélection — 12 septembre 2026
+
+L’essai `qa-renders/wave-animation.mp4` à ligne basse strictement fixe a été
+rejeté par l’utilisateur pour son rendu peu naturel. Il est conservé comme
+trace historique et ne doit pas être publié comme comportement actuel.
+
+ImageGen a ensuite produit trois références indépendantes avec les références
+existantes du trait compact jointes :
+`selected/motion-reference-A-souple-organique.png`,
+`selected/motion-reference-B-vif-calligraphique.png` et
+`selected/motion-reference-C-ample-respirant.png`. Elles comparent, dans la
+pastille existante `74 × 44 dp`, les états Repos, Voix faible et Voix forte.
+Les trois variantes gardent une écriture continue de gauche à droite ; les
+sommets réagissent fortement et les creux descendent légèrement de façon
+partagée, sans rail horizontal ni rupture de raccord. A propose une élasticité
+souple, B une réponse manuscrite vive et C une respiration plus ample. Les
+annotations et décors ImageGen restent des références, pas des éléments UI.
+
+Le moteur natif expose ces trois presets pour comparaison tout en conservant le
+mode brand de l’accueil. `qa-renders/wave-variants-abc.mp4` rassemble le même
+signal RMS synthétique dans trois colonnes : 484 × 176 pixels, 360 frames à
+60 fps, six secondes ; la rangée du haut montre la vraie pastille `74 × 44` et
+la rangée du bas la même vue agrandie 2×. Les témoins fixes sont
+`qa-renders/motion-variants-rest.png` et
+`qa-renders/motion-variants-voice-forte.png`. Les tests ciblés de mouvement et
+le rendu natif passent ; le choix final A/B/C reste en attente de validation
+utilisateur et aucune publication/commit définitif ne doit intervenir avant
+ce choix.
+
+La pointe de bulle reste une décoration courte du panneau existant. Le test
+natif `OverlayBubblePointerNativeRenderTest` vérifie les quatre directions et
+la présence de pixels hors du corps ; le rendu est archivé dans
+`qa-renders/bubble-pointer.png`. Le corps est rendu avant la pointe et celle-ci
+recouvre légèrement sa bordure avec un contour ouvert, mais la géométrie
+WindowManager, l’IME, la rotation et les interactions restent à vérifier sur
+un appareil Android stable.
+
+## Révision mouvement B — creux opposés — état du 12 septembre 2026
+
+L’utilisateur a choisi B — Vif pour sa vélocité, puis a rejeté le mouvement à
+ligne basse fixe. La référence ImageGen ciblée
+`selected/motion-reference-B-creux-opposes.png` montre le sommet et les creux
+qui s’ouvrent franchement en directions opposées autour d’un axe médian visible
+sur la planche seulement. Le preset VIVID conserve les boucles cursives
+croisées, le défilement vers la droite et l’attaque/release rapides ; une même
+enveloppe locale pilote les excursions haute et basse, avec des jonctions
+continues.
+
+Le rendu natif corrigé est `qa-renders/wave-vivid-corrected.mp4` : 164 × 176
+pixels, 360 frames à 60 fps, 6 secondes, pastille opaque réelle 74 × 44 puis
+la même vue agrandie 2×. Le comparatif
+`qa-renders/wave-vivid-before-after.mp4` fait 328 × 176 pixels ; sa moitié
+gauche est extraite de l’ancien B archivé dans `wave-variants-abc.mp4` et sa
+moitié droite est le B corrigé, avec le même signal RMS et les mêmes instants.
+Entre les témoins repos et voix forte, le nouveau tracé se déplace d’environ
+6 pixels vers le haut et 7 pixels vers le bas. Ces vidéos sont prêtes pour la
+validation visuelle utilisateur ; aucune publication du comportement final ne
+doit être déduite avant ce retour.
+
+Les six tests `CursiveWaveMotionTest` vérifient l’excursion opposée, la
+corrélation de l’enveloppe, les formes, le défilement/wrap, l’équivalence
+60/120 Hz et le plafonnement des retards ; `OverlayWaveLevelTest` vérifie le
+mapping audio visuel. Le rendu natif B passe également. Les frames avancent
+explicitement par pas de `1/60 s` et l’encodage FFmpeg utilise un thread dans
+un scope CPU/mémoire borné ; GPU, Choreographer et session audio réels restent
+hors de cette validation locale.
+
+Pour les reprises de ce travail, l’exécution locale reste strictement
+séquentielle : un scope `systemd --user` plafonné à `CPUQuota=100%` (un cœur),
+`MemoryMax=3G`, `MemorySwapMax=0`, priorité `nice 15`, Gradle
+`--max-workers=1` et JVM limitée par `ActiveProcessorCount=1`/`-Xmx768m`.
+Aucun émulateur ou processus de cette tâche ne tourne après la production des
+vidéos ; ces limites sont celles à conserver pour les contrôles suivants.
+
+## Révision B — repos de l’installation restauré
+
+La référence ciblée `selected/motion-reference-B-recentered-installed.png` a
+été générée avant cette correction avec la référence B existante et un frame
+Canvas natif. Elle rétablit la silhouette installée du compact (`100 × 40`
+logique, crête `y=12`, creux `y=28`, axe `y=20`) au repos, puis montre une
+ouverture vive corrélée vers environ `y=3`/`y=37` quand la voix monte. Le guide
+de mesure appartient à la planche seulement.
+
+Le preset B conserve ses cubiques installées (`.5w` entrée, `1.1w` contrôle
+haut, `.8w` crête, `.2w` retour, `.8w` contrôle bas) et ses boucles croisées.
+La réponse du compact utilise un ressort critique analytique qui conserve la
+vitesse lors des blocs audio de 20 ms ; le mode brand de l’accueil garde son
+filtre existant. Les styles sont mis en cache hors de la boucle Canvas. Le
+mapping RMS visuel a un plancher progressif, reste plus sensible autour de
+`.02` RMS que l’ancienne version corrigée et garde une marge avant le plein
+niveau ; PCM et ASR ne changent pas.
+
+Le rendu natif unique `qa-renders/wave-vivid-restored-height.mp4` fait
+`164 × 176` pixels, 360 frames à 60 fps et 6 secondes. Il montre la pastille
+réelle `74 × 44` puis la même vue agrandie 2× ; le frame repos mesure environ
+14 px d’encre, le frame ordinaire environ 25 px et le frame voix forte environ
+26 px, sans alpha transparent ni coupe. Les valeurs logiques restent exactement `12/28` au repos et sont
+bornées par `3/37` sous forte voix. L’ancien `wave-compact.png` de
+`631dbeb13f7b8cc912b8791a3eb75164293316a7` reste inchangé comme référence.
+
+Les sept tests `CursiveWaveMotionTest` couvrent silhouette de repos, excursions
+opposées, corrélation, formes croisées, wrap, 60/120 Hz, transitions audio de
+20 ms et retards ; `OverlayWaveLevelTest` couvre le plancher progressif, la
+monotonicité, la sensibilité et la réserve de niveau. Les deux classes et le
+rendu natif passent sous un scope local séquentiel (un cœur, 3 Go, swap nul,
+`nice 15`, un worker). Aucune publication, compilation complète ou validation
+sur appareil n’est engagée avant la revue visuelle de ce nouvel aperçu.
+
+L’utilisateur a ensuite validé explicitement cet aperçu (« Excellent c’est ça
+que je veux »). Cette validation clôt la revue visuelle de la direction B et
+permet de préparer la branche CI ; les validations WindowManager, IME, rotation
+et Camera2 sur un appareil Android stable restent hors de cette preuve locale.
+
+La couverture géométrique ajoute aussi une grille de positions de déplacement,
+en portrait et paysage, avec panneau compact ou agrandi et viewport réduit par
+l’IME. Elle vérifie l’enveloppe de la pointe dans l’écran, son écart de sécurité
+et l’absence de chevauchement avec la pastille ; ce contrôle pur est destiné à
+la CI et ne remplace pas l’essai du `WindowManager` sur matériel.
+
+Les essais rejetés et variantes historiques cités dans les sections précédentes
+restent des archives locales non suivies. Le manifest prévu pour la branche
+retient le code, les tests, cette trace, `design-qa.md`, la référence finale
+`selected/motion-reference-B-recentered-installed.png`, la référence de pointe
+`overlay-bubble-reference.png`, ainsi que les preuves
+`qa-renders/bubble-pointer.png` et `qa-renders/wave-vivid-restored-height.mp4`.
