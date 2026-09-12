@@ -21,6 +21,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -38,6 +39,7 @@ class NoteCameraActivity : Activity(), TextureView.SurfaceTextureListener {
     private lateinit var cancel: Button
     private lateinit var status: TextView
     private lateinit var cameraRoot: LinearLayout
+    private lateinit var previewFrame: FrameLayout
     private var captureId = ""
     @Volatile private var closing = false
     @Volatile private var resumed = false
@@ -90,7 +92,15 @@ class NoteCameraActivity : Activity(), TextureView.SurfaceTextureListener {
         }
         root.addView(status, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         preview = TextureView(this).apply { surfaceTextureListener = this@NoteCameraActivity }
-        root.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, previewHeight()).apply {
+        previewFrame = FrameLayout(this).apply {
+            clipChildren = true
+            clipToPadding = true
+        }
+        previewFrame.addView(preview, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        root.addView(previewFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, previewHeight()).apply {
             topMargin = (12 * dp).toInt(); bottomMargin = (12 * dp).toInt()
         })
         shutter = Button(this).apply { text = "Prendre la photo"; isEnabled = false; minHeight = (48 * dp).toInt(); setOnClickListener { capturePhoto() } }
@@ -116,13 +126,15 @@ class NoteCameraActivity : Activity(), TextureView.SurfaceTextureListener {
         cameraRoot.outlineProvider = ViewOutlineProvider.BACKGROUND
         cameraRoot.clipToOutline = true
         status.setTextColor(colors.ink)
-        preview.background = android.graphics.drawable.GradientDrawable().apply {
+        // TextureView rejects backgrounds on Android. Keep the camera surface bare and
+        // decorate its wrapper so opening the viewfinder cannot crash the app process.
+        previewFrame.background = android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = 20f * resources.displayMetrics.density
             setColor(colors.raised)
             setStroke((resources.displayMetrics.density).toInt().coerceAtLeast(1), colors.stroke)
         }
-        preview.outlineProvider = ViewOutlineProvider.BACKGROUND
-        preview.clipToOutline = true
+        previewFrame.outlineProvider = ViewOutlineProvider.BACKGROUND
+        previewFrame.clipToOutline = true
         listOf(shutter, cancel).forEach { button ->
             button.backgroundTintList = null
             button.background = android.graphics.drawable.GradientDrawable().apply {
@@ -151,7 +163,7 @@ class NoteCameraActivity : Activity(), TextureView.SurfaceTextureListener {
         if (!::preview.isInitialized) return
         applyCameraTheme()
         val dp = resources.displayMetrics.density
-        preview.layoutParams = preview.layoutParams.apply { height = previewHeight() }
+        previewFrame.layoutParams = previewFrame.layoutParams.apply { height = previewHeight() }
         window.setLayout(minOf((340*dp).toInt(), resources.displayMetrics.widthPixels - (24*dp).toInt()), ViewGroup.LayoutParams.WRAP_CONTENT)
         preview.post { transformPreview() }
     }

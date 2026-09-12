@@ -1,10 +1,10 @@
 package com.kafkasl.phonewhisper
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import android.view.accessibility.AccessibilityManager
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -22,8 +23,6 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.radiobutton.MaterialRadioButton
-import java.io.File
-
 class MainActivity : AppCompatActivity() {
     private enum class Screen { HOME, DICTATION, FORMATTING, PREFERENCES }
 
@@ -52,9 +51,9 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private var statusSubtitle: TextView? = null
     private var audioRowSub: TextView? = null
     private var accRowSub: TextView? = null
+    private var overlayRowSub: TextView? = null
     private var modelContainer: LinearLayout? = null
     private var formatSummarySubtitle: TextView? = null
 
@@ -168,7 +167,8 @@ class MainActivity : AppCompatActivity() {
         // jamais été terminé, on lance directement l'onboarding d'installation.
         val onbDone = getSharedPreferences("whisperpin", MODE_PRIVATE).getBoolean("onb_complete", false)
         val coreMissing = !hasPerm(Manifest.permission.RECORD_AUDIO) ||
-            !Settings.canDrawOverlays(this) || InjectionGateway.current() == null
+            !Settings.canDrawOverlays(this) ||
+            accessibilityServiceStatus() == AccessibilityServiceStatus.DISABLED
         if (!onbDone && coreMissing) {
             startActivity(Intent(this, OnboardingActivity::class.java))
         } else if (!hasPerm(Manifest.permission.RECORD_AUDIO)) {
@@ -184,9 +184,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderScreen(scrollY: Int = 0) {
-        statusSubtitle = null
         audioRowSub = null
         accRowSub = null
+        overlayRowSub = null
         modelContainer = null
         modelRows.clear()
         gemmaSubtitle = null
@@ -199,7 +199,6 @@ class MainActivity : AppCompatActivity() {
             Screen.PREFERENCES -> buildPreferencesPage()
         }.apply {
             background = NotebookBackgroundDrawable(this@MainActivity)
-            minimumHeight = resources.displayMetrics.heightPixels
             setPadding(dp(18), dp(28), dp(18), dp(32))
         }
         val scroll = ScrollView(this).apply {
@@ -219,67 +218,111 @@ class MainActivity : AppCompatActivity() {
         val brand = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LP_MATCH, dp(76)).apply {
-                topMargin = dp(10); bottomMargin = dp(4)
+            clipChildren = false
+            clipToPadding = false
+            layoutParams = LinearLayout.LayoutParams(LP_MATCH, dp(116)).apply {
+                topMargin = dp(44); bottomMargin = dp(4)
             }
         }
-        brand.addView(TextView(this).apply {
+        val logo = TextView(this).apply {
             text = "DictAI"
-            ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let { typeface = it }
-            textSize = 42f
+            ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let {
+                typeface = Typeface.create(it, 600, false)
+            }
+            textSize = 58f
             setTextColor(palette.ink)
             gravity = Gravity.CENTER_VERTICAL
+            includeFontPadding = true
+            val fontScale = resources.configuration.fontScale.coerceAtLeast(1f)
+            setPadding(0, dp(4), dp((18f * fontScale).toInt()), dp(4))
             contentDescription = "DictAI"
             layoutParams = LinearLayout.LayoutParams(LP_WRAP, LP_MATCH)
-        })
-        brand.addView(CursiveWaveView(this).apply {
+        }
+        val brandWave = CursiveWaveView(this).apply {
+            setBrandMode(true)
             setStrokeColor(palette.green)
             settle()
             contentDescription = "Boucles cursives DictAI"
-            layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).apply {
-                leftMargin = dp(12)
+            layoutParams = LinearLayout.LayoutParams(0, dp(84), 1f).apply {
+                leftMargin = dp(10); rightMargin = dp(2)
+            }
+        }
+        brand.addView(logo)
+        brand.addView(brandWave)
+        // At a narrow width or enlarged font, keep enough horizontal room for a legible
+        // identity stroke by moving it below the wordmark instead of squeezing the path.
+        brand.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                v: View, left: Int, top: Int, right: Int, bottom: Int,
+                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int,
+            ) {
+                if (brand.width <= 0 || brand.orientation == LinearLayout.VERTICAL) return
+                if (logo.width + dp(120) > brand.width) {
+                    brand.removeOnLayoutChangeListener(this)
+                    brand.orientation = LinearLayout.VERTICAL
+                    brand.gravity = Gravity.START
+                    brand.layoutParams = (brand.layoutParams as LinearLayout.LayoutParams).apply {
+                        height = LP_WRAP
+                    }
+                    logo.layoutParams = LinearLayout.LayoutParams(LP_WRAP, LP_WRAP)
+                    brandWave.layoutParams = LinearLayout.LayoutParams(LP_MATCH, dp(84)).apply {
+                        topMargin = dp(4)
+                    }
+                    brand.requestLayout()
+                }
             }
         })
         root.addView(brand)
 
-        root.addView(MaterialButton(this).apply {
-            text = "Activer le bouton flottant"
-            textSize = 16f
-            setTypeface(typeface, Typeface.BOLD)
-            cornerRadius = dp(22)
-            backgroundTintList = ColorStateList.valueOf(palette.green)
-            setTextColor(palette.onGreen)
-            stateListAnimator = null
-            minHeight = dp(52)
-            contentDescription = "Activer le bouton flottant"
-            layoutParams = LinearLayout.LayoutParams(LP_MATCH, LP_WRAP).apply {
-                topMargin = dp(2); bottomMargin = dp(10)
-            }
-            setOnClickListener { activateFloatingButton() }
-        })
+        // Keep the visual rhythm of the reference on a normal handset without using the
+        // physical screen height as a fixed content minimum. Small screens and large fonts
+        // can therefore scroll the same content naturally.
+        root.addView(homeSpacer(weight = 0f, minDp = 8))
 
-        val statusRow = settingsRow("Bouton flottant", "État de la pastille")
-        statusSubtitle = statusRow.findViewWithTag("subtitle")
-        root.addView(statusRow)
-
-        root.addView(homeAccessRow("Mes notes", "Texte, captures et photos · partager ou exporter", R.drawable.ic_note_share) {
+        root.addView(homeAccessRow(
+            "Mes notes",
+            "Texte, captures et photos · partager ou exporter",
+            R.drawable.ic_note_share,
+            minHeightDp = 104,
+        ) {
             openNotes()
         })
-        root.addView(sectionHeader("Réglages"))
-        root.addView(homeAccessRow("Dictée", dictationSummary(), R.drawable.ic_mic) { navigateTo(Screen.DICTATION) })
-        root.addView(homeAccessRow("Mise en forme", formattingSummary(), android.R.drawable.ic_menu_edit) { navigateTo(Screen.FORMATTING) })
-        root.addView(homeAccessRow("Préférences", "${PersistencePrefs(this).themeMode.label} · Installation et diagnostics", android.R.drawable.ic_menu_preferences) {
+        root.addView(homeSpacer(weight = 0f, minDp = 16))
+        root.addView(sectionHeader("Réglages").apply {
+            textSize = 24f
+            ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let {
+                typeface = Typeface.create(it, 600, false)
+            }
+        })
+        root.addView(homeAccessRow("Dictée", dictationSummary(), R.drawable.ic_mic, minHeightDp = 94) { navigateTo(Screen.DICTATION) })
+        root.addView(homeAccessRow("Mise en forme", formattingSummary(), android.R.drawable.ic_menu_edit, minHeightDp = 94) { navigateTo(Screen.FORMATTING) })
+        root.addView(homeAccessRow("Préférences", "", android.R.drawable.ic_menu_preferences, minHeightDp = 94) {
             navigateTo(Screen.PREFERENCES)
         })
+        root.addView(homeSpacer(weight = 1f, minDp = 24))
         return root
     }
 
-    private fun homeAccessRow(title: String, subtitle: String, icon: Int, onClick: () -> Unit): LinearLayout {
+    private fun homeAccessRow(
+        title: String,
+        subtitle: String,
+        icon: Int,
+        minHeightDp: Int = 94,
+        onClick: () -> Unit,
+    ): LinearLayout {
         val row = settingsRow(title, subtitle, null, onClick)
+        (row.layoutParams as? LinearLayout.LayoutParams)?.let {
+            it.topMargin = dp(12)
+            it.bottomMargin = dp(12)
+            row.layoutParams = it
+        }
+        row.minimumHeight = dp(minHeightDp)
         val text = row.getChildAt(0) as LinearLayout
         (text.getChildAt(0) as? TextView)?.let {
-            ResourcesCompat.getFont(this, R.font.caveat)?.let { font -> it.typeface = font }
-            it.textSize = 19f
+            ResourcesCompat.getFont(this, R.font.caveat)?.let { font ->
+                it.typeface = Typeface.create(font, 600, false)
+            }
+            it.textSize = 24f
         }
         row.removeView(text)
 
@@ -325,16 +368,31 @@ class MainActivity : AppCompatActivity() {
         }
         audioRowSub = audioRow.findViewWithTag("subtitle")
         root.addView(audioRow)
-        val accRow = settingsRow("Service d'accessibilité", if (InjectionGateway.current() != null) "Activé" else "À activer dans les réglages") {
+        val accessibilityStatus = accessibilityServiceStatus()
+        val accRow = settingsRow("Insertion automatique et captures d’écran", accessibilityStatus.subtitle) {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
         accRowSub = accRow.findViewWithTag("subtitle")
         root.addView(accRow)
-        root.addView(settingsRow("Pastille flottante", if (Settings.canDrawOverlays(this)) "Autorisé" else "À autoriser") {
+        root.addView(TextView(this).apply {
+            text = "Le service sert à l’insertion automatique et aux captures d’écran. Les notes et la copie manuelle restent disponibles."
+            textSize = 14f
+            setTextColor(palette.inkMuted)
+            setPadding(dp(14), 0, dp(14), dp(8))
+            layoutParams = LinearLayout.LayoutParams(LP_MATCH, LP_WRAP)
+        })
+        val overlayRow = settingsRow("Pastille flottante", overlayStatusLabel()) {
             if (!Settings.canDrawOverlays(this)) {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+            } else {
+                runCatching {
+                    startForegroundService(Intent(this, OverlayService::class.java)
+                        .setAction(OverlayService.ACTION_ARM_MIC))
+                }
             }
-        })
+        }
+        overlayRowSub = overlayRow.findViewWithTag("subtitle")
+        root.addView(overlayRow)
 
         root.addView(sectionHeader("Diagnostic"))
         root.addView(settingsRow("Dernier post-traitement", "Diagnostic copiable conservé après la dictée") {
@@ -549,14 +607,6 @@ class MainActivity : AppCompatActivity() {
         if (screen == next) return
         screen = next
         renderScreen()
-    }
-
-    private fun activateFloatingButton() {
-        if (!Settings.canDrawOverlays(this)) {
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
-            return
-        }
-        startForegroundService(Intent(this, OverlayService::class.java))
     }
 
     private fun openNotes() {
@@ -846,24 +896,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun refresh() {
         val audio = hasPerm(Manifest.permission.RECORD_AUDIO)
-        val acc = InjectionGateway.current() != null
-        val overlay = Settings.canDrawOverlays(this)
-        val selectedModel = ModelDownloader.reconcileSelectedModel(this)
-        val hasModel = selectedModel != null
+        val accessibilityStatus = accessibilityServiceStatus()
 
         audioRowSub?.text = if (audio) "Autorisé" else "À autoriser"
-        accRowSub?.text = if (acc) "Activé" else "À activer dans les réglages"
-
-        statusSubtitle?.let { status ->
-            status.text = when {
-                !overlay -> "Autorisation de la pastille requise"
-                !audio -> "Microphone à autoriser"
-                !acc -> "Service d'accessibilité à activer"
-                !hasModel -> "Modèle vocal à choisir"
-                else -> "Prêt · pastille disponible"
-            }
-            status.setTextColor(if (overlay && audio && acc && hasModel) palette.green else palette.inkMuted)
-        }
+        accRowSub?.text = accessibilityStatus.subtitle
+        overlayRowSub?.text = overlayStatusLabel()
 
         refreshAllCards()
     }
@@ -910,6 +947,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 14f
             setTextColor(colors.inkMuted)
             setPadding(0, dp(2), 0, 0)
+            visibility = if (subtitle.isBlank()) View.GONE else View.VISIBLE
         })
 
         row.addView(textContainer)
@@ -929,6 +967,15 @@ class MainActivity : AppCompatActivity() {
     private fun vertical(padH: Int, padV: Int = padH) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(padH, padV, padH, padV)
+    }
+
+    private fun homeSpacer(weight: Float, minDp: Int): Space = Space(this).apply {
+        layoutParams = LinearLayout.LayoutParams(
+            LP_MATCH,
+            if (weight > 0f) 0 else dp(minDp),
+            weight,
+        )
+        minimumHeight = dp(minDp)
     }
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
@@ -1022,6 +1069,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hasPerm(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+
+    private fun accessibilityServiceStatus(): AccessibilityServiceStatus {
+        val manager = getSystemService(AccessibilityManager::class.java)
+        val enabledInAndroid = runCatching {
+            manager?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+                ?.any { info ->
+                    val service = info.resolveInfo?.serviceInfo ?: return@any false
+                    service.packageName == packageName &&
+                        service.name == WhisperAccessibilityService::class.java.name
+                } == true
+        }.getOrDefault(false)
+        return AccessibilityServiceStatus.resolve(
+            enabledInAndroid = enabledInAndroid,
+            connected = InjectionGateway.current() != null,
+        )
+    }
+
+    private fun overlayStatusLabel(): String = if (Settings.canDrawOverlays(this)) {
+        "Autorisation accordée · afficher la pastille"
+    } else {
+        "À autoriser pour afficher la pastille"
+    }
+
     private fun attrColor(attr: Int): Int {
         val ta = obtainStyledAttributes(intArrayOf(attr))
         val color = ta.getColor(0, 0)

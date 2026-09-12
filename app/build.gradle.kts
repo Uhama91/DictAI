@@ -65,6 +65,7 @@ dependencies {
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("com.ibm.icu:icu4j:78.3")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

@@ -55,6 +55,15 @@ paramètre de modèle sélectionnable. Cible de prompt : contenu applicatif
 portrait `390 × 844 dp`, sans bezel ni barres système ; les PNG ImageGen
 conservent le ratio mais peuvent utiliser une résolution pixel supérieure.
 
+Après l’essai réel de l’APK, l’accueil a reçu deux révisions ImageGen
+image-first, toujours dérivées de la référence ivoire sélectionnée :
+`selected/main-clair-revision-v4.png` et
+`selected/main-sombre-revision-v3.png`. Le prompt conservait les destinations
+existantes, supprimait le CTA et la carte d’état permanents, gardait le logo
+DictAI entier avec marge, dessinait une onde cursive haute et ample, puis
+répartissait Mes notes et Dictée/Mise en forme/Préférences sur la hauteur utile.
+Ces révisions n’introduisent aucune fonction ni donnée d’exemple.
+
 ## Déclinaisons phase 2 — même direction sélectionnée
 
 Chaque interface ci-dessous a été générée avant son implémentation, avec les
@@ -100,12 +109,26 @@ et `NoteExportActivity` ne sert qu’aux sélecteurs Android explicitement
 actionnés. Aucun exemple de note, titre ou image provenant des maquettes n’a
 été injecté dans le stockage.
 
-La validation finale du 12 septembre 2026 a exécuté
-`:app:testDebugUnitTest :app:assembleDebug` avec le SDK/JDK isolés et obtenu
-462 tests sans échec, erreur ni test ignoré. Le contrôle visuel design QA reste
-bloqué faute de runtime Android stable ; aucune capture d’émulateur ou de
-téléphone n’a été jointe rétroactivement aux prompts. Voir
-[`design-qa.md`](../../../design-qa.md) pour les contrôles passés et les vérifications
-runtime restantes. Après le clipping final des coins du panneau, l’APK debug
-courant est `app/build/outputs/apk/debug/app-debug.apk` (90 419 811 octets,
-SHA-256 `04e40304745e4bb8fd6546c5adfa5e8b896dddf6bd9a5a0aafb49969c4234e97`).
+La validation finale du 12 septembre 2026 a exécuté, avec le SDK/JDK isolés et
+le JDK 21 requis par la dépendance Gemma,
+`:app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest`.
+Elle a obtenu 472 tests sans échec, erreur ni test ignoré et a assemblé les deux
+APK. Le contrôle visuel design QA complet reste bloqué faute de runtime Android
+stable ; les contrôles natifs hors appareil sont archivés dans
+`qa-renders/` : `main-light.png` et `main-dark.png` (390 × 844),
+`main-small-large-font.png` (320 × 640, fontScale 1,3) et `wave-compact.png`
+(148 × 32, repos puis voix). Le contrôle compact avance explicitement 12 ticks
+pour vérifier amplitude et bords fondus ; il ne prétend pas mesurer le timing
+`Choreographer` matériel. Voir [`design-qa.md`](../../../design-qa.md) pour les
+limites runtime restantes.
+
+Le test Robolectric natif de caméra reproduit l’exception
+`UnsupportedOperationException` de l’ancien fond appliqué directement à
+`TextureView`, tandis que les constructions Light/Dark corrigées passent avec
+le wrapper `FrameLayout` et un teardown `ActivityController` détruit.
+L’APK debug courant est `app/build/outputs/apk/debug/app-debug.apk`
+(90 427 739 octets, SHA-256
+`60a8513b15f90ff75006e58565fc4e2fe7bd3bf30ee31b7c67e6abb586ed36ef`) et l’APK
+de tests `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`
+(994 578 octets, SHA-256
+`a327b706eb901943799a50e4e60307762bd8998ebd7d6e865b999614978925e6`).

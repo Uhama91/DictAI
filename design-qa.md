@@ -9,20 +9,25 @@
 Sources de vérité visuelles :
 `docs/design/2026-09-12-carnet/concepts/ivoire-encre-sauge-v2.png` et les
 références approuvées sous
-`docs/design/2026-09-12-carnet/selected/` (`main-sombre.png`,
+`docs/design/2026-09-12-carnet/selected/` (`main-clair-revision-v4.png`,
+`main-sombre-revision-v3.png`, `main-sombre.png`,
 `preferences-clair.png`, `dictee-clair.png`, `mise-en-forme-clair.png`,
 `overlay-clair-enregistrement.png`, `overlay-sombre-pause.png`,
 `notes-clair.png`, `photo-clair.png`, `export-clair.png`). Le screenshot de
 l’implémentation est indisponible ; la comparaison pleine vue et par régions
 reste impossible sans runtime.
 
-Évaluation visuelle des cinq surfaces — accueil/réglages, overlay, notes,
-photo et export — **NON VALIDÉE** pour la typographie, l’espacement, les
-couleurs, les images et la copie. La revue statique et les tests attestent le
-chemin de code, pas la fidélité rendue à l’écran.
+Le rendu Canvas natif hors appareil valide visuellement la composition de
+l’accueil clair/sombre, le logo entier, l’espacement des cartes et l’onde
+compacte au repos puis sous niveau vocal simulé ; ces rendus sont archivés
+ci-dessous. La validation matérielle complète reste bloquée. Pour les autres
+surfaces — réglages, overlay, notes, photo et export — la typographie,
+l’espacement, les couleurs, les images, la copie et les interactions restent
+**NON VALIDÉS** sur Android réel. La revue statique et les tests attestent le
+chemin de code, pas la fidélité runtime de ces surfaces.
 
-La compilation, les tests unitaires et la revue statique du diff sont passés,
-mais aucune capture de l’application modifiée n’est disponible. Le seul essai
+La compilation, les tests unitaires et la revue statique du diff sont passés.
+Aucune capture de l’application modifiée sur Android n’est disponible. Le seul essai
 de runtime a utilisé l’AVD jetable `dictai-api30` avec Android 30 Google APIs,
 390 × 844 px, densité 160 et accélération logicielle `-accel off`. La machine
 n’a pas KVM ; le premier boot a déclenché le watchdog Android dans
@@ -32,11 +37,14 @@ réel n’a été utilisé.
 
 ## Contrôles réalisés
 
-- `:app:testDebugUnitTest :app:assembleDebug` : 462 tests, 0 échec, 0 erreur,
-  0 ignoré ; APK debug assemblé.
-- APK final après le clipping des coins :
-  `app/build/outputs/apk/debug/app-debug.apk`, 90 419 811 octets,
-  SHA-256 `04e40304745e4bb8fd6546c5adfa5e8b896dddf6bd9a5a0aafb49969c4234e97`.
+- Commande finale avec JDK 21 : `:app:testDebugUnitTest :app:assembleDebug
+  :app:assembleDebugAndroidTest` : 472 tests, 0 échec, 0 erreur, 0 ignoré ;
+  les deux APK sont assemblés.
+- APK debug : `app/build/outputs/apk/debug/app-debug.apk`, 90 427 739 octets,
+  SHA-256 `60a8513b15f90ff75006e58565fc4e2fe7bd3bf30ee31b7c67e6abb586ed36ef`.
+- APK de tests : `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`,
+  994 578 octets, SHA-256
+  `a327b706eb901943799a50e4e60307762bd8998ebd7d6e865b999614978925e6`.
 - `git diff --check` : propre.
 - Revue statique des chemins accueil/réglages, thèmes, overlay, notes, caméra,
   contrôleur/panneau d’export et pont sélecteur.
@@ -46,6 +54,17 @@ réel n’a été utilisé.
 - Les tests unitaires `ExportGenerationGate` et `OverlayBridgeReturnGate`
   vérifient l’invalidation des résultats tardifs, la reprise après arrière-plan,
   les deux ordres reprise/focus et la consommation unique du retour.
+- Les tests Robolectric natifs `NoteCameraActivityRobolectricTest` vérifient les
+  constructions Light/Dark corrigées avec le wrapper `FrameLayout`, le teardown
+  effectif de l’`ActivityController` et reproduisent l’exception
+  `UnsupportedOperationException` de l’ancien fond posé directement sur
+  `TextureView`.
+- Les rendus Canvas natifs hors appareil sont archivés dans
+  `docs/design/2026-09-12-carnet/qa-renders/` : `main-light.png` et
+  `main-dark.png` (390 × 844), `main-small-large-font.png` (320 × 640,
+  `fontScale` 1,3), `wave-compact.png` (148 × 32, repos puis voix). Le test
+  compact avance explicitement 12 ticks ; cela vérifie l’amplitude et les
+  bords fondus, pas le timing `Choreographer` d’un appareil.
 
 ## Contrôles encore impossibles
 
@@ -65,8 +84,9 @@ Android stable :
 - TalkBack, tailles de police, contraste calculé par ressource, zones tactiles
   48 dp et comportement sans micro réel.
 
-Les tests unitaires ne lancent ni `Activity`, ni `WindowManager`, ni
-`PdfRenderer`, ni `WebView`, et ne constituent donc pas une preuve de design QA.
+Les tests natifs hors appareil ne couvrent ni une session Camera2 réelle, ni
+`WindowManager`, `PdfRenderer`, `WebView`, sélecteur système ou service
+d’accessibilité ; ils ne constituent donc pas une preuve de design QA runtime.
 Une prochaine passe pourra débloquer ce document avec un appareil ou un
 émulateur accéléré stable, puis produire les captures main, réglages, overlay,
 notes, photo et export dans `docs/design/2026-09-12-carnet/current/`.

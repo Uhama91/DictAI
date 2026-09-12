@@ -139,6 +139,16 @@ cartes. Elles montrent « Français · Texte sans LLM » comme aperçu de régla
 et « Texte · Liste · Mail » comme choix de mise en forme. Aucune capture Android
 ou référence du vieux logo n’a été jointe à ImageGen.
 
+Après le retour sur l’APK réel, deux révisions ImageGen de l’accueil ont été
+produites avant les corrections de composition :
+`selected/main-clair-revision-v4.png` et
+`selected/main-sombre-revision-v3.png`. Elles retirent le CTA et la carte d’état
+permanents, donnent de l’air au logo DictAI entier et à une onde cursive ample,
+et répartissent Mes notes et les trois accès Réglages sur la hauteur utile.
+Elles prolongent la même direction ivoire/sauge et charbon, sans nouvelle
+destination ni contenu fictif ; elles servent de références image-first de la
+version finale de l’accueil.
+
 ## Déclinaisons générées pour la suite
 
 Après le choix de la direction ivoire/encre/sauge, cinq interfaces ont suivi le
@@ -189,25 +199,38 @@ existants, avec la palette claire/sombre/système appliquée en place.
 
 ## Validation finale et limite runtime
 
-Commande exécutée avec le SDK/JDK isolés :
-`./gradlew --no-daemon --max-workers=2 -Djavax.net.ssl.trustStore=/home/ullie/.cache/dictai-build-tools/cacerts :app:testDebugUnitTest :app:assembleDebug`.
-Résultat : 462 tests unitaires, 0 échec, 0 erreur, 0 test ignoré ; assemblage
-debug réussi et `git diff --check` propre. Un assemblage incrémental a suivi la
-correction d’arrondi du panneau. L’APK courant est
-`app/build/outputs/apk/debug/app-debug.apk`, 90 419 811 octets, daté du
-12 septembre 2026 à 11:49, SHA-256
-`04e40304745e4bb8fd6546c5adfa5e8b896dddf6bd9a5a0aafb49969c4234e97`.
+Commande exécutée avec le SDK/JDK isolés et le JDK 21 requis par la dépendance
+Gemma :
+`./gradlew --no-daemon --max-workers=2 -Djavax.net.ssl.trustStore=/home/ullie/.cache/dictai-build-tools/cacerts :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest`.
+Résultat : 472 tests unitaires, 0 échec, 0 erreur, 0 test ignoré ; les APK
+debug et debugAndroidTest ont été assemblés avec succès, et
+`git diff --check` reste propre. L’APK courant est
+`app/build/outputs/apk/debug/app-debug.apk`, 90 427 739 octets, SHA-256
+`60a8513b15f90ff75006e58565fc4e2fe7bd3bf30ee31b7c67e6abb586ed36ef`.
+L’APK de tests est `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`,
+994 578 octets, SHA-256
+`a327b706eb901943799a50e4e60307762bd8998ebd7d6e865b999614978925e6`.
 
-Les tests ajoutés couvrent les générations obsolètes et la porte de retour du
-bridge dans les deux ordres reprise/focus, y compris la consommation unique et
-le passage par l’arrière-plan. Ils ne remplacent pas un test Android réel de
-`PdfRenderer`, `WebView`, `Activity`, sélecteur système ou `WindowManager`.
-Le contrôle design QA reste bloqué : l’émulateur logiciel API 30 sans KVM a
-redémarré le framework sous watchdog pendant son premier boot et aucun appareil
-USB/wifi stable n’était disponible. Aucun lancement DictAI, screenshot de
-runtime, test TalkBack, clavier/rotation, caméra, picker d’export ou mesure de
-transition n’est donc présenté comme réussi. Le détail est consigné dans
-[`design-qa.md`](../../../design-qa.md).
+Le correctif photo est couvert par trois tests Robolectric natifs : Light et
+Dark construisent `NoteCameraActivity` avec le wrapper arrondi sans fond sur la
+`TextureView`, et un test de framework reproduit précisément le
+`UnsupportedOperationException` déclenché par l’ancien `TextureView.background`.
+Le teardown détruit réellement les `ActivityController`. Les rendus Canvas
+natifs hors appareil sont archivés dans
+`docs/design/2026-09-12-carnet/qa-renders/` : `main-light.png` et
+`main-dark.png` font 390 × 844 pixels, `main-small-large-font.png` fait 320 ×
+640 pixels avec `fontScale` 1,3, et `wave-compact.png` fait 148 × 32 pixels
+(repos puis voix). Le contrôle compact avance explicitement 12 ticks afin de
+vérifier l’amplitude, les bords fondus et l’absence de fin prématurée ; il ne
+mesure pas le timing `Choreographer` d’un appareil.
+
+Ces rendus natifs et tests ne remplacent pas un test Android réel de
+`PdfRenderer`, `WebView`, `WindowManager`, Camera2, sélecteur système,
+TalkBack, clavier ou rotation. Le contrôle design QA reste donc bloqué :
+l’émulateur logiciel API 30 sans KVM a redémarré le framework sous watchdog et
+aucun appareil USB/wifi stable n’était disponible. Aucun lancement DictAI,
+screenshot de runtime ou interaction matérielle n’est présenté comme réussi.
+Le détail est consigné dans [`design-qa.md`](../../../design-qa.md).
 
 ## État et garde-fous
 
@@ -219,7 +242,9 @@ transition n’est donc présenté comme réussi. Le détail est consigné dans
   `docs/design/2026-09-12-carnet/`.
 - Les modifications préexistantes `CLAUDE.md` et
   `docs/2026-09-07-voix-personnelle-et-gestes.md` sont à préserver.
-- Ne pas publier, pousser, installer sur téléphone réel ni envoyer de messages.
+- La publication de la branche est autorisée après revue finale ; aucune release,
+  fusion vers `main`, installation sur téléphone réel ou envoi de messages n’est
+  prévu.
 - Les trois images doivent être indépendantes, en contenu applicatif mobile
   `390 × 844`, sans bezel, barre système, horloge ou chrome de navigateur.
 - La génération utilise l’outil ImageGen intégré ; le nom d’un modèle ImageGen

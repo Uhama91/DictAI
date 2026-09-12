@@ -347,6 +347,7 @@ class OverlayService : Service() {
         }
         if (intent?.action == ACTION_ARM_MIC) {
             promoteMic()
+            wake()
             // Si le modèle local n'était pas dispo au démarrage (pas encore téléchargé),
             // on retente de le charger (un seul chargement à la fois, cf. ensureLocalLoaded).
             ensureLocalLoaded()
