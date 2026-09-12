@@ -3,8 +3,10 @@ package com.kafkasl.phonewhisper
 import android.Manifest
 import android.app.Activity
 import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
@@ -15,7 +17,9 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.view.Surface
 import android.view.TextureView
+import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -31,7 +35,9 @@ class NoteCameraActivity : Activity(), TextureView.SurfaceTextureListener {
     private lateinit var cameraHandler: Handler
     private lateinit var preview: TextureView
     private lateinit var shutter: Button
+    private lateinit var cancel: Button
     private lateinit var status: TextView
+    private lateinit var cameraRoot: LinearLayout
     private var captureId = ""
     @Volatile private var closing = false
     @Volatile private var resumed = false
@@ -47,6 +53,23 @@ class NoteCameraActivity : Activity(), TextureView.SurfaceTextureListener {
     private var autofocus = CameraMetadata.CONTROL_AF_MODE_OFF
     private val deadline = Runnable { fail("L’appareil photo ne répond pas. La note est conservée.") }
 
+    /** Theme.NoteCamera is a platform Activity; apply the persisted explicit mode to its context. */
+    override fun attachBaseContext(newBase: Context) {
+        val mode = ThemeModeStore.read(newBase)
+        if (mode == ThemeMode.SYSTEM) {
+            super.attachBaseContext(newBase)
+            return
+        }
+        val config = Configuration().apply {
+            uiMode = when (mode) {
+            ThemeMode.DARK -> Configuration.UI_MODE_NIGHT_YES
+            ThemeMode.LIGHT -> Configuration.UI_MODE_NIGHT_NO
+            ThemeMode.SYSTEM -> Configuration.UI_MODE_NIGHT_UNDEFINED
+            }
+        }
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         captureId = savedInstanceState?.getString("captureId") ?: intent.getStringExtra("captureId").orEmpty()
@@ -56,19 +79,67 @@ class NoteCameraActivity : Activity(), TextureView.SurfaceTextureListener {
         worker.start(); cameraHandler = Handler(worker.looper)
         setFinishOnTouchOutside(false)
         val dp = resources.displayMetrics.density
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding((12*dp).toInt(), (12*dp).toInt(), (12*dp).toInt(), (12*dp).toInt()) }
-        status = TextView(this).apply { text = "Photo ${capture.number} · cadrer puis photographier"; textSize = 16f }
-        root.addView(status)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16*dp).toInt(), (16*dp).toInt(), (16*dp).toInt(), (16*dp).toInt())
+        }
+        cameraRoot = root
+        status = TextView(this).apply {
+            text = "Photo ${capture.number} · cadrer puis photographier"; textSize = 20f
+            runCatching { typeface = resources.getFont(R.font.caveat) }
+        }
+        root.addView(status, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         preview = TextureView(this).apply { surfaceTextureListener = this@NoteCameraActivity }
-        root.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, previewHeight()))
-        shutter = Button(this).apply { text = "Prendre la photo"; isEnabled = false; setOnClickListener { capturePhoto() } }
-        root.addView(shutter)
-        root.addView(Button(this).apply { text = "Annuler"; setOnClickListener { finish() } })
+        root.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, previewHeight()).apply {
+            topMargin = (12 * dp).toInt(); bottomMargin = (12 * dp).toInt()
+        })
+        shutter = Button(this).apply { text = "Prendre la photo"; isEnabled = false; minHeight = (48 * dp).toInt(); setOnClickListener { capturePhoto() } }
+        root.addView(shutter, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        cancel = Button(this).apply { text = "Annuler"; minHeight = (48 * dp).toInt(); setOnClickListener { finish() } }
+        root.addView(cancel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(root)
+        applyCameraTheme()
         window.setLayout(minOf((340*dp).toInt(), resources.displayMetrics.widthPixels - (24*dp).toInt()), ViewGroup.LayoutParams.WRAP_CONTENT)
         if (getSystemService(KeyguardManager::class.java).isKeyguardLocked) { fail("Déverrouillez le téléphone pour prendre une photo."); return }
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.CAMERA), 1)
+    }
+
+    private fun applyCameraTheme() {
+        if (!::cameraRoot.isInitialized) return
+        val colors = ThemeTokens.palette(this)
+        cameraRoot.background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = 24f * resources.displayMetrics.density
+            setColor(colors.surface)
+            setStroke((resources.displayMetrics.density).toInt().coerceAtLeast(1), colors.stroke)
+        }
+        cameraRoot.outlineProvider = ViewOutlineProvider.BACKGROUND
+        cameraRoot.clipToOutline = true
+        status.setTextColor(colors.ink)
+        preview.background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = 20f * resources.displayMetrics.density
+            setColor(colors.raised)
+            setStroke((resources.displayMetrics.density).toInt().coerceAtLeast(1), colors.stroke)
+        }
+        preview.outlineProvider = ViewOutlineProvider.BACKGROUND
+        preview.clipToOutline = true
+        listOf(shutter, cancel).forEach { button ->
+            button.backgroundTintList = null
+            button.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 18f * resources.displayMetrics.density
+                setColor(if (button === shutter) colors.green else colors.raised)
+                setStroke((resources.displayMetrics.density).toInt().coerceAtLeast(1), colors.stroke)
+            }
+            button.setTextColor(if (button === shutter) colors.onGreen else colors.ink)
+        }
+        window.statusBarColor = colors.bg
+        window.navigationBarColor = colors.bg
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        val night = ThemeModeStore.read(this) == ThemeMode.DARK ||
+            (ThemeModeStore.read(this) == ThemeMode.SYSTEM &&
+                resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES)
+        window.decorView.systemUiVisibility = if (night) 0 else
+            (android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR)
     }
 
     private fun previewHeight(): Int {
@@ -78,6 +149,7 @@ class NoteCameraActivity : Activity(), TextureView.SurfaceTextureListener {
     override fun onConfigurationChanged(config: android.content.res.Configuration) {
         super.onConfigurationChanged(config)
         if (!::preview.isInitialized) return
+        applyCameraTheme()
         val dp = resources.displayMetrics.density
         preview.layoutParams = preview.layoutParams.apply { height = previewHeight() }
         window.setLayout(minOf((340*dp).toInt(), resources.displayMetrics.widthPixels - (24*dp).toInt()), ViewGroup.LayoutParams.WRAP_CONTENT)

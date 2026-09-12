@@ -13,6 +13,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -24,9 +25,16 @@ import com.google.android.material.radiobutton.MaterialRadioButton
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
+    private enum class Screen { HOME, DICTATION, FORMATTING, PREFERENCES }
+
     private var localFormatBenchmark: LocalFormatBenchmarkDialog? = null
     private var gemmaDownload: GemmaModelDownloadDialog? = null
     private var gemmaSubtitle: TextView? = null
+    private var screen = Screen.HOME
+    private var contentScroll: ScrollView? = null
+
+    private val palette: ThemePalette
+        get() = ThemeTokens.palette(this)
 
     override fun onStop() {
         gemmaDownload?.close()
@@ -44,10 +52,11 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private lateinit var statusSubtitle: TextView
-    private lateinit var audioRowSub: TextView
-    private lateinit var accRowSub: TextView
-    private lateinit var modelContainer: LinearLayout
+    private var statusSubtitle: TextView? = null
+    private var audioRowSub: TextView? = null
+    private var accRowSub: TextView? = null
+    private var modelContainer: LinearLayout? = null
+    private var formatSummarySubtitle: TextView? = null
 
     private val modelRows = mutableMapOf<String, ModelRowViews>()
 
@@ -75,13 +84,17 @@ class MainActivity : AppCompatActivity() {
                             when (action) {
                                 0 -> {
                                     store.select(format)
+                                    refreshFormatSummary()
                                     val unavailable = PersistencePrefs(this).formattingEngine == "local" && format.localLayoutKind == null && format.instructions.isNotBlank()
                                     Toast.makeText(this, if (unavailable) "Ce format nécessite le cloud. L’essai local prend en charge les listes et les mails." else "Prochaine dictée : ${format.name}", Toast.LENGTH_LONG).show()
                                 }
                                 1 -> editFormat(format)
                                 2 -> androidx.appcompat.app.AlertDialog.Builder(this)
                                     .setTitle("Supprimer ${format.name} ?")
-                                    .setPositiveButton("Supprimer") { _, _ -> store.delete(format.id) }
+                                    .setPositiveButton("Supprimer") { _, _ ->
+                                        store.delete(format.id)
+                                        refreshFormatSummary()
+                                    }
                                     .setNegativeButton("Annuler", null).show()
                             }
                         }.show()
@@ -117,7 +130,9 @@ class MainActivity : AppCompatActivity() {
                     instructions.text.isNullOrBlank() -> instructions.error = "Indiquez les consignes"
                     else -> {
                         PostProcessingFormats(this).save(format?.id, name.text.toString(), instructions.text.toString())
-                        dialog.dismiss(); showFormatsDialog()
+                        dialog.dismiss()
+                        refreshFormatSummary()
+                        showFormatsDialog()
                     }
                 }
             }
@@ -127,264 +142,488 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (screen != Screen.HOME) {
+                    screen = Screen.HOME
+                    renderScreen()
+                } else {
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        // The launcher may only move this task to the background. Keep the
+                        // callback ready if MainActivity is shown again afterwards.
+                        isEnabled = true
+                    }
+                }
+            }
+        })
+        screen = savedInstanceState?.getString(KEY_SCREEN)?.let { value ->
+            runCatching { Screen.valueOf(value) }.getOrNull()
+        } ?: Screen.HOME
+        renderScreen(savedInstanceState?.getInt(KEY_SCROLL_Y, 0) ?: 0)
 
+        // Nouveaux utilisateurs : si la configuration de base manque et que l'assistant n'a
+        // jamais été terminé, on lance directement l'onboarding d'installation.
+        val onbDone = getSharedPreferences("whisperpin", MODE_PRIVATE).getBoolean("onb_complete", false)
+        val coreMissing = !hasPerm(Manifest.permission.RECORD_AUDIO) ||
+            !Settings.canDrawOverlays(this) || InjectionGateway.current() == null
+        if (!onbDone && coreMissing) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+        } else if (!hasPerm(Manifest.permission.RECORD_AUDIO)) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+        }
+        refresh()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(KEY_SCREEN, screen.name)
+        outState.putInt(KEY_SCROLL_Y, contentScroll?.scrollY ?: 0)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun renderScreen(scrollY: Int = 0) {
+        statusSubtitle = null
+        audioRowSub = null
+        accRowSub = null
+        modelContainer = null
+        modelRows.clear()
+        gemmaSubtitle = null
+        formatSummarySubtitle = null
+
+        val root = when (screen) {
+            Screen.HOME -> buildHomePage()
+            Screen.DICTATION -> buildDictationPage()
+            Screen.FORMATTING -> buildFormattingPage()
+            Screen.PREFERENCES -> buildPreferencesPage()
+        }.apply {
+            background = NotebookBackgroundDrawable(this@MainActivity)
+            minimumHeight = resources.displayMetrics.heightPixels
+            setPadding(dp(18), dp(28), dp(18), dp(32))
+        }
+        val scroll = ScrollView(this).apply {
+            setBackgroundColor(palette.bg)
+            isFillViewport = true
+            clipToPadding = false
+            addView(root)
+        }
+        contentScroll = scroll
+        setContentView(scroll)
+        if (scrollY > 0) scroll.post { scroll.scrollTo(0, scrollY) }
+        refresh()
+    }
+
+    private fun buildHomePage(): LinearLayout {
         val root = vertical(0, 0)
-
-        // Header row : mic icon (encre verte) + "DictAI" en Caveat
-        val header = LinearLayout(this).apply {
+        val brand = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(56), 0, dp(20))
-            addView(ImageView(this@MainActivity).apply {
-                setImageResource(R.drawable.ic_mic)
-                imageTintList = ColorStateList.valueOf(ThemeTokens.GREEN)
-                layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).apply {
-                    rightMargin = dp(10)
-                }
-            })
-            addView(TextView(this@MainActivity).apply {
-                text = "DictAI"
-                ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let { typeface = it }
-                textSize = 40f
-                setTextColor(ThemeTokens.GREEN)
-                gravity = Gravity.CENTER_VERTICAL
-            })
+            layoutParams = LinearLayout.LayoutParams(LP_MATCH, dp(76)).apply {
+                topMargin = dp(10); bottomMargin = dp(4)
+            }
         }
-        root.addView(header)
+        brand.addView(TextView(this).apply {
+            text = "DictAI"
+            ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let { typeface = it }
+            textSize = 42f
+            setTextColor(palette.ink)
+            gravity = Gravity.CENTER_VERTICAL
+            contentDescription = "DictAI"
+            layoutParams = LinearLayout.LayoutParams(LP_WRAP, LP_MATCH)
+        })
+        brand.addView(CursiveWaveView(this).apply {
+            setStrokeColor(palette.green)
+            settle()
+            contentDescription = "Boucles cursives DictAI"
+            layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                leftMargin = dp(12)
+            }
+        })
+        root.addView(brand)
 
-        val spikeBtn = android.widget.Button(this).apply {
+        root.addView(MaterialButton(this).apply {
             text = "Activer le bouton flottant"
-            setTextColor(ThemeTokens.BG)
+            textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
+            cornerRadius = dp(22)
+            backgroundTintList = ColorStateList.valueOf(palette.green)
+            setTextColor(palette.onGreen)
             stateListAnimator = null
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = ThemeTokens.dpf(this@MainActivity, 22f)
-                setColor(ThemeTokens.GREEN)
-            }
+            minHeight = dp(52)
+            contentDescription = "Activer le bouton flottant"
             layoutParams = LinearLayout.LayoutParams(LP_MATCH, LP_WRAP).apply {
-                topMargin = dp(4); bottomMargin = dp(10)
+                topMargin = dp(2); bottomMargin = dp(10)
             }
-            setOnClickListener {
-                if (!android.provider.Settings.canDrawOverlays(this@MainActivity)) {
-                    startActivity(Intent(
-                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        android.net.Uri.parse("package:$packageName")))
-                    return@setOnClickListener
-                }
-                startForegroundService(Intent(this@MainActivity, OverlayService::class.java))
-            }
-        }
-        root.addView(spikeBtn)
+            setOnClickListener { activateFloatingButton() }
+        })
 
-        // Status row
-        val statusRow = settingsRow("Status", "Checking...")
+        val statusRow = settingsRow("Bouton flottant", "État de la pastille")
         statusSubtitle = statusRow.findViewWithTag("subtitle")
         root.addView(statusRow)
 
-        // --- Setup Section ---
-        root.addView(sectionHeader("Setup"))
+        root.addView(homeAccessRow("Mes notes", "Texte, captures et photos · partager ou exporter", R.drawable.ic_note_share) {
+            openNotes()
+        })
+        root.addView(sectionHeader("Réglages"))
+        root.addView(homeAccessRow("Dictée", dictationSummary(), R.drawable.ic_mic) { navigateTo(Screen.DICTATION) })
+        root.addView(homeAccessRow("Mise en forme", formattingSummary(), android.R.drawable.ic_menu_edit) { navigateTo(Screen.FORMATTING) })
+        root.addView(homeAccessRow("Préférences", "${PersistencePrefs(this).themeMode.label} · Installation et diagnostics", android.R.drawable.ic_menu_preferences) {
+            navigateTo(Screen.PREFERENCES)
+        })
+        return root
+    }
 
-        root.addView(settingsRow("Assistant d'installation", "Configurer / vérifier les permissions pas à pas") {
+    private fun homeAccessRow(title: String, subtitle: String, icon: Int, onClick: () -> Unit): LinearLayout {
+        val row = settingsRow(title, subtitle, null, onClick)
+        val text = row.getChildAt(0) as LinearLayout
+        (text.getChildAt(0) as? TextView)?.let {
+            ResourcesCompat.getFont(this, R.font.caveat)?.let { font -> it.typeface = font }
+            it.textSize = 19f
+        }
+        row.removeView(text)
+
+        val iconHolder = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(palette.raised)
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).apply { rightMargin = dp(12) }
+            contentDescription = title
+        }
+        iconHolder.addView(ImageView(this).apply {
+            setImageResource(icon)
+            imageTintList = ColorStateList.valueOf(palette.green)
+            layoutParams = FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER)
+        })
+        row.addView(iconHolder, 0)
+        row.addView(text)
+        row.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_chevron_right)
+            imageTintList = ColorStateList.valueOf(palette.inkMuted)
+            contentDescription = "Ouvrir $title"
+            isFocusable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            layoutParams = LinearLayout.LayoutParams(dp(32), dp(48)).apply { leftMargin = dp(4) }
+        })
+        return row
+    }
+
+    private fun buildPreferencesPage(): LinearLayout {
+        val root = vertical(0, 0)
+        root.addView(navigationHeader("Préférences"))
+        root.addView(buildAppearanceCard())
+        root.addView(sectionHeader("Installation"))
+
+        root.addView(settingsRow("Assistant d'installation", "Configurer et vérifier les permissions") {
             startActivity(Intent(this, OnboardingActivity::class.java))
         })
-
-        val audioRow = settingsRow("Audio permission", "Checking...") {
+        val audioRow = settingsRow("Microphone", if (hasPerm(Manifest.permission.RECORD_AUDIO)) "Autorisé" else "À autoriser") {
             if (!hasPerm(Manifest.permission.RECORD_AUDIO)) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
             }
         }
         audioRowSub = audioRow.findViewWithTag("subtitle")
         root.addView(audioRow)
-
-        val accRow = settingsRow("Accessibility service", "Checking...") {
+        val accRow = settingsRow("Service d'accessibilité", if (InjectionGateway.current() != null) "Activé" else "À activer dans les réglages") {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
         accRowSub = accRow.findViewWithTag("subtitle")
         root.addView(accRow)
-
-        // --- Modèles locaux ---
-        modelContainer = vertical(0)
-        modelContainer.addView(sectionHeader("Modèles locaux"))
-        for (m in MODEL_CATALOG) modelContainer.addView(buildModelRow(m))
-        root.addView(modelContainer)
-
-        // --- Réglages ---
-        root.addView(sectionHeader("Réglages"))
-
-        val languagePrefs = PersistencePrefs(this)
-        root.addView(settingsRow("Langue de dictée", languageLabel(languagePrefs.dictationLanguage)) {
-            showLanguageDialog()
+        root.addView(settingsRow("Pastille flottante", if (Settings.canDrawOverlays(this)) "Autorisé" else "À autoriser") {
+            if (!Settings.canDrawOverlays(this)) {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+            }
         })
 
-        fun numberLabel() = when (languagePrefs.numberStyle) {
-            NumberStyle.DIGITS -> "En chiffres · 23, 2,5"
-            NumberStyle.WORDS -> "En lettres · vingt-trois, deux virgule cinq"
-            NumberStyle.UNCHANGED -> "Conserver la transcription"
+        root.addView(sectionHeader("Diagnostic"))
+        root.addView(settingsRow("Dernier post-traitement", "Diagnostic copiable conservé après la dictée") {
+            showPostprocessingDiagnostic()
+        })
+        root.addView(settingsRow("Dernière copie d'image", "Presse-papier Android · collage manuel depuis Gboard") {
+            val report = NoteImagePaste.report(this)
+            androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Dernière copie d'image").setMessage(report)
+                .setPositiveButton("Copier") { _, _ -> DictationClipboard.copy(this, report) }
+                .setNegativeButton("Fermer", null).show()
+        })
+        return root
+    }
+
+    private fun buildAppearanceCard(): LinearLayout {
+        val selected = PersistencePrefs(this).themeMode
+        val card = cardContainer().apply { orientation = LinearLayout.VERTICAL }
+        card.addView(TextView(this).apply {
+            text = "Apparence"
+            textSize = 19f
+            setTextColor(palette.ink)
+        })
+        card.addView(TextView(this).apply {
+            text = "Choisir le thème de l'application"
+            textSize = 14f
+            setTextColor(palette.inkMuted)
+            setPadding(0, dp(2), 0, dp(12))
+        })
+        val choices = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        ThemeMode.entries.forEach { mode ->
+            val choice = TextView(this).apply {
+                text = mode.label
+                textSize = 14f
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                contentDescription = "Thème ${mode.label}${if (mode == selected) ", sélectionné" else ""}"
+                setPadding(dp(4), dp(12), dp(4), dp(12))
+                layoutParams = LinearLayout.LayoutParams(0, LP_WRAP, 1f).apply {
+                    leftMargin = dp(3); rightMargin = dp(3)
+                }
+                updateAppearanceChoiceBackground(this, mode == selected)
+                setOnClickListener { selectTheme(mode) }
+            }
+            choices.addView(choice)
         }
-        val numberRow = settingsRow("Écriture des nombres", numberLabel())
+        card.addView(choices)
+        return card
+    }
+
+    private fun updateAppearanceChoiceBackground(view: TextView, selected: Boolean) {
+        view.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(16).toFloat()
+            setColor(if (selected) palette.green else palette.surface)
+            setStroke(dp(1), if (selected) palette.green else palette.stroke)
+        }
+        view.setTextColor(if (selected) palette.onGreen else palette.ink)
+    }
+
+    private fun buildDictationPage(): LinearLayout {
+        val root = vertical(0, 0)
+        root.addView(navigationHeader("Dictée"))
+        val dictationPrefs = PersistencePrefs(this)
+
+        root.addView(sectionHeader("Langue et modèle"))
+        root.addView(settingsRow("Langue", languageLabel(dictationPrefs.dictationLanguage)) { showLanguageDialog() })
+        modelContainer = vertical(0, 0)
+        for (model in MODEL_CATALOG) modelContainer?.addView(buildModelRow(model))
+        root.addView(modelContainer)
+
+        root.addView(sectionHeader("Transcription"))
+        val numberRow = settingsRow("Écriture des nombres", numberLabel(dictationPrefs))
         numberRow.setOnClickListener {
             val values = listOf(NumberStyle.DIGITS, NumberStyle.WORDS, NumberStyle.UNCHANGED)
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Écriture des nombres")
                 .setSingleChoiceItems(arrayOf("En chiffres", "En lettres", "Conserver la transcription"),
-                    values.indexOf(languagePrefs.numberStyle)) { dialog, index ->
-                    languagePrefs.numberStyle = values[index]
-                    numberRow.findViewWithTag<TextView>("subtitle").text = numberLabel()
+                    values.indexOf(dictationPrefs.numberStyle)) { dialog, index ->
+                    dictationPrefs.numberStyle = values[index]
+                    numberRow.findViewWithTag<TextView>("subtitle").text = numberLabel(dictationPrefs)
                     dialog.dismiss()
                 }.setNegativeButton("Annuler", null).show()
         }
         root.addView(numberRow)
 
-        val cleanupSwitch = MaterialSwitch(this).apply {
-            isChecked = languagePrefs.lightTextCleanup
-            greenTint()
-            setOnCheckedChangeListener { _, on -> languagePrefs.lightTextCleanup = on }
-        }
-        root.addView(settingsRow("Nettoyage léger du texte",
-            "À la fin : réduit les « euh » et certaines répétitions, sans attente de modèle. Les retouches manuelles sont conservées.", cleanupSwitch))
-
-        // Espace automatique en fin de dictée
-        root.addView(settingsRow("Mes notes", "Texte, captures et photos · partager ou exporter") {
-            if (!android.provider.Settings.canDrawOverlays(this)) {
-                startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
-            } else startForegroundService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_OPEN_NOTES))
-        })
         val transcriptSwitch = MaterialSwitch(this).apply {
-            isChecked = languagePrefs.showTranscript
+            isChecked = dictationPrefs.showTranscript
             greenTint()
-            setOnCheckedChangeListener { _, on -> languagePrefs.showTranscript = on }
+            setOnCheckedChangeListener { _, on -> dictationPrefs.showTranscript = on }
         }
         root.addView(settingsRow("Afficher le texte pendant la dictée",
-            "À la prochaine dictée. Glisser vers le haut pendant l’écoute pour réafficher le panneau.", transcriptSwitch))
+            "À la prochaine dictée · glisser vers le haut pour réafficher le panneau", transcriptSwitch))
+
+        val cleanupSwitch = MaterialSwitch(this).apply {
+            isChecked = dictationPrefs.lightTextCleanup
+            greenTint()
+            setOnCheckedChangeListener { _, on -> dictationPrefs.lightTextCleanup = on }
+        }
+        root.addView(settingsRow("Nettoyage léger du texte",
+            "Réduit les « euh » et certaines répétitions, sans attente de modèle", cleanupSwitch))
 
         val spaceSwitch = MaterialSwitch(this).apply {
-            isChecked = PersistencePrefs(this@MainActivity).trailingSpace
+            isChecked = dictationPrefs.trailingSpace
             greenTint()
-            setOnCheckedChangeListener { _, on ->
-                PersistencePrefs(this@MainActivity).trailingSpace = on
-            }
+            setOnCheckedChangeListener { _, on -> dictationPrefs.trailingSpace = on }
         }
         root.addView(settingsRow("Espace après chaque dictée",
-            "Ajoute un espace à la fin de la transcription", spaceSwitch))
+            "Ajoute une espace à la fin de la transcription", spaceSwitch))
+        root.addView(settingsRow("Mon vocabulaire", "Corrections mémorisées depuis l'overlay ou ajoutées ici") {
+            showVocabularyDialog()
+        })
+        return root
+    }
 
-        val vocabRow = settingsRow("Mon vocabulaire", "Corrections mémorisées depuis l’overlay ou ajoutées ici") {
-            val et = EditText(this).apply {
-                setText(Vocabulary.getRaw(this@MainActivity))
-                isSingleLine = false
-                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-                minLines = 5
-                gravity = Gravity.TOP or Gravity.START
-                hint = "Dydy\ndidi => Dydy"
-                setPadding(dp(16), dp(12), dp(16), dp(12))
-                inkColors()
-            }
-            androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Mon vocabulaire")
-                .setMessage("Une correction par ligne, au format « entendu => voulu ».")
-                .setView(et)
-                .setPositiveButton("Enregistrer") { _, _ ->
-                    Vocabulary.setRaw(this, et.text.toString())
-                    Toast.makeText(this, "Vocabulaire enregistré", Toast.LENGTH_SHORT).show()
-                }
-                .setNegativeButton("Annuler", null)
-                .show()
+    private fun buildFormattingPage(): LinearLayout {
+        val root = vertical(0, 0)
+        root.addView(navigationHeader("Mise en forme"))
+        val formattingPrefs = PersistencePrefs(this)
+        val formatStore = PostProcessingFormats(this)
+        val selectedFormat = formatStore.selected()
+        root.addView(sectionHeader("Format de la dictée"))
+        val formatRow = settingsRow("Format de la dictée", selectedFormatLabel(selectedFormat), null) {
+            showFormatsDialog()
         }
-        root.addView(vocabRow)
+        formatSummarySubtitle = formatRow.findViewWithTag("subtitle")
+        root.addView(formatRow)
+        root.addView(settingsRow("Choix disponibles", "Texte · Liste à puces · Mail"))
 
-        fun engineLabel() = when (languagePrefs.formattingEngine) {
-            "local" -> "Local · Gemma 4 E2B · texte corrigé, listes et mails (essai)"
-            "cloud" -> "Cloud · le texte est envoyé à OpenRouter"
-            else -> "Désactivé · vocabulaire et nombres conservés"
-        }
-        val engineRow = settingsRow("Moteur de post-traitement", engineLabel())
-        engineRow.setOnClickListener {
-            val values = if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) listOf("local", "cloud", "off") else listOf("cloud", "off")
-            val labels = values.map { when (it) { "local" -> "Local — texte corrigé, listes et mails (essai)"; "cloud" -> "Cloud — OpenRouter"; else -> "Désactivé" } }.toTypedArray()
-            androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Moteur de post-traitement")
-                .setSingleChoiceItems(labels,
-                    values.indexOf(languagePrefs.formattingEngine)) { dialog, index ->
-                    languagePrefs.formattingEngine = values[index]
-                    engineRow.findViewWithTag<TextView>("subtitle").text = engineLabel()
-                    dialog.dismiss()
-                    if (values[index] == "local") {
-                        if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
-                        else prepareLocalFormatter()
-                    }
-                }.setNegativeButton("Annuler", null).show()
-        }
+        root.addView(sectionHeader("Moteur"))
+        val engineRow = settingsRow("Moteur de post-traitement", engineLabel(formattingPrefs))
+        engineRow.setOnClickListener { showEngineDialog(engineRow) }
         root.addView(engineRow)
         if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
             val row = settingsRow("Installer Gemma 4 E2B", gemmaInstallLabel()) { showGemmaDownload() }
             gemmaSubtitle = row.findViewWithTag("subtitle")
             root.addView(row)
         }
-        root.addView(settingsRow("Dernier post-traitement", "Dernier format demandé conservé · diagnostic copiable") {
+        root.addView(settingsRow("Modèle cloud", formattingPrefs.cloudModel().label) { showCloudModelDialog() })
+        val credentialStore = SecureCredentialStore(this)
+        root.addView(settingsRow(
+            "Clé OpenRouter",
+            if (credentialStore.has()) "Clé enregistrée (masquée)" else "Aucune clé enregistrée",
+        ) { showCredentialDialog() })
+
+        root.addView(sectionHeader("Diagnostics"))
+        root.addView(settingsRow("Dernier post-traitement", "Diagnostic copiable conservé après la dictée") {
             showPostprocessingDiagnostic()
-        })
-        root.addView(settingsRow("Dernière copie d’image", "Presse-papier Android · collage manuel depuis Gboard") {
-            val report = NoteImagePaste.report(this)
-            androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Dernière copie d’image").setMessage(report)
-                .setPositiveButton("Copier") { _, _ -> DictationClipboard.copy(this, report) }
-                .setNegativeButton("Fermer", null).show()
         })
         if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
             root.addView(settingsRow("Tester Gemma sur ce téléphone", "GPU · sans thinking · vitesse et fidélité FR/EN") {
-                if (GemmaModelStore(this).installedModel() == null) {
-                    showGemmaDownload()
-                } else if (localFormatBenchmark?.isShowing != true) {
+                if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
+                else if (localFormatBenchmark?.isShowing != true) {
                     localFormatBenchmark?.close()
                     localFormatBenchmark = LocalFormatBenchmarkDialog(this).also { it.show() }
                 }
             })
-            root.addView(settingsRow("Mesurer les mails longs avec Gemma", "Deux mails × deux passages · jusqu’à 20 s par calcul · résultat copiable") {
-                if (GemmaModelStore(this).installedModel() == null) {
-                    showGemmaDownload()
-                } else if (localFormatBenchmark?.isShowing != true) {
+            root.addView(settingsRow("Mesurer les mails longs avec Gemma", "Deux mails × deux passages · résultat copiable") {
+                if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
+                else if (localFormatBenchmark?.isShowing != true) {
                     localFormatBenchmark?.close()
                     localFormatBenchmark = LocalFormatBenchmarkDialog(this, longMailsOnly = true).also { it.show() }
                 }
             })
         }
+        return root
+    }
 
-        root.addView(settingsRow("Modèle cloud", languagePrefs.cloudModel().label) {
-            showCloudModelDialog()
-        })
-        root.addView(settingsRow("Formats de post-traitement", "Pour la prochaine dictée · glisser vers le haut au repos pour choisir le format") {
-            showFormatsDialog()
-        })
-        val credentialStore = SecureCredentialStore(this)
-        root.addView(settingsRow(
-            "Clé OpenRouter",
-            if (credentialStore.has()) "Clé enregistrée (masquée)" else "Aucune clé enregistrée",
-        ) {
-            showCredentialDialog()
-        })
-
-        // Fond "page de carnet" : contenu à droite du filet de marge vert (~30dp)
-        root.background = NotebookBackgroundDrawable(this)
-        root.minimumHeight = resources.displayMetrics.heightPixels
-        root.setPadding(dp(46), root.paddingTop, dp(16), root.paddingBottom)
-
-        setContentView(ScrollView(this).apply {
-            setBackgroundColor(ThemeTokens.BG)
-            addView(root)
-        })
-
-        // Nouveaux utilisateurs : si la config de base manque et que l'assistant n'a jamais été
-        // terminé, on lance directement l'onboarding d'installation.
-        val onbDone = getSharedPreferences("whisperpin", MODE_PRIVATE).getBoolean("onb_complete", false)
-        val coreMissing = !hasPerm(Manifest.permission.RECORD_AUDIO) ||
-            !android.provider.Settings.canDrawOverlays(this) ||
-            InjectionGateway.current() == null
-        if (!onbDone && coreMissing) {
-            startActivity(Intent(this, OnboardingActivity::class.java))
-        } else if (!hasPerm(Manifest.permission.RECORD_AUDIO)) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+    private fun navigationHeader(title: String): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dp(52)
+        setPadding(0, dp(4), 0, dp(18))
+        val back = ImageButton(this@MainActivity).apply {
+            setImageResource(R.drawable.ic_arrow_back)
+            imageTintList = ColorStateList.valueOf(palette.ink)
+            background = null
+            gravity = Gravity.CENTER
+            contentDescription = "Retour à l'accueil"
+            isClickable = true
+            isFocusable = true
+            setPadding(0, 0, dp(10), 0)
+            setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         }
+        back.minimumHeight = dp(52)
+        addView(back, LinearLayout.LayoutParams(dp(44), LinearLayout.LayoutParams.WRAP_CONTENT))
+        addView(TextView(this@MainActivity).apply {
+            text = title
+            ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let { typeface = it }
+            textSize = 38f
+            setTextColor(palette.green)
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = dp(52)
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+    }
 
-        refresh()
+    private fun cardContainer(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(16), dp(16), dp(16), dp(16))
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(22).toFloat()
+            setColor(palette.surface)
+            setStroke(dp(1), palette.stroke)
+        }
+        layoutParams = LinearLayout.LayoutParams(LP_MATCH, LP_WRAP).apply {
+            topMargin = dp(6); bottomMargin = dp(8)
+        }
+    }
+
+    private fun navigateTo(next: Screen) {
+        if (screen == next) return
+        screen = next
+        renderScreen()
+    }
+
+    private fun activateFloatingButton() {
+        if (!Settings.canDrawOverlays(this)) {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+            return
+        }
+        startForegroundService(Intent(this, OverlayService::class.java))
+    }
+
+    private fun openNotes() {
+        if (!Settings.canDrawOverlays(this)) {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+        } else startForegroundService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_OPEN_NOTES))
+    }
+
+    private fun selectTheme(mode: ThemeMode) {
+        val preferences = PersistencePrefs(this)
+        if (preferences.themeMode == mode) return
+        val currentNight = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        preferences.themeMode = mode
+        ThemeModeController.apply(this, mode)
+        if (Settings.canDrawOverlays(this)) {
+            runCatching {
+                startForegroundService(
+                    Intent(this, OverlayService::class.java)
+                        .setAction(OverlayService.ACTION_THEME_CHANGED)
+                )
+            }
+        }
+        // AppCompat recreates activities when the effective uiMode changes. When the user
+        // switches between two choices with the same effective system appearance, redraw the
+        // current page so the selected control still updates immediately.
+        val targetNight = when (mode) {
+            ThemeMode.DARK -> android.content.res.Configuration.UI_MODE_NIGHT_YES
+            ThemeMode.LIGHT -> android.content.res.Configuration.UI_MODE_NIGHT_NO
+            ThemeMode.SYSTEM -> currentNight
+        }
+        if (targetNight == currentNight) renderScreen(contentScroll?.scrollY ?: 0)
+    }
+
+    private fun numberLabel(preferences: PersistencePrefs): String = when (preferences.numberStyle) {
+        NumberStyle.DIGITS -> "En chiffres · 23, 2,5"
+        NumberStyle.WORDS -> "En lettres · vingt-trois, deux virgule cinq"
+        NumberStyle.UNCHANGED -> "Conserver la transcription"
+    }
+
+    private fun selectedFormatLabel(format: PostProcessingFormat): String =
+        if (format.id == "cleanup") "Texte sans LLM" else format.name
+
+    private fun refreshFormatSummary() {
+        formatSummarySubtitle?.text = selectedFormatLabel(PostProcessingFormats(this).selected())
+    }
+
+    private fun engineLabel(preferences: PersistencePrefs): String = when (preferences.formattingEngine) {
+        "local" -> "Local · Gemma · essai"
+        "cloud" -> "Cloud · OpenRouter"
+        else -> "Désactivé · vocabulaire et nombres conservés"
+    }
+
+    private fun dictationSummary(): String {
+        val model = ModelDownloader.reconcileSelectedModel(this)
+            ?.let { id -> MODEL_CATALOG.firstOrNull { it.archive == id } }
+        return "${languageLabel(PersistencePrefs(this).dictationLanguage)} · ${model?.name ?: "modèle vocal à choisir"}"
+    }
+
+    private fun formattingSummary(): String {
+        val preferences = PersistencePrefs(this)
+        val format = selectedFormatLabel(PostProcessingFormats(this).selected())
+        val engine = when (preferences.formattingEngine) {
+            "cloud" -> "Cloud"
+            "local" -> "Local · essai"
+            else -> "Sans moteur"
+        }
+        return "$format · $engine"
     }
 
     override fun onResume() {
@@ -397,6 +636,54 @@ class MainActivity : AppCompatActivity() {
         }
         refresh()
         gemmaSubtitle?.text = gemmaInstallLabel()
+    }
+
+    private fun showVocabularyDialog() {
+        val field = EditText(this).apply {
+            setText(Vocabulary.getRaw(this@MainActivity))
+            isSingleLine = false
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            minLines = 5
+            gravity = Gravity.TOP or Gravity.START
+            hint = "Dydy\ndidi => Dydy"
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            inkColors()
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Mon vocabulaire")
+            .setMessage("Une correction par ligne, au format « entendu => voulu ».")
+            .setView(field)
+            .setPositiveButton("Enregistrer") { _, _ ->
+                Vocabulary.setRaw(this, field.text.toString())
+                toast("Vocabulaire enregistré")
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    private fun showEngineDialog(row: LinearLayout) {
+        val preferences = PersistencePrefs(this)
+        val values = if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) listOf("local", "cloud", "off") else listOf("cloud", "off")
+        val labels = values.map {
+            when (it) {
+                "local" -> "Local — texte corrigé, listes et mails (essai)"
+                "cloud" -> "Cloud — OpenRouter"
+                else -> "Désactivé"
+            }
+        }.toTypedArray()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Moteur de post-traitement")
+            .setSingleChoiceItems(labels, values.indexOf(preferences.formattingEngine)) { dialog, index ->
+                preferences.formattingEngine = values[index]
+                row.findViewWithTag<TextView>("subtitle").text = engineLabel(preferences)
+                dialog.dismiss()
+                if (values[index] == "local") {
+                    if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
+                    else prepareLocalFormatter()
+                }
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
     }
 
     private fun showPostprocessingDiagnostic(latestDictation: Boolean = false) {
@@ -447,12 +734,12 @@ class MainActivity : AppCompatActivity() {
     private fun buildModelRow(model: Model): View {
         val radio = MaterialRadioButton(this).apply {
             isClickable = false
-            buttonTintList = ColorStateList.valueOf(attrColor(com.google.android.material.R.attr.colorPrimary))
+            buttonTintList = ColorStateList.valueOf(palette.green)
         }
         val dlBtn = MaterialButton(this, null, com.google.android.material.R.attr.materialIconButtonStyle).apply {
             text = "↓"
             textSize = 18f
-            setTextColor(attrColor(com.google.android.material.R.attr.colorPrimary))
+            setTextColor(palette.green)
         }
         
         val progress = LinearProgressIndicator(this).apply {
@@ -560,37 +847,39 @@ class MainActivity : AppCompatActivity() {
     private fun refresh() {
         val audio = hasPerm(Manifest.permission.RECORD_AUDIO)
         val acc = InjectionGateway.current() != null
+        val overlay = Settings.canDrawOverlays(this)
         val selectedModel = ModelDownloader.reconcileSelectedModel(this)
-        val activeModel = MODEL_CATALOG.firstOrNull { it.archive == selectedModel }
         val hasModel = selectedModel != null
 
-        audioRowSub.text = if (audio) "Granted" else "Tap to grant permission"
-        accRowSub.text = if (acc) "Enabled" else "Tap to enable in settings"
+        audioRowSub?.text = if (audio) "Autorisé" else "À autoriser"
+        accRowSub?.text = if (acc) "Activé" else "À activer dans les réglages"
 
-        // Ready logic
-        val ready = audio && acc && hasModel
-
-        statusSubtitle.text = if (ready) {
-            "Prêt — ${activeModel?.runtimeLabel} — touchez la pastille pour dicter"
-        } else {
-            "Configuration requise"
+        statusSubtitle?.let { status ->
+            status.text = when {
+                !overlay -> "Autorisation de la pastille requise"
+                !audio -> "Microphone à autoriser"
+                !acc -> "Service d'accessibilité à activer"
+                !hasModel -> "Modèle vocal à choisir"
+                else -> "Prêt · pastille disponible"
+            }
+            status.setTextColor(if (overlay && audio && acc && hasModel) palette.green else palette.inkMuted)
         }
-        statusSubtitle.setTextColor(if (ready) attrColor(com.google.android.material.R.attr.colorPrimary) else attrColor(android.R.attr.textColorSecondary))
-        
+
         refreshAllCards()
     }
 
     // --- UI Helpers ---
 
     private fun settingsRow(title: String, subtitle: String, widget: View? = null, onClick: (() -> Unit)? = null): LinearLayout {
+        val colors = palette
         // Carte-note sobre : surface arrondie + filet fin
         val cardBg = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = ThemeTokens.dpf(this@MainActivity, 20f)
-            setColor(ThemeTokens.SURFACE)
-            setStroke(dp(1), ThemeTokens.STROKE)
+            setColor(colors.surface)
+            setStroke(dp(1), colors.stroke)
         }
-        val rowBg = RippleDrawable(ColorStateList.valueOf(0x22FFFFFF), cardBg, null)
+        val rowBg = RippleDrawable(ColorStateList.valueOf(withAlpha(colors.green, 0x33)), cardBg, null)
 
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -611,15 +900,15 @@ class MainActivity : AppCompatActivity() {
 
         textContainer.addView(TextView(this).apply {
             text = title
-            textSize = 18f
-            setTextColor(ThemeTokens.INK)
+            textSize = 17f
+            setTextColor(colors.ink)
         })
 
         textContainer.addView(TextView(this).apply {
             tag = "subtitle"
             text = subtitle
             textSize = 14f
-            setTextColor(ThemeTokens.INK_MUTED)
+            setTextColor(colors.inkMuted)
             setPadding(0, dp(2), 0, 0)
         })
 
@@ -631,11 +920,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun sectionHeader(title: String) = TextView(this).apply {
         text = title
-        textSize = 14f
-        setTypeface(typeface, Typeface.BOLD)
-        letterSpacing = 0.025f
-        setTextColor(ThemeTokens.GREEN)
-        setPadding(dp(2), dp(22), dp(2), dp(8))
+        ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let { typeface = it }
+        textSize = 21f
+        setTextColor(palette.green)
+        setPadding(dp(2), dp(18), dp(2), dp(6))
     }
 
     private fun vertical(padH: Int, padV: Int = padH) = LinearLayout(this).apply {
@@ -645,21 +933,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
 
+    private fun withAlpha(color: Int, alpha: Int): Int =
+        (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255) and 0xFF) shl 24)
+
     /** Force du texte argenté sur fond sombre pour les champs des dialogs. */
     private fun EditText.inkColors() {
-        setTextColor(ThemeTokens.INK)
-        setHintTextColor(ThemeTokens.INK_MUTED)
+        setTextColor(palette.ink)
+        setHintTextColor(palette.inkMuted)
     }
 
     /** Teinte un switch en encre verte (coché) / atténué (décoché). */
     private fun MaterialSwitch.greenTint() {
+        val colors = palette
         val track = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(0x665BCB95.toInt(), 0x33FFFFFF)
+            intArrayOf(withAlpha(colors.green, 0x99), colors.raised)
         )
         val thumb = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(ThemeTokens.GREEN, ThemeTokens.INK_MUTED)
+            intArrayOf(colors.green, colors.inkMuted)
         )
         trackTintList = track
         thumbTintList = thumb
@@ -697,8 +989,8 @@ class MainActivity : AppCompatActivity() {
         val field = EditText(this).apply {
             hint = "Clé API"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setTextColor(ThemeTokens.INK)
-            setHintTextColor(ThemeTokens.INK_MUTED)
+            setTextColor(palette.ink)
+            setHintTextColor(palette.inkMuted)
         }
         val store = SecureCredentialStore(this)
         androidx.appcompat.app.AlertDialog.Builder(this)
@@ -740,6 +1032,8 @@ class MainActivity : AppCompatActivity() {
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
     companion object {
+        private const val KEY_SCREEN = "main_screen"
+        private const val KEY_SCROLL_Y = "main_scroll_y"
         private const val LP_MATCH = LinearLayout.LayoutParams.MATCH_PARENT
         private const val LP_WRAP = LinearLayout.LayoutParams.WRAP_CONTENT
 

@@ -1,10 +1,14 @@
 package com.kafkasl.phonewhisper
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
@@ -24,6 +28,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -41,6 +46,7 @@ import android.widget.Toast
 import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.min
+import java.util.UUID
 
 /** Ensures AudioRecord is never released or read buffers snapshotted while its reader is alive. */
 internal class RecordingStopCoordinator(
@@ -142,6 +148,9 @@ internal fun dispatchResidentClose(
 
 class OverlayService : Service() {
 
+    private val overlayPalette: ThemePalette
+        get() = ThemeTokens.palette(this)
+
     companion object {
         private const val TAG = "WhisperPin"
         private const val CHANNEL_ID = "whisperpin_overlay"
@@ -149,9 +158,12 @@ class OverlayService : Service() {
         private const val SAMPLE_RATE = 16000
         const val ACTION_CAPTURE_RESULT = "com.uhama.whisperpin.CAPTURE_RESULT"
         const val ACTION_EXPORT_CLOSED = "com.uhama.whisperpin.EXPORT_CLOSED"
+        const val ACTION_EXPORT_BRIDGE_FOREGROUND = "com.uhama.whisperpin.EXPORT_BRIDGE_FOREGROUND"
+        const val EXTRA_EXPORT_BRIDGE_TOKEN = "com.uhama.whisperpin.EXTRA_EXPORT_BRIDGE_TOKEN"
         const val ACTION_OPEN_NOTES = "com.uhama.whisperpin.OPEN_NOTES"
         const val ACTION_ARM_MIC = "com.uhama.whisperpin.ARM_MIC"
         const val ACTION_PREPARE_LOCAL_FORMAT = "com.uhama.whisperpin.PREPARE_LOCAL_FORMAT"
+        const val ACTION_THEME_CHANGED = "com.uhama.whisperpin.THEME_CHANGED"
         private const val DOUBLE_TAP_MS = 280L
         private const val RECORD_STOP_TIMEOUT_MS = 1_000L
         @Volatile var micArmed = false
@@ -198,6 +210,8 @@ class OverlayService : Service() {
     private var pill: FrameLayout? = null
     private var wave: CursiveWaveView? = null
     private var pauseIndicator: TextView? = null
+    private var gestureHint: TextView? = null
+    private var stateIndicator: OverlayStateIndicatorView? = null
     private var loader: LoadingBorderView? = null
     private var liveText: OverlayTranscriptEditor? = null
     private var updatingLiveText = false
@@ -216,12 +230,14 @@ class OverlayService : Service() {
     private var liveScroll: ScrollView? = null
     private var tailFollower: TranscriptTailFollower? = null
     private var panelTitle: TextView? = null
-    private var panelFormat: TextView? = null
     private var panelExpandButton: ImageButton? = null
     private var editorActionsRow: LinearLayout? = null
     private var keyboardInset = 0
     private var panelExpanded = false
     private var panelCompact = false
+    private var panelTransitionAnimator: ValueAnimator? = null
+    private var panelTransitionTarget: Rect? = null
+    private var panelTransitionRequested = false
     private var lastPanelScreen: Rect? = null
     private var panelHidden = false
     private val draftStore by lazy { DictationDraftStore(this) }
@@ -240,8 +256,30 @@ class OverlayService : Service() {
     private var exportAfterImageDelivery: String? = null
     private var archiveAfterImageDelivery = false
     private var imageStrip: LinearLayout? = null
+    private var imageStripScroll: android.widget.HorizontalScrollView? = null
     private var mediaButtons = mutableListOf<ImageButton>()
     private var shownImageIds = emptyList<String>()
+
+    private val exportController by lazy { OverlayExportController(this, main) }
+    private var exportPanel: OverlayExportPanel? = null
+    private var exportNoteId: String? = null
+    private val exportAccessibilityPrevious = mutableMapOf<View, Int>()
+    private data class ExportResume(
+        val liveVisible: Boolean,
+        val panelHidden: Boolean,
+        val panelExpanded: Boolean,
+        val purpose: DictationPurpose,
+        val activeNoteId: String?,
+        val recoveredDraft: String?,
+        val selectionStart: Int,
+        val selectionEnd: Int,
+        val fromNotesMenu: Boolean,
+    )
+    private var exportResume: ExportResume? = null
+    private var exportBridgeHidden = false
+    private var exportBridgeToken: String? = null
+    private var bridgeWasLiveVisible = false
+    private var bridgeWasContainerVisible = false
 
     private var floatingMenu: View? = null
     private var params: WindowManager.LayoutParams? = null
@@ -259,6 +297,7 @@ class OverlayService : Service() {
     private var currentAnchor: Anchor? = null
     private var livePanelAdded = false
     private var livePreviewVisible = false
+    private var lastNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
     private val localLoading = java.util.concurrent.atomic.AtomicBoolean(false)
     private val localEngineLifecycle = LocalEngineLifecycle()
     private val residentAsrEngine = ResidentEngine<DictationAsrEngine>()
@@ -269,6 +308,7 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         micArmed = false
         createChannel()
         if (!startForegroundSpecialUse()) return
@@ -293,10 +333,17 @@ class OverlayService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CAPTURE_RESULT) finishPendingImage()
+        if (intent?.action == ACTION_THEME_CHANGED) refreshOverlayTheme()
         if (intent?.action == ACTION_EXPORT_CLOSED && state == State.PAUSED &&
             activeNoteId != null && activeNoteId == intent.getStringExtra("noteId")) {
             panelHidden = false
             setLivePreviewVisible(true)
+        }
+        val bridgeToken = intent?.getStringExtra(EXTRA_EXPORT_BRIDGE_TOKEN)
+        if (intent?.action == ACTION_EXPORT_BRIDGE_FOREGROUND &&
+            !bridgeToken.isNullOrBlank() && bridgeToken == exportBridgeToken
+        ) {
+            restoreAfterExportBridge()
         }
         if (intent?.action == ACTION_ARM_MIC) {
             promoteMic()
@@ -306,7 +353,14 @@ class OverlayService : Service() {
             warmLocalFormatter()
         }
         if (intent?.action == ACTION_PREPARE_LOCAL_FORMAT) warmLocalFormatter()
-        if (intent?.action == ACTION_OPEN_NOTES) archiveOrShowNotes()
+        if (intent?.action == ACTION_OPEN_NOTES) {
+            if (exportPanel != null) {
+                closeNoteExport()
+                showNotesOverlay()
+                return START_STICKY
+            }
+            archiveOrShowNotes()
+        }
         return START_STICKY
     }
 
@@ -1222,11 +1276,17 @@ class OverlayService : Service() {
             val px = resources.displayMetrics.density
             (pill?.background as? GradientDrawable)?.setStroke(
                 ((if (s == State.MIC_UNARMED) 2f else 1f) * px).toInt(),
-                if (s == State.MIC_UNARMED) 0xFFD9A441.toInt() else 0xFFE5E2DB.toInt()
+                if (s == State.MIC_UNARMED) overlayPalette.red else overlayPalette.inkMuted
             )
             val paused = s == State.PAUSED || s == State.PAUSING
             pauseIndicator?.visibility = if (paused) View.VISIBLE else View.GONE
             wave?.visibility = if (paused) View.INVISIBLE else View.VISIBLE
+            stateIndicator?.setVisualState(when (s) {
+                State.RECORDING -> OverlayStateIndicatorView.VisualState.RECORDING
+                State.PAUSED, State.PAUSING -> OverlayStateIndicatorView.VisualState.PAUSED
+                State.TRANSCRIBING -> OverlayStateIndicatorView.VisualState.PROCESSING
+                else -> OverlayStateIndicatorView.VisualState.IDLE
+            })
             pill?.contentDescription = when (s) {
                 State.PAUSED -> if (purpose == DictationPurpose.NOTE) "Note en pause. Appuyer pour dicter dans la note." else "Dictée en pause. Appuyer pour reprendre."
                 State.PAUSING -> "Mise en pause de la dictée."
@@ -1247,6 +1307,177 @@ class OverlayService : Service() {
             else { main.removeCallbacks(collapse); container?.animate()?.alpha(1f)?.setDuration(120)?.start() }
         }
         if (Looper.myLooper() == main.looper) render.run() else main.post(render)
+    }
+
+    private fun overlayWithAlpha(color: Int, alpha: Int): Int =
+        (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255) and 0xFF) shl 24)
+
+    private fun overlayCardBackground(
+        color: Int,
+        stroke: Int? = null,
+        radiusDp: Float = 24f,
+    ): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = radiusDp * resources.displayMetrics.density
+        setColor(color)
+        stroke?.let {
+            setStroke(resources.displayMetrics.density.toInt().coerceAtLeast(1), it)
+        }
+    }
+
+    private fun overlayActionBackground(colors: ThemePalette): android.graphics.drawable.RippleDrawable =
+        android.graphics.drawable.RippleDrawable(
+            ColorStateList.valueOf(overlayWithAlpha(colors.green, 0x44)),
+            overlayCardBackground(colors.raised, radiusDp = 18f),
+            null,
+        )
+
+    private fun overlayDialogContext(): android.content.Context {
+        val mode = ThemeModeStore.read(this)
+        val config = Configuration(resources.configuration)
+        val mask = Configuration.UI_MODE_NIGHT_MASK
+        config.uiMode = (config.uiMode and mask.inv()) or when (mode) {
+            ThemeMode.DARK -> Configuration.UI_MODE_NIGHT_YES
+            ThemeMode.LIGHT -> Configuration.UI_MODE_NIGHT_NO
+            ThemeMode.SYSTEM -> config.uiMode and mask
+        }
+        return android.view.ContextThemeWrapper(createConfigurationContext(config), R.style.Theme_PhoneWhisper)
+    }
+
+    /** Recolours already attached overlay views without recreating the pill or dictation panel. */
+    private fun refreshOverlayTheme() {
+        val refresh = Runnable {
+            val colors = overlayPalette
+
+            pill?.background = overlayCardBackground(colors.surface, colors.stroke, 22f)
+            gestureHint?.apply {
+                setTextColor(colors.inkMuted)
+                background = overlayCardBackground(colors.raised, radiusDp = 22f)
+            }
+            wave?.setStrokeColor(colors.ink)
+            wave?.invalidate()
+            pauseIndicator?.setTextColor(colors.pauseInk)
+
+            liveText?.apply {
+                setTextColor(colors.ink)
+                setHintTextColor(colors.inkMuted)
+            }
+            livePanel?.background = overlayCardBackground(colors.surface, colors.stroke, 24f)
+            panelTitle?.setTextColor(colors.ink)
+
+            panelExpandButton?.parent?.let { parent ->
+                if (parent is android.view.ViewGroup) {
+                    for (index in 0 until parent.childCount) {
+                        (parent.getChildAt(index) as? ImageButton)?.apply {
+                            imageTintList = ColorStateList.valueOf(colors.ink)
+                            background = android.graphics.drawable.RippleDrawable(
+                                ColorStateList.valueOf(overlayWithAlpha(colors.green, 0x55)), null, null,
+                            )
+                        }
+                    }
+                }
+            }
+
+            editorActionsRow?.let { actions ->
+                for (index in 0 until actions.childCount) {
+                    (actions.getChildAt(index) as? TextView)?.apply {
+                        setTextColor(colors.green)
+                        background = overlayActionBackground(colors)
+                    }
+                }
+            }
+            listOfNotNull(noteInsertButton, noteDoneButton).forEach { it.setTextColor(colors.green) }
+
+            mediaButtons.forEach { button ->
+                button.imageTintList = ColorStateList.valueOf(colors.ink)
+                button.background = android.graphics.drawable.RippleDrawable(
+                    ColorStateList.valueOf(overlayWithAlpha(colors.green, 0x55)), null, null,
+                )
+            }
+            vocabularyBanner?.apply {
+                background = overlayCardBackground(colors.raised, radiusDp = 12f)
+                for (index in 0 until childCount) {
+                    (getChildAt(index) as? TextView)?.setTextColor(
+                        if (getChildAt(index) === vocabularySuggestionText) colors.green else colors.inkMuted,
+                    )
+                }
+            }
+            refreshImageStripTheme(colors)
+            refreshOverlayMenu(floatingMenu, colors, root = true)
+            refreshOverlayDialog(formatDialog, colors)
+            refreshOverlayDialog(noteInsertionDialog, colors)
+            exportPanel?.refreshTheme(colors)
+            // Reapply state-dependent border, visibility and accessibility text after recolour.
+            setState(state)
+            livePanel?.invalidate()
+            container?.invalidate()
+        }
+        if (Looper.myLooper() == main.looper) refresh.run() else main.post(refresh)
+    }
+
+    private fun refreshImageStripTheme(colors: ThemePalette) {
+        val group = imageStrip ?: return
+        for (index in 0 until group.childCount) {
+            val child = group.getChildAt(index)
+            if (child is TextView) {
+                child.setTextColor(colors.inkMuted)
+                continue
+            }
+            val frame = child as? android.view.ViewGroup ?: continue
+            for (badgeIndex in 0 until frame.childCount) {
+                (frame.getChildAt(badgeIndex) as? TextView)?.apply {
+                    // Number badges sit over arbitrary captured pixels; keep the black/white
+                    // treatment together so theme recolouring cannot reduce their contrast.
+                    setTextColor(android.graphics.Color.WHITE)
+                    setBackgroundColor(0xBB000000.toInt())
+                }
+            }
+        }
+    }
+
+    private fun refreshOverlayMenu(view: View?, colors: ThemePalette, root: Boolean = false) {
+        view ?: return
+        when (val background = view.background) {
+            is GradientDrawable -> background.setColor(if (root) colors.surface else colors.raised)
+            is android.graphics.drawable.RippleDrawable -> {
+                (background.getDrawable(0) as? GradientDrawable)?.setColor(colors.raised)
+            }
+        }
+        if (view is TextView) {
+            val sizeSp = view.textSize / resources.displayMetrics.scaledDensity
+            view.setTextColor(when {
+                sizeSp >= 16f -> colors.ink
+                sizeSp <= 12.5f -> colors.green
+                else -> colors.inkMuted
+            })
+        }
+        (view as? android.view.ViewGroup)?.let { group ->
+            for (index in 0 until group.childCount) refreshOverlayMenu(group.getChildAt(index), colors)
+        }
+    }
+
+    private fun refreshOverlayDialog(dialog: AlertDialog?, colors: ThemePalette) {
+        val window = dialog?.window ?: return
+        window.setBackgroundDrawable(overlayCardBackground(colors.surface, colors.stroke, 24f))
+        val content = window.decorView.findViewById<android.view.View>(android.R.id.content) ?: return
+        retintOverlayDialogView(content, colors)
+    }
+
+    private fun retintOverlayDialogView(view: View, colors: ThemePalette) {
+        when (view) {
+            is EditText -> {
+                view.setTextColor(colors.ink)
+                view.setHintTextColor(colors.inkMuted)
+            }
+            is android.widget.Button -> view.setTextColor(colors.green)
+            is TextView -> {
+                val sizeSp = view.textSize / resources.displayMetrics.scaledDensity
+                view.setTextColor(if (sizeSp >= 16f) colors.ink else colors.inkMuted)
+            }
+        }
+        (view as? android.view.ViewGroup)?.let { group ->
+            for (index in 0 until group.childCount) retintOverlayDialogView(group.getChildAt(index), colors)
+        }
     }
 
     private fun updateLivePreview(committed: String, tentative: String) {
@@ -1430,6 +1661,7 @@ class OverlayService : Service() {
         livePreviewVisible = show
         panel.visibility = if (show) View.VISIBLE else View.GONE
         if (!show) {
+            cancelPanelTransition()
             releaseTranscriptFocus()
             return
         }
@@ -1509,34 +1741,53 @@ class OverlayService : Service() {
     /** Keep the transcript area usable when the IME leaves only a short panel. */
     private fun layoutTranscriptRows(panelHeight: Int, dp: Float) {
         val toolbarHeight = (48 * dp).toInt()
-        val formatHeight = (24 * dp).toInt()
+        // The selected format belongs in the toolbar. Keeping a second status row
+        // made the compact overlay feel like two headers and pushed the editor down.
+        val formatHeight = 0
         val mediaHeight = (48 * dp).toInt()
-        val actionsHeight = (48 * dp).toInt()
+        val actionsHeight = if (purpose == DictationPurpose.NOTE) (48 * dp).toInt() else 0
         val minimumTextHeight = maxOf((72 * dp).toInt(), (liveText?.lineHeight ?: (20 * dp).toInt()) * 2 + (20 * dp).toInt())
         val layout = OverlayPlacement.transcriptPanelLayout(
             panelHeight, toolbarHeight, formatHeight, mediaHeight, actionsHeight, minimumTextHeight,
         )
         panelCompact = layout.compact
 
-        panelFormat?.visibility = if (layout.showFormat) View.VISIBLE else View.GONE
         val suggestion = vocabularySuggestion != null
         mediaToolbar?.visibility = if (layout.showMedia && !suggestion) View.VISIBLE else View.GONE
         vocabularyBanner?.visibility = if (layout.showMedia && suggestion) View.VISIBLE else View.GONE
 
         val actions = editorActionsRow
-        actions?.visibility = if (layout.showActions) View.VISIBLE else View.GONE
-        if (layout.showActions) {
+        val showActions = purpose == DictationPurpose.NOTE && layout.showActions
+        actions?.visibility = if (showActions) View.VISIBLE else View.GONE
+        val showMedia = layout.showMedia
+        val bottomBarHeight = (if (showMedia) mediaHeight else 0) + (if (showActions) actionsHeight else 0)
+        if (showActions) {
             (actions?.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
-                if (lp.topMargin != layout.actionsTop) {
-                    lp.topMargin = layout.actionsTop
+                val top = panelHeight - bottomBarHeight
+                if (lp.topMargin != top || lp.bottomMargin != 0) {
+                    lp.topMargin = top
+                    lp.bottomMargin = 0
                     actions.layoutParams = lp
                 }
             }
         }
 
+        val mediaTop = panelHeight - mediaHeight
+        listOfNotNull(mediaToolbar, vocabularyBanner).forEach { row ->
+            (row.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
+                if (lp.topMargin != mediaTop || lp.bottomMargin != 0) {
+                    lp.topMargin = mediaTop
+                    lp.bottomMargin = 0
+                    row.layoutParams = lp
+                }
+            }
+        }
+
         (liveScroll?.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
-            if (lp.topMargin != layout.transcriptTop) {
-                lp.topMargin = layout.transcriptTop
+            val top = toolbarHeight
+            if (lp.topMargin != top || lp.bottomMargin != bottomBarHeight) {
+                lp.topMargin = top
+                lp.bottomMargin = bottomBarHeight
                 liveScroll?.layoutParams = lp
             }
         }
@@ -1558,34 +1809,12 @@ class OverlayService : Service() {
         val screenChanged = screen != lastPanelScreen
         lastPanelScreen = screen
         val inNote = purpose == DictationPurpose.NOTE
-        panelTitle?.text = if (inNote) notes.get(activeNoteId)?.title ?: "Nouvelle note" else when (state) {
-            State.RECORDING -> "Message · Écoute en cours"
-            State.PAUSING, State.PAUSED -> "Message · En pause"
-            State.TRANSCRIBING -> "Traitement…"
-            else -> notes.get(activeNoteId)?.title ?: "Dictée"
+        val format = activeRun?.formatOptions?.format ?: PostProcessingFormats(this).selected()
+        val formatLabel = if (format.id == "cleanup") "Texte sans LLM" else format.name
+        panelTitle?.apply {
+            text = formatLabel
+            contentDescription = "Format choisi : $formatLabel"
         }
-        val options = activeRun?.formatOptions
-        val format = options?.format ?: PostProcessingFormats(this).selected()
-        val engine = activeRun?.formatStage ?: when {
-            format.id == "cleanup" -> "Sans LLM"
-            options?.cloudSuppressedForSensitiveTarget == true -> "Cloud suspendu"
-            options?.cloudCleanupEnabled == true -> "Cloud prévu"
-            options == null && prefs.formattingEngine == "cloud" && prefs.cloudCleanupEnabled -> "Cloud prévu"
-            !format.usesLanguageModel -> "Sans LLM"
-            options?.localFormattingEnabled == true -> if (format.localLayoutKind != null) localFormatStatus() else "Non disponible en local"
-            options?.cloudSuppressedForSensitiveTarget == true -> "Cloud suspendu"
-            options?.cloudCleanupEnabled == true -> "Cloud prévu"
-            options != null -> "Désactivé"
-            prefs.formattingEngine == "local" -> localFormatStatus()
-            prefs.formattingEngine == "cloud" -> "Cloud prévu"
-            else -> "Désactivé"
-        }
-        panelFormat?.text = if (inNote) when (state) {
-            State.RECORDING -> "Note · Appuyez sur la pastille pour mettre en pause"
-            State.PAUSING -> "Note · Mise en pause…"
-            State.TRANSCRIBING -> "Note · Préparation du texte…"
-            else -> "Note enregistrée · Micro en pause"
-        } else "${if (format.id == "cleanup") "Texte" else format.name} · $engine"
         noteInsertButton?.visibility = if (inNote) View.VISIBLE else View.GONE
         noteDoneButton?.visibility = if (inNote) View.VISIBLE else View.GONE
         listOfNotNull(noteInsertButton, noteDoneButton).forEach {
@@ -1606,15 +1835,112 @@ class OverlayService : Service() {
         )
         val boundsChanged = panelParams.x != bounds.x || panelParams.y != bounds.y ||
             panelParams.width != bounds.width || panelParams.height != bounds.height
+        if (!screenChanged && panelTransitionAnimator != null && panelTransitionTarget == bounds) {
+            // launchNoteExport adds its child after the first reposition. Keep the
+            // already running resize instead of snapping to the same target.
+            panelTransitionRequested = false
+            return
+        }
+        if (screenChanged || boundsChanged) {
+            val animate = panelTransitionRequested && boundsChanged &&
+                panel.visibility == View.VISIBLE && livePanelAdded && panelAnimationsAllowed()
+            panelTransitionRequested = false
+            if (animate) {
+                animatePanelBounds(panel, panelParams, bounds, dp)
+            } else {
+                cancelPanelTransition()
+                applyPanelBounds(panel, panelParams, bounds, dp)
+            }
+        }
+    }
+
+    /** Apply panel geometry in one place so repositioning can cancel a transition safely. */
+    private fun applyPanelBounds(
+        panel: View,
+        panelParams: WindowManager.LayoutParams,
+        bounds: Rect,
+        dp: Float,
+    ) {
         panelParams.x = bounds.x
         panelParams.y = bounds.y
         panelParams.width = bounds.width
         panelParams.height = bounds.height
         layoutTranscriptRows(bounds.height, dp)
-        if (screenChanged || boundsChanged) {
-            try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, panelParams) } catch (_: Exception) {}
-        }
+        try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, panelParams) } catch (_: Exception) {}
     }
+
+    private fun animatePanelBounds(
+        panel: View,
+        panelParams: WindowManager.LayoutParams,
+        target: Rect,
+        dp: Float,
+    ) {
+        val from = Rect(panelParams.x, panelParams.y, panelParams.width, panelParams.height)
+        val to = target.copy()
+        cancelPanelTransition()
+        val animator = ValueAnimator.ofFloat(0f, 1f)
+        panelTransitionAnimator = animator
+        panelTransitionTarget = to
+        panel.alpha = 0.88f
+        animator.duration = 180L
+        animator.addUpdateListener { valueAnimator ->
+            if (panelTransitionAnimator !== animator || !livePanelAdded || panel.visibility != View.VISIBLE) return@addUpdateListener
+            val fraction = valueAnimator.animatedFraction
+            applyPanelBounds(
+                panel,
+                panelParams,
+                Rect(
+                    lerp(from.x, to.x, fraction),
+                    lerp(from.y, to.y, fraction),
+                    lerp(from.width, to.width, fraction),
+                    lerp(from.height, to.height, fraction),
+                ),
+                dp,
+            )
+            panel.alpha = 0.88f + 0.12f * fraction
+        }
+        animator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                if (panelTransitionAnimator !== animator) return
+                panelTransitionAnimator = null
+                panelTransitionTarget = null
+                applyPanelBounds(panel, panelParams, to, dp)
+                panel.alpha = 1f
+            }
+
+            override fun onAnimationCancel(animation: Animator) {
+                if (panelTransitionAnimator === animator) {
+                    panelTransitionAnimator = null
+                    panelTransitionTarget = null
+                    panel.alpha = 1f
+                }
+            }
+        })
+        animator.start()
+    }
+
+    private fun cancelPanelTransition() {
+        panelTransitionRequested = false
+        panelTransitionAnimator?.cancel()
+        panelTransitionAnimator = null
+        panelTransitionTarget = null
+        livePanel?.alpha = 1f
+    }
+
+    private fun requestPanelTransition() {
+        panelTransitionRequested = true
+    }
+
+    private fun panelAnimationsAllowed(): Boolean = runCatching {
+        android.provider.Settings.Global.getFloat(
+            contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) > 0f
+    }.getOrDefault(true)
+
+    private fun lerp(start: Int, end: Int, fraction: Float): Int =
+        (start + (end - start) * fraction).toInt()
 
     private fun updatePillLayout(anchorForPanel: Anchor? = currentAnchor) {
         val lp = params ?: return
@@ -1683,8 +2009,8 @@ class OverlayService : Service() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 22 * dp
-                setColor(0xF2FFFFFF.toInt())
-                setStroke(1, 0xFFE5E2DB.toInt())
+                setColor(overlayPalette.surface)
+                setStroke(1, overlayPalette.stroke)
             }
             elevation = 4 * dp
             setPadding(0, 0, 0, 0)
@@ -1694,7 +2020,7 @@ class OverlayService : Service() {
                 text = "Ⅱ"
                 textSize = 24f
                 gravity = Gravity.CENTER
-                setTextColor(0xFFD9A441.toInt())
+                setTextColor(overlayPalette.pauseInk)
                 visibility = View.GONE
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }
@@ -1706,14 +2032,15 @@ class OverlayService : Service() {
         val gestureHint = TextView(this).apply {
             textSize = 12f
             gravity = Gravity.CENTER
-            setTextColor(0xFF76561B.toInt())
+            setTextColor(overlayPalette.inkMuted)
             background = GradientDrawable().apply {
                 cornerRadius = 22 * dp
-                setColor(0xF2FFFFFF.toInt())
+                setColor(overlayPalette.raised)
             }
             visibility = View.GONE
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
+        this.gestureHint = gestureHint
         pillView.addView(gestureHint, FrameLayout.LayoutParams(-1, -1))
 
         val liveView = object : OverlayTranscriptEditor(this) {
@@ -1727,11 +2054,11 @@ class OverlayService : Service() {
             }
         }.apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            setTextColor(ThemeTokens.INK)
+            setTextColor(overlayPalette.ink)
             background = null
             setPadding((8 * dp).toInt(), (8 * dp).toInt(), (8 * dp).toInt(), (12 * dp).toInt())
             hint = "Touchez pour corriger pendant la dictée"
-            setHintTextColor(ThemeTokens.INK_MUTED)
+            setHintTextColor(overlayPalette.inkMuted)
             canEdit = { isTranscriptEditable() }
             acquireWindow = {
                 liveParams?.let { layout ->
@@ -1811,11 +2138,12 @@ class OverlayService : Service() {
             visibility = View.GONE
             background = GradientDrawable().apply {
                 cornerRadius = 24 * dp
-                setColor(ThemeTokens.SURFACE)
-                setStroke(dp.toInt().coerceAtLeast(1), ThemeTokens.STROKE)
+                setColor(overlayPalette.surface)
+                setStroke(dp.toInt().coerceAtLeast(1), overlayPalette.stroke)
             }
+            clipToOutline = true
             elevation = 8 * dp
-            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (168 * dp).toInt() })
+            addView(scroll, FrameLayout.LayoutParams(-1, -1).apply { topMargin = (48 * dp).toInt() })
         }
         livePanel.setOnApplyWindowInsetsListener { _, insets ->
             val nextInset = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
@@ -1832,20 +2160,31 @@ class OverlayService : Service() {
         }
         val toolbar = LinearLayout(this).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
         panelTitle = TextView(this).apply {
-            text = "Dictée"; textSize = 15f; setTextColor(ThemeTokens.INK); gravity = Gravity.CENTER_VERTICAL
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            text = "Texte sans LLM"; textSize = 17f; setTextColor(overlayPalette.ink); gravity = Gravity.CENTER_VERTICAL
+            runCatching { typeface = resources.getFont(R.font.caveat) }
             maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
             setPadding((12 * dp).toInt(), 0, 0, 0)
         }
         toolbar.addView(panelTitle, LinearLayout.LayoutParams(0, -1, 1f))
+        val stateMark = OverlayStateIndicatorView(this).apply {
+            setVisualState(OverlayStateIndicatorView.VisualState.IDLE)
+            contentDescription = "État de la dictée"
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        }
+        stateIndicator = stateMark
+        toolbar.addView(stateMark, LinearLayout.LayoutParams((40 * dp).toInt(), (48 * dp).toInt()))
         fun panelIcon(icon: Int, label: String, action: () -> Unit) = ImageButton(this).apply {
             setImageResource(icon)
+            imageTintList = ColorStateList.valueOf(overlayPalette.ink)
             contentDescription = label
-            background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x4477CC99), null, null)
+            background = android.graphics.drawable.RippleDrawable(
+                ColorStateList.valueOf(overlayWithAlpha(overlayPalette.green, 0x55)), null, null,
+            )
             setPadding((12 * dp).toInt(), (12 * dp).toInt(), (12 * dp).toInt(), (12 * dp).toInt())
             setOnClickListener { action() }
         }
         val expand = panelIcon(R.drawable.ic_panel_expand, "Agrandir le panneau") {
+            requestPanelTransition()
             panelExpanded = !panelExpanded
             currentAnchor?.let(::positionLivePanel)
         }
@@ -1858,39 +2197,24 @@ class OverlayService : Service() {
         toolbar.addView(expand, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         toolbar.addView(hide, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         livePanel.addView(toolbar, FrameLayout.LayoutParams(-1, (48 * dp).toInt(), Gravity.TOP))
-        panelFormat = TextView(this).apply {
-            textSize = 12f; setTextColor(ThemeTokens.INK_MUTED)
-            gravity = Gravity.CENTER_VERTICAL
-            maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding((12 * dp).toInt(), 0, (12 * dp).toInt(), 0)
-        }
-        livePanel.addView(panelFormat, FrameLayout.LayoutParams(-1, (24 * dp).toInt()).apply { topMargin = (48 * dp).toInt() })
-
         val editorActions = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding((8 * dp).toInt(), 0, (8 * dp).toInt(), 0)
         }
         fun editorAction(label: String, action: () -> Unit) = TextView(this).apply {
             text = label; textSize = 13f; gravity = Gravity.CENTER
-            setTextColor(ThemeTokens.GREEN)
-            background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x337DAD88),
-                GradientDrawable().apply { cornerRadius = 18 * dp; setColor(ThemeTokens.RAISED) }, null)
+            setTextColor(overlayPalette.green)
+            background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(overlayWithAlpha(overlayPalette.green, 0x44)),
+                GradientDrawable().apply { cornerRadius = 18 * dp; setColor(overlayPalette.raised) }, null)
             setOnClickListener { action() }
             editorActions.addView(this, LinearLayout.LayoutParams(0, (48 * dp).toInt(), 1f).apply {
                 leftMargin = (3 * dp).toInt(); rightMargin = (3 * dp).toInt()
             })
         }
-        editorAction("Modifier") {
-            if (isTranscriptEditable()) {
-                panelExpanded = true
-                currentAnchor?.let(::positionLivePanel)
-                liveText?.post { liveText?.beginEditing() }
-            }
-        }
         noteInsertButton = editorAction("Insérer…", ::requestNoteInsertion)
         noteDoneButton = editorAction("Terminer", ::archiveOrShowNotes)
         editorActionsRow = editorActions
-        livePanel.addView(editorActions, FrameLayout.LayoutParams(-1, (48 * dp).toInt()).apply { topMargin = (120 * dp).toInt() })
+        livePanel.addView(editorActions, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
 
         val mediaRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         mediaToolbar = mediaRow
@@ -1904,21 +2228,24 @@ class OverlayService : Service() {
             mediaRow.addView(button, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         }
         imageStrip = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        mediaRow.addView(android.widget.HorizontalScrollView(this).apply {
+        val stripScroll = android.widget.HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
+            visibility = View.GONE
             addView(imageStrip, android.view.ViewGroup.LayoutParams(-2, -1))
-        }, LinearLayout.LayoutParams(0, -1, 1f))
-        livePanel.addView(mediaRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()).apply { topMargin = (72 * dp).toInt() })
+        }
+        imageStripScroll = stripScroll
+        mediaRow.addView(stripScroll, LinearLayout.LayoutParams(0, -1, 1f))
+        livePanel.addView(mediaRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
 
         val vocabRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             visibility = View.GONE
-            background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(0xFF24382F.toInt()) }
+            background = GradientDrawable().apply { cornerRadius = 12 * dp; setColor(overlayPalette.raised) }
             setPadding((12 * dp).toInt(), 0, 0, 0)
         }
         vocabularySuggestionText = TextView(this).apply {
             textSize = 12f
-            setTextColor(ThemeTokens.GREEN)
+            setTextColor(overlayPalette.green)
             gravity = Gravity.CENTER_VERTICAL
             maxLines = 3
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -1927,12 +2254,12 @@ class OverlayService : Service() {
         vocabRow.addView(vocabularySuggestionText, LinearLayout.LayoutParams(0, -1, 1f))
         vocabRow.addView(TextView(this).apply {
             text = "×"; textSize = 22f; gravity = Gravity.CENTER
-            setTextColor(0xFFBBBBBB.toInt())
+            setTextColor(overlayPalette.inkMuted)
             contentDescription = "Ignorer cette suggestion de vocabulaire"
             setOnClickListener { resetVocabularyLearning() }
         }, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         vocabularyBanner = vocabRow
-        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()).apply { topMargin = (72 * dp).toInt() })
+        livePanel.addView(vocabRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
 
         // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
@@ -2033,6 +2360,7 @@ class OverlayService : Service() {
         }
 
         pillView.setOnTouchListener { _, ev ->
+            if (exportPanel != null) return@setOnTouchListener true
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     dismissFloatingMenu()
@@ -2157,8 +2485,15 @@ class OverlayService : Service() {
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
-        dismissFloatingMenu()
+        val nextNightMode = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        val themeChanged = nextNightMode != Configuration.UI_MODE_NIGHT_UNDEFINED && nextNightMode != lastNightMode
+        lastNightMode = nextNightMode
         super.onConfigurationChanged(newConfig)
+        // A night-mode transition should keep an open notes/format menu and the active
+        // transcript intact. Other configuration changes still dismiss transient menus before
+        // their old geometry is used again.
+        if (!themeChanged) dismissFloatingMenu()
+        cancelPanelTransition()
         val lp = params ?: return
         val dp = resources.displayMetrics.density
         baseButtonW = (74 * dp).toInt()
@@ -2181,6 +2516,7 @@ class OverlayService : Service() {
         lp.x = point.x
         lp.y = point.y
         updatePillLayout()
+        if (themeChanged) refreshOverlayTheme()
     }
 
     private fun captureNoteImage(kind: NoteImageKind) {
@@ -2360,6 +2696,14 @@ class OverlayService : Service() {
         val images = notes.get(activeNoteId)?.images.orEmpty() + draftStore.captures().mapNotNull { it.image }
         val pending = imageStore.pending()
         val editable = isTranscriptEditable() && !imageDeliveryBusy
+        val showStrip = images.isNotEmpty() || pending != null
+        imageStripScroll?.visibility = if (showStrip) View.VISIBLE else View.GONE
+        mediaButtons.forEach { button ->
+            val current = button.layoutParams as? LinearLayout.LayoutParams ?: return@forEach
+            current.width = if (showStrip) (48 * resources.displayMetrics.density).toInt() else 0
+            current.weight = if (showStrip) 0f else 1f
+            button.layoutParams = current
+        }
         mediaButtons.forEach { button ->
             button.isEnabled = editable && pending == null
             button.alpha = if (button.isEnabled) 1f else .4f
@@ -2371,7 +2715,7 @@ class OverlayService : Service() {
         strip.removeAllViews()
         val dp = resources.displayMetrics.density
         if (images.isEmpty() || pending != null) strip.addView(TextView(this).apply {
-            text = if (pending != null) "Capture… ×" else ""; textSize = 11f; setTextColor(0xFFBBBBBB.toInt())
+            text = if (pending != null) "Capture… ×" else ""; textSize = 11f; setTextColor(overlayPalette.inkMuted)
             minWidth = (48 * dp).toInt(); minHeight = (40 * dp).toInt()
             contentDescription = if (pending != null) "Annuler la capture en attente" else ""
             if (pending != null) setOnClickListener {
@@ -2412,12 +2756,13 @@ class OverlayService : Service() {
 
     private fun previewNoteImage(image: NoteImage) {
         if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) return
-        val view = android.widget.ImageView(this).apply {
+        val dialogContext = overlayDialogContext()
+        val view = android.widget.ImageView(dialogContext).apply {
             adjustViewBounds = true
             scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             minimumHeight = (200 * resources.displayMetrics.density).toInt()
         }
-        val dialog = AlertDialog.Builder(this).setTitle("Image ${image.number} · ${image.kind.label}")
+        val dialog = AlertDialog.Builder(dialogContext).setTitle("Image ${image.number} · ${image.kind.label}")
             .setView(view).setPositiveButton("Fermer", null).create()
         dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
         formatDialog = dialog
@@ -2463,19 +2808,165 @@ class OverlayService : Service() {
         }
     }
 
-    private fun launchNoteExport(note: TranscriptNote, automatic: Boolean = false) {
-        dismissFloatingMenu()
-        releaseTranscriptFocus()
-        val restoreNote = livePreviewVisible && activeNoteId == note.id && state == State.PAUSED
-        panelHidden = true
-        setLivePreviewVisible(false)
-        runCatching {
-            startActivity(Intent(this, NoteExportActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                .putExtra("noteId", note.id).putExtra("autoShare", automatic).putExtra("restoreNote", restoreNote))
-        }.onFailure {
-            if (restoreNote) { panelHidden = false; setLivePreviewVisible(true) }
-            toast("Impossible d’ouvrir l’export. La note est conservée.")
+    private fun isDeviceUnlockedForExport(): Boolean {
+        if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) {
+            toast("Déverrouillez le téléphone pour exporter la note.")
+            return false
         }
+        return true
+    }
+
+    private fun launchNoteExport(note: TranscriptNote, automatic: Boolean = false) {
+        if (exportPanel != null) return
+        if (!isDeviceUnlockedForExport()) return
+        val fromNotesMenu = floatingMenu != null
+        dismissFloatingMenu()
+        val editor = liveText
+        exportResume = ExportResume(
+            liveVisible = livePreviewVisible,
+            panelHidden = panelHidden,
+            panelExpanded = panelExpanded,
+            purpose = purpose,
+            activeNoteId = activeNoteId,
+            recoveredDraft = recoveredDraft,
+            selectionStart = editor?.selectionStart ?: -1,
+            selectionEnd = editor?.selectionEnd ?: -1,
+            fromNotesMenu = fromNotesMenu,
+        )
+        exportNoteId = note.id
+        releaseTranscriptFocus()
+        panelHidden = false
+        requestPanelTransition()
+        panelExpanded = true
+        setLivePreviewVisible(true)
+        val export = OverlayExportPanel(
+            this,
+            note,
+            onBack = ::closeNoteExport,
+            onFormat = { format -> prepareNoteExport(note, format) },
+            onSave = { result -> openNoteExportBridge(result, note, share = false) },
+            onShare = { result -> openNoteExportBridge(result, note, share = true) },
+        )
+        exportPanel = export
+        livePanel?.let { host ->
+            for (index in 0 until host.childCount) {
+                val child = host.getChildAt(index)
+                exportAccessibilityPrevious[child] = child.importantForAccessibility
+                child.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            }
+        }
+        livePanel?.addView(export, FrameLayout.LayoutParams(-1, -1))
+        currentAnchor?.let(::positionLivePanel)
+        prepareNoteExport(note, OverlayExportFormat.PDF, automatic)
+    }
+
+    private fun prepareNoteExport(
+        note: TranscriptNote,
+        format: OverlayExportFormat,
+        automaticShare: Boolean = false,
+    ) {
+        val panel = exportPanel ?: return
+        if (exportNoteId != note.id) return
+        panel.showPreparing(format)
+        exportController.prepare(note, format) { result ->
+            if (exportPanel !== panel || exportNoteId != note.id) {
+                result.getOrNull()?.directory?.deleteRecursively()
+                return@prepare
+            }
+            result.fold(
+                onSuccess = { ready ->
+                    panel.showResult(ready)
+                    if (automaticShare) openNoteExportBridge(ready, note, share = true)
+                },
+                onFailure = {
+                    panel.showError(format, "Export impossible. La note est conservée ; réessayez.")
+                },
+            )
+        }
+    }
+
+    private fun openNoteExportBridge(result: OverlayExportResult, note: TranscriptNote, share: Boolean) {
+        if (!isDeviceUnlockedForExport()) return
+        val action = if (share) "share" else "save"
+        val bridgeToken = UUID.randomUUID().toString()
+        exportBridgeToken = bridgeToken
+        hideForExportBridge()
+        val shareText = if (result.format == OverlayExportFormat.TEXT_IMAGES) NoteShareText.create(note)
+            .takeIf { it.length <= 80_000 } else null
+        val bridgeIntent = Intent(this, NoteExportActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .putExtra("bridgeAction", action)
+            .putExtra("exportDirectory", result.directory.absolutePath)
+            .putExtra("exportFormat", result.format.name)
+            .putExtra(NoteExportActivity.EXTRA_BRIDGE_TOKEN, bridgeToken)
+        shareText?.let { bridgeIntent.putExtra("noteText", it) }
+        runCatching {
+            startActivity(bridgeIntent)
+        }.onFailure {
+            if (exportBridgeToken == bridgeToken) exportBridgeToken = null
+            restoreAfterExportBridge()
+            toast("Sélecteur de fichiers indisponible. La note est conservée.")
+        }
+    }
+
+    private fun hideForExportBridge() {
+        if (exportBridgeHidden) return
+        exportBridgeHidden = true
+        bridgeWasLiveVisible = livePreviewVisible
+        bridgeWasContainerVisible = container?.visibility == View.VISIBLE
+        container?.visibility = View.INVISIBLE
+        livePanel?.visibility = View.GONE
+        livePreviewVisible = false
+        releaseTranscriptFocus()
+    }
+
+    private fun restoreAfterExportBridge() {
+        if (!exportBridgeHidden) return
+        exportBridgeToken = null
+        exportBridgeHidden = false
+        container?.visibility = if (bridgeWasContainerVisible) View.VISIBLE else View.GONE
+        livePreviewVisible = bridgeWasLiveVisible
+        livePanel?.visibility = if (bridgeWasLiveVisible) View.VISIBLE else View.GONE
+        if (bridgeWasLiveVisible) currentAnchor?.let(::positionLivePanel)
+    }
+
+    private fun closeNoteExport() {
+        val panel = exportPanel ?: return
+        exportController.invalidate()
+        panel.dispose()
+        panel.parent?.let { (it as? ViewGroup)?.removeView(panel) }
+        exportAccessibilityPrevious.forEach { (view, previous) -> view.importantForAccessibility = previous }
+        exportAccessibilityPrevious.clear()
+        exportPanel = null
+        exportNoteId = null
+        exportBridgeToken = null
+        val resume = exportResume
+        exportResume = null
+        restoreAfterExportBridge()
+        if (resume == null) {
+            panelExpanded = false
+            setLivePreviewVisible(false)
+            return
+        }
+        panelExpanded = resume.panelExpanded
+        panelHidden = resume.panelHidden
+        purpose = resume.purpose
+        activeNoteId = resume.activeNoteId
+        recoveredDraft = resume.recoveredDraft
+        if (resume.liveVisible) {
+            requestPanelTransition()
+            setLivePreviewVisible(true)
+        } else setLivePreviewVisible(false)
+        currentAnchor?.let(::positionLivePanel)
+        val editor = liveText
+        if (resume.selectionStart >= 0 && resume.selectionEnd >= 0 && editor != null) {
+            editor.post {
+                val start = resume.selectionStart.coerceIn(0, editor.length())
+                val end = resume.selectionEnd.coerceIn(0, editor.length())
+                runCatching { editor.setSelection(start, end) }
+            }
+        }
+        if (resume.fromNotesMenu) showNotesOverlay()
     }
 
     /** Explicit note action promotes the draft's images and inserts their positional references. */
@@ -2497,7 +2988,6 @@ class OverlayService : Service() {
         draftStore.save(text)
         activeNoteId?.let { id ->
             if (notes.get(id)?.text != text) notes.save(id, text)
-            panelTitle?.text = notes.get(id)?.title
         }
     }
 
@@ -2646,7 +3136,7 @@ class OverlayService : Service() {
         val request = noteInsertionGate.request(note.id, note.text) ?: run { toast("La note ne contient pas de texte à insérer."); return }
         releaseTranscriptFocus()
         var approved = false
-        val dialog = AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(overlayDialogContext())
             .setTitle("Insérer le texte ?")
             .setMessage("Le texte ci-dessous sera déposé dans le champ de l’application ouverte. Votre note restera enregistrée. Pour transmettre les images, utilisez l’export.\n\n${note.text}")
             .setNegativeButton("Rester dans la note", null)
@@ -2686,6 +3176,7 @@ class OverlayService : Service() {
     private data class MenuEntry(
         val label: String, val click: () -> Unit, val longClick: (() -> Unit)? = null,
         val subtitle: String? = null, val metadata: String? = null,
+        val trailingAction: (() -> Unit)? = null, val enabled: Boolean = true,
     )
 
     private fun dismissFloatingMenu() {
@@ -2702,40 +3193,56 @@ class OverlayService : Service() {
         val height = minOf(((entries.sumOf { if (it.metadata != null) 144 else 64 }.coerceAtLeast(64) + 56) * dp).toInt(), (screen.height * .65f).toInt())
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply { cornerRadius = 24 * dp; setColor(ThemeTokens.SURFACE); setStroke(dp.toInt().coerceAtLeast(1), ThemeTokens.STROKE) }
+            background = GradientDrawable().apply { cornerRadius = 24 * dp; setColor(overlayPalette.surface); setStroke(dp.toInt().coerceAtLeast(1), overlayPalette.stroke) }
             setPadding((6 * dp).toInt(), 0, (6 * dp).toInt(), (6 * dp).toInt())
         }
         root.addView(TextView(this).apply {
-            text = "$title   ×"; textSize = 17f; setTextColor(ThemeTokens.INK); gravity = Gravity.CENTER
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            text = "$title   ×"; textSize = 21f; setTextColor(overlayPalette.ink); gravity = Gravity.CENTER
+            runCatching { typeface = resources.getFont(R.font.caveat) }
             contentDescription = "$title. Fermer le menu"
             setOnClickListener { dismissFloatingMenu() }
         }, LinearLayout.LayoutParams(-1, (50 * dp).toInt()))
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         entries.forEach { entry ->
             val row = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
+                orientation = if (entry.trailingAction == null) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = (56 * dp).toInt()
                 setPadding((14 * dp).toInt(), (12 * dp).toInt(), (14 * dp).toInt(), (12 * dp).toInt())
-                background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x337DAD88),
-                    GradientDrawable().apply { cornerRadius = 18 * dp; setColor(ThemeTokens.RAISED) }, null)
+                background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(overlayWithAlpha(overlayPalette.green, 0x44)),
+                    GradientDrawable().apply { cornerRadius = 18 * dp; setColor(overlayPalette.raised) }, null)
                 contentDescription = listOfNotNull(entry.label, entry.subtitle, entry.metadata).joinToString(". ")
                 isFocusable = true
-                setOnClickListener { entry.click() }
+                isEnabled = entry.enabled
+                alpha = if (entry.enabled) 1f else .62f
+                if (entry.enabled) setOnClickListener { entry.click() }
                 entry.longClick?.let { action -> setOnLongClickListener { action(); true } }
             }
+            val textHost = if (entry.trailingAction == null) row else LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
             fun line(value: String, size: Float, color: Int, bold: Boolean = false, spacing: Int = 0) {
-                row.addView(TextView(this).apply {
+                textHost.addView(TextView(this).apply {
                     text = value; textSize = size; setTextColor(color)
                     if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
                     maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = (spacing * dp).toInt() })
             }
-            line(entry.label, 16f, ThemeTokens.INK, bold = entry.metadata != null)
-            entry.subtitle?.takeIf { it.isNotBlank() }?.let { line(it, 14f, ThemeTokens.INK_MUTED, spacing = 6) }
-            entry.metadata?.let { line(it, 12f, ThemeTokens.GREEN, spacing = 8) }
+            line(entry.label, 16f, overlayPalette.ink, bold = entry.metadata != null)
+            entry.subtitle?.takeIf { it.isNotBlank() }?.let { line(it, 14f, overlayPalette.inkMuted, spacing = 6) }
+            entry.metadata?.let { line(it, 12f, overlayPalette.green, spacing = 8) }
+            entry.trailingAction?.let { action ->
+                row.addView(textHost, LinearLayout.LayoutParams(0, -2, 1f))
+                row.addView(TextView(this).apply {
+                    text = "⋮"; textSize = 24f; gravity = Gravity.CENTER
+                    setTextColor(overlayPalette.ink)
+                    contentDescription = "Actions pour ${entry.label}"
+                    isClickable = true; isFocusable = true
+                    setOnClickListener { action() }
+                }, LinearLayout.LayoutParams((48 * dp).toInt(), (48 * dp).toInt()))
+            }
             list.addView(row, LinearLayout.LayoutParams(-1, -2).apply {
                 leftMargin = (4 * dp).toInt(); rightMargin = (4 * dp).toInt(); bottomMargin = (6 * dp).toInt()
             })
@@ -2753,27 +3260,36 @@ class OverlayService : Service() {
     private fun showNotesOverlay() {
         if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
         val entries = mutableListOf(MenuEntry("＋ Nouvelle note", { openNote(notes.save(null, "")) }))
+        if (notes.all().isEmpty()) entries += MenuEntry(
+            "Aucune note enregistrée", {}, subtitle = "Les notes apparaîtront ici après Terminer.", enabled = false,
+        )
         notes.all().forEach { note ->
             val excerpt = note.text.replace(Regex("\\s+"), " ").take(140)
             val date = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
                 .format(java.util.Date(note.updatedAt))
             val metadata = "Modifiée le $date" + if (note.images.isEmpty()) "" else " · ${note.images.size} image${if (note.images.size > 1) "s" else ""}"
-            entries += MenuEntry(note.title, { openNote(note) }, {
+            val actions = {
                 showFloatingMenu(note.title, listOf(
                     MenuEntry("Partager / exporter · texte et images", { launchNoteExport(note) }),
                     MenuEntry("Renommer", { renameNote(note) }),
                     MenuEntry("Supprimer", { notes.delete(note.id); showNotesOverlay() }),
                     MenuEntry("Retour aux notes", ::showNotesOverlay),
                 ))
-            }, subtitle = excerpt.ifBlank { "Note vide · Touchez pour écrire" }, metadata = metadata)
+            }
+            entries += MenuEntry(
+                note.title, { openNote(note) }, actions,
+                subtitle = excerpt.ifBlank { "Note vide · Touchez pour écrire" }, metadata = metadata,
+                trailingAction = actions,
+            )
         }
         showFloatingMenu("Mes notes", entries)
     }
 
     private fun renameNote(note: TranscriptNote) {
         dismissFloatingMenu()
-        val input = EditText(this).apply { setText(note.title); setSingleLine(); selectAll() }
-        val dialog = AlertDialog.Builder(this).setTitle("Renommer la note").setView(input)
+        val dialogContext = overlayDialogContext()
+        val input = EditText(dialogContext).apply { setText(note.title); setSingleLine(); selectAll() }
+        val dialog = AlertDialog.Builder(dialogContext).setTitle("Renommer la note").setView(input)
             .setPositiveButton("Enregistrer") { _, _ -> notes.rename(note.id, input.text.toString()); showNotesOverlay() }
             .setNegativeButton("Annuler") { _, _ -> showNotesOverlay() }.create()
         dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
@@ -2825,8 +3341,19 @@ class OverlayService : Service() {
     override fun onDestroy() {
         invalidateNoteInsertion()
         resetVocabularyLearning()
+        cancelPanelTransition()
+        exportController.close()
+        exportPanel?.let { panel -> panel.dispose(); panel.parent?.let { (it as? ViewGroup)?.removeView(panel) } }
+        exportAccessibilityPrevious.forEach { (view, previous) -> view.importantForAccessibility = previous }
+        exportAccessibilityPrevious.clear()
+        exportPanel = null
+        exportNoteId = null
+        exportBridgeToken = null
+        exportResume = null
+        restoreAfterExportBridge()
         mediaButtons.clear()
         imageStrip = null
+        imageStripScroll = null
         mediaToolbar = null
         localFormatter.close()
         dismissFloatingMenu()
@@ -2871,7 +3398,7 @@ class OverlayService : Service() {
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         livePanelAdded = false
         tailFollower?.reset(); tailFollower = null
-        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; panelFormat = null; livePanel = null; liveParams = null
+        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; gestureHint = null; stateIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; imageStripScroll = null; livePanel = null; liveParams = null
         super.onDestroy()
     }
 

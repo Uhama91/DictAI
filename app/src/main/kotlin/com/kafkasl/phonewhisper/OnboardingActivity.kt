@@ -52,12 +52,14 @@ class OnboardingActivity : AppCompatActivity() {
     private var modelStatusView: TextView? = null
     private var modelProgressView: LinearProgressIndicator? = null
     private var modelProgress = 0f
+    private val palette: ThemePalette
+        get() = ThemeTokens.palette(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val scroll = ScrollView(this).apply {
-            setBackgroundColor(ThemeTokens.BG)
+            setBackgroundColor(palette.bg)
             isFillViewport = true
         }
         val root = vertical(dp(22)).apply {
@@ -67,14 +69,14 @@ class OnboardingActivity : AppCompatActivity() {
         root.addView(TextView(this).apply {
             text = "Configuration de DictAI"
             textSize = 30f
-            setTextColor(ThemeTokens.GREEN)
+            setTextColor(palette.green)
             ResourcesCompat.getFont(this@OnboardingActivity, R.font.caveat)?.let { typeface = it }
             setPadding(0, dp(36), 0, dp(6))
         })
         root.addView(TextView(this).apply {
             text = "Quelques autorisations sont nécessaires pour que la pastille reste affichée par-dessus toutes tes apps et transcrive ta voix. Suis les étapes — elles se valident automatiquement."
             textSize = 15f
-            setTextColor(ThemeTokens.INK_MUTED)
+            setTextColor(palette.inkMuted)
             setPadding(0, 0, 0, dp(12))
         })
 
@@ -85,8 +87,8 @@ class OnboardingActivity : AppCompatActivity() {
             text = "DictAI est prêt — démarrer"
             textSize = 16f
             cornerRadius = dp(14)
-            setBackgroundColor(ThemeTokens.GREEN)
-            setTextColor(0xFF0E0E12.toInt())
+            setBackgroundColor(palette.green)
+            setTextColor(palette.onGreen)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = dp(20); bottomMargin = dp(28)
             }
@@ -175,8 +177,8 @@ class OnboardingActivity : AppCompatActivity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = ThemeTokens.dpf(this@OnboardingActivity, 11f)
-                setColor(ThemeTokens.SURFACE)
-                setStroke(dp(1), if (done) ThemeTokens.GREEN and 0x55FFFFFF else ThemeTokens.STROKE)
+                setColor(palette.surface)
+                setStroke(dp(1), if (done) palette.green and 0x55FFFFFF else palette.stroke)
             }
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = dp(6); bottomMargin = dp(6)
@@ -188,10 +190,10 @@ class OnboardingActivity : AppCompatActivity() {
             text = if (done) "✓" else index.toString()
             textSize = 16f
             gravity = Gravity.CENTER
-            setTextColor(if (done) 0xFF0E0E12.toInt() else ThemeTokens.INK)
+            setTextColor(if (done) palette.onGreen else palette.ink)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(if (done) ThemeTokens.GREEN else 0x22FFFFFF)
+                setColor(if (done) palette.green else palette.raised)
             }
             val sz = dp(30)
             layoutParams = LinearLayout.LayoutParams(sz, sz).apply { rightMargin = dp(12) }
@@ -202,11 +204,11 @@ class OnboardingActivity : AppCompatActivity() {
         }
         texts.addView(TextView(this).apply {
             text = s.title; textSize = 17f
-            setTextColor(if (done) ThemeTokens.INK_MUTED else ThemeTokens.INK)
+            setTextColor(if (done) palette.inkMuted else palette.ink)
         })
         if (!done) texts.addView(TextView(this).apply {
             text = s.desc; textSize = 13f
-            setTextColor(ThemeTokens.INK_MUTED); setPadding(0, dp(3), 0, 0)
+            setTextColor(palette.inkMuted); setPadding(0, dp(3), 0, 0)
         })
         card.addView(texts)
 
@@ -215,7 +217,7 @@ class OnboardingActivity : AppCompatActivity() {
             val status = vertical(0).apply { gravity = Gravity.END }
             val tv = TextView(this).apply {
                 text = modelMsg ?: "Installation\u202F: 0\u202F%"
-                textSize = 13f; setTextColor(ThemeTokens.GREEN); gravity = Gravity.END
+                textSize = 13f; setTextColor(palette.green); gravity = Gravity.END
             }
             val progress = LinearProgressIndicator(this).apply {
                 isIndeterminate = false
@@ -233,14 +235,14 @@ class OnboardingActivity : AppCompatActivity() {
             val actions = vertical(0).apply { gravity = Gravity.END }
             actions.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
                 text = s.actionLabel; textSize = 13f
-                setTextColor(ThemeTokens.GREEN)
-                strokeColor = android.content.res.ColorStateList.valueOf(ThemeTokens.GREEN and 0x66FFFFFF)
+                setTextColor(palette.green)
+                strokeColor = android.content.res.ColorStateList.valueOf(palette.green and 0x66FFFFFF)
                 setOnClickListener { s.action() }
             })
             // étape non détectable → bouton « C'est fait » pour la valider manuellement
             if (s.detect() == null) actions.addView(TextView(this).apply {
                 text = "C'est fait ✓"; textSize = 13f
-                setTextColor(ThemeTokens.GREEN); setPadding(dp(8), dp(6), dp(8), 0)
+                setTextColor(palette.green); setPadding(dp(8), dp(6), dp(8), 0)
                 gravity = Gravity.CENTER
                 setOnClickListener { prefs.edit().putBoolean("onb_${s.id}", true).apply(); build() }
             })

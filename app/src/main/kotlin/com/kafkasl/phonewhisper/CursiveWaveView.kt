@@ -53,13 +53,18 @@ class CursiveWaveView(context: Context) : View(context) {
     private val path = Path()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = 0xFF1A1A2E.toInt() // encre sombre DictAI
+        color = ThemeTokens.palette(context).ink
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
 
+    private var strokeColorOverride: Int? = null
+
     /** Niveau de voix [0..1] qui pilote l'amplitude de l'onde. */
     fun setLevel(l: Float) { level = l.coerceIn(0f, 1f) }
+
+    /** Optional accent for the calm home identity loop; runtime overlays use ink by default. */
+    fun setStrokeColor(color: Int) { strokeColorOverride = color; invalidate() }
 
     fun start() { if (!running) { running = true; postOnAnimation(tick) } }
     fun stop() { running = false; removeCallbacks(tick) }
@@ -85,6 +90,7 @@ class CursiveWaveView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
+        paint.color = strokeColorOverride ?: ThemeTokens.palette(context).ink
         paint.strokeWidth = 2.2f * (h / SVG_H)
         canvas.save()
         // Confiner l'encre à la pastille : les boucles ne débordent plus sur les côtés.

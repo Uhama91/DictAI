@@ -45,8 +45,9 @@
         <activity android:name=".NoteCameraActivity" android:exported="false"
             android:theme="@style/Theme.NoteCamera"
             android:taskAffinity=""
-            android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
+            android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden|uiMode" />
         <activity android:name=".NoteExportActivity" android:exported="false"
+            android:theme="@style/Theme.NoteExportBridge"
             android:taskAffinity=""
             android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
         <provider android:name=".NoteFileProvider"

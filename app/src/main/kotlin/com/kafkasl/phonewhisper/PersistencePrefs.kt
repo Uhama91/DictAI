@@ -8,6 +8,11 @@ class PersistencePrefs internal constructor(private val p: SharedPreferences) {
 
     init { migrateCloudCleanupPreferences() }
 
+    /** Appearance survives activity recreation and defaults to the device setting. */
+    var themeMode: ThemeMode
+        get() = ThemeMode.fromPreference(p.getString(KEY_THEME_MODE, null))
+        set(value) { p.edit().putString(KEY_THEME_MODE, value.preferenceValue).apply() }
+
     var showTranscript: Boolean
         get() = p.getBoolean("show_transcript", true)
         set(value) { p.edit().putBoolean("show_transcript", value).apply() }
@@ -119,6 +124,7 @@ class PersistencePrefs internal constructor(private val p: SharedPreferences) {
     }
 
     companion object {
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_ANCHOR_EDGE = "btn_anchor_edge"
         private const val KEY_ANCHOR_OFFSET = "btn_anchor_offset"
         private const val LEGACY_OPENROUTER_MODEL_KEY = "cloud_cleanup_model_openrouter"
