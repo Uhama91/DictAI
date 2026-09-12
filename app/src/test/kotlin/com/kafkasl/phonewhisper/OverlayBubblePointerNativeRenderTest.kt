@@ -36,11 +36,20 @@ class OverlayBubblePointerNativeRenderTest {
         val pointerLength = 12
         val edges = Edge.values()
         val pointerRegions = ArrayList<IntArray>()
+        val junctionProbes = ArrayList<Pair<Edge, IntArray>>()
         edges.forEachIndexed { index, edge ->
             val envelope = OverlayPlacement.bubbleEnvelope(Rect(0, 0, bodyWidth, bodyHeight), edge, pointerLength)
             val cell = FrameLayout(activity)
             val pointer = OverlayBubblePointerView(activity)
             pointer.setColors(ThemeTokens.palette(context).surface, ThemeTokens.palette(context).stroke)
+            val targetX = when (edge) {
+                Edge.TOP, Edge.BOTTOM -> if (index % 2 == 0) 36f else 126f
+                else -> 0f
+            }
+            val targetY = when (edge) {
+                Edge.LEFT, Edge.RIGHT -> if (index % 2 == 0) 24f else 66f
+                else -> 0f
+            }
             pointer.setGeometry(
                 edge = edge,
                 bodyOffsetX = envelope.bodyOffsetX,
@@ -48,14 +57,8 @@ class OverlayBubblePointerNativeRenderTest {
                 bodyWidth = bodyWidth,
                 bodyHeight = bodyHeight,
                 pointerLength = pointerLength,
-                targetX = when (edge) {
-                    Edge.TOP, Edge.BOTTOM -> if (index % 2 == 0) 36f else 126f
-                    else -> 0f
-                },
-                targetY = when (edge) {
-                    Edge.LEFT, Edge.RIGHT -> if (index % 2 == 0) 24f else 66f
-                    else -> 0f
-                },
+                targetX = targetX,
+                targetY = targetY,
             )
             val body = View(activity).apply {
                 background = GradientDrawable().apply {
@@ -64,6 +67,7 @@ class OverlayBubblePointerNativeRenderTest {
                     setStroke(1, ThemeTokens.palette(context).stroke)
                 }
                 clipToOutline = true
+                elevation = 8f
             }
             cell.addView(body, FrameLayout.LayoutParams(bodyWidth, bodyHeight).apply {
                 leftMargin = envelope.bodyOffsetX
@@ -72,6 +76,8 @@ class OverlayBubblePointerNativeRenderTest {
             // Match production z-order: the pointer can cover only its small body overlap, which
             // removes the straight border seam while keeping all transcript children clipped by
             // the rounded body.
+            pointer.elevation = body.elevation
+            pointer.outlineProvider = null
             cell.addView(pointer, FrameLayout.LayoutParams(envelope.window.width, envelope.window.height))
             val cellX = (index % 2) * cellWidth
             val cellY = (index / 2) * cellHeight
@@ -80,6 +86,18 @@ class OverlayBubblePointerNativeRenderTest {
                 Edge.RIGHT -> intArrayOf(cellX + bodyWidth, cellY, cellX + bodyWidth + pointerLength, cellY + envelope.window.height)
                 Edge.TOP -> intArrayOf(cellX, cellY, cellX + envelope.window.width, cellY + pointerLength)
                 Edge.BOTTOM -> intArrayOf(cellX, cellY + bodyHeight, cellX + envelope.window.width, cellY + bodyHeight + pointerLength)
+            }
+            // Probe the body's boundary at the center of the attachment.  The pointer fill
+            // overlaps this pixel; if z-order regresses, the body's straight stroke remains
+            // visible instead of the shared surface color.  Coordinates are in the fixture's
+            // display space and follow the same clamped base used by the production geometry.
+            val baseX = envelope.bodyOffsetX + 118
+            val baseY = envelope.bodyOffsetY + 32
+            junctionProbes += edge to when (edge) {
+                Edge.LEFT -> intArrayOf(cellX + envelope.bodyOffsetX, cellY + baseY)
+                Edge.RIGHT -> intArrayOf(cellX + envelope.bodyOffsetX + bodyWidth - 1, cellY + baseY)
+                Edge.TOP -> intArrayOf(cellX + baseX, cellY + envelope.bodyOffsetY)
+                Edge.BOTTOM -> intArrayOf(cellX + baseX, cellY + envelope.bodyOffsetY + bodyHeight - 1)
             }
             root.addView(cell, FrameLayout.LayoutParams(cellWidth, cellHeight).apply {
                 leftMargin = cellX
@@ -111,6 +129,22 @@ class OverlayBubblePointerNativeRenderTest {
                     }
                 }
                 assertTrue("Pointer should render pixels outside the rounded body", changed > 0)
+            }
+            val surface = ThemeTokens.palette(context).surface
+            val stroke = ThemeTokens.palette(context).stroke
+            fun colorDistance(pixel: Int, expected: Int): Int =
+                kotlin.math.abs(Color.red(pixel) - Color.red(expected)) +
+                    kotlin.math.abs(Color.green(pixel) - Color.green(expected)) +
+                    kotlin.math.abs(Color.blue(pixel) - Color.blue(expected))
+            junctionProbes.forEach { (edge, point) ->
+                val pixel = bitmap.getPixel(point[0], point[1])
+                val surfaceDistance = colorDistance(pixel, surface)
+                val strokeDistance = colorDistance(pixel, stroke)
+                assertTrue(
+                    "$edge junction should show the pointer surface at ${point[0]},${point[1]} " +
+                        "(pixel=$pixel, surface=$surface, stroke=$stroke)",
+                    surfaceDistance < strokeDistance && surfaceDistance <= 18,
+                )
             }
             assertTrue("Native pointer render should be written", output.length() > 1_000L)
         } finally {

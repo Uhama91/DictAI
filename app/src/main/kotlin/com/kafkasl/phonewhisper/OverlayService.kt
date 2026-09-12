@@ -2282,6 +2282,11 @@ class OverlayService : Service() {
         }
         val pointer = OverlayBubblePointerView(this).apply {
             setColors(overlayPalette.surface, overlayPalette.stroke)
+            // The tail is drawn after the body and must remain on the same Z plane so its
+            // short overlap hides the body's straight stroke without adding a rectangular
+            // elevation shadow of its own.
+            elevation = panelBody.elevation
+            outlineProvider = null
         }
         val livePanel = FrameLayout(this).apply {
             visibility = View.GONE
