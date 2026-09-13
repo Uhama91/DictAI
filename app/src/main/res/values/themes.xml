@@ -3,12 +3,33 @@
     <style name="Theme.PhoneWhisper" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Accent Colors -->
         <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="android:colorAccent">@color/primary</item>
         <item name="colorPrimaryContainer">@color/primary_container</item>
         <item name="colorOnPrimaryContainer">@color/on_primary_container</item>
+        <item name="android:colorBackground">@color/dictai_bg</item>
+        <item name="colorSurface">@color/dictai_surface</item>
+        <item name="colorSurfaceVariant">@color/dictai_surface_raised</item>
+        <item name="colorOnSurface">@color/dictai_ink</item>
+        <item name="colorOnSurfaceVariant">@color/dictai_ink_muted</item>
+        <item name="colorOnBackground">@color/dictai_ink</item>
+        <item name="colorError">@color/dictai_error</item>
         
         <!-- Status / Navigation Bars -->
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:statusBarColor">?android:attr/colorBackground</item>
         <item name="android:navigationBarColor">?android:attr/colorBackground</item>
+    </style>
+    <style name="Theme.NoteCamera" parent="Theme.Material3.DayNight.Dialog">
+        <item name="android:windowCloseOnTouchOutside">false</item>
+        <item name="android:backgroundDimAmount">0.15</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+    <style name="Theme.NoteExportBridge" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:colorAccent">@color/primary</item>
     </style>
 </resources>

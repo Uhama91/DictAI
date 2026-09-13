@@ -185,12 +185,15 @@ internal class DoubleTapDetector(private val windowMs: Long = 280L) {
 internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L) {
     init { require(windowMs > 0) }
 
-    enum class SurfaceState { IDLE, RECORDING, TRANSCRIBING, CANCELLING, MIC_UNARMED }
+    enum class SurfaceState { IDLE, RECORDING, PAUSED, TRANSCRIBING, CANCELLING, MIC_UNARMED }
 
     enum class Action {
         NONE,
         START_RECORDING,
+        RESUME_RECORDING,
         STOP_RECORDING,
+        PAUSE_RECORDING,
+        SAVE_AND_CLOSE_NOTE,
         CANCEL_RECORDING,
         CANCEL_RECORDING_AND_OPEN_APP,
         ARM_PROCESSING_WINDOW,
@@ -208,7 +211,7 @@ internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L)
         val timeout: Timeout? = null,
     )
 
-    private enum class Origin { IDLE, RECORDING, PROCESSING }
+    private enum class Origin { IDLE, RECORDING, PAUSED, PROCESSING }
 
     private data class Sequence(
         val origin: Origin,
@@ -225,12 +228,28 @@ internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L)
             Decision(Action.START_RECORDING)
         }
         SurfaceState.RECORDING -> onRecordingTap(atMs)
+        SurfaceState.PAUSED -> onPausedTap(atMs)
         SurfaceState.TRANSCRIBING -> onProcessingTap(atMs)
         SurfaceState.MIC_UNARMED -> {
             reset()
             Decision(Action.PROMPT_MIC_SETUP_AND_OPEN_APP)
         }
         SurfaceState.CANCELLING -> Decision(Action.NONE)
+    }
+
+    private fun onPausedTap(atMs: Long): Decision {
+        val previous = sequence
+        if (previous?.origin == Origin.PAUSED && isInsideWindow(previous.atMs, atMs)) {
+            sequence = null
+            return Decision(Action.CANCEL_RECORDING)
+        }
+        if (previous?.origin == Origin.PAUSED && previous.timeout != null && atMs >= previous.timeout.deadlineMs) {
+            sequence = null
+            return Decision(Action.RESUME_RECORDING)
+        }
+        val timeout = Timeout(++nextToken, atMs + windowMs)
+        sequence = Sequence(Origin.PAUSED, atMs, timeout)
+        return Decision(Action.NONE, timeout)
     }
 
     private fun onRecordingTap(atMs: Long): Decision {
@@ -273,12 +292,12 @@ internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L)
 
     fun onTimeout(timeout: Timeout, atMs: Long): Decision {
         val current = sequence
-        if (current?.origin != Origin.RECORDING || current.timeout != timeout) {
+        if (current == null || current.origin !in listOf(Origin.RECORDING, Origin.PAUSED) || current.timeout != timeout) {
             return Decision(Action.NONE)
         }
         if (atMs < timeout.deadlineMs) return Decision(Action.NONE)
         sequence = null
-        return Decision(Action.STOP_RECORDING)
+        return Decision(if (current.origin == Origin.PAUSED) Action.RESUME_RECORDING else Action.STOP_RECORDING)
     }
 
     fun reset() {

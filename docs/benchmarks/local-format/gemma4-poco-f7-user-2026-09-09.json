@@ -1,0 +1,332 @@
+{
+  "date_received": "2026-09-09",
+  "provenance": "Rapport et essais manuels copiés par Ullie dans la conversation Codex. Aucune exécution téléphone par Codex.",
+  "application": "0.8.0-wp-gemma-test",
+  "device": "Xiaomi 25053PC47G",
+  "android": "16",
+  "model": "gemma-4-E2B-it.litertlm",
+  "runtime": "litert-lm-gpu-mtp-thinking-off",
+  "runtime_version": "0.17.0",
+  "mtp": true,
+  "thinking": false,
+  "thinking_budget": 0,
+  "shared_engine_already_loaded": true,
+  "last_initialization_ms": 11818,
+  "system_gpu_caches_cleared": false,
+  "before": {
+    "process_pss_mib": 1825,
+    "available_ram_mib": 3137,
+    "android_thermal_status": 0
+  },
+  "after": {
+    "process_pss_mib": 2092,
+    "available_ram_mib": 3103,
+    "android_thermal_status": 0
+  },
+  "summary": {
+    "llm_calls": 16,
+    "direct_calls": 2,
+    "accepted_llm_outputs": 10,
+    "llm_grouping_successes": 6,
+    "first_fragment_median_ms": 1191.0,
+    "total_median_ms": 1986.5
+  },
+  "benchmark_rows": [
+    {
+      "case": "fr_actions",
+      "pass_number": 1,
+      "input": "Demain, appeler Maëlys pour confirmer les 23 élèves, imprimer 2 fiches par élève et apporter les cahiers bleus.",
+      "reported_output": "• Demain appeler Maëlys pour confirmer les 23 élèves\n• Imprimer 2 fiches par élève\n• Apporter les cahiers bleus",
+      "output_is_raw_rejected": true,
+      "accepted": false,
+      "targeted_grouping_passed": null,
+      "llm_called": true,
+      "first_fragment_ms": 1999,
+      "total_ms": 3047,
+      "analysis_note": "Suppression de « et »."
+    },
+    {
+      "case": "en_mail_negation",
+      "pass_number": 1,
+      "input": "Hello Karim, do not send the documents today. Wait until Friday and contact Maëlys first. Thank you.",
+      "reported_output": "Hello Karim,\n\nDo not send the documents today. Wait until Friday and contact Maëlys first. Thank you.\n\nSincerely,\n[Your Name]",
+      "output_is_raw_rejected": true,
+      "accepted": false,
+      "targeted_grouping_passed": null,
+      "llm_called": true,
+      "first_fragment_ms": 1189,
+      "total_ms": 2348,
+      "analysis_note": "Ajout de « Sincerely, [Your Name] »."
+    },
+    {
+      "case": "fr_short_direct",
+      "pass_number": 1,
+      "input": "OK, ça marche.",
+      "reported_output": "OK, ça marche.",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": true,
+      "llm_called": false,
+      "first_fragment_ms": null,
+      "total_ms": 0,
+      "analysis_note": null
+    },
+    {
+      "case": "fr_groceries",
+      "pass_number": 1,
+      "input": "du lait des oranges du pain du chocolat, des roses du riz",
+      "reported_output": "• du lait des oranges\n• du pain du chocolat\n• des roses du riz",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": false,
+      "llm_called": true,
+      "first_fragment_ms": 1193,
+      "total_ms": 1772,
+      "analysis_note": "Trois puces au lieu de six."
+    },
+    {
+      "case": "fr_modifier",
+      "pass_number": 1,
+      "input": "du lait de la ferme du pain",
+      "reported_output": "• du lait de la ferme du pain",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": false,
+      "llm_called": true,
+      "first_fragment_ms": 1188,
+      "total_ms": 1296,
+      "analysis_note": "Une puce au lieu de deux."
+    },
+    {
+      "case": "fr_mail",
+      "pass_number": 1,
+      "input": "Bonjour voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut cordialement M. l’utilisateur.",
+      "reported_output": "Bonjour\n\nvoici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut.\n\ncordialement,\nM. l’utilisateur",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": true,
+      "llm_called": true,
+      "first_fragment_ms": 1257,
+      "total_ms": 2688,
+      "analysis_note": null
+    },
+    {
+      "case": "en_mail_number",
+      "pass_number": 1,
+      "input": "Hello Nora please keep the 2 blue folders do not delete the originals thank you Eli",
+      "reported_output": "Hello Nora,\n\nPlease keep the two blue folders. Do not delete the originals. Thank you, Eli.",
+      "output_is_raw_rejected": true,
+      "accepted": false,
+      "targeted_grouping_passed": null,
+      "llm_called": true,
+      "first_fragment_ms": 1193,
+      "total_ms": 2120,
+      "analysis_note": "Remplacement de « 2 » par « two »."
+    },
+    {
+      "case": "fr_groceries_modifiers",
+      "pass_number": 1,
+      "input": "des tomates cerises du pain de campagne du café moulu des pommes",
+      "reported_output": "• des tomates cerises\n• du pain de campagne\n• du café moulu\n• des pommes",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": true,
+      "llm_called": true,
+      "first_fragment_ms": 1259,
+      "total_ms": 1853,
+      "analysis_note": null
+    },
+    {
+      "case": "en_groceries_modifiers",
+      "pass_number": 1,
+      "input": "green tea whole wheat bread apple juice",
+      "reported_output": "• green tea\n• whole wheat bread\n• apple juice",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": true,
+      "llm_called": true,
+      "first_fragment_ms": 1187,
+      "total_ms": 1632,
+      "analysis_note": null
+    },
+    {
+      "case": "fr_actions",
+      "pass_number": 2,
+      "input": "Demain, appeler Maëlys pour confirmer les 23 élèves, imprimer 2 fiches par élève et apporter les cahiers bleus.",
+      "reported_output": "• Demain appeler Maëlys pour confirmer les 23 élèves\n• Imprimer 2 fiches par élève\n• Apporter les cahiers bleus",
+      "output_is_raw_rejected": true,
+      "accepted": false,
+      "targeted_grouping_passed": null,
+      "llm_called": true,
+      "first_fragment_ms": 1186,
+      "total_ms": 2213,
+      "analysis_note": "Suppression de « et »."
+    },
+    {
+      "case": "en_mail_negation",
+      "pass_number": 2,
+      "input": "Hello Karim, do not send the documents today. Wait until Friday and contact Maëlys first. Thank you.",
+      "reported_output": "Hello Karim,\n\nDo not send the documents today. Wait until Friday and contact Maëlys first. Thank you.\n\nSincerely,\n[Your Name]",
+      "output_is_raw_rejected": true,
+      "accepted": false,
+      "targeted_grouping_passed": null,
+      "llm_called": true,
+      "first_fragment_ms": 1186,
+      "total_ms": 2335,
+      "analysis_note": "Ajout de « Sincerely, [Your Name] »."
+    },
+    {
+      "case": "fr_short_direct",
+      "pass_number": 2,
+      "input": "OK, ça marche.",
+      "reported_output": "OK, ça marche.",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": true,
+      "llm_called": false,
+      "first_fragment_ms": null,
+      "total_ms": 0,
+      "analysis_note": null
+    },
+    {
+      "case": "fr_groceries",
+      "pass_number": 2,
+      "input": "du lait des oranges du pain du chocolat, des roses du riz",
+      "reported_output": "• du lait des oranges\n• du pain du chocolat\n• des roses du riz",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": false,
+      "llm_called": true,
+      "first_fragment_ms": 1196,
+      "total_ms": 1767,
+      "analysis_note": "Trois puces au lieu de six."
+    },
+    {
+      "case": "fr_modifier",
+      "pass_number": 2,
+      "input": "du lait de la ferme du pain",
+      "reported_output": "• du lait de la ferme du pain",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": false,
+      "llm_called": true,
+      "first_fragment_ms": 1179,
+      "total_ms": 1301,
+      "analysis_note": "Une puce au lieu de deux."
+    },
+    {
+      "case": "fr_mail",
+      "pass_number": 2,
+      "input": "Bonjour voici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut cordialement M. l’utilisateur.",
+      "reported_output": "Bonjour\n\nvoici un premier test qui vise à vérifier que le post-traitement sur le mail fonctionne comme il faut.\n\ncordialement,\nM. l’utilisateur",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": true,
+      "llm_called": true,
+      "first_fragment_ms": 1171,
+      "total_ms": 2622,
+      "analysis_note": null
+    },
+    {
+      "case": "en_mail_number",
+      "pass_number": 2,
+      "input": "Hello Nora please keep the 2 blue folders do not delete the originals thank you Eli",
+      "reported_output": "Hello Nora,\n\nPlease keep the two blue folders. Do not delete the originals. Thank you, Eli.",
+      "output_is_raw_rejected": true,
+      "accepted": false,
+      "targeted_grouping_passed": null,
+      "llm_called": true,
+      "first_fragment_ms": 1196,
+      "total_ms": 2142,
+      "analysis_note": "Remplacement de « 2 » par « two »."
+    },
+    {
+      "case": "fr_groceries_modifiers",
+      "pass_number": 2,
+      "input": "des tomates cerises du pain de campagne du café moulu des pommes",
+      "reported_output": "• des tomates cerises\n• du pain de campagne\n• du café moulu\n• des pommes",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": true,
+      "llm_called": true,
+      "first_fragment_ms": 1171,
+      "total_ms": 1771,
+      "analysis_note": null
+    },
+    {
+      "case": "en_groceries_modifiers",
+      "pass_number": 2,
+      "input": "green tea whole wheat bread apple juice",
+      "reported_output": "• green tea\n• whole wheat bread\n• apple juice",
+      "output_is_raw_rejected": false,
+      "accepted": true,
+      "targeted_grouping_passed": true,
+      "llm_called": true,
+      "first_fragment_ms": 1218,
+      "total_ms": 1706,
+      "analysis_note": null
+    }
+  ],
+  "manual_tests": [
+    {
+      "kind": "list",
+      "output": "• Du pain du lait\n• des haricots vert\n• du jus d'orange\n• du blé\n• du riz",
+      "user_assessment": "Très satisfaisant, rapide ; cinq items annoncés par Ullie.",
+      "analysis": "Le résultat visible contient six produits ; pain et lait restent sur la même puce. Source ASR avant formatage non fournie."
+    },
+    {
+      "kind": "mail_short",
+      "output": "Bonjour,\n\nvoici ci-dessus le test de mail que je réalise pour la première fois avec ce modèle.\n\ncordialement,\n\nM. le testeur.",
+      "user_assessment": "Format satisfaisant, faible latence."
+    },
+    {
+      "kind": "mail_long_2",
+      "output": "Bonjour, voici le deuxième test pour vérifier si le poste-traitement concernant l'e-mail fonctionne correctement, c'est à dire que le premier a très bien fonctionné. La mise en forme s'est très bien déroulée la latence n'a pas été importante, donc je teste pour un mail un peu plus long. Dans la mise en forme cordialement, Monsieur le Testeur, une deuxième fois.",
+      "user_assessment": "Un seul bloc, format absent."
+    },
+    {
+      "kind": "mail_long_3",
+      "output": "Bonjour, voici le test Je veux dire le deuxième test pour vérifier si le poste traitement concernant l'e-mail fonctionne correctement, c'est à dire que le deuxième test n'a pas été concluant dans le sens où la mise en forme n'a pas été réalisée avec ce test un peu plus long qui a été réalisé en deuxième là, cette fois ci, c'est le troisième test pour voir si la mise en forme se déroule comme il faut avec un poste traitement, avec un texte plus long cordialement, Monsieur le Testeur, pour la troisième fois.",
+      "user_assessment": "Un seul bloc, format absent."
+    }
+  ],
+  "limitations": [
+    "Temps du banc hors ASR, affichage et insertion.",
+    "Neuf sources répétées ; les deux passages ne sont pas des cas indépendants.",
+    "Repères affichés 0/N après rejet calculés sur une sortie validée vide : ne prouvent pas que ces mots manquent dans le brut.",
+    "Sorties manuelles rapportées : transcription source et réponse native brute non fournies.",
+    "Deux diagnostics ultérieurs indiquent Texte et aucun appel natif ; ils ne sont pas attribuables aux mails avec certitude. Ullie affirme avoir vérifié le choix Mail pour le cinquième essai."
+  ],
+  "subsequent_diagnostics": [
+    {
+      "date": "2026-09-09 09:12:47 +0200",
+      "format": "Texte",
+      "requested": "local",
+      "result": "transcription conservée",
+      "native_called": false,
+      "origin": "non appelé",
+      "state": "traitement non exécuté ou indisponible",
+      "postprocess_ms": 1,
+      "stop_to_publication_ms": 367,
+      "last_model_load_ms": 11818,
+      "nonempty_lines": 1,
+      "bullets": 0,
+      "publication": "inséré"
+    },
+    {
+      "date": "2026-09-09 09:16:49 +0200",
+      "format": "Texte",
+      "requested": "local",
+      "result": "transcription conservée",
+      "native_called": false,
+      "origin": "non appelé",
+      "state": "traitement non exécuté ou indisponible",
+      "postprocess_ms": 1,
+      "stop_to_publication_ms": 477,
+      "last_model_load_ms": 11818,
+      "nonempty_lines": 1,
+      "bullets": 0,
+      "publication": "inséré"
+    }
+  ]
+}

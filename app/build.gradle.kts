@@ -3,6 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true"
+
 android {
     namespace = "com.kafkasl.phonewhisper"
     compileSdk = 34
@@ -11,12 +13,17 @@ android {
         buildConfig = true
     }
 
+    androidResources { noCompress += listOf("gguf", "litertlm") }
+    // Gemma is installed once from inside the app. The old bundled 350M is not packaged.
+    if (localFormatPrototype) packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
+
     defaultConfig {
         applicationId = "com.uhama.whisperpin"
         minSdk = 30
         targetSdk = 34
-        versionCode = 11
-        versionName = "0.5.8-wp"
+        buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
+        versionCode = 34
+        versionName = if (localFormatPrototype) "0.9.5-wp-gemma-test" else "0.9.5-wp"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }
@@ -42,11 +49,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    @Suppress("DEPRECATION")
-    kotlinOptions { jvmTarget = "17" }
-
     testOptions { unitTests { isIncludeAndroidResources = true } }
 }
+
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -55,9 +61,12 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("org.apache.commons:commons-compress:1.27.1")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("com.ibm.icu:icu4j:78.3")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")

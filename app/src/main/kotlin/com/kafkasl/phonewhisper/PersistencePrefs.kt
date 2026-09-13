@@ -1,11 +1,21 @@
 package com.kafkasl.phonewhisper
 
 import android.content.Context
+import android.content.SharedPreferences
 
-class PersistencePrefs(ctx: Context) {
-    private val p = ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE)
+class PersistencePrefs internal constructor(private val p: SharedPreferences) {
+    constructor(ctx: Context) : this(ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE))
 
     init { migrateCloudCleanupPreferences() }
+
+    /** Appearance survives activity recreation and defaults to the device setting. */
+    var themeMode: ThemeMode
+        get() = ThemeMode.fromPreference(p.getString(KEY_THEME_MODE, null))
+        set(value) { p.edit().putString(KEY_THEME_MODE, value.preferenceValue).apply() }
+
+    var showTranscript: Boolean
+        get() = p.getBoolean("show_transcript", true)
+        set(value) { p.edit().putBoolean("show_transcript", value).apply() }
 
     var buttonX: Int
         get() = p.getInt("btn_x", -1)
@@ -38,6 +48,20 @@ class PersistencePrefs(ctx: Context) {
         get() = p.getString("last_error", null)
         set(v) { p.edit().putString("last_error", v).apply() }
 
+    internal val lastPostprocessingDiagnostic: String?
+        get() = p.getString("last_postprocessing_diagnostic", null)
+
+    internal val lastFormatPostprocessingDiagnostic: String?
+        get() = p.getString("last_format_postprocessing_diagnostic", null)
+
+    /** A plain dictation used to explain an unsuccessful mail must not erase its diagnostic. */
+    internal fun recordPostprocessingDiagnostic(report: String, formatRequested: Boolean) {
+        p.edit().apply {
+            putString("last_postprocessing_diagnostic", report)
+            if (formatRequested) putString("last_format_postprocessing_diagnostic", report)
+        }.apply()
+    }
+
     /** Ajoute automatiquement une espace à la fin de chaque transcription insérée. */
     var trailingSpace: Boolean
         get() = p.getBoolean("trailing_space", false)
@@ -48,9 +72,36 @@ class PersistencePrefs(ctx: Context) {
         get() = DictationLanguage.fromPreference(p.getString("dictation_language", null))
         set(v) { p.edit().putString("dictation_language", v.preferenceValue).apply() }
 
+    internal var numberStyle: NumberStyle
+        get() = NumberStyle.entries.firstOrNull { it.name == p.getString("number_style", null) } ?: NumberStyle.DIGITS
+        set(value) { p.edit().putString("number_style", value.name).apply() }
+
     var cloudCleanupEnabled: Boolean
         get() = p.getBoolean("cloud_cleanup_enabled", false)
         set(v) { p.edit().putBoolean("cloud_cleanup_enabled", v).apply() }
+
+    var lightTextCleanup: Boolean
+        get() = p.getBoolean("light_text_cleanup", true)
+        set(value) { p.edit().putBoolean("light_text_cleanup", value).apply() }
+
+    /** Keep existing cloud preferences. Unvalidated local models are restricted to prototype builds. */
+    var formattingEngine: String
+        get() {
+            val requested = p.getString("formatting_engine", null)
+            return when {
+                requested == "cloud" -> "cloud"
+                requested == "off" -> "off"
+                requested == "local" -> if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) "local" else "off"
+                cloudCleanupEnabled -> "cloud"
+                BuildConfig.LOCAL_FORMAT_PROTOTYPE -> "local"
+                else -> "off"
+            }
+        }
+        set(value) {
+            require(value in listOf("local", "cloud", "off"))
+            require(value != "local" || BuildConfig.LOCAL_FORMAT_PROTOTYPE)
+            p.edit().putString("formatting_engine", value).putBoolean("cloud_cleanup_enabled", value == "cloud").apply()
+        }
 
     fun cloudModel(): CuratedCloudModel =
         CloudModelCatalog.selected(p.getString(CloudModelPreferences.KEY, null))
@@ -73,6 +124,7 @@ class PersistencePrefs(ctx: Context) {
     }
 
     companion object {
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_ANCHOR_EDGE = "btn_anchor_edge"
         private const val KEY_ANCHOR_OFFSET = "btn_anchor_offset"
         private const val LEGACY_OPENROUTER_MODEL_KEY = "cloud_cleanup_model_openrouter"

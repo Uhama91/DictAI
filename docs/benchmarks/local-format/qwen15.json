@@ -1,0 +1,343 @@
+{
+  "candidate": {
+    "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+    "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+    "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+    "size": 1117320736,
+    "sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e"
+  },
+  "host_only": true,
+  "harness_revision": 2,
+  "prompt_batch": 4096,
+  "micro_batch": 128,
+  "threads": 2,
+  "cases": [
+    {
+      "id": "fr-list-short",
+      "language": "French",
+      "kind": "list",
+      "text": "Il faut acheter du pain, du lait et 3 pommes.",
+      "facts": [
+        "pain",
+        "lait",
+        "3",
+        "pommes"
+      ],
+      "style": "current",
+      "output": "• Pain  \n• Laï  \n• 3 Pommes",
+      "missing_literal_facts": [
+        "lait"
+      ],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 5477.381805991172,
+      "process_ms": 6429.501209990121,
+      "native_metrics": [
+        "0.06.274.552 I common_perf_print:        load time =    3236.73 ms",
+        "0.06.274.555 I common_perf_print: prompt eval time =    3235.89 ms /   138 tokens (   23.45 ms per token,    42.65 tokens per second)",
+        "0.06.274.560 I common_perf_print:        eval time =     789.13 ms /    12 runs   (   65.76 ms per token,    15.21 tokens per second)",
+        "0.06.274.564 I common_perf_print:       total time =    4068.51 ms /   150 tokens"
+      ]
+    },
+    {
+      "id": "fr-list-actions",
+      "language": "French",
+      "kind": "list",
+      "text": "Demain, appeler Maëlys pour confirmer les 23 élèves, imprimer 2 fiches par élève et apporter les cahiers bleus.",
+      "facts": [
+        "demain",
+        "Maëlys",
+        "23",
+        "2",
+        "bleus"
+      ],
+      "style": "current",
+      "output": "• Appeler Maëlys pour confirmer les 23 élèves  \n• Imprimer 2 fiches par élève  \n• Apporter les cahiers bleus",
+      "missing_literal_facts": [
+        "demain"
+      ],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 5669.265741002164,
+      "process_ms": 8299.710195002262,
+      "native_metrics": [
+        "0.08.176.082 I common_perf_print:        load time =    3739.25 ms",
+        "0.08.176.084 I common_perf_print: prompt eval time =    3738.16 ms /   162 tokens (   23.08 ms per token,    43.34 tokens per second)",
+        "0.08.176.089 I common_perf_print:        eval time =    2399.33 ms /    36 runs   (   66.65 ms per token,    15.00 tokens per second)",
+        "0.08.176.090 I common_perf_print:       total time =    6252.02 ms /   198 tokens"
+      ]
+    },
+    {
+      "id": "fr-email",
+      "language": "French",
+      "kind": "email",
+      "text": "Bonjour Julie, je confirme notre rendez-vous mercredi à 14 h 30. Peux-tu apporter les documents pour la réunion ? Merci et à bientôt.",
+      "facts": [
+        "Julie",
+        "mercredi",
+        "14",
+        "30",
+        "documents",
+        "réunion"
+      ],
+      "style": "current",
+      "output": "Bonjour Julie,\n\nJe vous confirme notre rendez-vous pour mercredi à 14h30. Pourriez-vous apporter les documents nécessaires pour la réunion ?\n\nMerci et à bientôt.\n\nCordialement,\n[Votre nom]",
+      "missing_literal_facts": [],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 6015.592233990901,
+      "process_ms": 9989.873525992152,
+      "native_metrics": [
+        "0.09.863.547 I common_perf_print:        load time =    4091.07 ms",
+        "0.09.863.552 I common_perf_print: prompt eval time =    4090.13 ms /   175 tokens (   23.37 ms per token,    42.79 tokens per second)",
+        "0.09.863.555 I common_perf_print:        eval time =    3704.95 ms /    55 runs   (   67.36 ms per token,    14.84 tokens per second)",
+        "0.09.863.556 I common_perf_print:       total time =    7943.69 ms /   230 tokens"
+      ]
+    },
+    {
+      "id": "fr-email-negative",
+      "language": "French",
+      "kind": "email",
+      "text": "Bonjour Karim, je ne pourrai pas venir mardi. Je suis disponible jeudi à 16 h. Merci de prévenir Maëlys. À bientôt.",
+      "facts": [
+        "Karim",
+        "pas",
+        "mardi",
+        "jeudi",
+        "16",
+        "Maëlys"
+      ],
+      "style": "current",
+      "output": "Bonjour Karim,\n\nJe ne serai pas disponible le mardi. Je suis disponible jeudi à 16 heures. Merci de me prévenir Maëlys.\n\nÀ bientôt.\n\nCordialement,  \n[Votre nom]",
+      "missing_literal_facts": [],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 6001.968333002878,
+      "process_ms": 9772.324970006594,
+      "native_metrics": [
+        "0.09.629.553 I common_perf_print:        load time =    4120.65 ms",
+        "0.09.629.556 I common_perf_print: prompt eval time =    4119.76 ms /   172 tokens (   23.95 ms per token,    41.75 tokens per second)",
+        "0.09.629.562 I common_perf_print:        eval time =    3470.04 ms /    50 runs   (   69.40 ms per token,    14.41 tokens per second)",
+        "0.09.629.565 I common_perf_print:       total time =    7753.63 ms /   222 tokens"
+      ]
+    },
+    {
+      "id": "fr-email-tiny",
+      "language": "French",
+      "kind": "email",
+      "text": "OK, ça marche.",
+      "facts": [
+        "marche"
+      ],
+      "forbidden": [],
+      "style": "current",
+      "output": "OK, ça marche.",
+      "missing_literal_facts": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 5078.642874999787,
+      "process_ms": 5599.989048001589,
+      "native_metrics": [
+        "0.05.459.582 I common_perf_print:        load time =    3246.56 ms",
+        "0.05.459.586 I common_perf_print: prompt eval time =    3245.62 ms /   138 tokens (   23.52 ms per token,    42.52 tokens per second)",
+        "0.05.459.591 I common_perf_print:        eval time =     365.21 ms /     6 runs   (   60.87 ms per token,    16.43 tokens per second)",
+        "0.05.459.593 I common_perf_print:       total time =    3632.65 ms /   144 tokens"
+      ]
+    },
+    {
+      "id": "fr-custom",
+      "language": "French",
+      "kind": "custom",
+      "text": "Prévenir Julie et imprimer 23 exemplaires. Ne pas envoyer le dossier à Karim. Tout doit être prêt vendredi à 18 h.",
+      "facts": [
+        "Julie",
+        "23",
+        "pas",
+        "Karim",
+        "vendredi",
+        "18"
+      ],
+      "style": "current",
+      "output": "Actions:\n- Prévenir Julie\n- Imprimer 23 exemplaires\n\nDeadline:\n- Vendredi à 18 h",
+      "missing_literal_facts": [
+        "pas",
+        "Karim"
+      ],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 5674.874313001055,
+      "process_ms": 7602.399242998217,
+      "native_metrics": [
+        "0.07.468.774 I common_perf_print:        load time =    3751.38 ms",
+        "0.07.468.776 I common_perf_print: prompt eval time =    3750.47 ms /   162 tokens (   23.15 ms per token,    43.19 tokens per second)",
+        "0.07.468.781 I common_perf_print:        eval time =    1720.45 ms /    26 runs   (   66.17 ms per token,    15.11 tokens per second)",
+        "0.07.468.783 I common_perf_print:       total time =    5556.28 ms /   188 tokens"
+      ]
+    },
+    {
+      "id": "en-list",
+      "language": "English",
+      "kind": "list",
+      "text": "For Monday, buy 2 notebooks, 5 blue pens and 1 green folder.",
+      "facts": [
+        "Monday",
+        "2",
+        "notebooks",
+        "5",
+        "blue",
+        "pens",
+        "1",
+        "green",
+        "folder"
+      ],
+      "style": "current",
+      "output": "• Buy 2 notebooks\n• Buy 5 blue pens\n• Buy 1 green folder",
+      "missing_literal_facts": [
+        "Monday"
+      ],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 5175.675225997111,
+      "process_ms": 6646.280355998897,
+      "native_metrics": [
+        "0.06.518.861 I common_perf_print:        load time =    3276.60 ms",
+        "0.06.518.865 I common_perf_print: prompt eval time =    3275.75 ms /   141 tokens (   23.23 ms per token,    43.04 tokens per second)",
+        "0.06.518.868 I common_perf_print:        eval time =    1287.56 ms /    19 runs   (   67.77 ms per token,    14.76 tokens per second)",
+        "0.06.518.869 I common_perf_print:       total time =    4625.06 ms /   160 tokens"
+      ]
+    },
+    {
+      "id": "en-list-actions",
+      "language": "English",
+      "kind": "list",
+      "text": "Call Maëlys tomorrow, send the 3 invoices to OpenAI and check the Studio 23 booking for Friday.",
+      "facts": [
+        "Maëlys",
+        "tomorrow",
+        "3",
+        "OpenAI",
+        "Studio 23",
+        "Friday"
+      ],
+      "style": "current",
+      "output": "- Call Maëlys tomorrow\n- Send the 3 invoices to OpenAI\n- Check the Studio 23 booking for Friday",
+      "missing_literal_facts": [],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 5797.087994986214,
+      "process_ms": 7786.576339989551,
+      "native_metrics": [
+        "0.07.663.283 I common_perf_print:        load time =    3936.53 ms",
+        "0.07.663.286 I common_perf_print: prompt eval time =    3935.54 ms /   158 tokens (   24.91 ms per token,    40.15 tokens per second)",
+        "0.07.663.291 I common_perf_print:        eval time =    1788.23 ms /    27 runs   (   66.23 ms per token,    15.10 tokens per second)",
+        "0.07.663.292 I common_perf_print:       total time =    5807.97 ms /   185 tokens"
+      ]
+    },
+    {
+      "id": "en-email",
+      "language": "English",
+      "kind": "email",
+      "text": "Hi Julie, our meeting is on Wednesday at 2:30 pm. Please bring the 3 signed forms. Thanks and see you then.",
+      "facts": [
+        "Julie",
+        "Wednesday",
+        "2",
+        "30",
+        "3",
+        "signed",
+        "forms"
+      ],
+      "style": "current",
+      "output": "Subject: Meeting Confirmation - Wednesday, 2:30 PM\n\nDear Julie,\n\nOur scheduled meeting is set for Wednesday at 2:30 PM. Please ensure that you have brought the three signed forms.\n\nThank you, and we look forward to seeing you then.\n\nBest regards,\n[Your Name]",
+      "missing_literal_facts": [],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 5786.88253799919,
+      "process_ms": 10299.21359400032,
+      "native_metrics": [
+        "0.10.146.017 I common_perf_print:        load time =    3911.83 ms",
+        "0.10.146.018 I common_perf_print: prompt eval time =    3910.90 ms /   162 tokens (   24.14 ms per token,    41.42 tokens per second)",
+        "0.10.146.023 I common_perf_print:        eval time =    4168.29 ms /    62 runs   (   67.23 ms per token,    14.87 tokens per second)",
+        "0.10.146.025 I common_perf_print:       total time =    8276.15 ms /   224 tokens"
+      ]
+    },
+    {
+      "id": "en-email-negative",
+      "language": "English",
+      "kind": "email",
+      "text": "Hello Karim, do not send the documents today. Wait until Friday and contact Maëlys first. Thank you.",
+      "facts": [
+        "Karim",
+        "not",
+        "today",
+        "Friday",
+        "Maëlys"
+      ],
+      "style": "current",
+      "output": "Subject: Document Submission Delay\n\nDear Karim,\n\nPlease do not send any documents today. We will hold off until Friday and then contact Maëlys first.\n\nThank you.\n\nBest regards,\n[Your Name]",
+      "missing_literal_facts": [],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 6378.368322999449,
+      "process_ms": 9554.355675994884,
+      "native_metrics": [
+        "0.09.416.231 I common_perf_print:        load time =    4469.94 ms",
+        "0.09.416.233 I common_perf_print: prompt eval time =    4469.01 ms /   158 tokens (   28.28 ms per token,    35.35 tokens per second)",
+        "0.09.416.234 I common_perf_print:        eval time =    2909.33 ms /    42 runs   (   69.27 ms per token,    14.44 tokens per second)",
+        "0.09.416.235 I common_perf_print:       total time =    7515.43 ms /   200 tokens"
+      ]
+    },
+    {
+      "id": "en-email-tiny",
+      "language": "English",
+      "kind": "email",
+      "text": "OK, that works.",
+      "facts": [
+        "works"
+      ],
+      "forbidden": [],
+      "style": "current",
+      "output": "OK, that works.",
+      "missing_literal_facts": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 5116.748028987786,
+      "process_ms": 5568.915644995286,
+      "native_metrics": [
+        "0.05.428.788 I common_perf_print:        load time =    3245.20 ms",
+        "0.05.428.790 I common_perf_print: prompt eval time =    3243.94 ms /   137 tokens (   23.68 ms per token,    42.23 tokens per second)",
+        "0.05.428.793 I common_perf_print:        eval time =     299.83 ms /     5 runs   (   59.97 ms per token,    16.68 tokens per second)",
+        "0.05.428.794 I common_perf_print:       total time =    3562.41 ms /   142 tokens"
+      ]
+    },
+    {
+      "id": "en-custom",
+      "language": "English",
+      "kind": "custom",
+      "text": "Call Julie and print 23 copies. Do not send the file to Karim. Everything must be ready by Friday at 6 pm.",
+      "facts": [
+        "Julie",
+        "23",
+        "not",
+        "Karim",
+        "Friday",
+        "6"
+      ],
+      "style": "current",
+      "output": "Actions:\n- Call Julie\n- Print 23 copies\n\nDeadline:\n- Friday at 6 pm",
+      "missing_literal_facts": [
+        "not",
+        "Karim"
+      ],
+      "forbidden": [],
+      "exit_code": 0,
+      "first_stdout_ms_including_model_load": 6404.843397001969,
+      "process_ms": 8022.997670006589,
+      "native_metrics": [
+        "0.07.854.044 I common_perf_print:        load time =    4496.58 ms",
+        "0.07.854.048 I common_perf_print: prompt eval time =    4495.69 ms /   156 tokens (   28.82 ms per token,    34.70 tokens per second)",
+        "0.07.854.051 I common_perf_print:        eval time =    1386.96 ms /    21 runs   (   66.05 ms per token,    15.14 tokens per second)",
+        "0.07.854.052 I common_perf_print:       total time =    5951.01 ms /   177 tokens"
+      ]
+    }
+  ],
+  "performance_scope": "Quality test on host; process load included; concurrent compilation may affect timings. Not a mobile latency benchmark."
+}

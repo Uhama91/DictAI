@@ -3,6 +3,7 @@
     <style name="Theme.PhoneWhisper" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Accent / color roles — carnet sombre DictAI -->
         <item name="colorPrimary">@color/primary</item>
+        <item name="android:colorAccent">@color/primary</item>
         <item name="colorPrimaryContainer">@color/primary_container</item>
         <item name="colorOnPrimaryContainer">@color/on_primary_container</item>
         <item name="colorOnPrimary">@color/dictai_bg</item>
@@ -16,6 +17,7 @@
 
         <!-- Status / Navigation Bars -->
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:statusBarColor">?android:attr/colorBackground</item>
         <item name="android:navigationBarColor">?android:attr/colorBackground</item>
     </style>

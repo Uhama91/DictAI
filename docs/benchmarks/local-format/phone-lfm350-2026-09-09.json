@@ -1,0 +1,87 @@
+{
+  "date_received": "2026-09-09",
+  "provenance": "Benchmark report pasted by the user. No ADB access or device operation by Codex.",
+  "application": "0.7.2-wp-local-test",
+  "device": {
+    "manufacturer": "Xiaomi",
+    "model": "25053PC47G",
+    "android": "16"
+  },
+  "model": "LFM2.5-350M-Q4_K_M.gguf",
+  "runtime": "arm64-dotprod-fp16",
+  "threads": 2,
+  "limitations": [
+    "Isolated benchmark, not ASR stop through insertion.",
+    "First call uses a fresh engine; OS file cache not cleared.",
+    "Content anchors are not a semantic grouping score.",
+    "These synthetic cases are already punctuated; spontaneous feedback cases remain failing."
+  ],
+  "runs": [
+    {
+      "pass": 1,
+      "case_id": "fr-list-actions",
+      "load_ms": 682,
+      "first_chunk_ms": 1384,
+      "total_ms": 2447,
+      "direct_no_llm": false,
+      "content_anchors_matched": 5,
+      "content_anchors_expected": 5,
+      "groups_observed": 3
+    },
+    {
+      "pass": 1,
+      "case_id": "en-email-negative",
+      "load_ms": null,
+      "first_chunk_ms": 617,
+      "total_ms": 1293,
+      "direct_no_llm": false,
+      "content_anchors_matched": 5,
+      "content_anchors_expected": 5,
+      "groups_observed": 3
+    },
+    {
+      "pass": 1,
+      "case_id": "fr-email-tiny",
+      "load_ms": null,
+      "first_chunk_ms": null,
+      "total_ms": 0,
+      "direct_no_llm": true,
+      "content_anchors_matched": 1,
+      "content_anchors_expected": 1,
+      "groups_observed": 1
+    },
+    {
+      "pass": 2,
+      "case_id": "fr-list-actions",
+      "load_ms": null,
+      "first_chunk_ms": 700,
+      "total_ms": 1723,
+      "direct_no_llm": false,
+      "content_anchors_matched": 5,
+      "content_anchors_expected": 5,
+      "groups_observed": 3
+    },
+    {
+      "pass": 2,
+      "case_id": "en-email-negative",
+      "load_ms": null,
+      "first_chunk_ms": 613,
+      "total_ms": 1304,
+      "direct_no_llm": false,
+      "content_anchors_matched": 5,
+      "content_anchors_expected": 5,
+      "groups_observed": 3
+    },
+    {
+      "pass": 2,
+      "case_id": "fr-email-tiny",
+      "load_ms": null,
+      "first_chunk_ms": null,
+      "total_ms": 0,
+      "direct_no_llm": true,
+      "content_anchors_matched": 1,
+      "content_anchors_expected": 1,
+      "groups_observed": 1
+    }
+  ]
+}

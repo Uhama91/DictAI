@@ -1,0 +1,4 @@
+Liquid AI LFM2.5-350M, official Q4_K_M quantization.
+Source: https://huggingface.co/LiquidAI/LFM2.5-350M-GGUF/resolve/9969000761ce34de907bf20017cbfc3d52d6eaf9/LFM2.5-350M-Q4_K_M.gguf
+SHA-256: 7e6f72643caafc9a68256686638c4d7916f2cec76d1df478d4c3ddcd95a6aed4
+Weights unmodified. See LICENSE.txt.

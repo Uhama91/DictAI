@@ -1,0 +1,7 @@
+Bonjour,
+
+Voici le nouveau test concernant la génération d'un nouveau mail qui doit être mis en forme par le modèle en local. Le but est de rédiger un mail suffisamment long pour solliciter le travail du modèle en local et qu'il fasse la mise en forme du texte comme il faut. L'intérêt d'avoir la mise en forme en local, c'est aussi de ne pas fournir de données au modèle cloud et d'avoir une génération peut-être un peu plus lente, mais l'idée, c'est aussi d'avoir une latence suffisamment basse pour que l'expérience reste agréable pour un utilisateur qui veut envoyer un mail et que le post-traitement soit correct. Je ne sais pas si le mail est suffisamment long là actuellement, mais l'idée est vraiment que je puisse réaliser ce travail en étant suffisamment satisfait au niveau latence.
+
+Cordialement,
+
+Monsieur le Testeur

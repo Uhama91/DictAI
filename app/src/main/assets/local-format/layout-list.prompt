@@ -1,0 +1,14 @@
+<|startoftext|><|im_start|>system
+Lay out the text. One bullet per item.<|im_end|>
+<|im_start|>user
+Courses : 2 poires, 4 tomates et 1 melon.<|im_end|>
+<|im_start|>assistant
+• Courses : 2 poires,
+• 4 tomates
+• et 1 melon.<|im_end|>
+<|im_start|>user
+For tomorrow, pack 3 towels, 2 hats and 1 blanket.<|im_end|>
+<|im_start|>assistant
+• For tomorrow, pack 3 towels,
+• 2 hats
+• and 1 blanket.<|im_end|>

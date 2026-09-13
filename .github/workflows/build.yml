@@ -4,24 +4,40 @@ on:
   push:
     branches: [ "**" ]
   workflow_dispatch:
+    inputs:
+      local_format_prototype:
+        description: Build the Gemma GPU text/list/email prototype
+        type: boolean
+        default: false
+      publish_prerelease:
+        description: Publish the prototype APK as a downloadable prerelease
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[local-layout-test]') || contains(github.event.head_commit.message, '[local-layout-artifact]'))) }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android Build Tools 35.0.0 and NDK 28.2.13676358
-        run: sdkmanager "build-tools;35.0.0" "ndk;28.2.13676358"
+      - name: Install pinned Android tools
+        run: sdkmanager "platforms;android-34" "build-tools;35.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
@@ -30,26 +46,65 @@ jobs:
         run: python3 -m unittest scripts/test_check_apk_native_alignment.py -v
 
       - name: Run transcribe.cpp native bundle contract
-        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" scripts/test_transcribe_cpp_bundle.sh
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" bash scripts/test_transcribe_cpp_bundle.sh
 
-      - name: Run unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Build isolated local formatter
+        if: env.PROTOTYPE != 'true'
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" DICTAI_CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake" bash scripts/build_local_format_android.sh
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Run unit tests and build selected APK
+        shell: bash
+        run: |
+          args=(testDebugUnitTest assembleDebug assembleDebugAndroidTest --stacktrace)
+          if [[ "$PROTOTYPE" == true ]]; then args+=(-PlocalFormatPrototype=true); fi
+          ./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' "${args[@]}"
 
       - name: Check native library alignment and denylist
         run: python3 scripts/check_apk_native_alignment.py app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Verify 16 KB ZIP alignment
-        run: $ANDROID_HOME/build-tools/35.0.0/zipalign -c -P 16 -v 4 app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify signature and 16 KB ZIP alignment
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk whisperpin-debug.apk
+      - name: Verify packaged model and prepare download
+        run: python3 scripts/prepare_ci_apk.py
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: whisperpin-debug-apk
-          path: whisperpin-debug.apk
+          name: ${{ env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'whisperpin-debug-apk' }}
+          path: dist/*
+          compression-level: 0
           if-no-files-found: error
+
+  publish-test:
+    needs: build
+    if: (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype && inputs.publish_prerelease) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[local-layout-test]'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dictai-local-layout-test
+          path: dist
+      - name: Publish downloadable test APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          cd dist
+          sha256sum -c SHA256SUMS
+          tag="gemma-test-$GITHUB_RUN_ID"
+          printf '%s\n' \
+            'DictAI 0.9.5 Android ARM64 : notes protégées, correction plus accessible et interface plus chaleureuse.' \
+            'Message : le parcours direct est conservé. Note ouverte volontairement : la pastille met la dictée en pause ou la reprend ; elle ne dépose plus la note dans un autre champ.' \
+            'Le bouton Insérer… affiche le texte à confirmer. La note reste enregistrée après insertion. Le glissement vers le haut réaffiche la note ; Terminer la range dans Mes notes.' \
+            'Correction : acquisition du focus et du clavier coordonnée après le toucher ; position du curseur préservée ; bouton Modifier pour agrandir ; défilement automatique suspendu pendant la correction.' \
+            'Mes notes distingue titre, aperçu et date. Tons charbon chaud, crème et sauge ; cartes et commandes plus arrondies. Captures, photos, vocabulaire et exports PDF/HTML conservés.' \
+            'Tests JVM, compilation des tests Android et vérifications de signature/alignement. Aucun appareil Android accessible : fluidité tactile, clavier et rendu visuel restent à vérifier sur téléphone.' > release-notes.md
+          gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title 'DictAI 0.9.5 — notes protégées et édition plus douce' --notes-file release-notes.md

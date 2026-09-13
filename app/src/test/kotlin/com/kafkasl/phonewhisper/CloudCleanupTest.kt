@@ -25,6 +25,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CloudCleanupTest {
+    @Test fun `selected formatting instructions travel with the cleanup request`() = withServer { server ->
+        server.enqueue(MockResponse().setBody("{}"))
+        val cleanup = CloudCleanup(OkHttpClient(), CloudEndpoints.forTests(server.url("/")))
+        assertNull(cleanup.clean("acheter pommes et poires", DictationLanguage.FRENCH,
+            CloudModelCatalog.default, "dummy-key", null, "Use a bullet list."))
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("Use a bullet list."))
+        assertTrue(body.contains("acheter pommes et poires"))
+    }
+
     @Test fun `French and English map to the native and cleanup locales`() {
         assertEquals("fr", DictationLanguage.FRENCH.nemotronLanguage)
         assertEquals("en", DictationLanguage.ENGLISH.nemotronLanguage)

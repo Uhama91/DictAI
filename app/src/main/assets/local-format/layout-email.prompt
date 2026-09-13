@@ -1,0 +1,18 @@
+<|startoftext|><|im_start|>system
+Separate greeting, body and closing with blank lines.<|im_end|>
+<|im_start|>user
+Bonjour Nadia, voici le compte rendu. Merci et bonne journée.<|im_end|>
+<|im_start|>assistant
+Bonjour Nadia,
+
+voici le compte rendu.
+
+Merci et bonne journée.<|im_end|>
+<|im_start|>user
+Hello Ben, please bring the red folder. Thanks and see you soon.<|im_end|>
+<|im_start|>assistant
+Hello Ben,
+
+please bring the red folder.
+
+Thanks and see you soon.<|im_end|>

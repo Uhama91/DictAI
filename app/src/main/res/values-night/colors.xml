@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#5BCB95</color>
-    <color name="primary_container">#1F1F25</color>
-    <color name="on_primary_container">#E8E6E0</color>
-
-    <!-- carnet sombre DictAI -->
-    <color name="dictai_bg">#16161A</color>
-    <color name="dictai_surface">#1F1F25</color>
-    <color name="dictai_ink">#E8E6E0</color>
-    <color name="dictai_ink_muted">#9A988F</color>
-    <color name="dictai_error">#E5705F</color>
+    <color name="primary">#AFD0AD</color>
+    <color name="on_primary">#201F1C</color>
+    <color name="primary_container">#344035</color>
+    <color name="on_primary_container">#F5EEE4</color>
+    <color name="dictai_bg">#201F1C</color>
+    <color name="dictai_surface">#2B2925</color>
+    <color name="dictai_ink">#F5EEE4</color>
+    <color name="dictai_ink_muted">#BDB2A5</color>
+    <color name="dictai_error">#E89B89</color>
 </resources>

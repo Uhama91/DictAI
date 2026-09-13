@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#1A73E8</color>
-    <color name="primary_container">#D2E3FC</color>
-    <color name="on_primary_container">#174EA6</color>
+    <color name="primary">#55725E</color>
+    <color name="on_primary">#FFFDF7</color>
+    <color name="primary_container">#D9EAD5</color>
+    <color name="on_primary_container">#233E26</color>
+    <color name="dictai_bg">#F8F4EB</color>
+    <color name="dictai_surface">#FFFCF6</color>
+    <color name="dictai_surface_raised">#F0EEE6</color>
+    <color name="dictai_ink">#253239</color>
+    <color name="dictai_ink_muted">#5B6870</color>
+    <color name="dictai_error">#8F4A40</color>
     <!-- Icône DictAI : encre verte « carnet » sur fond crème -->
     <color name="ic_launcher_bg">#FAF8F3</color>
 </resources>

@@ -10,15 +10,16 @@ import android.graphics.drawable.Drawable
 /** Fond "page de carnet" : lignes réglées horizontales + filet de marge vert. */
 class NotebookBackgroundDrawable(ctx: Context) : Drawable() {
     private val d = ctx.resources.displayMetrics.density
+    private val palette = ThemeTokens.palette(ctx)
     private val spacing = 34f * d
     private val marginX = 30f * d
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ThemeTokens.LINE; strokeWidth = 1f * d
+        color = palette.line; strokeWidth = 1f * d
     }
     private val marginPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = (0x55_000000.toInt() and 0 or ThemeTokens.GREEN); alpha = 90; strokeWidth = 1.5f * d
+        color = palette.green; alpha = 115; strokeWidth = 1.5f * d
     }
-    private val bgPaint = Paint().apply { color = ThemeTokens.BG }
+    private val bgPaint = Paint().apply { color = palette.bg }
 
     override fun draw(canvas: Canvas) {
         val b = bounds

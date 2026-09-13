@@ -80,7 +80,7 @@ class InjectionControllerTest {
         }
     }
 
-    @Test fun `present controller never uses external clipboard fallback`() {
+    @Test fun `present controller always copies even when insertion succeeds or fails`() {
         InjectionResult.values().forEach { controllerResult ->
             var externalClipboardWrites = 0
             val controller = object : InjectionController {
@@ -92,9 +92,23 @@ class InjectionControllerTest {
                 true
             }
 
-            assertEquals(controllerResult, result)
-            assertEquals(0, externalClipboardWrites)
+            assertEquals(if (controllerResult == InjectionResult.Inserted) InjectionResult.Inserted else InjectionResult.Copied, result)
+            assertEquals(1, externalClipboardWrites)
         }
+    }
+
+    @Test fun `throwing controller keeps recoverable clipboard text`() {
+        val controller = object : InjectionController {
+            override fun inject(text: String): InjectionResult = error("Disconnected")
+        }
+        assertEquals(InjectionResult.Copied, injectOrCopy(controller, "bonjour") { true })
+    }
+
+    @Test fun `clipboard failure does not prevent successful insertion`() {
+        val controller = object : InjectionController {
+            override fun inject(text: String): InjectionResult = InjectionResult.Inserted
+        }
+        assertEquals(InjectionResult.Inserted, injectOrCopy(controller, "bonjour") { false })
     }
 
     @Test fun `unfocused target requests focus then refreshes before reading fresh state`() {
@@ -338,6 +352,31 @@ class InjectionControllerTest {
             injectionFeedbackMessage(InjectionResult.Copied),
         )
         assertEquals("Insertion impossible", injectionFeedbackMessage(InjectionResult.Failed))
+    }
+
+
+    @Test fun `direct text insertion after a capture leaves the image clipboard alone`() {
+        val controller = object : InjectionController {
+            override fun inject(text: String) = orchestrateInjection(
+                directInsert = { true }, targetSafety = { InjectionTargetSafety.Safe },
+                prepareClipboard = { error("Must keep the image") }, paste = { error("No paste needed") },
+            )
+        }
+        assertEquals(InjectionResult.Inserted, injectOrCopy(controller, "bonjour",
+            copyToClipboard = { error("Must keep the image") }, preserveClipboardOnDirectInsert = true))
+    }
+    @Test fun `after a capture a failed insertion still makes the dictated text recoverable`() {
+        for (controller in listOf(null, object : InjectionController { override fun inject(text: String) = InjectionResult.Failed })) {
+            var writes = 0
+            assertEquals(InjectionResult.Copied, injectOrCopy(controller, "bonjour",
+                copyToClipboard = { writes++; assertEquals("bonjour", it); true }, preserveClipboardOnDirectInsert = true))
+            assertEquals(1, writes)
+        }
+    }
+    @Test fun `already copied fallback is not copied a second time after a capture`() {
+        val controller = object : InjectionController { override fun inject(text: String) = InjectionResult.Copied }
+        assertEquals(InjectionResult.Copied, injectOrCopy(controller, "bonjour",
+            copyToClipboard = { error("Already copied") }, preserveClipboardOnDirectInsert = true))
     }
 
     private data class TestInjectionTarget(
