@@ -1,3 +1,5 @@
+// Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -22,8 +24,8 @@ android {
         minSdk = 30
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
-        versionCode = 34
-        versionName = if (localFormatPrototype) "0.9.5-wp-gemma-test" else "0.9.5-wp"
+        versionCode = 35
+        versionName = if (localFormatPrototype) "0.9.6-dictai-gemma-test" else "0.9.6-dictai"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }

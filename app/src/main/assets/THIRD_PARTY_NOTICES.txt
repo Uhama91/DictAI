@@ -1,6 +1,27 @@
 THIRD-PARTY NOTICES
 ===================
 
+DictAI source
+-------------
+DictAI is a modified derivative of Phone Whisper by kafkasl. The upstream
+source snapshot and provenance are documented in the repository NOTICE file.
+That provenance notice is also included at assets/licenses/NOTICE.txt.
+The Apache License 2.0 text is included in the APK at
+assets/licenses/Apache-2.0.txt and applies subject to the separate notices
+below.
+
+sherpa-onnx 1.13.4
+------------------
+The bundled sherpa-onnx native libraries are distributed under the Apache
+License 2.0. The exact license text is included at
+assets/licenses/sherpa-onnx-1.13.4-LICENSE.txt.
+
+ONNX Runtime 1.27.0
+-------------------
+The bundled ONNX Runtime native library is distributed under the MIT License.
+The exact license text is included at
+assets/licenses/onnxruntime-1.27.0-LICENSE.txt.
+
 transcribe.cpp
 --------------
 Source: https://github.com/handy-computer/transcribe.cpp/tree/553f1099a2b3a5bc4421894be171f09960fc0f3a
@@ -64,3 +85,10 @@ https://openmdw.ai/license/
 
 The OpenMDW-1.1 license text is not reproduced in this notice. Refer to the
 official license URL above.
+
+Scope
+-----
+This file records the bundled native components and downloaded models known to
+be included or supported by this repository. Gradle dependencies and their
+transitive dependencies remain subject to their respective upstream notices;
+this file is not an exhaustive dependency-license report.

@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+<!-- Modified from Phone Whisper by kafkasl for DictAI; see ../NOTICE. -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Phone Whisper — Push-to-talk dictation for Android</title>
-  <meta name="description" content="Phone Whisper lets you speak into most apps without switching keyboards. Tap the floating button, speak, and your text is inserted when the app exposes a standard Android input field. Local or cloud transcription." />
+  <title>DictAI — Local dictation for Android</title>
+  <meta name="description" content="DictAI lets you speak into most apps without switching keyboards. Tap the floating button, edit the transcript, and insert it when the app exposes a standard Android input field. Local transcription with optional cloud cleanup." />
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,7 +15,7 @@
 
   <nav id="nav">
     <div class="nav-inner">
-      <a href="#" class="nav-logo" aria-label="Phone Whisper home">
+      <a href="#" class="nav-logo" aria-label="DictAI home">
         <svg class="nav-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <rect width="40" height="40" rx="10" fill="var(--accent)"/>
           <rect x="16" y="9" width="8" height="14" rx="4" fill="white"/>
@@ -22,14 +23,14 @@
           <line x1="20" y1="30" x2="20" y2="35" stroke="white" stroke-width="2" stroke-linecap="round"/>
           <line x1="16" y1="35" x2="24" y2="35" stroke="white" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <span>Phone Whisper</span>
+        <span>DictAI</span>
       </a>
       <div class="nav-links">
         <a href="#termux">Termux</a>
         <a href="#how-it-works">How it works</a>
-        <a href="#modes">Local vs cloud</a>
+        <a href="#modes">Local + optional cloud</a>
         <a href="#faq">FAQ</a>
-        <a href="https://github.com/kafkasl/phone-whisper" target="_blank" rel="noopener" id="nav-github">GitHub</a>
+        <a href="https://github.com/Uhama91/DictAI" target="_blank" rel="noopener" id="nav-github">GitHub</a>
       </div>
     </div>
   </nav>
@@ -44,7 +45,7 @@
         <h1>Push-to-talk dictation for Android that works across apps.</h1>
         <p class="hero-sub">
           Tap the floating button, speak, tap again, and your text is inserted into the currently focused field.<br>
-          No keyboard switching. Local or cloud transcription.
+          No keyboard switching. Local transcription with optional cloud cleanup.
         </p>
         <ul class="hero-points">
           <li>Better transcription than typical keyboard dictation</li>
@@ -52,13 +53,13 @@
           <li>Optional cleanup for prompts, commands, and general writing</li>
         </ul>
         <div class="hero-ctas">
-          <a href="https://github.com/kafkasl/phone-whisper/releases" id="cta-download" class="btn btn-primary" target="_blank" rel="noopener">Download APK</a>
-          <a href="https://github.com/kafkasl/phone-whisper" id="cta-github" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
+          <a href="https://github.com/Uhama91/DictAI/releases" id="cta-download" class="btn btn-primary" target="_blank" rel="noopener">Download APK</a>
+          <a href="https://github.com/Uhama91/DictAI" id="cta-github" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
         </div>
         <div class="hero-links">
-          <a href="mailto:pol.avms@gmail.com" id="link-contact">Contact me</a>
+          <a href="https://github.com/Uhama91/DictAI/issues" id="link-contact" target="_blank" rel="noopener">Report an issue</a>
           <span class="sep">·</span>
-          <a href="https://github.com/sponsors/kafkasl" id="link-sponsor" target="_blank" rel="noopener">Sponsor the project</a>
+          <a href="https://github.com/Uhama91/DictAI" id="link-source" target="_blank" rel="noopener">View the source</a>
         </div>
       </div>
       <div class="hero-visual" aria-hidden="true">
@@ -86,7 +87,7 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </div>
               </div>
-              <div class="overlay-button" id="overlay-btn" title="Tap to dictate" aria-label="Phone Whisper overlay button">
+              <div class="overlay-button" id="overlay-btn" title="Tap to dictate" aria-label="DictAI overlay button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" stroke="none"/>
                   <path d="M5 10c0 3.87 3.13 7 7 7s7-3.13 7-7"/>
@@ -135,7 +136,7 @@
           </div>
           <div class="speech-bubble" id="termux-speech-bubble"><span id="termux-speech-text"></span></div>
           <div class="termux-body">
-            <div class="termux-line muted">~/phone-whisper $</div>
+            <div class="termux-line muted">~/DictAI $</div>
             <div class="termux-line"><span class="prompt">$</span> <span id="termux-typed-text"></span><span class="cursor" id="termux-cursor">|</span></div>
             <div class="termux-note">The spoken text and inserted command can be different.</div>
           </div>
@@ -181,7 +182,7 @@
           <span class="step-num">4</span>
           <div class="step-body">
             <strong>Audio is transcribed</strong>
-            <p>On-device using local models, or sent to OpenAI Whisper with your own API key.</p>
+            <p>On-device using local models. Optional cleanup sends the transcript, formatting instructions, and any configured vocabulary or protected spellings to OpenRouter with your own API key.</p>
           </div>
         </li>
         <li class="step">
@@ -197,8 +198,8 @@
 
   <section id="modes">
     <div class="section-inner">
-      <h2>Local or cloud — your choice</h2>
-      <p class="section-sub">Both modes use your own hardware or your own API key. I run no backend.</p>
+      <h2>Local transcription, optional cloud cleanup</h2>
+      <p class="section-sub">Transcription runs on your device. You can send transcript text, formatting instructions, and any configured vocabulary or protected spellings to OpenRouter for cleanup with your own API key. I run no backend.</p>
       <div class="modes-grid">
         <div class="mode-card">
           <h3>Local mode</h3>
@@ -211,37 +212,37 @@
           <div class="models-table">
             <div class="models-table-head">Available models</div>
             <div class="model-row">
-              <span class="model-name">Parakeet 110M</span>
-              <span class="model-size">100 MB</span>
+              <span class="model-name">Nemotron 3.5 Handy (FR/EN)</span>
+              <span class="model-size">751 MB</span>
               <span class="model-note default-badge">Recommended</span>
             </div>
             <div class="model-row">
-              <span class="model-name">Moonshine Tiny</span>
-              <span class="model-size">103 MB</span>
-              <span class="model-note">Fastest</span>
-            </div>
-            <div class="model-row">
-              <span class="model-name">Whisper Base</span>
-              <span class="model-size">199 MB</span>
-              <span class="model-note">Solid baseline</span>
-            </div>
-            <div class="model-row">
-              <span class="model-name">Parakeet 0.6B</span>
+              <span class="model-name">Parakeet 0.6B (FR/EN)</span>
               <span class="model-size">465 MB</span>
-              <span class="model-note">Best quality</span>
+              <span class="model-note">sherpa-onnx</span>
+            </div>
+            <div class="model-row">
+              <span class="model-name">Nemotron 3.5 Live (FR/EN)</span>
+              <span class="model-size">453 MB</span>
+              <span class="model-note">Experimental</span>
+            </div>
+            <div class="model-row">
+              <span class="model-name">Nemotron 3.5 Compact (FR/EN)</span>
+              <span class="model-size">621 MB</span>
+              <span class="model-note">Compact GGUF</span>
             </div>
           </div>
         </div>
         <div class="mode-card">
-          <h3>Cloud mode</h3>
+          <h3>Optional cloud cleanup</h3>
           <ul>
-            <li>Uses OpenAI Whisper API</li>
-            <li>Your own API key, stored on-device</li>
+            <li>Uses OpenRouter for transcript cleanup</li>
+            <li>Your own API key, stored securely on-device</li>
             <li>No backend run by me</li>
-            <li>Optional: send transcript to OpenAI for cleanup</li>
+            <li>Transcript text, instructions, and configured vocabulary or protected spellings are sent; audio stays local</li>
           </ul>
           <div class="cloud-note">
-            Requests go straight from your phone to OpenAI. I'm not in the loop.
+            Requests go straight from your phone to OpenRouter. I'm not in the loop.
           </div>
         </div>
       </div>
@@ -253,7 +254,7 @@
       <div class="info-box">
         <h2>Why Accessibility permission is needed</h2>
         <p>
-          Phone Whisper uses Android Accessibility Service for one narrow reason: <strong>inserting dictated text into the currently focused text field across apps.</strong>
+          DictAI uses Android Accessibility Service to <strong>insert dictated text into the currently focused text field across apps</strong> after you explicitly interact with the overlay. It can also capture a screenshot when you explicitly request the note-capture feature.
         </p>
         <p>
           It does not replace your keyboard. It does not run background automation. It only acts after you explicitly tap the overlay button.
@@ -261,7 +262,7 @@
         <p>
           The app is open source. You can read exactly what it does before granting the permission.
         </p>
-        <a href="https://github.com/kafkasl/phone-whisper" class="info-link" target="_blank" rel="noopener">Read the source code on GitHub</a>
+        <a href="https://github.com/Uhama91/DictAI" class="info-link" target="_blank" rel="noopener">Read the source code on GitHub</a>
       </div>
     </div>
   </section>
@@ -284,8 +285,8 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
           <div>
-            <strong>Cloud mode goes direct to OpenAI.</strong>
-            <p>Audio is sent from your device straight to the OpenAI API using your own key. I don't operate a relay server.</p>
+            <strong>Optional cleanup goes direct to OpenRouter.</strong>
+            <p>Transcript text, formatting instructions, and any configured vocabulary or protected spellings are sent from your device straight to OpenRouter using your own key. Audio remains on-device and I don't operate a relay server.</p>
           </div>
         </div>
         <div class="privacy-point">
@@ -299,7 +300,7 @@
         </div>
       </div>
       <div class="privacy-links">
-        <a href="https://github.com/kafkasl/phone-whisper" target="_blank" rel="noopener">GitHub repo</a>
+        <a href="https://github.com/Uhama91/DictAI" target="_blank" rel="noopener">GitHub repo</a>
         <span class="sep">·</span>
         <a href="privacy.html">Privacy policy</a>
       </div>
@@ -312,15 +313,15 @@
       <div class="faq-list">
         <details class="faq-item" id="faq-keyboard">
           <summary>Why not just make it a keyboard?</summary>
-          <p>A custom keyboard means replacing your existing keyboard entirely. That's a lot of friction. Phone Whisper leaves your keyboard alone and works on top of any app, any keyboard.</p>
+          <p>A custom keyboard means replacing your existing keyboard entirely. That's a lot of friction. DictAI leaves your keyboard alone and works on top of any app, any keyboard.</p>
         </details>
         <details class="faq-item" id="faq-accessibility">
           <summary>Why does it need Accessibility permission?</summary>
-          <p>Android doesn't have a standard API for inserting text into another app's focused field. The Accessibility Service is the sanctioned way to do that cross-app. Phone Whisper uses it for exactly one thing: inserting the transcribed text.</p>
+          <p>Android doesn't have a standard API for inserting text into another app's focused field. The Accessibility Service is the sanctioned way to do that cross-app. DictAI uses it for inserting the transcribed text after you explicitly interact with the overlay.</p>
         </details>
         <details class="faq-item" id="faq-audio">
           <summary>Does audio stay on-device?</summary>
-          <p>In local mode, yes. In cloud mode, audio is sent directly to OpenAI's API from your device using your own API key. I don't have a backend and never see your audio.</p>
+          <p>Yes. Transcription runs locally. If you enable cleanup, the transcript text, formatting instructions, and any configured vocabulary or protected spellings are sent directly to OpenRouter from your device using your own API key. I don't have a backend and never receive your audio.</p>
         </details>
         <details class="faq-item" id="faq-compatibility">
           <summary>Does it work in every app?</summary>
@@ -344,13 +345,11 @@
 
   <footer id="footer">
     <div class="footer-inner">
-      <p class="footer-line">Built by Pol. A small open-source Android app, shipped early and improved in public.</p>
+      <p class="footer-line">DictAI is an open-source Android app maintained and improved in public, based on Phone Whisper by kafkasl.</p>
       <div class="footer-links">
-        <a href="https://github.com/kafkasl/phone-whisper" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/Uhama91/DictAI" target="_blank" rel="noopener">GitHub</a>
         <span class="sep">·</span>
-        <a href="mailto:pol.avms@gmail.com">pol.avms@gmail.com</a>
-        <span class="sep">·</span>
-        <a href="https://github.com/sponsors/kafkasl" target="_blank" rel="noopener">Sponsor</a>
+        <a href="https://github.com/Uhama91/DictAI/issues" target="_blank" rel="noopener">Issues</a>
         <span class="sep">·</span>
         <a href="privacy.html">Privacy policy</a>
       </div>

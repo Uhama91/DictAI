@@ -1,4 +1,4 @@
-name: Build WhisperPin APK
+name: Build DictAI APK
 
 on:
   push:
@@ -73,7 +73,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'whisperpin-debug-apk' }}
+          name: ${{ env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'dictai-debug-apk' }}
           path: dist/*
           compression-level: 0
           if-no-files-found: error

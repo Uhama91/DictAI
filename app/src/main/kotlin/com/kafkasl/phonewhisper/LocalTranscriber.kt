@@ -1,5 +1,7 @@
 package com.kafkasl.phonewhisper
 
+// Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
+
 import android.content.Context
 import android.util.Log
 import com.k2fsa.sherpa.onnx.*

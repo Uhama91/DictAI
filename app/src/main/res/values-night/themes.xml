@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE. -->
 <resources>
     <style name="Theme.PhoneWhisper" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Accent / color roles — carnet sombre DictAI -->

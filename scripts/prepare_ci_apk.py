@@ -11,6 +11,14 @@ with zipfile.ZipFile(apk) as archive:
     assert not models, 'Gemma is installed in-app; no old or partial model may be bundled'
     for name in ['gemma-NOTICE.txt', 'Apache-2.0.txt']:
         assert 'assets/local-format/' + name in names
+    for name in [
+        'Apache-2.0.txt',
+        'NOTICE.txt',
+        'sherpa-onnx-1.13.4-LICENSE.txt',
+        'onnxruntime-1.27.0-LICENSE.txt',
+    ]:
+        assert 'assets/licenses/' + name in names
+    assert 'assets/THIRD_PARTY_NOTICES.txt' in names
     assert 'lib/arm64-v8a/liblitertlm_jni.so' in names, 'Missing LiteRT-LM Android runtime'
     for name in ['layout-list.prompt', 'layout-email.prompt', 'llama-LICENSE.txt']:
         assert 'assets/local-format/' + name in names
@@ -18,7 +26,7 @@ with zipfile.ZipFile(apk) as archive:
         assert ('lib/arm64-v8a/' + name in names) != prototype, 'Prototype must use Gemma, normal build keeps legacy test runtime'
 output = Path('dist')
 output.mkdir(exist_ok=True)
-name = 'dictai-local-layout-test.apk' if prototype else 'whisperpin-debug.apk'
+name = 'dictai-local-layout-test.apk' if prototype else 'dictai-debug.apk'
 destination = output / name
 shutil.copyfile(apk, destination)
 with destination.open('rb') as stream:

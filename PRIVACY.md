@@ -1,39 +1,52 @@
-# Privacy Policy for Phone Whisper
+# Privacy Policy for DictAI
 
-Phone Whisper is an Android dictation app that records speech, transcribes it, and inserts the result into text fields across apps.
+> This policy is a modified derivative of the original Phone Whisper policy;
+> see [NOTICE](NOTICE) for project provenance.
+
+DictAI is an Android dictation app that records speech, transcribes it locally,
+and inserts the result into text fields across apps.
 
 ## Data handling
 
-Phone Whisper supports two transcription modes.
+DictAI's normal transcription path runs on the device using models that you
+download into the app's private storage. Audio is not sent to a DictAI server.
 
-### Local mode
+### Optional cloud cleanup
 
-In local mode, audio is processed on-device using local speech recognition models. Audio does not leave the device.
+If you enable cloud cleanup, DictAI sends the transcript text, the selected
+formatting instructions, and any configured vocabulary or protected spellings
+directly from the device to OpenRouter. This step is optional and does not send
+the recorded audio.
 
-### Cloud mode
+## API key
 
-In cloud mode, recorded audio is sent directly from the device to OpenAI's transcription API to generate text.
+If you enable cloud cleanup, your OpenRouter API key is stored in secure local
+app storage and used to authenticate the request sent directly to OpenRouter.
 
-If optional cleanup is enabled, the transcribed text is also sent directly from the device to OpenAI's chat API to improve punctuation, capitalization, and clarity.
-
-## API keys
-
-If you use cloud features, your OpenAI API key is stored locally on your device in app storage and used to authenticate requests sent directly to OpenAI.
-
-I do not operate a relay server for these requests.
+DictAI does not operate a relay server for these requests.
 
 ## Accessibility Service
 
-Phone Whisper uses Android Accessibility Service only to identify the currently focused text field and insert dictated text after you explicitly interact with the floating overlay button.
+DictAI uses Android Accessibility Service to identify the currently focused text
+field and insert dictated text after you explicitly interact with the floating
+overlay button. It can also capture a screenshot only when you explicitly
+request the note-capture feature.
 
-Phone Whisper is not designed to monitor browsing, collect screen content for analytics, or perform background automation.
+DictAI is not designed to monitor browsing, collect screen content for
+analytics, or perform background automation.
 
 ## Data collection
 
-I do not run a backend for Phone Whisper and do not collect user accounts, analytics, or uploaded recordings myself.
+I do not run a backend for DictAI and do not collect user accounts, analytics,
+crash reports, or uploaded recordings. Dictation drafts and notes remain in the
+app's local storage. Captures stay local unless you explicitly save them to
+Photos or export or share them.
 
-Third-party services you choose to use, such as OpenAI, may process data according to their own terms and privacy policies.
+OpenRouter and the model provider selected through it may process the transcript
+text, selected formatting instructions, and configured vocabulary or protected
+spellings according to their own terms and privacy policies.
 
 ## Contact
 
-For questions about privacy, contact: pol.avms@gmail.com
+For privacy questions, open an issue in the
+[DictAI repository](https://github.com/Uhama91/DictAI/issues).

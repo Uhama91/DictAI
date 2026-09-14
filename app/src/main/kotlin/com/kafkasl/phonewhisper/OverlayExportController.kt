@@ -124,8 +124,12 @@ internal class OverlayExportController(
                     val text = File(directory, "Note.txt").apply { writeText(NoteShareText.create(note)) }
                     val images = NoteImageMarkers.parts(note)
                         .filterIsInstance<NoteImageMarkers.Part.Image>()
-                        .map { part ->
-                            File(directory, "Image-%02d.jpg".format(java.util.Locale.ROOT, part.image.number)).also {
+                        .mapIndexed { position, part ->
+                            // The first component is the reading position; the
+                            // second keeps the stable image identity visible in
+                            // a grouped export. NoteExportActivity sorts files
+                            // by name, so this preserves marker order there too.
+                            File(directory, "Image-%02d-%02d.jpg".format(java.util.Locale.ROOT, position + 1, part.image.number)).also {
                                 NoteImageCopies.write(context, part.image, it)
                             }
                         }

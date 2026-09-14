@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+<!-- Modified from Phone Whisper by kafkasl for DictAI; see ../NOTICE. -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Privacy Policy — Phone Whisper</title>
+  <title>Privacy Policy — DictAI</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -56,7 +57,7 @@
           <line x1="20" y1="30" x2="20" y2="35" stroke="white" stroke-width="2" stroke-linecap="round"/>
           <line x1="16" y1="35" x2="24" y2="35" stroke="white" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <span>Phone Whisper</span>
+        <span>DictAI</span>
       </a>
     </div>
   </nav>
@@ -69,26 +70,25 @@
 
     <h1>Privacy Policy</h1>
     
-    <p>Last updated: March 2026</p>
+    <p>Last updated: September 13, 2026</p>
 
-    <p>Phone Whisper is an Android dictation app that records speech, transcribes it, and inserts the result into text fields across apps. Your privacy is a core feature of the app, not an afterthought.</p>
+    <p>DictAI is an Android dictation app that records speech, transcribes it locally, and inserts the result into text fields across apps. Your privacy is a core feature of the app, not an afterthought.</p>
 
     <h2>Data handling</h2>
-    <p>Phone Whisper supports two transcription modes, giving you control over where your audio is processed.</p>
+    <p>DictAI's normal transcription path runs on the device using models that you download into the app's private storage.</p>
 
-    <h3>Local mode</h3>
-    <p>In local mode, audio is processed on-device using local speech recognition models. <strong>Audio does not leave your device.</strong> This is the recommended mode for maximum privacy.</p>
+    <h3>Local transcription</h3>
+    <p>Audio is processed on-device using local speech recognition models. <strong>Audio does not leave your device.</strong></p>
 
-    <h3>Cloud mode</h3>
-    <p>In cloud mode, recorded audio is sent directly from the device to OpenAI's transcription API to generate text.</p>
-    <p>If optional cleanup is enabled, the transcribed text is also sent directly from the device to OpenAI's chat API to improve punctuation, capitalization, and clarity.</p>
+    <h3>Optional cloud cleanup</h3>
+    <p>If cloud cleanup is enabled, the transcript text, selected formatting instructions, and any configured vocabulary or protected spellings are sent directly from the device to OpenRouter. This step is optional and does not send the recorded audio.</p>
 
-    <h2>API keys</h2>
-    <p>If you use cloud features, your OpenAI API key is stored locally on your device in secure app storage. It is used only to authenticate requests sent directly from your device to OpenAI.</p>
+    <h2>API key</h2>
+    <p>If you enable cloud cleanup, your OpenRouter API key is stored in secure local app storage. It is used only to authenticate the request sent directly from your device to OpenRouter.</p>
     <p><strong>I do not operate a relay server.</strong> Your keys and your data never touch any infrastructure controlled by me.</p>
 
     <h2>Accessibility Service</h2>
-    <p>Phone Whisper uses Android Accessibility Service for the sole purpose of identifying the currently focused text field and inserting dictated text. This happens only after you explicitly interact with the floating overlay button.</p>
+    <p>DictAI uses Android Accessibility Service to identify the currently focused text field and insert dictated text after you explicitly interact with the floating overlay button. It can also capture a screenshot only when you explicitly request the note-capture feature.</p>
     <ul>
       <li>It does not monitor your browsing.</li>
       <li>It does not collect screen content for analytics.</li>
@@ -96,14 +96,14 @@
     </ul>
 
     <h2>Data collection</h2>
-    <p>I do not run a backend for Phone Whisper. I do not collect user accounts, analytics, crash reports, or uploaded recordings.</p>
-    <p>Third-party services you choose to use, such as OpenAI, may process data according to their own terms and privacy policies.</p>
+    <p>I do not run a backend for DictAI. I do not collect user accounts, analytics, crash reports, or uploaded recordings. Dictation drafts and notes remain in local app storage. Captures stay local unless you explicitly save them to Photos or export or share them.</p>
+    <p>OpenRouter and the model provider selected through it may process the transcript text, selected formatting instructions, and configured vocabulary or protected spellings according to their own terms and privacy policies.</p>
 
     <h2>Open source</h2>
-    <p>Because trust is earned, Phone Whisper is open source. You can audit the code yourself on GitHub to verify how your data and permissions are handled.</p>
+    <p>Because trust is earned, DictAI is open source. You can audit the code yourself on GitHub to verify how your data and permissions are handled.</p>
 
     <h2>Contact</h2>
-    <p>For questions about privacy, contact: <a href="mailto:pol.avms@gmail.com">pol.avms@gmail.com</a></p>
+    <p>For privacy questions, open an issue in the <a href="https://github.com/Uhama91/DictAI/issues" target="_blank" rel="noopener">DictAI repository</a>.</p>
   </main>
 
   <footer id="footer">
@@ -111,9 +111,9 @@
       <div class="footer-links">
         <a href="index.html">Home</a>
         <span class="sep">·</span>
-        <a href="https://github.com/kafkasl/phone-whisper" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/Uhama91/DictAI" target="_blank" rel="noopener">GitHub</a>
         <span class="sep">·</span>
-        <a href="mailto:pol.avms@gmail.com">Contact</a>
+        <a href="https://github.com/Uhama91/DictAI/issues" target="_blank" rel="noopener">Contact</a>
       </div>
     </div>
   </footer>

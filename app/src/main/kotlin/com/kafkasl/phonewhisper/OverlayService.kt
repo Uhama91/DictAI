@@ -270,6 +270,13 @@ class OverlayService : Service() {
     private var recoveredDraft: String? = null
     private val notes by lazy { TranscriptNotes(AndroidTranscriptNoteStorage(this)) }
     private var activeNoteId: String? = null
+    private sealed class NotesView {
+        data object Root : NotesView()
+        data object Unfiled : NotesView()
+        data class Folder(val id: String) : NotesView()
+    }
+    private var notesView: NotesView = NotesView.Root
+    private var pendingFolderChoiceNoteId: String? = null
     private var purpose = DictationPurpose.MESSAGE
     private val noteInsertionGate = NoteInsertionGate()
     private var noteInsertionDialog: AlertDialog? = null
@@ -308,6 +315,11 @@ class OverlayService : Service() {
     private var bridgeWasContainerVisible = false
 
     private var floatingMenu: View? = null
+    private var formatMenuRows = emptyList<TextView>()
+    private var formatMenuFormats = emptyList<PostProcessingFormat>()
+    private var formatMenuSelected = -1
+    private var formatMenuParams: WindowManager.LayoutParams? = null
+    private var formatMenuSwipeMode = false
     private var params: WindowManager.LayoutParams? = null
     private var liveParams: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
@@ -322,6 +334,18 @@ class OverlayService : Service() {
     private var livePanelH = 0
     private var currentAnchor: Anchor? = null
     private var panelEdge: Edge? = null
+    private val panelPrefs by lazy { OverlayPanelPrefs(this) }
+    private var reducedPanelRect: Rect? = null
+    private var reducedPanelRectScreen: Rect? = null
+    private var customPanelPlacement = false
+    private var panelBodyRect: Rect? = null
+    private var panelMoveHandle: View? = null
+    private val panelResizeHandles = mutableMapOf<PanelResizeHandle, View>()
+    private var panelGestureStartRect: Rect? = null
+    private var panelGestureStartScreen: Rect? = null
+    private var panelGestureStartX = 0f
+    private var panelGestureStartY = 0f
+    private var panelGestureHandle: PanelResizeHandle? = null
     private var bubblePointerLength = 0
     private var bubblePointerTargetX = Float.NaN
     private var bubblePointerTargetY = Float.NaN
@@ -433,7 +457,7 @@ class OverlayService : Service() {
 
     private fun createChannel() {
         val nm = getSystemService(NotificationManager::class.java)
-        val ch = NotificationChannel(CHANNEL_ID, "WhisperPin", NotificationManager.IMPORTANCE_MIN)
+        val ch = NotificationChannel(CHANNEL_ID, "DictAI", NotificationManager.IMPORTANCE_MIN)
         ch.setShowBadge(false)
         nm.createNotificationChannel(ch)
     }
@@ -1211,7 +1235,7 @@ class OverlayService : Service() {
             }
             DictationTapGestureCoordinator.Action.CANCEL_PROCESSING -> cancelProcessing()
             DictationTapGestureCoordinator.Action.PROMPT_MIC_SETUP_AND_OPEN_APP -> {
-                toast("Ouvre WhisperPin pour activer le micro")
+                toast("Ouvre DictAI pour activer le micro")
                 openApp()
             }
             DictationTapGestureCoordinator.Action.NONE -> Unit
@@ -1395,6 +1419,8 @@ class OverlayService : Service() {
             livePanelBody?.background = overlayCardBackground(colors.surface, colors.stroke, 24f)
             bubblePointer?.setColors(colors.surface, colors.stroke)
             panelTitle?.setTextColor(colors.ink)
+            (panelMoveHandle as? TextView)?.setTextColor(colors.green)
+            panelResizeHandles.values.forEach { (it as? TextView)?.setTextColor(colors.green) }
 
             panelExpandButton?.parent?.let { parent ->
                 if (parent is android.view.ViewGroup) {
@@ -1435,6 +1461,7 @@ class OverlayService : Service() {
             }
             refreshImageStripTheme(colors)
             refreshOverlayMenu(floatingMenu, colors, root = true)
+            updateFormatMenuHighlight(formatMenuSelected, haptic = false)
             refreshOverlayDialog(formatDialog, colors)
             refreshOverlayDialog(noteInsertionDialog, colors)
             exportPanel?.refreshTheme(colors)
@@ -1822,6 +1849,42 @@ class OverlayService : Service() {
                 liveScroll?.layoutParams = lp
             }
         }
+
+        // The corner handles sit in the reduced panel's edge bands. Keep editor content out of
+        // those bands so a drag beginning at a corner cannot steal a text-selection gesture.
+        val handleGutter = if (!panelExpanded) (36 * dp).toInt() else (12 * dp).toInt()
+        val bottomPadding = if (!panelExpanded) maxOf((36 * dp).toInt(), (10 * dp).toInt()) else (10 * dp).toInt()
+        liveScroll?.setPadding(handleGutter, 0, handleGutter, bottomPadding)
+
+        // Keep corner resize targets in dedicated gutters. The toolbar owns the upper corners
+        // (move/state/reset/expand/hide) and the media/actions rows own the lower corners; a
+        // handle laid directly on either row would steal those buttons' touch targets.
+        val topGutter = toolbarHeight
+        val bottomGutter = maxOf(bottomBarHeight, toolbarHeight)
+        panelResizeHandles[PanelResizeHandle.TOP_LEFT]
+            ?.let { (it.layoutParams as? FrameLayout.LayoutParams)?.apply {
+                topMargin = topGutter
+                bottomMargin = 0
+                it.layoutParams = this
+            } }
+        panelResizeHandles[PanelResizeHandle.TOP_RIGHT]
+            ?.let { (it.layoutParams as? FrameLayout.LayoutParams)?.apply {
+                topMargin = topGutter
+                bottomMargin = 0
+                it.layoutParams = this
+            } }
+        panelResizeHandles[PanelResizeHandle.BOTTOM_RIGHT]
+            ?.let { (it.layoutParams as? FrameLayout.LayoutParams)?.apply {
+                topMargin = 0
+                bottomMargin = bottomGutter
+                it.layoutParams = this
+            } }
+        panelResizeHandles[PanelResizeHandle.BOTTOM_LEFT]
+            ?.let { (it.layoutParams as? FrameLayout.LayoutParams)?.apply {
+                topMargin = 0
+                bottomMargin = bottomGutter
+                it.layoutParams = this
+            } }
     }
 
     private fun repositionPanelIfVisibleScreenChanged() {
@@ -1869,6 +1932,161 @@ class OverlayService : Service() {
         return Rect(lp.x, lp.y, lp.width, lp.height)
     }
 
+    private fun panelGeometry(): OverlayPanelGeometry {
+        val dp = resources.displayMetrics.density
+        return OverlayPanelGeometry(
+            minWidth = (240 * dp).toInt().coerceAtLeast(1),
+            minHeight = (160 * dp).toInt().coerceAtLeast(1),
+            maxWidthFraction = .92f,
+            maxHeightFraction = .75f,
+            gap = (12 * dp).toInt().coerceAtLeast(1),
+        )
+    }
+
+    /** Load the user's reduced rectangle in the current safe viewport, including an IME resize. */
+    private fun reducedPanelRectFor(
+        screen: Rect,
+        pill: Rect,
+        geometry: OverlayPanelGeometry,
+    ): Rect? {
+        if (!customPanelPlacement) return null
+        val saved = panelPrefs.load()
+        val previousScreen = reducedPanelRectScreen
+        val current = reducedPanelRect
+        val next = when {
+            current == null && saved != null -> geometry.denormalize(saved, screen, pill)
+            current == null -> return null
+            previousScreen == null || previousScreen == screen -> geometry.bound(current, screen, pill)
+            else -> geometry.denormalize(
+                saved ?: geometry.normalize(current, previousScreen),
+                screen,
+                pill,
+            )
+        }
+        reducedPanelRect = next
+        reducedPanelRectScreen = screen
+        return next
+    }
+
+    /** Apply a reduced rectangle while keeping its decorative pointer inside the same viewport. */
+    private fun applyReducedPanelRect(
+        screen: Rect,
+        pill: Rect,
+        geometry: OverlayPanelGeometry,
+        pointerLength: Int,
+        dp: Float,
+    ): Boolean {
+        val panel = livePanel ?: return false
+        val panelParams = liveParams ?: return false
+        val raw = reducedPanelRectFor(screen, pill, geometry) ?: return false
+        var body = raw
+        var edge = geometry.pointerEdge(body, pill)
+        repeat(2) {
+            val safePointerLength = geometry.pointerLengthInside(body, edge, screen, pointerLength)
+            body = geometry.reservePointer(body, edge, screen, safePointerLength)
+            body = geometry.bound(body, screen, pill)
+            edge = geometry.pointerEdge(body, pill)
+        }
+        val safePointerLength = geometry.pointerLengthInside(body, edge, screen, pointerLength)
+        reducedPanelRect = body
+        val bounds = OverlayPlacement.bubbleEnvelope(body, edge, safePointerLength).window
+        applyPanelBounds(panel, panelParams, bounds, edge, safePointerLength, dp)
+        return true
+    }
+
+    private fun panelBodyFromCurrentLayout(): Rect? = panelBodyRect ?: run {
+        val window = liveParams ?: return null
+        val body = livePanelBody ?: return null
+        val layout = body.layoutParams as? FrameLayout.LayoutParams ?: return null
+        Rect(
+            window.x + layout.leftMargin,
+            window.y + layout.topMargin,
+            layout.width.coerceAtLeast(1),
+            layout.height.coerceAtLeast(1),
+        )
+    }
+
+    private fun beginPanelGesture(rawX: Float, rawY: Float, handle: PanelResizeHandle?): Boolean {
+        if (panelExpanded || !livePreviewVisible || exportPanel != null) return false
+        val panel = panelBodyFromCurrentLayout() ?: return false
+        val screen = screenAboveKeyboard(screenRect())
+        val pill = pillRectForPanel(screenRect(), screen)
+        val geometry = panelGeometry()
+        if (!customPanelPlacement) customPanelPlacement = true
+        reducedPanelRect = geometry.bound(reducedPanelRect ?: panel, screen, pill)
+        reducedPanelRectScreen = screen
+        panelGestureStartRect = reducedPanelRect
+        panelGestureStartScreen = screen
+        panelGestureStartX = rawX
+        panelGestureStartY = rawY
+        panelGestureHandle = handle
+        return true
+    }
+
+    private fun updatePanelGesture(rawX: Float, rawY: Float): Boolean {
+        val start = panelGestureStartRect ?: return false
+        val screen = screenAboveKeyboard(screenRect())
+        val pill = pillRectForPanel(screenRect(), screen)
+        val dx = rawX - panelGestureStartX
+        val dy = rawY - panelGestureStartY
+        val geometry = panelGeometry()
+        reducedPanelRect = if (panelGestureHandle == null) {
+            geometry.move(start, dx, dy, screen, pill)
+        } else {
+            geometry.resize(start, panelGestureHandle!!, dx, dy, screen, pill)
+        }
+        reducedPanelRectScreen = screen
+        applyReducedPanelRect(
+            screen,
+            pill,
+            geometry,
+            bubblePointerLength,
+            resources.displayMetrics.density,
+        )
+        return true
+    }
+
+    private fun endPanelGesture(cancel: Boolean) {
+        val start = panelGestureStartRect
+        val screen = screenAboveKeyboard(screenRect())
+        val pill = pillRectForPanel(screenRect(), screen)
+        val geometry = panelGeometry()
+        if (cancel && start != null) {
+            reducedPanelRect = start
+            reducedPanelRectScreen = panelGestureStartScreen ?: screen
+            applyReducedPanelRect(
+                screen,
+                pill,
+                geometry,
+                bubblePointerLength,
+                resources.displayMetrics.density,
+            )
+        } else {
+            reducedPanelRect?.let { panelPrefs.save(geometry.normalize(it, screen)) }
+        }
+        panelGestureStartRect = null
+        panelGestureStartScreen = null
+        panelGestureHandle = null
+    }
+
+    private fun resetPanelPlacement() {
+        if (panelExpanded) return
+        customPanelPlacement = false
+        reducedPanelRect = null
+        reducedPanelRectScreen = null
+        panelGestureStartRect = null
+        panelGestureStartScreen = null
+        panelGestureHandle = null
+        panelPrefs.clear()
+        currentAnchor?.let(::positionLivePanel)
+    }
+
+    private fun updatePanelAffordances() {
+        val visible = livePreviewVisible && !panelExpanded && exportPanel == null
+        panelMoveHandle?.visibility = if (visible) View.VISIBLE else View.GONE
+        panelResizeHandles.values.forEach { handle -> handle.visibility = if (visible) View.VISIBLE else View.GONE }
+    }
+
     private fun positionLivePanel(anchor: Anchor) {
         val panel = livePanel ?: return
         val panelParams = liveParams ?: return
@@ -1899,6 +2117,11 @@ class OverlayService : Service() {
         val desiredWidth = ((if (panelExpanded) 600 else 312) * dp).toInt()
         val desiredHeight = if (panelExpanded) (screen.height - (12 * dp).toInt()).coerceAtLeast(1) else
             (liveText?.lineHeight ?: 20) * 4 + (188 * dp).toInt()
+        updatePanelAffordances()
+        if (!panelExpanded && customPanelPlacement) {
+            cancelPanelTransition()
+            if (applyReducedPanelRect(screen, actualPill, panelGeometry(), pointerLength, dp)) return
+        }
         val edge = OverlayPlacement.viablePanelEdge(
             anchor.edge, actualPill, screen, desiredWidth, desiredHeight, panelGap,
         )
@@ -1976,6 +2199,12 @@ class OverlayService : Service() {
             topMargin = envelope.bodyOffsetY
             livePanelBody?.layoutParams = this
         }
+        panelBodyRect = Rect(
+            bounds.x + envelope.bodyOffsetX,
+            bounds.y + envelope.bodyOffsetY,
+            bodyLayout?.width?.coerceAtLeast(1) ?: bounds.width,
+            bodyLayout?.height?.coerceAtLeast(1) ?: bounds.height,
+        )
         val pointerTargetX = params?.let { it.x + it.width / 2 - bounds.x }?.toFloat() ?: 0f
         val pointerTargetY = params?.let { it.y + it.height / 2 - bounds.y }?.toFloat() ?: 0f
         bubblePointer?.setGeometry(
@@ -2314,6 +2543,61 @@ class OverlayService : Service() {
             repositionPanelIfVisibleScreenChanged()
         }
         val toolbar = LinearLayout(this).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        var moveResetTriggered = false
+        lateinit var moveResetRunnable: Runnable
+        val moveHandle = TextView(this).apply {
+            text = "⠿"
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setTextColor(overlayPalette.green)
+            contentDescription = "Déplacer la fenêtre de texte. Appui long pour réinitialiser la taille et la position"
+            isFocusable = true
+            setOnLongClickListener {
+                resetPanelPlacement()
+                true
+            }
+            moveResetRunnable = Runnable {
+                if (panelGestureStartRect != null) {
+                    moveResetTriggered = true
+                    performLongClick()
+                }
+            }
+            setOnTouchListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        moveResetTriggered = false
+                        main.removeCallbacks(moveResetRunnable)
+                        val accepted = beginPanelGesture(event.rawX, event.rawY, null)
+                        if (accepted) main.postDelayed(moveResetRunnable, 550L)
+                        accepted
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (moveResetTriggered) true else {
+                            main.removeCallbacks(moveResetRunnable)
+                            updatePanelGesture(event.rawX, event.rawY)
+                        }
+                    }
+                    MotionEvent.ACTION_POINTER_DOWN -> {
+                        main.removeCallbacks(moveResetRunnable)
+                        endPanelGesture(cancel = true)
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        main.removeCallbacks(moveResetRunnable)
+                        endPanelGesture(cancel = moveResetTriggered)
+                        true
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        main.removeCallbacks(moveResetRunnable)
+                        endPanelGesture(cancel = true)
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+        panelMoveHandle = moveHandle
+        toolbar.addView(moveHandle, LinearLayout.LayoutParams((40 * dp).toInt(), (48 * dp).toInt()))
         panelTitle = TextView(this).apply {
             text = "Texte sans LLM"; textSize = 17f; setTextColor(overlayPalette.ink); gravity = Gravity.CENTER_VERTICAL
             runCatching { typeface = resources.getFont(R.font.caveat) }
@@ -2416,6 +2700,42 @@ class OverlayService : Service() {
         vocabularyBanner = vocabRow
         panelBody.addView(vocabRow, FrameLayout.LayoutParams(-1, (48 * dp).toInt()))
 
+        fun resizeHandle(handle: PanelResizeHandle, glyph: String, label: String, gravity: Int) {
+            val view = TextView(this).apply {
+                text = glyph
+                textSize = 18f
+                this.gravity = Gravity.CENTER
+                setTextColor(overlayPalette.green)
+                contentDescription = label
+                isFocusable = true
+                setOnTouchListener { _, event ->
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> beginPanelGesture(event.rawX, event.rawY, handle)
+                        MotionEvent.ACTION_MOVE -> updatePanelGesture(event.rawX, event.rawY)
+                        MotionEvent.ACTION_POINTER_DOWN -> {
+                            endPanelGesture(cancel = true)
+                            true
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            endPanelGesture(cancel = false)
+                            true
+                        }
+                        MotionEvent.ACTION_CANCEL -> {
+                            endPanelGesture(cancel = true)
+                            true
+                        }
+                        else -> false
+                    }
+                }
+            }
+            panelResizeHandles[handle] = view
+            panelBody.addView(view, FrameLayout.LayoutParams((36 * dp).toInt(), (36 * dp).toInt(), gravity))
+        }
+        resizeHandle(PanelResizeHandle.TOP_LEFT, "⌜", "Redimensionner depuis le coin supérieur gauche", Gravity.TOP or Gravity.START)
+        resizeHandle(PanelResizeHandle.TOP_RIGHT, "⌝", "Redimensionner depuis le coin supérieur droit", Gravity.TOP or Gravity.END)
+        resizeHandle(PanelResizeHandle.BOTTOM_RIGHT, "⌟", "Redimensionner depuis le coin inférieur droit", Gravity.BOTTOM or Gravity.END)
+        resizeHandle(PanelResizeHandle.BOTTOM_LEFT, "⌞", "Redimensionner depuis le coin inférieur gauche", Gravity.BOTTOM or Gravity.START)
+
         // La fenêtre interactive ne contient que la pastille et garde sa taille fixe.
         val lp = WindowManager.LayoutParams(
             pillW, pillH, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -2445,6 +2765,12 @@ class OverlayService : Service() {
         val gestureMode = PillGestureMode(touchSlop)
         val notesGesture = VerticalSwipeGesture(touchSlop, maxOf(24 * dp, 3 * touchSlop))
         val formatGesture = VerticalSwipeGesture(touchSlop, maxOf(56 * dp, 3 * touchSlop))
+        val formatSwipe = FormatSwipeGesture(
+            touchSlop = touchSlop,
+            openDistance = maxOf(56 * dp, 3 * touchSlop),
+            selectionActivationDistance = maxOf(24 * dp, touchSlop),
+            selectionStep = maxOf(56 * dp, 3 * touchSlop),
+        )
         val pauseGesture = VerticalSwipeGesture(
             touchSlop, maxOf(56 * dp, 3 * touchSlop),
             direction = VerticalSwipeGesture.Direction.DOWN,
@@ -2531,6 +2857,15 @@ class OverlayService : Service() {
                     gestureMode.begin()
                     notesGesture.begin(state == State.IDLE || state == State.MIC_UNARMED || isTranscriptEditable())
                     formatGesture.begin(state == State.IDLE || state == State.MIC_UNARMED || isTranscriptEditable())
+                    val formatStore = PostProcessingFormats(this@OverlayService)
+                    val formatItems = formatStore.all()
+                    val selectedFormatIndex = formatItems.indexOfFirst { it.id == formatStore.selected().id }
+                        .coerceAtLeast(0)
+                    formatSwipe.begin(
+                        enabled = state == State.IDLE || state == State.MIC_UNARMED,
+                        initialIndex = selectedFormatIndex,
+                        itemCount = formatItems.size,
+                    )
                     pauseGesture.begin(state == State.RECORDING)
                     wake()
                     main.removeCallbacks(longPress)
@@ -2541,6 +2876,8 @@ class OverlayService : Service() {
                     touchInterrupted = true
                     main.removeCallbacks(longPress)
                     hideGestureHint()
+                    formatSwipe.cancel()
+                    if (formatMenuParams != null) dismissFloatingMenu()
                     formatGesture.cancel()
                     pauseGesture.cancel()
                     notesGesture.cancel()
@@ -2558,7 +2895,18 @@ class OverlayService : Service() {
                     } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         main.removeCallbacks(longPress)
                         tapCoordinator.reset()
-                        previewGesture(dx, dy)
+                        val formatUpdate = if (state == State.IDLE || state == State.MIC_UNARMED) {
+                            formatSwipe.move(dx, dy)
+                        } else null
+                        if (formatUpdate?.opened != true) previewGesture(dx, dy)
+                        if (formatUpdate != null) {
+                            val update = formatUpdate
+                            if (update.openedNow) {
+                                showFormatPicker(swipeMode = true, touchable = false)
+                                hideGestureHint()
+                            }
+                            if (update.opened) updateFormatMenuHighlight(update.selectedIndex)
+                        }
                     }
                     true
                 }
@@ -2573,29 +2921,39 @@ class OverlayService : Service() {
                         if (moved) finishDrag()
                     } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         tapCoordinator.reset()
-                        val selectNotes = notesGesture.release(dy, dx)
-                        val selectFormat = formatGesture.release(dx, dy)
-                        val pauseRecording = pauseGesture.release(dx, dy)
-                        if (selectNotes) {
-                            archiveOrShowNotes()
-                        } else if (pauseRecording && state == State.RECORDING) {
-                            pauseRec()
-                        } else if (selectFormat && (state == State.PAUSED || state == State.PAUSING)) {
-                            val run = activeRun
-                            if (purpose == DictationPurpose.NOTE || panelHidden) {
+                        val formatResult = formatSwipe.release(dx, dy)
+                        if (formatResult.action == FormatSwipeGesture.ReleaseAction.COMMIT) {
+                            selectFormat(formatResult.selectedIndex)
+                        } else if (formatResult.action == FormatSwipeGesture.ReleaseAction.OPEN_MENU) {
+                            // A very fast swipe can deliver only DOWN/UP. Materialize the same
+                            // menu on UP so the reveal gesture never loses its tappable result.
+                            if (formatMenuParams == null) showFormatPicker(swipeMode = true, touchable = true)
+                            enableFormatMenuTouch()
+                        } else {
+                            val selectNotes = notesGesture.release(dy, dx)
+                            val selectFormat = formatGesture.release(dx, dy)
+                            val pauseRecording = pauseGesture.release(dx, dy)
+                            if (selectNotes) {
+                                archiveOrShowNotes()
+                            } else if (pauseRecording && state == State.RECORDING) {
+                                pauseRec()
+                            } else if (selectFormat && (state == State.PAUSED || state == State.PAUSING)) {
+                                val run = activeRun
+                                if (purpose == DictationPurpose.NOTE || panelHidden) {
+                                    panelHidden = false
+                                    setLivePreviewVisible(true)
+                                }
+                                else if (run != null) {
+                                    run.resumeAfterPause = false
+                                    run.finishAfterPause = true
+                                    if (state == State.PAUSED) stopRec()
+                                } else insertPausedMessage()
+                            } else if (selectFormat && isTranscriptEditable()) {
                                 panelHidden = false
                                 setLivePreviewVisible(true)
+                            } else if (selectFormat && (state == State.IDLE || state == State.MIC_UNARMED)) {
+                                showFormatPicker()
                             }
-                            else if (run != null) {
-                                run.resumeAfterPause = false
-                                run.finishAfterPause = true
-                                if (state == State.PAUSED) stopRec()
-                            } else insertPausedMessage()
-                        } else if (selectFormat && isTranscriptEditable()) {
-                            panelHidden = false
-                            setLivePreviewVisible(true)
-                        } else if (selectFormat && (state == State.IDLE || state == State.MIC_UNARMED)) {
-                            showFormatPicker()
                         }
                     } else {
                         val now = SystemClock.uptimeMillis()
@@ -2610,6 +2968,7 @@ class OverlayService : Service() {
                         handleTapDecision(tapCoordinator.onTap(surfaceState, now), now)
                     }
                     formatGesture.cancel()
+                    formatSwipe.cancel()
                     pauseGesture.cancel()
                     notesGesture.cancel()
                     gestureMode.cancel()
@@ -2641,6 +3000,7 @@ class OverlayService : Service() {
         params = lp
         liveParams = panelParams
         currentAnchor = initialAnchor
+        customPanelPlacement = panelPrefs.load() != null
         // Prepare the hidden editor window before the first microphone tap.
         try {
             wm.addView(livePanel, panelParams)
@@ -2865,7 +3225,15 @@ class OverlayService : Service() {
     }
 
     private fun refreshNoteImages() {
-        val images = notes.get(activeNoteId)?.images.orEmpty() + draftStore.captures().mapNotNull { it.image }
+        val note = notes.get(activeNoteId)
+        val noteImages = note?.let {
+            val byNumber = it.images.associateBy { image -> image.number }
+            NoteImageMarkers.readingOrder(it).mapNotNull(byNumber::get).let { ordered ->
+                val orderedNumbers = ordered.map { image -> image.number }.toSet()
+                ordered + it.images.filter { image -> image.number !in orderedNumbers }
+            }
+        }.orEmpty()
+        val images = noteImages + draftStore.captures().mapNotNull { it.image }
         val pending = imageStore.pending()
         val editable = isTranscriptEditable() && !imageDeliveryBusy
         val showStrip = images.isNotEmpty() || pending != null
@@ -2899,7 +3267,7 @@ class OverlayService : Service() {
             val frame = FrameLayout(this)
             val thumb = android.widget.ImageView(this).apply {
                 scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                contentDescription = "Image ${image.number}, ${image.kind.label}. Appuyer pour voir, maintenir pour retirer."
+                contentDescription = "Image ${image.number}, ${image.kind.label}. Appuyer pour voir, maintenir pour les actions, dont Monter et Descendre."
                 setOnClickListener { previewNoteImage(image) }
                 setOnLongClickListener {
                     if (imageStore.pending() == null && !imageDeliveryBusy && isTranscriptEditable()) showFloatingMenu("Image ${image.number}", listOf(
@@ -2907,6 +3275,8 @@ class OverlayService : Service() {
                             dismissFloatingMenu()
                             copyCapturedImage(image)
                         }),
+                        MenuEntry("Monter l’image", { moveNoteImage(image, NoteImageMove.UP) }),
+                        MenuEntry("Descendre l’image", { moveNoteImage(image, NoteImageMove.DOWN) }),
                         MenuEntry("Retirer cette image de la note", { removeNoteImage(image) }),
                         MenuEntry("Retour", ::dismissFloatingMenu),
                     ))
@@ -2944,6 +3314,26 @@ class OverlayService : Service() {
             val bitmap = runCatching { NoteImageStore.decode(imageStore.file(image.id), 1600) }.getOrNull()
             main.post { if (dialog.isShowing) view.setImageBitmap(bitmap) else bitmap?.recycle() }
         }
+    }
+
+    private fun moveNoteImage(image: NoteImage, direction: NoteImageMove) {
+        if (!isTranscriptEditable() || imageDeliveryBusy || imageStore.pending() != null) return
+        // Flush the editor before reordering. The persisted note can lag behind liveText while
+        // an edit callback is queued; moving from that stale value would silently overwrite it.
+        val currentText = liveText?.text?.toString() ?: notes.get(activeNoteId)?.text.orEmpty()
+        val note = saveNoteWithCaptures(currentText)
+        val currentImage = note.images.firstOrNull { it.id == image.id }
+            ?: note.images.firstOrNull { it.number == image.number }
+            ?: return
+        val moved = NoteImageMarkers.move(note, currentImage.number, direction)
+        dismissFloatingMenu()
+        if (moved.text == note.text) {
+            toast(if (direction == NoteImageMove.UP) "Image déjà en haut." else "Image déjà en bas.")
+            return
+        }
+        notes.save(note.id, moved.text, note.images)
+        replaceNoteText(moved.text)
+        refreshNoteImages()
     }
 
     private fun removeNoteImage(image: NoteImage) {
@@ -3152,6 +3542,12 @@ class OverlayService : Service() {
         activeNoteId = note.id
         draftStore.noteId = note.id
         draftStore.save(note.text)
+        // A location is requested once after an explicit archive. Autosaves of
+        // this note never set the pending flag again, and an export can finish
+        // before the list is shown without losing the note.
+        if (notes.folders().isNotEmpty() && notes.needsInitialFolderChoice(note.id)) {
+            pendingFolderChoiceNoteId = note.id
+        }
         return note
     }
 
@@ -3354,6 +3750,11 @@ class OverlayService : Service() {
     private fun dismissFloatingMenu() {
         floatingMenu?.let { runCatching { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } }
         floatingMenu = null
+        formatMenuRows = emptyList()
+        formatMenuFormats = emptyList()
+        formatMenuSelected = -1
+        formatMenuParams = null
+        formatMenuSwipeMode = false
     }
 
     private fun showFloatingMenu(title: String, entries: List<MenuEntry>, above: Boolean = false) {
@@ -3429,65 +3830,398 @@ class OverlayService : Service() {
         catch (_: Exception) { toast("Impossible d’afficher le menu flottant.") }
     }
 
-    private fun showNotesOverlay() {
+    private fun showNotesOverlay(view: NotesView = NotesView.Root) {
         if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
-        val entries = mutableListOf(MenuEntry("＋ Nouvelle note", { openNote(notes.save(null, "")) }))
-        if (notes.all().isEmpty()) entries += MenuEntry(
-            "Aucune note enregistrée", {}, subtitle = "Les notes apparaîtront ici après Terminer.", enabled = false,
-        )
-        notes.all().forEach { note ->
+        val actualView = when (view) {
+            is NotesView.Folder -> if (notes.getFolder(view.id) == null) NotesView.Root else view
+            else -> view
+        }
+        notesView = actualView
+        val entries = mutableListOf<MenuEntry>()
+        when (actualView) {
+            NotesView.Root -> {
+                entries += MenuEntry("＋ Nouvelle note", ::createNewNoteFromNotes)
+                entries += MenuEntry("＋ Nouveau dossier", { createFolderDialog(NotesView.Root) })
+                val folders = notes.folders()
+                if (folders.isEmpty()) {
+                    appendNoteEntries(entries, notes.all(), NotesView.Root)
+                } else {
+                    folders.forEach { folder ->
+                        val count = notes.all(folder.id).size
+                        val actions = { showFolderActions(folder) }
+                        entries += MenuEntry(
+                            folder.name,
+                            { showNotesOverlay(NotesView.Folder(folder.id)) },
+                            longClick = actions,
+                            subtitle = if (count == 0) "Dossier vide" else "$count note${if (count > 1) "s" else ""}",
+                            trailingAction = actions,
+                        )
+                    }
+                    val unfiled = notes.all(null)
+                    val actions = { showNotesOverlay(NotesView.Unfiled) }
+                    entries += MenuEntry(
+                        "Sans dossier", actions,
+                        subtitle = if (unfiled.isEmpty()) "Aucune note" else "${unfiled.size} note${if (unfiled.size > 1) "s" else ""}",
+                    )
+                }
+            }
+            NotesView.Unfiled -> {
+                entries += MenuEntry("← Mes dossiers", { showNotesOverlay(NotesView.Root) })
+                entries += MenuEntry("＋ Nouvelle note", { createBlankNote(folderId = null, classify = true) })
+                appendNoteEntries(entries, notes.all(null), NotesView.Unfiled)
+            }
+            is NotesView.Folder -> {
+                val folder = notes.getFolder(actualView.id) ?: return showNotesOverlay(NotesView.Root)
+                entries += MenuEntry("← Mes dossiers", { showNotesOverlay(NotesView.Root) })
+                entries += MenuEntry("＋ Nouvelle note", { createBlankNote(folder.id, classify = true) })
+                appendNoteEntries(entries, notes.all(folder.id), actualView)
+            }
+        }
+        if (entries.size == 2 && notes.all().isEmpty() && actualView == NotesView.Root) {
+            entries += MenuEntry("Aucune note enregistrée", {}, subtitle = "Les notes apparaîtront ici après Terminer.", enabled = false)
+        }
+        val title = when (actualView) {
+            NotesView.Root -> "Mes notes"
+            NotesView.Unfiled -> "Sans dossier"
+            is NotesView.Folder -> notes.getFolder(actualView.id)?.name ?: "Mes notes"
+        }
+        showFloatingMenu(title, entries)
+        maybePromptFolderChoice()
+    }
+
+    private fun appendNoteEntries(entries: MutableList<MenuEntry>, values: List<TranscriptNote>, returnView: NotesView) {
+        if (values.isEmpty()) {
+            entries += MenuEntry(
+                "Aucune note dans ce dossier", {}, subtitle = "Les notes apparaîtront ici après Terminer.", enabled = false,
+            )
+            return
+        }
+        values.forEach { note ->
             val excerpt = note.text.replace(Regex("\\s+"), " ").take(140)
             val date = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
                 .format(java.util.Date(note.updatedAt))
             val metadata = "Modifiée le $date" + if (note.images.isEmpty()) "" else " · ${note.images.size} image${if (note.images.size > 1) "s" else ""}"
-            val actions = {
-                showFloatingMenu(note.title, listOf(
-                    MenuEntry("Partager / exporter · texte et images", { launchNoteExport(note) }),
-                    MenuEntry("Renommer", { renameNote(note) }),
-                    MenuEntry("Supprimer", { notes.delete(note.id); showNotesOverlay() }),
-                    MenuEntry("Retour aux notes", ::showNotesOverlay),
-                ))
-            }
+            val actions = { showNoteActions(note, returnView) }
             entries += MenuEntry(
                 note.title, { openNote(note) }, actions,
                 subtitle = excerpt.ifBlank { "Note vide · Touchez pour écrire" }, metadata = metadata,
                 trailingAction = actions,
             )
         }
-        showFloatingMenu("Mes notes", entries)
     }
 
-    private fun renameNote(note: TranscriptNote) {
+    private fun showNoteActions(note: TranscriptNote, returnView: NotesView) {
+        showFloatingMenu(note.title, listOf(
+            MenuEntry("Partager / exporter · texte et images", { launchNoteExport(note) }),
+            MenuEntry("Renommer", { renameNote(note, returnView) }),
+            MenuEntry("Déplacer vers…", { chooseNoteFolder(note, returnView) }),
+            MenuEntry("Supprimer", { notes.delete(note.id); showNotesOverlay(returnView) }),
+            MenuEntry("Retour aux notes", { showNotesOverlay(returnView) }),
+        ))
+    }
+
+    private fun showFolderActions(folder: NoteFolder) {
+        showFloatingMenu(folder.name, listOf(
+            MenuEntry("Renommer le dossier", { renameFolderDialog(folder) }),
+            MenuEntry("Supprimer le dossier", { confirmDeleteFolder(folder) }),
+            MenuEntry("Retour aux dossiers", { showNotesOverlay(NotesView.Root) }),
+        ))
+    }
+
+    private fun renameNote(note: TranscriptNote, returnView: NotesView = notesView) {
         dismissFloatingMenu()
         val dialogContext = overlayDialogContext()
         val input = EditText(dialogContext).apply { setText(note.title); setSingleLine(); selectAll() }
         val dialog = AlertDialog.Builder(dialogContext).setTitle("Renommer la note").setView(input)
-            .setPositiveButton("Enregistrer") { _, _ -> notes.rename(note.id, input.text.toString()); showNotesOverlay() }
-            .setNegativeButton("Annuler") { _, _ -> showNotesOverlay() }.create()
+            .setPositiveButton("Enregistrer") { _, _ -> notes.rename(note.id, input.text.toString()); showNotesOverlay(returnView) }
+            .setNegativeButton("Annuler") { _, _ -> showNotesOverlay(returnView) }.create()
         dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
         formatDialog = dialog
         dialog.setOnDismissListener { formatDialog = null }
         dialog.show()
     }
 
-    private fun showFormatPicker() {
+    private fun createFolderDialog(returnView: NotesView) {
+        dismissFloatingMenu()
+        val dialogContext = overlayDialogContext()
+        val input = EditText(dialogContext).apply {
+            hint = "Nom du dossier"
+            setSingleLine()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        val dialog = AlertDialog.Builder(dialogContext).setTitle("Nouveau dossier").setView(input)
+            .setPositiveButton("Créer") { _, _ ->
+                val folder = notes.createFolder(input.text.toString())
+                if (folder == null) toast("Nom vide ou dossier déjà existant.")
+                showNotesOverlay(returnView)
+            }
+            .setNegativeButton("Annuler") { _, _ -> showNotesOverlay(returnView) }.create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        formatDialog = dialog
+        dialog.setOnDismissListener { formatDialog = null }
+        dialog.show()
+    }
+
+    private fun renameFolderDialog(folder: NoteFolder) {
+        dismissFloatingMenu()
+        val dialogContext = overlayDialogContext()
+        val input = EditText(dialogContext).apply { setText(folder.name); setSingleLine(); selectAll() }
+        val dialog = AlertDialog.Builder(dialogContext).setTitle("Renommer le dossier").setView(input)
+            .setPositiveButton("Enregistrer") { _, _ ->
+                if (notes.renameFolder(folder.id, input.text.toString()) == null) toast("Nom vide ou dossier déjà existant.")
+                showNotesOverlay(NotesView.Root)
+            }
+            .setNegativeButton("Annuler") { _, _ -> showNotesOverlay(NotesView.Root) }.create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        formatDialog = dialog
+        dialog.setOnDismissListener { formatDialog = null }
+        dialog.show()
+    }
+
+    private fun confirmDeleteFolder(folder: NoteFolder) {
+        dismissFloatingMenu()
+        val dialog = AlertDialog.Builder(overlayDialogContext())
+            .setTitle("Supprimer « ${folder.name} » ?")
+            .setMessage("Les notes resteront conservées dans « Sans dossier ».")
+            .setNegativeButton("Annuler") { _, _ -> showNotesOverlay(NotesView.Root) }
+            .setPositiveButton("Supprimer") { _, _ -> notes.deleteFolder(folder.id); showNotesOverlay(NotesView.Root) }
+            .create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        formatDialog = dialog
+        dialog.setOnDismissListener { formatDialog = null }
+        dialog.show()
+    }
+
+    private fun createNewNoteFromNotes() {
+        if (notes.folders().isEmpty()) createBlankNote(folderId = null, classify = false)
+        else showFolderChoiceDialog(
+            title = "Où ranger la nouvelle note ?",
+            cancelLabel = "Sans dossier",
+            onChoice = { folderId -> createBlankNote(folderId, classify = true) },
+            onCancel = { createBlankNote(folderId = null, classify = true) },
+        )
+    }
+
+    private fun createBlankNote(folderId: String?, classify: Boolean) {
+        val note = notes.save(null, "", folderId = folderId)
+        val classified = if (classify) notes.chooseFolder(note.id, folderId) ?: note else note
+        openNote(classified)
+    }
+
+    private fun chooseNoteFolder(note: TranscriptNote, returnView: NotesView) {
+        showFolderChoiceDialog(
+            title = "Déplacer « ${note.title} »",
+            cancelLabel = "Annuler",
+            onChoice = { folderId ->
+                notes.chooseFolder(note.id, folderId)
+                showNotesOverlay(returnView)
+            },
+        )
+    }
+
+    private fun showFolderChoiceDialog(
+        title: String,
+        cancelLabel: String,
+        onChoice: (String?) -> Unit,
+        onCancel: (() -> Unit)? = null,
+    ) {
+        val folders = notes.folders()
+        val labels = listOf("Sans dossier") + folders.map { it.name } + "＋ Nouveau dossier"
+        val dialog = AlertDialog.Builder(overlayDialogContext())
+            .setTitle(title)
+            .setItems(labels.toTypedArray()) { _, index ->
+                when {
+                    index == 0 -> onChoice(null)
+                    index <= folders.lastIndex + 1 -> onChoice(folders[index - 1].id)
+                    else -> createFolderDialogForChoice(onChoice, onCancel)
+                }
+            }
+            .setNegativeButton(cancelLabel) { _, _ -> onCancel?.invoke() }
+            .create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        formatDialog = dialog
+        dialog.setOnDismissListener { if (formatDialog === dialog) formatDialog = null }
+        dialog.show()
+    }
+
+    private fun createFolderDialogForChoice(onChoice: (String?) -> Unit, onCancel: (() -> Unit)? = null) {
+        val dialogContext = overlayDialogContext()
+        val input = EditText(dialogContext).apply { hint = "Nom du dossier"; setSingleLine() }
+        val dialog = AlertDialog.Builder(dialogContext).setTitle("Nouveau dossier").setView(input)
+            .setPositiveButton("Créer") { _, _ ->
+                val folder = notes.createFolder(input.text.toString())
+                if (folder == null) toast("Nom vide ou dossier déjà existant.") else onChoice(folder.id)
+            }
+            .setNegativeButton("Annuler") { _, _ -> onCancel?.invoke() }.create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        formatDialog = dialog
+        dialog.setOnDismissListener { if (formatDialog === dialog) formatDialog = null }
+        dialog.show()
+    }
+
+    private fun maybePromptFolderChoice() {
+        val noteId = pendingFolderChoiceNoteId ?: return
+        if (!notes.needsInitialFolderChoice(noteId)) {
+            pendingFolderChoiceNoteId = null
+            return
+        }
+        val note = notes.get(noteId) ?: run { pendingFolderChoiceNoteId = null; return }
+        showFolderChoiceDialog(
+            title = "Où ranger « ${note.title} » ?",
+            cancelLabel = "Plus tard",
+            onChoice = { folderId ->
+                notes.chooseFolder(note.id, folderId)
+                pendingFolderChoiceNoteId = null
+                showNotesOverlay(notesView)
+            },
+        )
+    }
+
+    private fun showFormatPicker(swipeMode: Boolean = false, touchable: Boolean = true) {
         val store = PostProcessingFormats(this)
-        val selected = store.selected()
-        showFloatingMenu("Format de la dictée", store.all().map { format ->
-            MenuEntry((if (format.id == selected.id) "✓ " else "") + format.name, {
-                store.select(format)
-                dismissFloatingMenu()
-                val local = prefs.formattingEngine == "local"
-                val supported = format.localLayoutKind != null
-                if (local && supported) localFormatter.warm()
-                toast(when {
-                    !format.usesLanguageModel -> "Texte sans LLM"
-                    local && !supported && format.usesLanguageModel -> "Le modèle local prend en charge le texte corrigé, les listes et les mails. Pour ce format, choisissez le cloud dans les réglages."
-                    prefs.formattingEngine != "off" -> "Format sélectionné : ${format.name}"
-                    else -> "Activez un moteur de post-traitement dans les réglages pour appliquer ce format."
-                })
+        val formats = store.all()
+        if (formats.isEmpty()) return
+        dismissFloatingMenu()
+        releaseTranscriptFocus()
+        val dp = resources.displayMetrics.density
+        val screen = screenRect()
+        val selected = formats.indexOfFirst { it.id == store.selected().id }.coerceAtLeast(0)
+        val width = minOf((320 * dp).toInt(), screen.width)
+        val height = minOf(((formats.size * 64 + 56) * dp).toInt(), (screen.height * .65f).toInt())
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = 24 * dp
+                setColor(overlayPalette.surface)
+                setStroke(dp.toInt().coerceAtLeast(1), overlayPalette.stroke)
+            }
+            setPadding((6 * dp).toInt(), 0, (6 * dp).toInt(), (6 * dp).toInt())
+        }
+        root.addView(TextView(this).apply {
+            text = "Format de la dictée   ×"
+            textSize = 21f
+            setTextColor(overlayPalette.ink)
+            gravity = Gravity.CENTER
+            runCatching { typeface = resources.getFont(R.font.caveat) }
+            contentDescription = "Format de la dictée. Fermer le menu"
+            setOnClickListener { dismissFloatingMenu() }
+        }, LinearLayout.LayoutParams(-1, (50 * dp).toInt()))
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val displayIndices = if (swipeMode) formats.indices.reversed() else formats.indices
+        val rows = mutableListOf<TextView>()
+        displayIndices.forEach { index ->
+            val format = formats[index]
+            val row = TextView(this).apply {
+                textSize = 16f
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding((14 * dp).toInt(), (12 * dp).toInt(), (14 * dp).toInt(), (12 * dp).toInt())
+                minHeight = (56 * dp).toInt()
+                isFocusable = true
+                isClickable = true
+                tag = index
+                contentDescription = format.name
+                setOnClickListener { selectFormat(index) }
+            }
+            rows += row
+            list.addView(row, LinearLayout.LayoutParams(-1, -2).apply {
+                leftMargin = (4 * dp).toInt()
+                rightMargin = (4 * dp).toInt()
+                bottomMargin = (6 * dp).toInt()
             })
-        }, above = true)
+        }
+        root.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        val bounds = FloatingMenuPlacement.bounds(
+            pillRect(params ?: return), screen, width, height, (6 * dp).toInt(), above = true,
+        )
+        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+            if (touchable) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        val layout = WindowManager.LayoutParams(
+            bounds.width, bounds.height, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            flags, PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = bounds.x
+            y = bounds.y
+        }
+        root.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+                dismissFloatingMenu()
+                true
+            } else false
+        }
+        try {
+            (getSystemService(WINDOW_SERVICE) as WindowManager).addView(root, layout)
+            floatingMenu = root
+            formatMenuRows = rows
+            formatMenuFormats = formats
+            formatMenuSelected = selected
+            formatMenuParams = layout
+            formatMenuSwipeMode = swipeMode
+            updateFormatMenuHighlight(selected, haptic = false)
+            if (swipeMode) {
+                root.post {
+                    val row = rows.firstOrNull { it.tag == selected } ?: return@post
+                    val scroll = row.parent?.parent as? ScrollView ?: return@post
+                    scroll.smoothScrollTo(0, row.top.coerceAtLeast(0))
+                }
+            }
+        } catch (_: Exception) {
+            toast("Impossible d’afficher le menu flottant.")
+        }
+    }
+
+    private fun selectFormat(index: Int) {
+        val format = formatMenuFormats.getOrNull(index)
+            ?: PostProcessingFormats(this).all().getOrNull(index)
+            ?: return
+        PostProcessingFormats(this).select(format)
+        dismissFloatingMenu()
+        val local = prefs.formattingEngine == "local"
+        val supported = format.localLayoutKind != null
+        if (local && supported) localFormatter.warm()
+        toast(when {
+            !format.usesLanguageModel -> "Texte sans LLM"
+            local && !supported && format.usesLanguageModel -> "Le modèle local prend en charge le texte corrigé, les listes et les mails. Pour ce format, choisissez le cloud dans les réglages."
+            prefs.formattingEngine != "off" -> "Format sélectionné : ${format.name}"
+            else -> "Activez un moteur de post-traitement dans les réglages pour appliquer ce format."
+        })
+    }
+
+    private fun updateFormatMenuHighlight(index: Int, haptic: Boolean = true) {
+        if (formatMenuRows.isEmpty()) return
+        val bounded = index.coerceIn(0, (formatMenuFormats.size - 1).coerceAtLeast(0))
+        val changed = formatMenuSelected != bounded
+        formatMenuSelected = bounded
+        formatMenuRows.forEach { row ->
+            val selected = row.tag == bounded
+            val format = formatMenuFormats.getOrNull(row.tag as? Int ?: -1)
+            row.text = (if (selected) "✓ " else "") + (format?.name ?: "")
+            row.setTextColor(if (selected) overlayPalette.green else overlayPalette.ink)
+            row.background = if (selected) overlayActionBackground(overlayPalette)
+            else overlayCardBackground(overlayPalette.raised, radiusDp = 18f)
+            row.isSelected = selected
+        }
+        if (changed && haptic) {
+            pill?.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+            if (formatMenuSwipeMode) {
+                val row = formatMenuRows.firstOrNull { it.tag == bounded }
+                if (row != null) row.post {
+                    val scroll = row.parent?.parent as? ScrollView ?: return@post
+                    val centered = row.top - (scroll.height - row.height) / 2
+                    scroll.smoothScrollTo(0, centered.coerceAtLeast(0))
+                }
+            }
+        }
+    }
+
+    private fun enableFormatMenuTouch() {
+        val menu = floatingMenu ?: return
+        val layout = formatMenuParams ?: return
+        if (layout.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) return
+        layout.flags = layout.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        runCatching { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(menu, layout) }
     }
 
     private fun openApp() = startActivity(
@@ -3570,7 +4304,7 @@ class OverlayService : Service() {
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         livePanelAdded = false
         tailFollower?.reset(); tailFollower = null
-        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; gestureHint = null; stateIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; imageStripScroll = null; livePanelBody = null; bubblePointer = null; livePanel = null; liveParams = null; panelEdge = null; pillPositionBeforeKeyboard = null
+        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; gestureHint = null; stateIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; panelMoveHandle = null; panelResizeHandles.clear(); imageStripScroll = null; livePanelBody = null; bubblePointer = null; livePanel = null; liveParams = null; panelEdge = null; panelBodyRect = null; panelGestureStartRect = null; panelGestureStartScreen = null; panelGestureHandle = null; reducedPanelRect = null; reducedPanelRectScreen = null; pillPositionBeforeKeyboard = null
         super.onDestroy()
     }
 

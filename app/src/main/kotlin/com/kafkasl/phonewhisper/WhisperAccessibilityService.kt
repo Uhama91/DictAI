@@ -1,5 +1,7 @@
 package com.kafkasl.phonewhisper
 
+// Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
+
 import android.accessibilityservice.AccessibilityService
 import com.kafkasl.phonewhisper.BuildConfig
 import android.content.Intent

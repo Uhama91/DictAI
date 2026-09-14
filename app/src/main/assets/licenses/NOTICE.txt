@@ -1,0 +1,29 @@
+DictAI
+======
+
+DictAI is a modified derivative of Phone Whisper by kafkasl.
+
+Upstream provenance
+-------------------
+The imported upstream snapshot is commit 8356089931a6f771facc18796c8912460589ec2b
+from https://github.com/kafkasl/phone-whisper. The corresponding upstream
+Apache-2.0 license was added upstream in commit
+e6518cda437ed2c266f36cf476db857fa2690d87. The upstream snapshot used for this
+fork did not contain a NOTICE file.
+
+Files derived from Phone Whisper and modified for DictAI carry a short
+modification notice. New files and third-party components may have separate
+terms; see app/src/main/assets/THIRD_PARTY_NOTICES.txt and
+app/src/main/assets/licenses/.
+
+Bundled component references
+----------------------------
+The bundled sherpa-onnx native libraries identify version 1.13.4. Its license
+source is https://github.com/k2-fsa/sherpa-onnx/tree/v1.13.4 and its license
+text is included at
+app/src/main/assets/licenses/sherpa-onnx-1.13.4-LICENSE.txt.
+
+The bundled ONNX Runtime native library identifies version 1.27.0. Its license
+source is https://github.com/microsoft/onnxruntime/tree/v1.27.0 and its license
+text is included at
+app/src/main/assets/licenses/onnxruntime-1.27.0-LICENSE.txt.

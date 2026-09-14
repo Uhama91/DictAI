@@ -1,3 +1,4 @@
+# Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
 .gradle/
 build/
 .kotlin/

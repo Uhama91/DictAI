@@ -50,7 +50,7 @@ class NoteExportActivity : Activity() {
         }.getOrDefault(OverlayExportFormat.PDF)
         files = directory.listFiles()
             ?.filter { file -> runCatching { file.isFile && file.canonicalFile.parentFile == directory.canonicalFile }.getOrDefault(false) }
-            ?.sortedBy { it.name }
+            ?.sortedWith(compareBy<File> { if (it.name.equals("Note.txt", ignoreCase = true)) 0 else 1 }.thenBy { it.name })
             .orEmpty()
         if (files.isEmpty()) {
             toast("Export vide. La note est conservée.")

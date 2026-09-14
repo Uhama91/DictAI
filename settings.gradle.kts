@@ -11,6 +11,8 @@ pluginManagement {
     }
 }
 
+// Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -19,5 +21,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "phone-whisper"
+rootProject.name = "DictAI"
 include(":app")

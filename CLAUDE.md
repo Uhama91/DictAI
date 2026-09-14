@@ -1,17 +1,17 @@
-# CLAUDE.md — WhisperPin (fork de phone-whisper)
+# CLAUDE.md — DictAI (fork de Phone Whisper)
 
 ## Description
 App Android Kotlin : bouton micro flottant pour dicter du texte (transcription locale sherpa-onnx
-ou Whisper API) par-dessus toutes les apps via service d'accessibilité. **Fork rebrandé "WhisperPin"**
+ou nettoyage cloud facultatif) par-dessus toutes les apps via service d'accessibilité. **Fork rebrandé "DictAI"**
 (`applicationId com.uhama.whisperpin`, namespace inchangé `com.kafkasl.phonewhisper`). Objectif du
 chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco F7 + Pad 7).
 
 ## Stack
-- Kotlin, Android (compileSdk 34, minSdk 30, targetSdk 34), AGP/Gradle, okhttp, sherpa-onnx (JNI, .so NON bundlé → modèle local KO au runtime, chemin Whisper cloud OK).
+- Kotlin, Android (compileSdk 34, minSdk 30, targetSdk 34), AGP/Gradle, OkHttp, sherpa-onnx et transcribe.cpp (JNI arm64 bundlés) pour la transcription locale, avec nettoyage cloud OpenRouter facultatif.
 - Build : `./gradlew :app:assembleDebug` (NDK non requis, APK ~16 Mo). Tests : `./gradlew :app:testDebugUnitTest`.
 - SDK local : `~/Library/Android/sdk` (via `local.properties`, gitignored).
-- CI : GitHub Actions (`.github/workflows/build.yml`) → artefact `whisperpin-debug-apk`.
-- Repo : fork `Uhama91/phone-whisper`, branche de travail `whisperpin-persistence`.
+- CI : GitHub Actions (`.github/workflows/build.yml`) → artefact `dictai-debug-apk`.
+- Repo : `Uhama91/DictAI`, dérivé de `kafkasl/phone-whisper`.
 
 ## Architecture cible (Approche C — voir spec)
 - `OverlayService` (FGS `specialUse|microphone`) héberge le bouton (`TYPE_APPLICATION_OVERLAY`) + capture audio.
@@ -31,8 +31,8 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 
 ## Étapes OEM réelles découvertes sur le Poco F7 (à encoder dans l'assistant Task 10)
 1. **Overlay** : Afficher par-dessus les autres apps → autoriser.
-2. **Paramètres restreints** (sideload + accessibilité Android 13+/HyperOS) : Réglages → Apps → WhisperPin → **bas de page** : interrupteur **« Autoriser les paramètres restreints »** = ON. (PAS dans le menu ⋮.) Sans ça, l'accessibilité reste grisée.
-3. **Accessibilité** : Réglages → Accessibilité → Applications téléchargées → WhisperPin → activer.
+2. **Paramètres restreints** (sideload + accessibilité Android 13+/HyperOS) : Réglages → Apps → DictAI → **bas de page** : interrupteur **« Autoriser les paramètres restreints »** = ON. (PAS dans le menu ⋮.) Sans ça, l'accessibilité reste grisée.
+3. **Accessibilité** : Réglages → Accessibilité → Applications téléchargées → DictAI → activer.
 4. **« Interrompre l'activité de l'application si elle n'est pas utilisée »** (en haut de la fiche app) → **désactiver** (sinon HyperOS retire les perms / tue l'app).
 5. Batterie sans restriction, Autostart, pop-up arrière-plan, verrouiller dans les récents (cf. spec §7).
 
@@ -44,6 +44,7 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 ## Session Log
 | Date | Action | Fichiers/Config |
 |------|--------|-----------------|
+| 2026-09-14 | DictAI 0.9.6 : sélection continue des formats, dossiers et ordre des images, fenêtre déplaçable et redimensionnable, marque de l’accueil corrigée ; 524 tests réussis sous JDK 21 et assembleDebug vérifié. | APK `~/Downloads/dictai-0.9.6-gestes-dossiers.apk`, preuves `app/build/reports/task-final-verification.log` ; aucun appareil connecté, validation physique restante |
 | 2026-08-14 | Correctif du double-tap pendant un enregistrement : premier tap différé de 280 ms, annulation sans transcription ni ouverture d’app pour une dictée établie, conservation du double-tap historique depuis IDLE ; version 0.5.8-wp, 154 tests JVM et build debug vérifiés. | `OverlayService.kt`, `DictationCancellation.kt`, `app/build.gradle.kts`, tests |
 | 2026-08-14 | Correctif Keep : sélection d’une cible d’injection unique, priorité au corps focalisé et conservation de cette même cible pour l’insertion directe comme pour le repli vers le presse-papiers ; version 0.5.6-wp, 133 tests et APK vérifiés. | `InjectionController.kt`, `WhisperAccessibilityService.kt`, tests, APK `~/Downloads/dictai-keep-injection-fix-0.5.6-wp.apk` |
 | 2026-08-14 | Durcissement de l’exécution : interface ASR unifiée, démarrage transactionnel d’AudioRecord, registre d’injection sûr sur tout le cycle de vie et retour de l’overlay au démarrage sans armement du micro ; version 0.5.5-wp, 130 tests et build de débogage vérifiés. | `DictationAsrEngine.kt`, `RecordingStartupTransaction.kt`, `InjectionGateway.kt`, `BootReceiver.kt`, APK `~/Downloads/dictai-runtime-hardening-2026-08-14.apk` |
@@ -56,6 +57,7 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 | 2026-08-05 | Installation ASR durcie : workspace `filesDir`, archive `.part`, publication atomique ; l’UI ignore les modèles incomplets. | `ModelDownloader.kt`, `ModelStorage.kt`, `LocalTranscriber.kt`, UI |
 | 2026-08-05 | Nemotron : aperçu détaché sur trois lignes, non tactile ; pastille ancrée aux quatre bords avec migration et rotation. | `OverlayService.kt`, `LiveTranscriptBuffer.kt`, `LiveStreamingTranscriber.kt`, `OverlayPlacement.kt`, `PersistencePrefs.kt` |
 | 2026-08-05 | DictAI passe à la transcription 100 % locale : retrait complet des flux cloud/LLM, conservation de Parakeet batch et de Nemotron streaming, garde-fous APK 16 Ko validés. | UI/transcription, contrôleur natif, CI |
+| 2026-09-13 | Rebranding courant et conformité de distribution : LICENSE/NOTICE Apache 2.0, attribution Phone Whisper, notices APK et licences natives versionnées ; documentation, workflow et artefacts alignés sur DictAI. | `LICENSE`, `NOTICE`, `README.md`, `PRIVACY.md`, `docs/`, `app/src/main/assets/`, CI |
 | 2026-05-31 | Brainstorm→spec(3x Codex)→plan(Codex)→fork Uhama91 + CI. Tasks 1-7+11 faites. Spike micro VERT (maxAmp 21791). Core fonctionnel testé sur Poco F7 : bouton overlay + record + transcription locale + injection accessibilité OK après levée des « paramètres restreints ». Reste : pack survie (boot/watchdog/assistant OEM), sécurité finale, matrice. | tous les `.kt` du package, `jniLibs/arm64-v8a/*.so`, manifest, CI |
 | 2026-06-03 | **Nettoyage cloud** (post-traitement) via **OpenRouter** (gateway compatible OpenAI, 1 clé/1 endpoint, tous modèles). `CloudCleanup.kt` + sélecteur Off/Local/Cloud (`PostProcessPrompts.engine`) + choix modèle (GPT-5 nano défaut, Gemini 2.0/2.5 Flash-Lite, GPT-4o mini, GPT-5.4 nano — slugs OpenRouter vérifiés). Découverte : nettoyage cloud existait (`PostProcessor`) mais **jamais branché** → seul le local Qwen3 tournait. Review Codex xhigh : timeout 12s, gate état `LLM_PROCESSING` sur dispo réelle, demande clé si Cloud sans clé, pas de log du corps de réponse (vie privée), feedback « nettoyage indispo ». Clé OpenRouter `phonewhisper/openrouter_key`, séparée de la clé OpenAI (transcription). Validé Poco F7 + Pad 7. | `CloudCleanup.kt`, `PostProcessPrompts.kt`, `OverlayService.kt`, `MainActivity.kt` |
 | 2026-05-31 | Projet distribution publique : spec écrite (`docs/.../2026-05-31-dictai-distribution-onboarding-design.md`). **Brique 4 onboarding in-app** livrée : `OnboardingActivity` checklist auto-vérifiée (micro/modèle/overlay/accessibilité/batterie/notifs + étapes Xiaomi masquées hors MIUI), téléchargement du modèle FR intégré. **Fixes critiques** : modèle recommandé = Parakeet 0.6B (FR) au lieu du 110M (EN) ; erreur « Set API key » trompeuse → « Modèle local absent » ; rechargement auto du modèle sur ARM_MIC. Review Codex xhigh : race `loadLocal` (AtomicBoolean), extraction atomique (staging+rename), garde Activity/`isDestroyed`, `onb_complete` sur succès, `configChanges`. Validé device Pad 7 (dictée FR offline OK). | `OnboardingActivity.kt`, `ModelDownloader.kt`, `TranscriptionEngine.kt`, `OverlayService.kt`, `MainActivity.kt`, manifest |

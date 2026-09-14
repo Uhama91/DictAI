@@ -426,27 +426,42 @@ class CursiveWaveView(context: Context) : View(context) {
         return (0.42f + 0.58f * normalized).coerceIn(0f, 1f)
     }
 
-    /** One broad, gently asymmetric identity stroke for the home header. */
+    /**
+     * The home identity is the same handwriting as the compact pill, enlarged into the
+     * 200x80 brand viewport. Keeping the path source shared makes the mark immediately
+     * recognisable as DictAI instead of introducing a second, sinus-like illustration.
+     */
     private fun buildBrandPath(waveAmplitude: Float, t: Float) {
         path.reset()
-        // The identity mark is a single handwritten gesture: a soft entry, one narrow
-        // high crest, a deep fall, then two quieter rebounds. Keeping one continuous path
-        // avoids the repeated arches and clipped returns of the compact animation.
-        val voiceLift = min(8f, waveAmplitude * 0.18f)
-        val drift = sin(t * 0.7f) * 0.8f
-        fun y(base: Float, weight: Float = 1f): Float =
-            BRAND_CENTER_Y + (base - BRAND_CENTER_Y) * (1f + voiceLift / BRAND_MAX_AMP * weight) + drift
+        val xScale = BRAND_W / COMPACT_W
+        val yScale = BRAND_H / COMPACT_H
+        var started = false
+        val style = compactMotionStyle()
 
-        path.moveTo(0f, y(47f, 0.35f))
-        path.cubicTo(10f, y(47f, 0.35f), 16f, y(34f, 0.55f), 26f, y(36f, 0.55f))
-        path.cubicTo(36f, y(38f, 0.45f), 43f, y(17f, 0.95f), 51f, y(18f, 0.95f))
-        path.cubicTo(56f, y(18f, 0.95f), 57f, y(10f, 1f), 64f, y(9f, 1f))
-        path.cubicTo(70f, y(8f, 1f), 70f, y(45f, 0.9f), 78f, y(61f, 0.9f))
-        path.cubicTo(85f, y(72f, 0.9f), 92f, y(66f, 0.8f), 99f, y(53f, 0.8f))
-        path.cubicTo(106f, y(40f, 0.7f), 111f, y(29f, 0.65f), 118f, y(33f, 0.65f))
-        path.cubicTo(125f, y(37f, 0.6f), 129f, y(54f, 0.55f), 136f, y(51f, 0.55f))
-        path.cubicTo(143f, y(48f, 0.5f), 148f, y(29f, 0.6f), 153f, y(30f, 0.6f))
-        path.cubicTo(160f, y(31f, 0.6f), 166f, y(47f, 0.45f), 174f, y(45f, 0.45f))
-        path.cubicTo(182f, y(43f, 0.45f), 191f, y(37f, 0.35f), 200f, y(38f, 0.35f))
+        // The compact path is expressed in a 100x40 logical box. Mapping around its centre
+        // preserves the loop proportions and leaves the full voice excursion inside the brand
+        // viewport after the 2x scale.
+        fun mapX(value: Float) = value * xScale
+        fun mapY(value: Float) = BRAND_CENTER_Y + (value - COMPACT_CENTER_Y) * yScale
+
+        visitCompactLoops(0f, waveAmplitude, t) { currentX, nextX, top, startValley, endValley ->
+            val loopW = nextX - currentX
+            if (!started) {
+                path.moveTo(mapX(currentX), mapY(startValley))
+                started = true
+            }
+            val skew = style.crestSkew
+            val crestX = loopW * (style.crestX + skew * 0.4f)
+            path.cubicTo(
+                mapX(currentX + loopW * style.entryControlX), mapY(startValley),
+                mapX(currentX + loopW * (style.highControlX + skew)), mapY(top),
+                mapX(currentX + crestX), mapY(top),
+            )
+            path.cubicTo(
+                mapX(currentX + loopW * style.returnControlX), mapY(top),
+                mapX(currentX + loopW * style.lowControlX), mapY(endValley),
+                mapX(nextX), mapY(endValley),
+            )
+        }
     }
 }

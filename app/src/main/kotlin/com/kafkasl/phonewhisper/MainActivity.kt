@@ -1,5 +1,7 @@
 package com.kafkasl.phonewhisper
 
+// Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
+
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
@@ -224,7 +226,7 @@ class MainActivity : AppCompatActivity() {
                 topMargin = dp(44); bottomMargin = dp(4)
             }
         }
-        val logo = TextView(this).apply {
+        val logo = BrandWordmarkView(this).apply {
             text = "DictAI"
             ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let {
                 typeface = Typeface.create(it, 600, false)
@@ -234,7 +236,10 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             includeFontPadding = true
             val fontScale = resources.configuration.fontScale.coerceAtLeast(1f)
-            setPadding(0, dp(4), dp((18f * fontScale).toInt()), dp(4))
+            // BrandWordmarkView reserves Caveat's capital-I overhang itself. Keep only a
+            // compact visual gap before the loop mark so the final horizontal stroke stays
+            // visible without wasting the responsive row width.
+            setPadding(0, dp(4), dp((6f * fontScale).toInt()), dp(4))
             contentDescription = "DictAI"
             layoutParams = LinearLayout.LayoutParams(LP_WRAP, LP_MATCH)
         }

@@ -1,54 +1,60 @@
 <p align="center">
-  <img src="docs/logo.svg" width="128" height="128" alt="Phone Whisper Logo">
+  <img src="docs/logo.svg" width="128" height="128" alt="DictAI logo">
 </p>
 
-# Phone Whisper
+# DictAI
 
-Push-to-talk dictation for Android.
+Local Android dictation with a floating overlay.
 
-Phone Whisper lets you speak into most apps without switching keyboards. Tap the floating button, speak, tap again, and your text is inserted into the currently focused text field when the app exposes a standard Android input field.\
+DictAI lets you dictate into most apps without switching keyboards. Tap the
+floating button, speak, and edit the transcript before inserting it into the
+currently focused text field when the app exposes a standard Android input
+field.
 
-It supports:
+It provides:
 
-- **Local on-device transcription** with sherpa-onnx
-- **Cloud transcription** with OpenAI Whisper
-- **Optional cleanup** with OpenAI to fix punctuation and grammar
+- **Local on-device transcription** with sherpa-onnx or transcribe.cpp
+- **Optional cloud cleanup** through OpenRouter for punctuation, formatting,
+  and conservative corrections
+- A persistent overlay, accessibility insertion, local notes, and PDF/HTML
+  export
 
-If you try it and it genuinely saves you time, consider [sponsoring](https://github.com/sponsors/kafkasl)
+DictAI is a modified derivative of [Phone Whisper by kafkasl](https://github.com/kafkasl/phone-whisper).
+See the repository [NOTICE](NOTICE), [LICENSE](LICENSE), and [bundled third-party notices](app/src/main/assets/THIRD_PARTY_NOTICES.txt)
+for provenance and license terms.
 
-
-## Why I built this
-
-- I like SwiftKey and want to keep it as keyboard but...
-- Most keyboard dictation felt too inaccurate
-- Gemini's voice input auto submits your transcription (which is pretty bad) so you can't edit it before sending
-- Post processing yields much better results, specially adding a list of keywords and technical terms you often use
-- Inserting text into the field you're already using lets you keep editing it like any other draft.
 
 ## Install
 
-### Easiest: download the APK
+### Download the APK
 
-Grab the latest APK from [GitHub Releases](https://github.com/kafkasl/phone-whisper/releases).
+Download the latest build from [DictAI releases](https://github.com/Uhama91/DictAI/releases).
 
-Open it on your phone, install it, then launch the app once to finish setup.
+Open the APK on your phone, install it, and launch DictAI once to complete the
+initial setup.
 
 ### Build from source
 
-Requires JDK 17 and Android SDK.
+Requires JDK 21 and the Android SDK. Set `JAVA_HOME` to a JDK 21 installation
+before running `make`. On macOS with Android Studio, for example:
 
 ```bash
-git clone https://github.com/kafkasl/phone-whisper.git && cd phone-whisper
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+```
+
+```bash
+git clone https://github.com/Uhama91/DictAI.git && cd DictAI
 make build
 ```
 
-APK output:
+The debug APK is written to:
 
 ```bash
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-If you use ADB:
+For an ADB install:
 
 ```bash
 make adb-install
@@ -56,62 +62,72 @@ make adb-install
 
 ## How it works
 
-1. A small overlay button floats on screen
-2. Tap once to start recording
-3. Tap again to stop
-4. Audio is transcribed locally or in the cloud
-5. The text is inserted into the focused text field
-6. The final text is always copied to the clipboard, whether insertion succeeds or not.
+1. DictAI displays a small overlay on top of your apps.
+2. Tap the overlay to start recording and tap again to finish.
+3. The selected local model transcribes the audio on the device.
+4. If enabled, cloud cleanup sends the transcript, formatting instructions, and
+   any configured vocabulary or protected spellings to OpenRouter; audio stays
+   on the device.
+5. DictAI keeps the transcript available for editing during the dictation and
+   pause flows, then, when you finish, inserts it into the focused field when
+   possible and keeps a clipboard copy as a fallback.
 
 ## Setup
 
-### First-time setup
+On first launch:
 
-1. Open **Phone Whisper**
-2. Grant the **audio recording** permission
-3. Enable the **Accessibility Service**
-4. Choose your transcription mode:
-   - **Local**: download a model in the app
-   - **Cloud**: paste your OpenAI API key
+1. Open **DictAI**.
+2. Grant the **microphone** permission and allow the overlay.
+3. Enable the **Accessibility Service** so DictAI can insert text into another
+   app's focused field.
+4. Download and select a local transcription model.
+5. Optionally enable cloud cleanup and enter your own OpenRouter API key.
 
-Once setup is done, the floating button is ready.
+The floating overlay is ready after setup.
 
-## Why does it need Accessibility?
+## Why does DictAI need Accessibility?
 
-Phone Whisper uses Android Accessibility Service for one narrow reason: to insert dictated text into the currently focused text field across apps.
+DictAI uses Android Accessibility Service to identify the focused text field and
+insert dictated text after you explicitly interact with the overlay. It can
+also capture a screenshot when you explicitly request the note-capture feature.
 
-It does **not** replace your keyboard. It does **not** run background automation. It only acts after you explicitly tap the overlay button.
+It does not replace your keyboard, monitor browsing, collect screen content for
+analytics, or run background automation.
 
 ## Privacy
 
-Phone Whisper supports two modes:
+DictAI transcribes audio locally on the device. Audio is not sent to a server by
+the app's normal transcription path.
 
-- **Local mode**: audio stays on-device
-- **Cloud mode**: audio is sent directly from your device to OpenAI's transcription API
-- **Optional cleanup**: transcript text is sent directly from your device to OpenAI's chat API
+Cloud cleanup is optional. When enabled, DictAI sends the transcript text, your
+selected formatting instructions, and any configured vocabulary or protected
+spellings directly from the device to OpenRouter, using your own API key. Audio
+is not sent for this cleanup step.
 
-I don't run a backend for this app. In cloud mode, requests go straight from your phone to OpenAI using your own API key.
+DictAI has no project backend, accounts, analytics, or uploaded-recording
+collection. See the full [privacy policy](PRIVACY.md).
 
-Full policy: [PRIVACY.md](PRIVACY.md)
 
 ## Local models
 
 Models are stored in app storage under:
 
 ```bash
-/data/data/com.kafkasl.phonewhisper/files/models/
+/data/data/com.uhama.whisperpin/files/models/
 ```
 
 Current catalog:
 
 | Model | Size | Notes |
 |---|---:|---|
-| Parakeet 110M | 100 MB | Best default |
-| Whisper Base | 199 MB | Solid baseline |
-| Parakeet 0.6B | 465 MB | Best quality |
-| Moonshine Tiny | 103 MB | Fastest |
+| Nemotron 3.5 Handy (FR/EN) | 751 MB | Recommended; transcribe.cpp |
+| Parakeet 0.6B (FR/EN) | 465 MB | sherpa-onnx transducer |
+| Nemotron 3.5 Live (FR/EN) | 453 MB | Experimental streaming model |
+| Nemotron 3.5 Compact (FR/EN) | 621 MB | Compact transcribe.cpp model |
 
-The app downloads and extracts models directly from the sherpa-onnx release archives.
+Models are downloaded to the app's private storage. The catalog includes
+sherpa-onnx archives and pinned GGUF downloads from the Handy Computer model
+repository.
 
 ## Development
 
@@ -124,15 +140,15 @@ make clean       # clean build artifacts
 
 ## App compatibility
 
-Phone Whisper works best in apps that use standard Android text fields.
+DictAI works best in apps that use standard Android text fields.
 Some apps use custom text surfaces or terminal-style views, which may not support direct accessibility paste.
-When insertion is not possible, Phone Whisper falls back to copying the transcript to the clipboard.
+When insertion is not possible, DictAI copies the transcript to the clipboard.
 
 ### Termux
 
 Termux's main terminal area is not a standard Android text field, so direct insertion may not work there.
 
-To use Phone Whisper in Termux:
+To use DictAI in Termux:
 
 1. Focus Termux
 2. Swipe the extra keys row (`ESC`, `CTRL`, `ALT`, arrows, etc.) left or right
@@ -147,17 +163,15 @@ Once text is inserted into the native input box, Termux sends it to the terminal
 - Some apps may block paste or text injection
 - Some apps use custom input surfaces instead of standard Android text fields
 - Local models are large
-- Cloud mode requires your own OpenAI API key
+- Optional cloud cleanup requires your own OpenRouter API key
 
-## Support the project
+## License and attribution
 
-If Phone Whisper saves you time, you can sponsor the project on GitHub:
-
-- https://github.com/sponsors/kafkasl
-
-## License
-
-Personal project. Do whatever you want with it.
+The Phone Whisper-derived source is distributed under the Apache License 2.0;
+see [LICENSE](LICENSE) and [NOTICE](NOTICE). DictAI changes are identified in
+the modified inherited files. Bundled native libraries and models may use
+separate terms; see [THIRD_PARTY_NOTICES.txt](app/src/main/assets/THIRD_PARTY_NOTICES.txt)
+and the license texts in [app/src/main/assets/licenses](app/src/main/assets/licenses).
 
 ## DictAI 0.6 — édition et formats
 
@@ -175,7 +189,7 @@ Personal project. Do whatever you want with it.
 4. Maintenir jusqu’à la vibration, puis déplacer dans les quatre directions : aucun format ni enregistrement ne doit se déclencher. Glisser directement vers le haut, vite ou lentement : la pastille reste fixe et le menu s’ouvre au relâchement. Revenir sous le seuil annule le raccourci. Tester aussi un maintien sans déplacement, les diagonales, les quatre bords, la rotation et une interruption tactile.
 5. Créer un format personnalisé, relancer l’application, le modifier puis le supprimer. Tester sans réseau et sans clé : le texte doit rester récupérable.
 
-L’APK de chaque branche est disponible dans **Actions → Build WhisperPin APK → Artifacts → whisperpin-debug-apk** une fois la compilation réussie.
+L’APK de chaque branche est disponible dans **Actions → Build DictAI APK → Artifacts → dictai-debug-apk** une fois la compilation réussie.
 
 Le défilement suit les dernières lignes tant qu’aucune correction volontaire n’est en cours ; le focus automatique d’Android ne suspend pas ce suivi. Pendant une correction, le curseur et le point de lecture sont conservés. Retour ou reprise du micro libèrent l’éditeur et permettent de suivre les nouveaux mots. Le bouton Modifier agrandit le panneau et ouvre le clavier ; un toucher direct place le curseur avant son ouverture.
 

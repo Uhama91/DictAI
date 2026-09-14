@@ -1,5 +1,7 @@
 package com.kafkasl.phonewhisper
 
+// Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
+
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream
