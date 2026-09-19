@@ -179,7 +179,15 @@ and the license texts in [app/src/main/assets/licenses](app/src/main/assets/lice
 - Pendant une dictée en streaming, toucher le texte ouvre le clavier. Les corrections manuelles restent présentes pendant l’arrivée des mots suivants et dans le résultat final. Une ponctuation finale ou un retour à la ligne commence la suite par une majuscule.
 - Un tap déclenche la dictée. Maintenir la pastille immobile 400 ms jusqu’à la vibration autorise son déplacement dans toutes les directions ; relâcher mémorise sa position. Cet appui maintenu remplace l’ancien push-to-talk. Un glissement direct vers le haut ouvre les formats au relâchement, sans déplacer la pastille : au moins 56 dp et une distance verticale au moins double de l’horizontale, sans limite de vitesse une fois le mouvement commencé.
 - Dans **Formats de post-traitement**, choisir Texte corrigé, Liste à puces ou Mail. Créer, modifier ou supprimer des formats personnels avec un nom et des consignes. Le choix est mémorisé.
-- Dans **Moteur de post-traitement**, la version normale propose **Cloud** ou **Désactivé** ; Cloud nécessite une clé OpenRouter. L’APK d’essai **0.7.1-wp-local-test** ajoute **Local**, limité aux listes et aux paragraphes de mail avec un modèle inclus. Les formats personnels et Texte corrigé nécessitent le cloud. Le choix cloud existant est conservé lors d’une mise à jour. En cas d’indisponibilité, le texte reste récupérable et un message signale l’absence de mise en forme.
+- Dans **Moteur de post-traitement**, la version normale propose **Cloud** ou **Désactivé** ; Cloud nécessite une clé OpenRouter. L’ancien APK d’essai **0.7.1-wp-local-test** ajoutait **Local** pour les listes et les paragraphes de mail. Le pilote Gemma 3 270M V3 décrit ci-dessous ajoute **Local** pour **Texte corrigé**. Le choix cloud existant est conservé lors d’une mise à jour. En cas d’indisponibilité, le texte reste récupérable et un message signale l’absence de mise en forme.
+
+### Pilote Gemma 3 270M V3
+
+L’artefact GitHub Actions **dictai-gemma270-v3-test** contient une version
+d’essai du post-traitement local français. Activez **Local**, puis, dans
+**Format de la dictée**, choisissez **Texte corrigé** pour l’utiliser.
+**Texte** reste le format sans modèle de langage. La provenance, les
+empreintes et les conditions Gemma sont détaillées dans [la notice du pilote](docs/GEMMA270-PILOT.md).
 
 ### Vérification sur téléphone / tablette
 

@@ -1,0 +1,18 @@
+{
+  "filename": "gemma3-270m-postclean-v3-q8_0.gguf",
+  "size_bytes": 291545280,
+  "sha256": "6c4b7b6654c9638287c31e50fd0bf849f33a2ff2dd93bee685bdd9632f20ecf5",
+  "label": "DictAI Gemma3 270M V3 - fine-tuned LoRA",
+  "base_model": "google/gemma-3-270m-it",
+  "base_revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+  "adapter_directory_sha256": "4cd49c499c441e582dd1e297f211a53075b999d4a62c63e164a87d576d669511",
+  "adapter_weights_sha256": "2ca67ad6d96e770c51c996d9099d63ce2113f87de751c24b5824962a8ce20339",
+  "instruction_sha256": "a95ce1093ba1308bddd5d2006eff73b6a936623261fbbfe6fe54562dfe3cd6f6",
+  "release_url": "https://github.com/Uhama91/DictAI/releases/download/gemma270-v3-model/gemma3-270m-postclean-v3-q8_0.gguf",
+  "prompt_version": "v3",
+  "language": "fr",
+  "format": "corrected",
+  "runtime": "gemma270-v3-q8-cpu",
+  "context_size": 8192,
+  "max_new_tokens": 4096
+}

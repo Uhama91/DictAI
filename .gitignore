@@ -16,5 +16,9 @@ app/src/main/assets/local-format/*.part
 app/src/localFormatPrototype/assets/local-format/*.gguf
 app/src/localFormatPrototype/assets/local-format/*.part
 
+# The Gemma 270M pilot model is fetched from its pinned release asset in CI.
+app/src/gemma270Pilot/assets/local-format/*.gguf
+app/src/gemma270Pilot/assets/local-format/*.part
+
 # CI download staging
 dist/

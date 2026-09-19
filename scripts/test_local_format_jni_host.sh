@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-jdk="${DICTAI_JAVA_HOME:-/home/ullie/.cache/dictai-build-tools/java/usr/lib/jvm/java-17-openjdk-amd64}"
-cmake_bin="${DICTAI_CMAKE:-/home/ullie/.cache/dictai-build-tools/sdk/cmake/3.22.1/bin/cmake}"
-source_dir="${DICTAI_LLAMA_SOURCE_DIR:-/home/ullie/.cache/dictai-build-tools/llama.cpp-v0.1.2}"
+jdk="${DICTAI_JAVA_HOME:-}"
+if [[ -z "$jdk" && "$(uname -s)" == Darwin && -x /usr/libexec/java_home ]]; then
+    jdk="$(/usr/libexec/java_home -v 21 2>/dev/null || true)"
+fi
+if [[ -z "$jdk" ]]; then
+    jdk="${JAVA_HOME:-}"
+fi
+if [[ -z "$jdk" || ! -x "$jdk/bin/java" || ! -x "$jdk/bin/javac" ]]; then
+    echo "A JDK with java and javac is required; set DICTAI_JAVA_HOME or JAVA_HOME" >&2
+    exit 1
+fi
+cmake_bin="${DICTAI_CMAKE:-cmake}"
+source_dir="${DICTAI_LLAMA_SOURCE_DIR:-$repo_root/.native-cache/llama.cpp-v0.1.2}"
 build_dir="${DICTAI_JNI_HOST_BUILD_DIR:-$repo_root/.native-cache/local-format-jni-host}"
 model="${1:-$repo_root/app/src/localFormatPrototype/assets/local-format/LFM2.5-350M-Q4_K_M.gguf}"
 [[ -f "$model" ]]
@@ -24,6 +34,8 @@ final class LocalFormatBindings {
     native boolean supportsArm82();
     native long open(byte[] path, int contextSize, int threads);
     native byte[] generate(long handle, long generation, byte[] prompt, byte[] grammar,
+        int maxTokens, long timeoutMs, LocalFormatChunkSink sink);
+    native byte[] generateGreedy(long handle, long generation, byte[] prompt, byte[] grammar,
         int maxTokens, long timeoutMs, LocalFormatChunkSink sink);
     native void cancel(long handle, long generation);
     native void close(long handle);
@@ -61,6 +73,8 @@ public final class Main {
             });
             check(Arrays.equals(out, b(exact)), "Literal fidelity / EOG failure");
             check(previous[0].equals(exact), "Final chunk differs from return value");
+            check(Arrays.equals(api.generateGreedy(h, 8, prompt, grammar, 256, 60000, silent), b(exact)),
+                "Greedy sampler / EOG failure");
             byte[] cut = api.generate(h, 4, prompt, grammar, 256, 60000, chunk -> {
                 utf8(chunk);
                 api.cancel(h, 4);

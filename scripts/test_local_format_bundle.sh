@@ -3,7 +3,7 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ndk_root="${ANDROID_NDK_HOME:?ANDROID_NDK_HOME must point to NDK 28.2.13676358}"
 bundle_dir="${DICTAI_LLM_BUNDLE_DIR:-$repo_root/app/src/main/jniLibs/arm64-v8a}"
-readelf="$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+readelf="$(python3 "$repo_root/scripts/ndk_host_tools.py" --ndk "$ndk_root" --tool llvm-readelf)"
 libraries=(libdictai_llm.so libdictai_llm_arm82.so)
 if [[ -n "${DICTAI_LLM_LIBRARY_NAME:-}" ]]; then libraries=("$DICTAI_LLM_LIBRARY_NAME"); fi
 python3 - "$readelf" "$bundle_dir" "${libraries[@]}" <<'PY'

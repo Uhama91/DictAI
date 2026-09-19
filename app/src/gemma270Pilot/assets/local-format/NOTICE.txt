@@ -1,0 +1,19 @@
+DictAI Gemma 3 270M IT V3 — pilote de post-traitement
+
+Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms.
+
+Ce paquet contient un modèle Gemma 3 270M instruction-tuned adapté par fine-tuning LoRA,
+puis fusionné et quantifié au format GGUF Q8_0. Les fichiers modifiés portent cette
+indication. Le nom, la révision du modèle de base, la taille et les empreintes exactes
+sont consignés dans gemma270-model.json ; les empreintes du dossier adaptateur et de
+ses poids sont conservées dans des champs distincts.
+
+Modèle de base : google/gemma-3-270m-it
+Révision du modèle de base : ac82b4e820549b854eebf28ce6dedaf9fdfa17b3
+SHA-256 du dossier adaptateur : 4cd49c499c441e582dd1e297f211a53075b999d4a62c63e164a87d576d669511
+SHA-256 des poids de l’adaptateur : 2ca67ad6d96e770c51c996d9099d63ce2113f87de751c24b5824962a8ce20339
+
+Toute distribution doit fournir les Gemma Terms of Use, les restrictions de la section
+3.2 et la Gemma Prohibited Use Policy. Consultez LICENSE.txt et
+PROHIBITED_USE_POLICY.txt avant toute utilisation ou redistribution. Le pilote est une
+version de test ; ce fichier ne revendique aucune validation sur téléphone.

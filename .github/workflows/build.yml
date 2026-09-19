@@ -9,6 +9,10 @@ on:
         description: Build the Gemma GPU text/list/email prototype
         type: boolean
         default: false
+      gemma270_pilot:
+        description: Build the Gemma 3 270M V3 post-processing pilot APK
+        type: boolean
+        default: false
       publish_prerelease:
         description: Publish the prototype APK as a downloadable prerelease
         type: boolean
@@ -19,6 +23,7 @@ permissions:
 
 env:
   PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[local-layout-test]') || contains(github.event.head_commit.message, '[local-layout-artifact]'))) }}
+  GEMMA270_PILOT: ${{ (github.event_name == 'workflow_dispatch' && inputs.gemma270_pilot) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma270-pilot]')) }}
 
 jobs:
   build:
@@ -42,8 +47,66 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
+      - name: Check build selector and pilot manifest
+        if: env.GEMMA270_PILOT == 'true' || env.PROTOTYPE == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$PROTOTYPE" == true && "$GEMMA270_PILOT" == true ]]; then
+            echo 'local_format_prototype and gemma270_pilot cannot be enabled together' >&2
+            exit 1
+          fi
+          if [[ "$GEMMA270_PILOT" == true ]]; then
+            test -f app/src/gemma270Pilot/assets/local-format/gemma270-model.json
+            python3 - <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts')
+          from verify_gemma270_pilot import load_manifest
+          manifest = load_manifest(__import__('pathlib').Path('app/src/gemma270Pilot/assets/local-format/gemma270-model.json'))
+          print(f"Validated pilot manifest for {manifest['filename']} ({manifest['size_bytes']} bytes)")
+          PY
+          fi
+
+      - name: Fetch pinned Gemma 270M pilot model
+        if: env.GEMMA270_PILOT == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='app/src/gemma270Pilot/assets/local-format/gemma270-model.json'
+          model_filename=$(python3 - "$manifest" <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts')
+          from pathlib import Path
+          from verify_gemma270_pilot import load_manifest
+          print(load_manifest(Path(sys.argv[1]))['filename'])
+          PY
+          )
+          model_url=$(python3 - "$manifest" <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts')
+          from pathlib import Path
+          from verify_gemma270_pilot import load_manifest
+          print(load_manifest(Path(sys.argv[1]))['release_url'])
+          PY
+          )
+          model_path="app/src/gemma270Pilot/assets/local-format/$model_filename"
+          curl --fail --location --retry 3 --retry-all-errors --output "$model_path.part" "$model_url"
+          mv "$model_path.part" "$model_path"
+          python3 - "$manifest" "$model_path" <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts')
+          from pathlib import Path
+          from verify_gemma270_pilot import load_manifest, verify_model_file
+          manifest = load_manifest(Path(sys.argv[1]))
+          verify_model_file(Path(sys.argv[2]), manifest)
+          print('Verified fetched Gemma 270M model against manifest')
+          PY
+
       - name: Run native alignment controller tests
         run: python3 -m unittest scripts/test_check_apk_native_alignment.py -v
+
+      - name: Run Gemma pilot package and host-tool tests
+        run: python3 -m unittest scripts/test_gemma270_pilot.py scripts/test_ndk_host_tools.py -v
 
       - name: Run transcribe.cpp native bundle contract
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" bash scripts/test_transcribe_cpp_bundle.sh
@@ -57,6 +120,7 @@ jobs:
         run: |
           args=(testDebugUnitTest assembleDebug assembleDebugAndroidTest --stacktrace)
           if [[ "$PROTOTYPE" == true ]]; then args+=(-PlocalFormatPrototype=true); fi
+          if [[ "$GEMMA270_PILOT" == true ]]; then args+=(-Pgemma270Pilot=true); fi
           ./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' "${args[@]}"
 
       - name: Check native library alignment and denylist
@@ -69,11 +133,32 @@ jobs:
 
       - name: Verify packaged model and prepare download
         run: python3 scripts/prepare_ci_apk.py
+        if: env.GEMMA270_PILOT != 'true'
+
+      - name: Verify Gemma 270M pilot APK and prepare download
+        if: env.GEMMA270_PILOT == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='app/src/gemma270Pilot/assets/local-format/gemma270-model.json'
+          model_filename=$(python3 - "$manifest" <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts')
+          from pathlib import Path
+          from verify_gemma270_pilot import load_manifest
+          print(load_manifest(Path(sys.argv[1]))['filename'])
+          PY
+          )
+          python3 scripts/verify_gemma270_pilot.py \
+            --manifest "$manifest" \
+            --model "app/src/gemma270Pilot/assets/local-format/$model_filename" \
+            --apk app/build/outputs/apk/debug/app-debug.apk \
+            --dist dist
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'dictai-debug-apk' }}
+          name: ${{ env.GEMMA270_PILOT == 'true' && 'dictai-gemma270-v3-test' || (env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'dictai-debug-apk') }}
           path: dist/*
           compression-level: 0
           if-no-files-found: error

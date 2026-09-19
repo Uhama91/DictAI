@@ -14,7 +14,8 @@ internal class LocalFormatNative private constructor(
     @Volatile private var closed = false
 
     fun generate(prompt: String, maxTokens: Int, timeoutMs: Long, onChunk: (String) -> Unit,
-        grammar: String? = null, onNativeStart: () -> Unit = {}, isCancelled: () -> Boolean = { false }): String? =
+        grammar: String? = null, onNativeStart: () -> Unit = {}, isCancelled: () -> Boolean = { false },
+        greedy: Boolean = false): String? =
         synchronized(lock) {
             if (closed || maxTokens <= 0 || timeoutMs <= 0) return@synchronized null
             val generation = sequence.incrementAndGet()
@@ -27,8 +28,12 @@ internal class LocalFormatNative private constructor(
                 }
                 if (closed || isCancelled()) return@synchronized null
                 onNativeStart()
-                bindings.generate(handle, generation, promptBytes, grammarBytes,
-                    maxTokens, timeoutMs, sink)?.toString(Charsets.UTF_8)
+                val generated = if (greedy) {
+                    bindings.generateGreedy(handle, generation, promptBytes, grammarBytes, maxTokens, timeoutMs, sink)
+                } else {
+                    bindings.generate(handle, generation, promptBytes, grammarBytes, maxTokens, timeoutMs, sink)
+                }
+                generated?.toString(Charsets.UTF_8)
             } finally { activeGeneration.compareAndSet(generation, 0) }
         }
 
@@ -71,6 +76,10 @@ internal interface LocalFormatNativeApi {
     fun open(path: ByteArray, contextSize: Int, threads: Int): Long
     fun generate(handle: Long, generation: Long, prompt: ByteArray, grammar: ByteArray?, maxTokens: Int,
         timeoutMs: Long, sink: LocalFormatChunkSink): ByteArray?
+    /** Opt-in pilot sampler; the historical API keeps its existing sampler. */
+    fun generateGreedy(handle: Long, generation: Long, prompt: ByteArray, grammar: ByteArray?, maxTokens: Int,
+        timeoutMs: Long, sink: LocalFormatChunkSink): ByteArray? =
+        generate(handle, generation, prompt, grammar, maxTokens, timeoutMs, sink)
     fun cancel(handle: Long, generation: Long)
     fun close(handle: Long)
 }
@@ -82,6 +91,8 @@ internal object LocalFormatBindings : LocalFormatNativeApi {
     external override fun open(path: ByteArray, contextSize: Int, threads: Int): Long
     external override fun generate(handle: Long, generation: Long, prompt: ByteArray, grammar: ByteArray?, maxTokens: Int,
         timeoutMs: Long, sink: LocalFormatChunkSink): ByteArray?
+    external override fun generateGreedy(handle: Long, generation: Long, prompt: ByteArray, grammar: ByteArray?, maxTokens: Int,
+        timeoutMs: Long, sink: LocalFormatChunkSink): ByteArray?
     external override fun cancel(handle: Long, generation: Long)
     external override fun close(handle: Long)
 }
@@ -91,6 +102,8 @@ internal object LocalFormatArm82Bindings : LocalFormatNativeApi {
     override val runtimeName: String = "arm64-dotprod-fp16"
     external override fun open(path: ByteArray, contextSize: Int, threads: Int): Long
     external override fun generate(handle: Long, generation: Long, prompt: ByteArray, grammar: ByteArray?, maxTokens: Int,
+        timeoutMs: Long, sink: LocalFormatChunkSink): ByteArray?
+    external override fun generateGreedy(handle: Long, generation: Long, prompt: ByteArray, grammar: ByteArray?, maxTokens: Int,
         timeoutMs: Long, sink: LocalFormatChunkSink): ByteArray?
     external override fun cancel(handle: Long, generation: Long)
     external override fun close(handle: Long)

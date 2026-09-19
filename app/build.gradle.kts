@@ -6,6 +6,8 @@ plugins {
 }
 
 val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true"
+val gemma270Pilot = providers.gradleProperty("gemma270Pilot").orNull == "true"
+val effectiveLocalFormatPrototype = localFormatPrototype || gemma270Pilot
 
 android {
     namespace = "com.kafkasl.phonewhisper"
@@ -17,15 +19,27 @@ android {
 
     androidResources { noCompress += listOf("gguf", "litertlm") }
     // Gemma is installed once from inside the app. The old bundled 350M is not packaged.
-    if (localFormatPrototype) packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
+    // The pilot needs the llama.cpp JNI libraries; only the old E2B prototype
+    // excludes them because it does not use the CPU runtime.
+    if (localFormatPrototype && !gemma270Pilot) {
+        packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
+    }
+
+    // The pilot asset directory is opt-in so a normal APK never packages the GGUF.
+    if (gemma270Pilot) sourceSets.getByName("main").assets.srcDir("src/gemma270Pilot/assets")
 
     defaultConfig {
         applicationId = "com.uhama.whisperpin"
         minSdk = 30
         targetSdk = 34
-        buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
-        versionCode = 35
-        versionName = if (localFormatPrototype) "0.9.6-dictai-gemma-test" else "0.9.6-dictai"
+        buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", effectiveLocalFormatPrototype.toString())
+        buildConfigField("boolean", "GEMMA270_PILOT", gemma270Pilot.toString())
+        versionCode = if (gemma270Pilot) 36 else 35
+        versionName = when {
+            gemma270Pilot -> "0.9.7-gemma270-v3-test"
+            localFormatPrototype -> "0.9.6-dictai-gemma-test"
+            else -> "0.9.6-dictai"
+        }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }

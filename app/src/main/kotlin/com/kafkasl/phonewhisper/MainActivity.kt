@@ -86,8 +86,15 @@ class MainActivity : AppCompatActivity() {
                                 0 -> {
                                     store.select(format)
                                     refreshFormatSummary()
-                                    val unavailable = PersistencePrefs(this).formattingEngine == "local" && format.localLayoutKind == null && format.instructions.isNotBlank()
-                                    Toast.makeText(this, if (unavailable) "Ce format nécessite le cloud. L’essai local prend en charge les listes et les mails." else "Prochaine dictée : ${format.name}", Toast.LENGTH_LONG).show()
+                                    val localSelected = PersistencePrefs(this).formattingEngine == "local"
+                                    val pilotUnsupported = BuildConfig.GEMMA270_PILOT && format.usesLanguageModel &&
+                                        !Gemma270PilotSupport.accepts(PersistencePrefs(this).dictationLanguage.cleanupLanguageName, format.id)
+                                    val unavailable = localSelected &&
+                                        (pilotUnsupported || format.localLayoutKind == null && format.instructions.isNotBlank())
+                                    val localFormats = if (BuildConfig.GEMMA270_PILOT)
+                                        "Le pilote local prend en charge uniquement le Texte corrigé en français."
+                                    else "L’essai local prend en charge les listes et les mails."
+                                    Toast.makeText(this, if (unavailable) "Ce format nécessite le cloud. $localFormats" else "Prochaine dictée : ${format.name}", Toast.LENGTH_LONG).show()
                                 }
                                 1 -> editFormat(format)
                                 2 -> androidx.appcompat.app.AlertDialog.Builder(this)
@@ -122,7 +129,8 @@ class MainActivity : AppCompatActivity() {
         }
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(if (format == null) "Créer un format" else "Modifier le format")
-            .setMessage("Décrivez la mise en forme souhaitée. Les formats personnalisés utilisent le cloud avec votre clé OpenRouter. L’essai local prend en charge les listes et les mails.")
+            .setMessage("Décrivez la mise en forme souhaitée. Les formats personnalisés utilisent le cloud avec votre clé OpenRouter. " +
+                if (BuildConfig.GEMMA270_PILOT) "Le pilote local traite uniquement le Texte corrigé français." else "L’essai local prend en charge les listes et les mails.")
             .setView(content).setPositiveButton("Enregistrer", null).setNegativeButton("Annuler", null).create()
         dialog.setOnShowListener {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -525,13 +533,17 @@ class MainActivity : AppCompatActivity() {
         }
         formatSummarySubtitle = formatRow.findViewWithTag("subtitle")
         root.addView(formatRow)
-        root.addView(settingsRow("Choix disponibles", "Texte · Liste à puces · Mail"))
+        root.addView(settingsRow("Choix disponibles", "Texte · Texte corrigé · Liste à puces · Mail"))
 
         root.addView(sectionHeader("Moteur"))
         val engineRow = settingsRow("Moteur de post-traitement", engineLabel(formattingPrefs))
         engineRow.setOnClickListener { showEngineDialog(engineRow) }
         root.addView(engineRow)
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
+        if (BuildConfig.GEMMA270_PILOT) {
+            root.addView(settingsRow("Gemma 270M V3 expérimental", pilotInstallLabel()) {
+                prepareLocalFormatter()
+            })
+        } else if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
             val row = settingsRow("Installer Gemma 4 E2B", gemmaInstallLabel()) { showGemmaDownload() }
             gemmaSubtitle = row.findViewWithTag("subtitle")
             root.addView(row)
@@ -547,7 +559,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(settingsRow("Dernier post-traitement", "Diagnostic copiable conservé après la dictée") {
             showPostprocessingDiagnostic()
         })
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
+        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE && !BuildConfig.GEMMA270_PILOT) {
             root.addView(settingsRow("Tester Gemma sur ce téléphone", "GPU · sans thinking · vitesse et fidélité FR/EN") {
                 if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
                 else if (localFormatBenchmark?.isShowing != true) {
@@ -652,14 +664,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectedFormatLabel(format: PostProcessingFormat): String =
-        if (format.id == "cleanup") "Texte sans LLM" else format.name
+        when {
+            format.id == "cleanup" -> "Texte sans LLM"
+            BuildConfig.GEMMA270_PILOT && format.id == "corrected" -> "Nettoyage français · Texte corrigé"
+            else -> format.name
+        }
 
     private fun refreshFormatSummary() {
         formatSummarySubtitle?.text = selectedFormatLabel(PostProcessingFormats(this).selected())
     }
 
     private fun engineLabel(preferences: PersistencePrefs): String = when (preferences.formattingEngine) {
-        "local" -> "Local · Gemma · essai"
+        "local" -> if (BuildConfig.GEMMA270_PILOT) "Local · Gemma 270M V3 · expérimental" else "Local · Gemma · essai"
         "cloud" -> "Cloud · OpenRouter"
         else -> "Désactivé · vocabulaire et nombres conservés"
     }
@@ -721,7 +737,9 @@ class MainActivity : AppCompatActivity() {
         val values = if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) listOf("local", "cloud", "off") else listOf("cloud", "off")
         val labels = values.map {
             when (it) {
-                "local" -> "Local — texte corrigé, listes et mails (essai)"
+                "local" -> if (BuildConfig.GEMMA270_PILOT)
+                    "Local — nettoyage français · Texte corrigé (expérimental)"
+                else "Local — texte corrigé, listes et mails (essai)"
                 "cloud" -> "Cloud — OpenRouter"
                 else -> "Désactivé"
             }
@@ -733,7 +751,8 @@ class MainActivity : AppCompatActivity() {
                 row.findViewWithTag<TextView>("subtitle").text = engineLabel(preferences)
                 dialog.dismiss()
                 if (values[index] == "local") {
-                    if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
+                    if (BuildConfig.GEMMA270_PILOT) prepareLocalFormatter()
+                    else if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
                     else prepareLocalFormatter()
                 }
             }
@@ -761,6 +780,9 @@ class MainActivity : AppCompatActivity() {
     private fun gemmaInstallLabel(): String = if (GemmaModelStore(this).installedModel() != null)
         "Installé · hors ligne · texte corrigé, listes et mails"
     else "2,6 Go · téléchargement reprenable · puis utilisation hors ligne"
+
+    private fun pilotInstallLabel(): String =
+        "Inclus dans l’APK · nettoyage français · Texte corrigé · CPU"
 
     private fun showGemmaDownload() {
         if (gemmaDownload?.isShowing == true) return

@@ -25,6 +25,7 @@ internal object PostprocessingDiagnostic {
         modelLoadMs: Long? = null,
         lightTextCleanup: Boolean = false,
         hesitationsRemoved: Int = 0,
+        pilotModel: Boolean = BuildConfig.GEMMA270_PILOT,
     ): String = buildString {
         append("DictAI — dernier post-traitement\n")
         append("Application : $version\n")
@@ -42,8 +43,9 @@ internal object PostprocessingDiagnostic {
             }
         }}\n")
         if (requested == Requested.LOCAL) {
-            append("Modèle : ${LocalFormatEngine.MODEL_FILE}\n")
-            append("Calcul : ${runtime.takeIf { it in setOf("arm64-baseline", "arm64-dotprod-fp16", "not-loaded", "loading", "loading-timeout", "model-missing", "gpu-error", "cancellation-pending", "litert-lm-gpu-mtp-thinking-off") } ?: "indéterminé"}\n")
+            append("Modèle : ${if (pilotModel) Gemma270PilotSupport.MODEL_FILE_NAME else LocalFormatEngine.MODEL_FILE}\n")
+            val knownRuntime = setOf("arm64-baseline", "arm64-dotprod-fp16", "not-loaded", "loading", "loading-timeout", "model-missing", "model_manifest_missing", "model_integrity_failed", "native_open_failed", "gpu-error", "cancellation-pending", "litert-lm-gpu-mtp-thinking-off", Gemma270PilotSupport.RUNTIME_NAME)
+            append("Calcul : ${runtime.takeIf { it in knownRuntime } ?: "indéterminé"}\n")
             if (runtime == "litert-lm-gpu-mtp-thinking-off") append("Thinking : désactivé · budget 0 · MTP activé\n")
             modelLoadMs?.takeIf { it >= 0 }?.let { append("Dernier chargement du moteur partagé : $it ms (peut précéder la dictée)\n") }
             append("Appel natif pour ce résultat : ${if (local?.nativeStarted == true) "oui" else "non"}\n")
@@ -58,9 +60,11 @@ internal object PostprocessingDiagnostic {
             append("État : ${when (local?.outcome) {
                 "applied" -> "sortie validée (qualité du découpage non garantie)"
                 "wait_timeout" -> "délai d’attente finale dépassé"
-                "fidelity_rejected" -> "sortie rejetée : modification hors corrections autorisées"
+                "fidelity_rejected" -> if (pilotModel)
+                    "sortie rejetée : résultat non transportable" else "sortie rejetée : modification hors corrections autorisées"
                 "vocabulary_rejected" -> "sortie rejetée : vocabulaire non conservé"
-                "backend_empty" -> "moteur sans résultat complet"
+                "backend_empty" -> if (pilotModel)
+                    "génération incomplète : aucun résultat complet reçu" else "moteur sans résultat complet"
                 "backend_error", "error" -> "erreur du moteur"
                 "cancelled", "interrupted" -> "calcul interrompu"
                 else -> if (formatId == "cleanup" && local == null && applied == Applied.ORIGINAL)

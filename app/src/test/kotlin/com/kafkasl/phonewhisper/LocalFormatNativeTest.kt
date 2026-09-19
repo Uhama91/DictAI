@@ -7,6 +7,7 @@ class LocalFormatNativeTest {
     private class Bindings(private val events: MutableList<String>) : LocalFormatNativeApi {
         override val runtimeName = "test"
         var failure: Throwable? = null
+        var greedyCalls = 0
         override fun open(path: ByteArray, contextSize: Int, threads: Int) = 1L
         override fun generate(handle: Long, generation: Long, prompt: ByteArray, grammar: ByteArray?, maxTokens: Int,
             timeoutMs: Long, sink: LocalFormatChunkSink): ByteArray {
@@ -17,6 +18,11 @@ class LocalFormatNativeTest {
         }
         override fun cancel(handle: Long, generation: Long) { events.add("cancel") }
         override fun close(handle: Long) { events.add("close") }
+        override fun generateGreedy(handle: Long, generation: Long, prompt: ByteArray, grammar: ByteArray?, maxTokens: Int,
+            timeoutMs: Long, sink: LocalFormatChunkSink): ByteArray? {
+            greedyCalls++
+            return generate(handle, generation, prompt, grammar, maxTokens, timeoutMs, sink)
+        }
     }
 
     @Test fun nativeStartImmediatelyFollowsTheCancellationGuardAndPrecedesBindings() {
@@ -67,5 +73,15 @@ class LocalFormatNativeTest {
             native.cancel()
             assertFalse(events.contains("cancel"))
         }
+    }
+
+    @Test fun pilotCanRequestGreedySamplingWithoutChangingTheLegacyDefault() {
+        val events = mutableListOf<String>()
+        val bindings = Bindings(events)
+        LocalFormatNative.forTesting(bindings).use { native ->
+            native.generate("prompt", 32, 1000, {}, greedy = true)
+            native.generate("prompt", 32, 1000, {})
+        }
+        assertEquals(1, bindings.greedyCalls)
     }
 }

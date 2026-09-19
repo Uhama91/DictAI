@@ -246,7 +246,9 @@ class OverlayService : Service() {
     private var vocabularyDismiss: Runnable? = null
     private var mediaToolbar: LinearLayout? = null
     private val editableTranscript = EditableTranscript()
-    private val localFormatter by lazy { LocalFormatEngine(this) }
+    // Keep the pilot runtime out of cloud/off sessions, including service teardown.
+    private val localFormatterLazy = lazy { LocalFormatEngine(this) }
+    private val localFormatter: LocalFormatEngine get() = localFormatterLazy.value
     private var formatDialog: AlertDialog? = null
     private var livePanel: FrameLayout? = null
     /** Transparent envelope for the panel window; the rounded body clips its own children. */
@@ -420,8 +422,15 @@ class OverlayService : Service() {
     }
 
     private fun warmLocalFormatter() {
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE && prefs.formattingEngine == "local" &&
-            GemmaModelStore(this).installedModel() != null) localFormatter.warm()
+        if (!BuildConfig.LOCAL_FORMAT_PROTOTYPE || prefs.formattingEngine != "local") return
+        if (BuildConfig.GEMMA270_PILOT) {
+            val selected = PostProcessingFormats(this).selected()
+            if (Gemma270PilotSupport.accepts(prefs.dictationLanguage.cleanupLanguageName, selected.id)) {
+                localFormatter.warm()
+            }
+        } else if (GemmaModelStore(this).installedModel() != null) {
+            localFormatter.warm()
+        }
     }
 
     /** Charge le modèle local hors thread principal; l'ancien moteur est fermé avant toute nouvelle ouverture. */
@@ -607,7 +616,10 @@ class OverlayService : Service() {
         }
         invalidateNoteInsertion()
         val run = ActiveDictationRun(started.session, options, purpose)
-        if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
+        val localFormatSupported = if (BuildConfig.GEMMA270_PILOT) {
+            Gemma270PilotSupport.accepts(options.language.cleanupLanguageName, options.format.id)
+        } else options.format.localLayoutKind != null
+        if (options.localFormattingEnabled && localFormatSupported) {
             localFormatter.warm()
             run.localFormatting = LocalFormattingSession(localFormatter.backend())
             run.cancellation.onCancel { run.localFormatting?.close() }
@@ -1150,6 +1162,7 @@ class OverlayService : Service() {
                                 modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
                                 lightTextCleanup = lightCleanupApplied,
                                 hesitationsRemoved = prepared?.removed ?: 0,
+                                pilotModel = BuildConfig.GEMMA270_PILOT,
                             )
                             prefs.recordPostprocessingDiagnostic(diagnostic,
                                 formatRequested = capture.options.format.usesLanguageModel)
@@ -1613,9 +1626,13 @@ class OverlayService : Service() {
         val hasImageReferences = NoteImageMarkers.markers(source).isNotEmpty()
         val layout = if (options.localFormattingEnabled || hasImageReferences)
             options.format.localLayoutKind ?: if (hasImageReferences) LocalLayoutKind.TEXT else null else null
+        val pilot = BuildConfig.GEMMA270_PILOT && options.localFormattingEnabled &&
+            Gemma270PilotSupport.accepts(options.language.cleanupLanguageName, options.format.id) &&
+            layout == LocalLayoutKind.TEXT
         return LocalFormatRequest(source, options.format.instructions + numbers + if (NoteImageMarkers.markers(source).isEmpty()) "" else NoteImageMarkers.INSTRUCTIONS, options.language.cleanupLanguageName, spellings, layout,
             validation = if (layout != null) LocalFormatValidation.GEMMA_EDITING else LocalFormatValidation.EXACT_LAYOUT,
-            simpleEmailLayout = true)
+            simpleEmailLayout = true,
+            isGemma270Pilot = pilot)
     }
 
     private fun protectedVocabularyTerms(text: String): List<String> = Vocabulary.corrections(this)
@@ -1789,11 +1806,13 @@ class OverlayService : Service() {
     }
 
     private fun localFormatStatus(): String = when (localFormatter.runtimeName()) {
+        Gemma270PilotSupport.RUNTIME_NAME -> "Gemma 270M V3 prêt"
         "litert-lm-gpu-mtp-thinking-off" -> "Gemma prêt"
         "loading" -> "Gemma se prépare…"
-        "model-missing" -> "Gemma à installer"
-        "gpu-error", "loading-timeout", "cancellation-pending" -> "Gemma indisponible"
-        else -> "Gemma prévu"
+        "model-missing", "model_manifest_missing", "model_integrity_failed" ->
+            if (BuildConfig.GEMMA270_PILOT) "Gemma 270M V3 indisponible" else "Gemma à installer"
+        "gpu-error", "loading-timeout", "cancellation-pending", "native_open_failed" -> "Gemma indisponible"
+        else -> if (BuildConfig.GEMMA270_PILOT) "Gemma 270M V3 prévu" else "Gemma prévu"
     }
 
     /** Keep the transcript area usable when the IME leaves only a short panel. */
@@ -2098,7 +2117,11 @@ class OverlayService : Service() {
         lastPanelScreen = screen
         val inNote = purpose == DictationPurpose.NOTE
         val format = activeRun?.formatOptions?.format ?: PostProcessingFormats(this).selected()
-        val formatLabel = if (format.id == "cleanup") "Texte sans LLM" else format.name
+        val formatLabel = when {
+            format.id == "cleanup" -> "Texte sans LLM"
+            BuildConfig.GEMMA270_PILOT && format.id == "corrected" -> "Nettoyage français · Texte corrigé"
+            else -> format.name
+        }
         panelTitle?.apply {
             text = formatLabel
             contentDescription = "Format choisi : $formatLabel"
@@ -4180,9 +4203,12 @@ class OverlayService : Service() {
         dismissFloatingMenu()
         val local = prefs.formattingEngine == "local"
         val supported = format.localLayoutKind != null
-        if (local && supported) localFormatter.warm()
+        val pilotSupported = !BuildConfig.GEMMA270_PILOT ||
+            Gemma270PilotSupport.accepts(prefs.dictationLanguage.cleanupLanguageName, format.id)
+        if (local && supported && pilotSupported) localFormatter.warm()
         toast(when {
             !format.usesLanguageModel -> "Texte sans LLM"
+            local && BuildConfig.GEMMA270_PILOT && !pilotSupported -> "Cet essai prend en charge uniquement « Texte corrigé » en français."
             local && !supported && format.usesLanguageModel -> "Le modèle local prend en charge le texte corrigé, les listes et les mails. Pour ce format, choisissez le cloud dans les réglages."
             prefs.formattingEngine != "off" -> "Format sélectionné : ${format.name}"
             else -> "Activez un moteur de post-traitement dans les réglages pour appliquer ce format."
@@ -4261,7 +4287,7 @@ class OverlayService : Service() {
         imageStrip = null
         imageStripScroll = null
         mediaToolbar = null
-        localFormatter.close()
+        if (localFormatterLazy.isInitialized()) localFormatter.close()
         dismissFloatingMenu()
         formatDialog?.dismiss()
         micArmed = false

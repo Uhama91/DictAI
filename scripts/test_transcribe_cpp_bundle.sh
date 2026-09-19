@@ -4,18 +4,7 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 bundle_dir="${TRANSCRIBE_CPP_BUNDLE_DIR:-$repo_root/app/src/main/jniLibs/arm64-v8a}"
 ndk_root="${ANDROID_NDK_HOME:?ANDROID_NDK_HOME must point to Android NDK r28b}"
-tool_root=$(find "$ndk_root/toolchains/llvm/prebuilt" -maxdepth 1 -mindepth 1 -type d | head -n 1)
-
-if [[ -z "$tool_root" ]]; then
-    echo "Android NDK host toolchain not found under $ndk_root" >&2
-    exit 1
-fi
-
-readelf="$tool_root/bin/llvm-readelf"
-if [[ ! -x "$readelf" ]]; then
-    echo "llvm-readelf not found at $readelf" >&2
-    exit 1
-fi
+readelf="$(python3 "$repo_root/scripts/ndk_host_tools.py" --ndk "$ndk_root" --tool llvm-readelf)"
 
 required_libs=(
     libtranscribe_jni.so

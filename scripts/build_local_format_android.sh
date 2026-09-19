@@ -19,7 +19,7 @@ if ! grep -q '28.2.13676358' "$ndk_root/source.properties"; then
     echo "Expected Android NDK 28.2.13676358" >&2
     exit 1
 fi
-strip_tool="$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+strip_tool="$(python3 "$repo_root/scripts/ndk_host_tools.py" --ndk "$ndk_root" --tool llvm-strip)"
 stage_dir="$build_dir/verified-bundle"
 mkdir -p "$stage_dir"
 for variant in baseline arm82; do

@@ -16,8 +16,11 @@ internal data class LocalFormatRequest(
     val layoutKind: LocalLayoutKind? = null,
     val validation: LocalFormatValidation = LocalFormatValidation.EXACT_LAYOUT,
     val simpleEmailLayout: Boolean = false,
+    /** Opt-in only: the Gemma 270M pilot has its own prompt and transport gate. */
+    val isGemma270Pilot: Boolean = false,
 ) {
     fun prompt(): String {
+        if (isGemma270Pilot) return Gemma270PilotPrompt.render(this)
         fun safe(value: String) = value.replace("<|", "< |")
         return "<|startoftext|><|im_start|>system\n" +
             "You format dictated text. Follow the requested format. Preserve meaning, names, " +
@@ -31,12 +34,14 @@ internal data class LocalFormatRequest(
             "<|im_end|>\n<|im_start|>assistant\n"
     }
 
-    fun outputTokenBudget(): Int = (text.length + 128).coerceIn(192, 2048)
+    fun outputTokenBudget(): Int = if (isGemma270Pilot) {
+        Gemma270PilotPrompt.outputTokenBudget(text)
+    } else (text.length + 128).coerceIn(192, 2048)
 
     fun layoutPolicy(): FaithfulLayout? = layoutKind?.let { FaithfulLayout.create(text, it) }
 
     /** Trial margin for actual mail generation; this is a maximum, never a minimum delay. */
-    fun finalWaitMs(): Long = when {
+    fun finalWaitMs(): Long = if (isGemma270Pilot) Gemma270PilotSupport.DEADLINE_MS else when {
         isLongText() && layoutKind in setOf(LocalLayoutKind.EMAIL, LocalLayoutKind.TEXT) -> 10_000L
         layoutKind == LocalLayoutKind.EMAIL -> 8_000L
         else -> 5_000L
@@ -48,15 +53,16 @@ internal data class LocalFormatRequest(
     fun isLongText(): Boolean =
         Regex("[^\\s\\p{Z}\\u0085]+").findAll(text).take(60).count() >= 60
 
-    fun directOutput(): String? = layoutPolicy()?.directResult?.let(::acceptOutput)
+    fun directOutput(): String? = if (isGemma270Pilot) null else layoutPolicy()?.directResult?.let(::acceptOutput)
         ?: if (simpleEmailLayout && layoutKind == LocalLayoutKind.EMAIL && !isLongEmail() &&
             validation != LocalFormatValidation.EXACT_LAYOUT)
             SimpleEmailLayout.format(text)?.let(::acceptOutput) else null
 
     fun acceptOutput(text: String?): String? {
         val value = when {
-            layoutKind == null -> LocalFormatOutput.accept(text)
             validation == LocalFormatValidation.GEMMA_PROJECTION -> GemmaFaithfulLayout.accept(this, text)
+            isGemma270Pilot -> Gemma270PilotPrompt.acceptOutput(text)
+            layoutKind == null -> LocalFormatOutput.accept(text)
             validation == LocalFormatValidation.GEMMA_EDITING -> GemmaConservativeEditing.accept(this, text)
             else -> layoutPolicy()?.accept(text)
         }
@@ -64,7 +70,7 @@ internal data class LocalFormatRequest(
     }
 
     /** Free generation remains private until all source words have been verified. */
-    fun previewOutput(prefix: String): String? = when (validation) {
+    fun previewOutput(prefix: String): String? = if (isGemma270Pilot) null else when (validation) {
         LocalFormatValidation.EXACT_LAYOUT -> layoutPolicy()?.preview(prefix)
         LocalFormatValidation.GEMMA_PROJECTION -> acceptOutput(prefix)
         LocalFormatValidation.GEMMA_EDITING -> null // Corrections are published only after the engine returns.
@@ -86,6 +92,11 @@ internal interface LocalFormatBackend {
     fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit, onNativeStart: () -> Unit): String? =
         generate(request, onChunk)
     fun cancel()
+}
+
+/** Optional lifecycle hook for a backend scoped to one formatting session owner. */
+internal interface LocalFormatBackendOwner {
+    fun closeOwner()
 }
 
 /** Metadata only. waitMs measures finalization, including any remaining queue/load wait. */
@@ -224,7 +235,9 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
             val generated = runCatching {
                 backend.generate(job.request, { chunk ->
                     synchronized(lock) {
-                        if (!closed && active === job) job.onChunk?.invoke(chunk)
+                        // The pilot native sink may receive partial tokens before EOS. They
+                        // stay private until the whole result has passed its transport gate.
+                        if (!job.request.isGemma270Pilot && !closed && active === job) job.onChunk?.invoke(chunk)
                     }
                 }, { job.nativeStarted = true })
             }
@@ -243,7 +256,7 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
                         else -> "fidelity_rejected"
                     }
                     if (accepted != null) {
-                        if (job.request.validation != LocalFormatValidation.EXACT_LAYOUT && value != null)
+                        if (!job.request.isGemma270Pilot && job.request.validation != LocalFormatValidation.EXACT_LAYOUT && value != null)
                             job.restoredSourceWords = GemmaFaithfulLayout.restoredWordCount(value, accepted)
                         completed = job
                     }
@@ -262,6 +275,7 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
             pending?.complete(null, "cancelled")
             pending = null
             backend.cancel()
+            (backend as? LocalFormatBackendOwner)?.closeOwner()
             worker.shutdown()
         }
     }

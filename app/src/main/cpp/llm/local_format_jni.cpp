@@ -123,8 +123,8 @@ jlong native_open(JNIEnv *env, jobject, jbyteArray path_bytes, jint context_size
     } catch (...) { return 0; }
 }
 
-jbyteArray native_generate(JNIEnv *env, jobject, jlong handle, jlong generation, jbyteArray prompt_bytes, jbyteArray grammar_bytes,
-                           jint max_tokens, jlong timeout_ms, jobject sink) {
+jbyteArray native_generate_impl(JNIEnv *env, jobject, jlong handle, jlong generation, jbyteArray prompt_bytes, jbyteArray grammar_bytes,
+                                jint max_tokens, jlong timeout_ms, jobject sink, bool greedy) {
     try {
         auto s = acquire(handle);
         if (!s || generation <= 0 || max_tokens <= 0 || max_tokens > 8192 || timeout_ms <= 0 || !sink) return nullptr;
@@ -159,10 +159,12 @@ jbyteArray native_generate(JNIEnv *env, jobject, jlong handle, jlong generation,
             owned.release();
             return true;
         };
-        Sampler penalties(llama_sampler_init_penalties(llama_vocab_n_tokens(vocab), 64, 1.05f, 0.0f, 0.0f), llama_sampler_free);
-        if (!penalties) return nullptr;
-        for (const auto token : tokens) llama_sampler_accept(penalties.get(), token);
-        if (!add(penalties.release())) return nullptr;
+        if (!greedy) {
+            Sampler penalties(llama_sampler_init_penalties(llama_vocab_n_tokens(vocab), 64, 1.05f, 0.0f, 0.0f), llama_sampler_free);
+            if (!penalties) return nullptr;
+            for (const auto token : tokens) llama_sampler_accept(penalties.get(), token);
+            if (!add(penalties.release())) return nullptr;
+        }
         if (grammar_bytes) {
             const auto grammar = read_bytes(env, grammar_bytes);
             const auto valid = utf8_prefix(grammar);
@@ -171,8 +173,12 @@ jbyteArray native_generate(JNIEnv *env, jobject, jlong handle, jlong generation,
             if (abort_inference(s.get())) return nullptr;
             if (!add(llama_sampler_init_grammar(vocab, grammar.c_str(), "root"))) return nullptr;
         }
-        if (!add(llama_sampler_init_top_k(50)) || !add(llama_sampler_init_temp(0.1f)) ||
-            !add(llama_sampler_init_dist(1234))) return nullptr;
+        if (greedy) {
+            // The terminal greedy sampler selects the best token itself. A
+            // top-k filter alone is not a terminal sampler in llama.cpp.
+            if (!add(llama_sampler_init_greedy())) return nullptr;
+        } else if (!add(llama_sampler_init_top_k(50)) || !add(llama_sampler_init_temp(0.1f)) ||
+                   !add(llama_sampler_init_dist(1234))) return nullptr;
         for (int offset = 0; offset < count; offset += 128) {
             if (abort_inference(s.get())) return nullptr;
             auto batch = llama_batch_get_one(tokens.data() + offset, std::min(128, count - offset));
@@ -224,6 +230,14 @@ jbyteArray native_generate(JNIEnv *env, jobject, jlong handle, jlong generation,
         return nullptr;
     } catch (...) { return nullptr; }
 }
+jbyteArray native_generate(JNIEnv *env, jobject object, jlong handle, jlong generation, jbyteArray prompt_bytes, jbyteArray grammar_bytes,
+                           jint max_tokens, jlong timeout_ms, jobject sink) {
+    return native_generate_impl(env, object, handle, generation, prompt_bytes, grammar_bytes, max_tokens, timeout_ms, sink, false);
+}
+jbyteArray native_generate_greedy(JNIEnv *env, jobject object, jlong handle, jlong generation, jbyteArray prompt_bytes, jbyteArray grammar_bytes,
+                                  jint max_tokens, jlong timeout_ms, jobject sink) {
+    return native_generate_impl(env, object, handle, generation, prompt_bytes, grammar_bytes, max_tokens, timeout_ms, sink, true);
+}
 void native_cancel(JNIEnv *, jobject, jlong handle, jlong generation) {
     auto s = acquire(handle);
     if (!s || generation <= 0) return;
@@ -247,6 +261,7 @@ const JNINativeMethod methods[] = {
 #endif
     {const_cast<char *>("open"), const_cast<char *>("([BII)J"), reinterpret_cast<void *>(native_open)},
     {const_cast<char *>("generate"), const_cast<char *>("(JJ[B[BIJLcom/kafkasl/phonewhisper/LocalFormatChunkSink;)[B"), reinterpret_cast<void *>(native_generate)},
+    {const_cast<char *>("generateGreedy"), const_cast<char *>("(JJ[B[BIJLcom/kafkasl/phonewhisper/LocalFormatChunkSink;)[B"), reinterpret_cast<void *>(native_generate_greedy)},
     {const_cast<char *>("cancel"), const_cast<char *>("(JJ)V"), reinterpret_cast<void *>(native_cancel)},
     {const_cast<char *>("close"), const_cast<char *>("(J)V"), reinterpret_cast<void *>(native_close)},
 };

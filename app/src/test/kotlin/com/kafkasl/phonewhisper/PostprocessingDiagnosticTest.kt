@@ -54,9 +54,10 @@ class PostprocessingDiagnosticTest {
         text: String = "Contenu privé à ne pas enregistrer.",
         runtime: String = "arm64-dotprod-fp16",
         suppressed: Boolean = false,
+        pilot: Boolean = false,
     ) = PostprocessingDiagnostic.report(
         "test", 0, format, requested, applied, local, runtime, 800, 900,
-        text, InjectionResult.Copied, suppressed,
+        text, InjectionResult.Copied, suppressed, pilotModel = pilot,
     )
 
     @Test fun reportsAppliedSingleParagraphWithoutClaimingGoodGrouping() {
@@ -81,6 +82,32 @@ class PostprocessingDiagnosticTest {
         val vocabulary = report(LocalFinishDiagnostic("generated", "vocabulary_rejected", true, 400),
             PostprocessingDiagnostic.Applied.ORIGINAL)
         assertTrue(vocabulary.contains("vocabulaire non conservé"))
+    }
+
+    @Test fun pilotDiagnosticsNameTheCpuRuntimeAndDoNotCallAnIncompleteResultFaithful() {
+        val value = report(
+            LocalFinishDiagnostic("generated", "backend_empty", true, 60000),
+            PostprocessingDiagnostic.Applied.ORIGINAL,
+            format = "corrected",
+            runtime = Gemma270PilotSupport.RUNTIME_NAME,
+            pilot = true,
+        )
+        assertTrue(value.contains(Gemma270PilotSupport.MODEL_FILE_NAME))
+        assertTrue(value.contains("génération incomplète : aucun résultat complet reçu"))
+        assertFalse(value.contains("modification hors corrections autorisées"))
+    }
+
+    @Test fun pilotBuildNamesPilotModelWhenLoadingFailsBeforeRuntimeIsReady() {
+        val value = report(
+            LocalFinishDiagnostic("generated", "backend_empty", false, 20),
+            PostprocessingDiagnostic.Applied.ORIGINAL,
+            format = "corrected",
+            runtime = "model_manifest_missing",
+            pilot = true,
+        )
+        assertTrue(value.contains(Gemma270PilotSupport.MODEL_FILE_NAME))
+        assertFalse(value.contains(LocalFormatEngine.MODEL_FILE))
+        assertTrue(value.contains("génération incomplète : aucun résultat complet reçu"))
     }
 
     @Test fun directAndCachedResultsDescribeWhetherNativeWasUsedForTheirResult() {

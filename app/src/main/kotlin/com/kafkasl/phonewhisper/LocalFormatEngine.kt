@@ -38,31 +38,51 @@ internal data class LocalFormatPreparation(val loadMs: Long, val wasAlreadyLoade
  * each request receives an independent conversation. No initialization or cancellation joins the UI.
  */
 internal class LocalFormatEngine(context: Context) : AutoCloseable {
-    private val core = synchronized(sharedLock) {
+    private val pilotCore: Gemma270PilotCore? = if (BuildConfig.GEMMA270_PILOT) synchronized(sharedLock) {
+        (sharedPilot?.takeUnless { it.isClosed }
+            ?: Gemma270PilotCore(context.applicationContext).also { sharedPilot = it }).also { it.retain() }
+    } else null
+    private val core: GemmaEngineCore? = if (!BuildConfig.GEMMA270_PILOT) synchronized(sharedLock) {
         (shared ?: GemmaEngineCore(context.applicationContext).also { shared = it }).also { it.retain() }
-    }
+    } else null
     private val closed = AtomicBoolean()
+    private val pilotBackendLock = Any()
+    private val pilotBackends = ConcurrentHashMap.newKeySet<Gemma270PilotCore.PilotBackend>()
     private val ownedJobs = ConcurrentHashMap.newKeySet<GemmaCall>()
 
-    fun runtimeName(): String = core.runtimeName
-    fun failureCode(): String? = core.failureCode
-    fun isLoaded(): Boolean = core.isLoaded
-    fun lastLoadMs(): Long? = core.lastLoadMs
+    fun runtimeName(): String = pilotCore?.runtimeName ?: core?.runtimeName ?: "not-loaded"
+    fun failureCode(): String? = pilotCore?.failureCode ?: core?.failureCode
+    fun isLoaded(): Boolean = pilotCore?.isLoaded ?: core?.isLoaded ?: false
+    fun lastLoadMs(): Long? = pilotCore?.lastLoadMs ?: core?.lastLoadMs
 
     fun prepareForBenchmarkInfo(): LocalFormatPreparation {
         requireWorkerThread()
         check(!closed.get()) { "Formatter closed" }
-        return core.prepare { closed.get() }
+        pilotCore?.let { return it.prepareForBenchmarkInfo() }
+        return checkNotNull(core).prepare { closed.get() }
     }
 
     /** Kept for older callers. Use prepareForBenchmarkInfo to distinguish an already loaded model. */
     fun prepareForBenchmark(): Long = prepareForBenchmarkInfo().waitMs
 
     fun warm() {
-        if (!closed.get()) core.warm()
+        if (closed.get()) return
+        pilotCore?.warm() ?: core?.warm()
     }
 
-    fun backend(): LocalFormatBackend = GemmaBackend()
+    fun backend(): LocalFormatBackend {
+        pilotCore?.let { core ->
+            synchronized(pilotBackendLock) {
+                lateinit var backend: Gemma270PilotCore.PilotBackend
+                backend = core.backend {
+                    synchronized(pilotBackendLock) { pilotBackends.remove(backend) }
+                }
+                if (closed.get()) backend.closeOwner(notify = false) else pilotBackends.add(backend)
+                return backend
+            }
+        }
+        return GemmaBackend()
+    }
 
     private inner class GemmaBackend : LocalFormatBackend {
         private val cancellationEpoch = AtomicLong()
@@ -74,6 +94,7 @@ internal class LocalFormatEngine(context: Context) : AutoCloseable {
         override fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit, onNativeStart: () -> Unit): String? {
             requireWorkerThread()
             if (closed.get()) return null
+            val legacyCore = checkNotNull(core)
             val epoch = cancellationEpoch.get()
             val call = GemmaCall(request, onChunk, onNativeStart) {
                 closed.get() || cancellationEpoch.get() != epoch
@@ -87,18 +108,18 @@ internal class LocalFormatEngine(context: Context) : AutoCloseable {
             try {
                 // Cancellation may race with registration; the epoch still makes this call stale.
                 if (call.isCancelled()) return null
-                core.enqueue(call)
+                legacyCore.enqueue(call)
                 return call.result.get(GENERATION_DEADLINE_MS, TimeUnit.MILLISECONDS)
             } catch (_: TimeoutException) {
-                core.cancel(call, "generation_timeout")
+                legacyCore.cancel(call, "generation_timeout")
                 throw TimeoutException("Local format deadline exceeded")
             } catch (_: InterruptedException) {
-                core.cancel(call)
+                legacyCore.cancel(call)
                 Thread.currentThread().interrupt()
                 return null
             } catch (error: ExecutionException) {
                 // Do not pass native errors (which can contain model input) to UI/logging.
-                throw IllegalStateException("Local GPU formatter failed: ${core.failureCode ?: "generation_error"}")
+                throw IllegalStateException("Local GPU formatter failed: ${legacyCore.failureCode ?: "generation_error"}")
             } finally {
                 jobs.remove(call)
                 ownedJobs.remove(call)
@@ -107,20 +128,31 @@ internal class LocalFormatEngine(context: Context) : AutoCloseable {
 
         override fun cancel() {
             cancellationEpoch.incrementAndGet()
-            jobs.forEach { core.cancel(it) }
+            val legacyCore = core ?: return
+            jobs.forEach { legacyCore.cancel(it) }
         }
     }
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
-        ownedJobs.forEach { core.cancel(it) }
+        core?.let { legacyCore -> ownedJobs.forEach { legacyCore.cancel(it) } }
         ownedJobs.clear()
-        core.release()
+        pilotCore?.let { pilot ->
+            val backends = synchronized(pilotBackendLock) {
+                pilotBackends.toList().also { pilotBackends.clear() }
+            }
+            backends.forEach { it.closeOwner() }
+            synchronized(sharedLock) {
+                pilot.release()
+                if (pilot.isClosed && sharedPilot === pilot) sharedPilot = null
+            }
+        } ?: core?.release()
     }
 
     companion object {
         private val sharedLock = Any()
         private var shared: GemmaEngineCore? = null
+        private var sharedPilot: Gemma270PilotCore? = null
         const val MODEL_FILE = "gemma-4-E2B-it.litertlm"
         const val GENERATION_DEADLINE_MS = 20_000L
 
