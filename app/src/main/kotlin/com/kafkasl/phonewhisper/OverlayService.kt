@@ -345,6 +345,8 @@ class OverlayService : Service() {
     private var panelGestureStartScreen: Rect? = null
     private var panelGestureStartX = 0f
     private var panelGestureStartY = 0f
+    private var panelGestureLastX = 0f
+    private var panelGestureLastY = 0f
     private var panelGestureHandle: PanelResizeHandle? = null
     private var bubblePointerLength = 0
     private var bubblePointerTargetX = Float.NaN
@@ -1861,30 +1863,21 @@ class OverlayService : Service() {
         // handle laid directly on either row would steal those buttons' touch targets.
         val topGutter = toolbarHeight
         val bottomGutter = maxOf(bottomBarHeight, toolbarHeight)
-        panelResizeHandles[PanelResizeHandle.TOP_LEFT]
-            ?.let { (it.layoutParams as? FrameLayout.LayoutParams)?.apply {
-                topMargin = topGutter
-                bottomMargin = 0
-                it.layoutParams = this
-            } }
-        panelResizeHandles[PanelResizeHandle.TOP_RIGHT]
-            ?.let { (it.layoutParams as? FrameLayout.LayoutParams)?.apply {
-                topMargin = topGutter
-                bottomMargin = 0
-                it.layoutParams = this
-            } }
-        panelResizeHandles[PanelResizeHandle.BOTTOM_RIGHT]
-            ?.let { (it.layoutParams as? FrameLayout.LayoutParams)?.apply {
-                topMargin = 0
-                bottomMargin = bottomGutter
-                it.layoutParams = this
-            } }
-        panelResizeHandles[PanelResizeHandle.BOTTOM_LEFT]
-            ?.let { (it.layoutParams as? FrameLayout.LayoutParams)?.apply {
-                topMargin = 0
-                bottomMargin = bottomGutter
-                it.layoutParams = this
-            } }
+        val handleHeight = min(
+            (36 * dp).toInt(),
+            ((panelHeight - topGutter - bottomGutter).coerceAtLeast(0) / 2),
+        )
+        val handlesVisible = handleHeight > 0 && livePreviewVisible && !panelExpanded && exportPanel == null
+        panelResizeHandles.forEach { (handle, view) ->
+            (view.layoutParams as? FrameLayout.LayoutParams)?.apply {
+                val topHandle = handle == PanelResizeHandle.TOP_LEFT || handle == PanelResizeHandle.TOP_RIGHT
+                topMargin = if (topHandle) topGutter else 0
+                bottomMargin = if (topHandle) 0 else bottomGutter
+                height = handleHeight
+                view.layoutParams = this
+                view.visibility = if (handlesVisible) View.VISIBLE else View.GONE
+            }
+        }
     }
 
     private fun repositionPanelIfVisibleScreenChanged() {
@@ -2019,6 +2012,8 @@ class OverlayService : Service() {
         panelGestureStartScreen = screen
         panelGestureStartX = rawX
         panelGestureStartY = rawY
+        panelGestureLastX = rawX
+        panelGestureLastY = rawY
         panelGestureHandle = handle
         return true
     }
@@ -2027,13 +2022,16 @@ class OverlayService : Service() {
         val start = panelGestureStartRect ?: return false
         val screen = screenAboveKeyboard(screenRect())
         val pill = pillRectForPanel(screenRect(), screen)
-        val dx = rawX - panelGestureStartX
-        val dy = rawY - panelGestureStartY
+        val dx = rawX - panelGestureLastX
+        val dy = rawY - panelGestureLastY
+        panelGestureLastX = rawX
+        panelGestureLastY = rawY
         val geometry = panelGeometry()
+        val current = reducedPanelRect ?: start
         reducedPanelRect = if (panelGestureHandle == null) {
-            geometry.move(start, dx, dy, screen, pill)
+            geometry.move(current, dx, dy, screen, pill)
         } else {
-            geometry.resize(start, panelGestureHandle!!, dx, dy, screen, pill)
+            geometry.resize(current, panelGestureHandle!!, dx, dy, screen, pill)
         }
         reducedPanelRectScreen = screen
         applyReducedPanelRect(
@@ -2066,6 +2064,8 @@ class OverlayService : Service() {
         }
         panelGestureStartRect = null
         panelGestureStartScreen = null
+        panelGestureLastX = 0f
+        panelGestureLastY = 0f
         panelGestureHandle = null
     }
 
@@ -2076,6 +2076,8 @@ class OverlayService : Service() {
         reducedPanelRectScreen = null
         panelGestureStartRect = null
         panelGestureStartScreen = null
+        panelGestureLastX = 0f
+        panelGestureLastY = 0f
         panelGestureHandle = null
         panelPrefs.clear()
         currentAnchor?.let(::positionLivePanel)
@@ -2760,6 +2762,7 @@ class OverlayService : Service() {
         }
 
         var downX = 0; var downY = 0; var touchX = 0f; var touchY = 0f; var moved = false
+        var dragLastRawX = 0f; var dragLastRawY = 0f
         var touchInterrupted = false
         val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
         val gestureMode = PillGestureMode(touchSlop)
@@ -2812,33 +2815,93 @@ class OverlayService : Service() {
                 vibrate(35)
             }
         }
+
+        fun reducedPanelObstacle(): Rect? = if (
+            livePreviewVisible && !panelExpanded && customPanelPlacement && exportPanel == null
+        ) panelBodyFromCurrentLayout() else null
+
+        fun accessiblePillDrop(current: Rect, screen: Rect): Pair<Anchor, Rect>? {
+            val obstacle = reducedPanelObstacle() ?: run {
+                val anchor = OverlayPlacement.snap(Point(current.x, current.y), Rect(0, 0, current.width, current.height), screen)
+                val point = OverlayPlacement.pillPosition(anchor, Rect(0, 0, current.width, current.height), screen)
+                return anchor to Rect(point.x, point.y, current.width, current.height)
+            }
+            val pillSize = Rect(0, 0, current.width, current.height)
+            val verticalOffset = if (screen.height <= current.height) 0f
+            else ((current.y - screen.y).toFloat() / (screen.height - current.height)).coerceIn(0f, 1f)
+            val horizontalOffset = if (screen.width <= current.width) 0f
+            else ((current.x - screen.x).toFloat() / (screen.width - current.width)).coerceIn(0f, 1f)
+            data class Drop(val anchor: Anchor, val rect: Rect, val distance: Int)
+            val geometry = panelGeometry()
+            val candidates = listOf(
+                Anchor(Edge.LEFT, verticalOffset),
+                Anchor(Edge.TOP, horizontalOffset),
+                Anchor(Edge.RIGHT, verticalOffset),
+                Anchor(Edge.BOTTOM, horizontalOffset),
+            ).mapNotNull { anchor ->
+                val point = OverlayPlacement.pillPosition(anchor, pillSize, screen)
+                val target = Rect(point.x, point.y, current.width, current.height)
+                val reached = geometry.move(
+                    current,
+                    (target.x - current.x).toFloat(),
+                    (target.y - current.y).toFloat(),
+                    screen,
+                    obstacle,
+                )
+                target.takeIf { reached == it }?.let {
+                    Drop(anchor, it, abs(it.x - current.x) + abs(it.y - current.y))
+                }
+            }
+            return candidates.minWithOrNull(compareBy<Drop> { it.distance })?.let { it.anchor to it.rect }
+        }
+
         fun finishDrag() {
             val screen = screenRect()
-            val anchor = OverlayPlacement.snap(Point(lp.x, lp.y), Rect(0, 0, lp.width, lp.height), screen)
-            val snapped = OverlayPlacement.pillPosition(anchor, Rect(0, 0, lp.width, lp.height), screen)
+            val pillSize = Rect(0, 0, lp.width, lp.height)
+            val current = Rect(lp.x, lp.y, lp.width, lp.height)
+            val drop = accessiblePillDrop(current, screen)
             pillPositionBeforeKeyboard = null
-            currentAnchor = anchor
-            lp.x = snapped.x
-            lp.y = snapped.y
+            if (drop != null) {
+                val (finalAnchor, final) = drop
+                currentAnchor = finalAnchor
+                lp.x = final.x
+                lp.y = final.y
+                prefs.saveAnchor(finalAnchor)
+            }
             updatePillLayout()
             prefs.buttonX = lp.x
             prefs.buttonY = lp.y
-            prefs.saveAnchor(anchor)
         }
 
-        fun updateDrag(dx: Float, dy: Float) {
-            if (!moved && abs(dx) + abs(dy) <= touchSlop) return
+        fun updateDrag(rawX: Float, rawY: Float) {
+            val stepDx = rawX - dragLastRawX
+            val stepDy = rawY - dragLastRawY
+            val totalDx = rawX - touchX
+            val totalDy = rawY - touchY
+            dragLastRawX = rawX
+            dragLastRawY = rawY
+            if (!moved && abs(totalDx) + abs(totalDy) <= touchSlop) return
             moved = true
             tapCoordinator.reset()
             main.removeCallbacks(longPress)
-            val clamped = OverlayPlacement.clampPill(
-                Point((downX + dx).toInt(), (downY + dy).toInt()),
-                Rect(0, 0, lp.width, lp.height), screenRect(),
-            )
-            lp.x = clamped.x
-            lp.y = clamped.y
+            val screen = screenRect()
+            val pillSize = Rect(0, 0, lp.width, lp.height)
+            val current = Rect(lp.x, lp.y, lp.width, lp.height)
+            val panelObstacle = reducedPanelObstacle()
+            val next = if (panelObstacle != null) {
+                panelGeometry().move(current, stepDx, stepDy, screen, panelObstacle)
+            } else {
+                val clamped = OverlayPlacement.clampPill(
+                    Point((downX + totalDx).toInt(), (downY + totalDy).toInt()),
+                    pillSize,
+                    screen,
+                )
+                Rect(clamped.x, clamped.y, lp.width, lp.height)
+            }
+            lp.x = next.x
+            lp.y = next.y
             val dragAnchor = OverlayPlacement.snap(
-                Point(lp.x, lp.y), Rect(0, 0, lp.width, lp.height), screenRect(),
+                Point(lp.x, lp.y), pillSize, screen,
             )
             // The pointer follows the live window coordinates and the provisional edge while a
             // drag is in progress; waiting for ACTION_UP would leave it attached to the old side.
@@ -2853,6 +2916,7 @@ class OverlayService : Service() {
                     dismissFloatingMenu()
                     hideGestureHint()
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
+                    dragLastRawX = ev.rawX; dragLastRawY = ev.rawY
                     moved = false; touchInterrupted = false
                     gestureMode.begin()
                     notesGesture.begin(state == State.IDLE || state == State.MIC_UNARMED || isTranscriptEditable())
@@ -2891,7 +2955,7 @@ class OverlayService : Service() {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     gestureMode.move(dx, dy)
                     if (gestureMode.mode == PillGestureMode.Mode.DRAG) {
-                        updateDrag(dx, dy)
+                        updateDrag(ev.rawX, ev.rawY)
                     } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         main.removeCallbacks(longPress)
                         tapCoordinator.reset()
@@ -2917,7 +2981,7 @@ class OverlayService : Service() {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     gestureMode.move(dx, dy)
                     if (gestureMode.mode == PillGestureMode.Mode.DRAG) {
-                        updateDrag(dx, dy)
+                        updateDrag(ev.rawX, ev.rawY)
                         if (moved) finishDrag()
                     } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         tapCoordinator.reset()
@@ -4304,7 +4368,7 @@ class OverlayService : Service() {
         try { container?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}
         livePanelAdded = false
         tailFollower?.reset(); tailFollower = null
-        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; gestureHint = null; stateIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; panelMoveHandle = null; panelResizeHandles.clear(); imageStripScroll = null; livePanelBody = null; bubblePointer = null; livePanel = null; liveParams = null; panelEdge = null; panelBodyRect = null; panelGestureStartRect = null; panelGestureStartScreen = null; panelGestureHandle = null; reducedPanelRect = null; reducedPanelRectScreen = null; pillPositionBeforeKeyboard = null
+        container = null; pill = null; wave = null; loader = null; pauseIndicator = null; gestureHint = null; stateIndicator = null; liveText = null; liveScroll = null; panelExpandButton = null; panelTitle = null; panelMoveHandle = null; panelResizeHandles.clear(); imageStripScroll = null; livePanelBody = null; bubblePointer = null; livePanel = null; liveParams = null; panelEdge = null; panelBodyRect = null; panelGestureStartRect = null; panelGestureStartScreen = null; panelGestureLastX = 0f; panelGestureLastY = 0f; panelGestureHandle = null; reducedPanelRect = null; reducedPanelRectScreen = null; pillPositionBeforeKeyboard = null
         super.onDestroy()
     }
 

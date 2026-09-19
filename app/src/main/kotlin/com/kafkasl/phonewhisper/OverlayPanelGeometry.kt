@@ -30,6 +30,7 @@ internal class OverlayPanelGeometry(
     private val gap: Int,
 ) {
     private data class Limits(val minWidth: Int, val maxWidth: Int, val minHeight: Int, val maxHeight: Int)
+    private data class SweepCollision(val time: Double)
 
     fun standard(screen: Rect, pill: Rect, desiredWidth: Int, desiredHeight: Int): Rect {
         val limits = limits(screen)
@@ -46,11 +47,28 @@ internal class OverlayPanelGeometry(
         return bound(Rect(desired.x, desired.y, width, height), screen, pill)
     }
 
-    fun move(rect: Rect, dx: Float, dy: Float, screen: Rect, pill: Rect): Rect = bound(
-        rect.copy(x = (rect.x + dx).roundToInt(), y = (rect.y + dy).roundToInt()),
-        screen,
-        pill,
-    )
+    /** Move without changing the panel dimensions, stopping at the first collision. */
+    fun move(rect: Rect, dx: Float, dy: Float, screen: Rect, pill: Rect): Rect {
+        val current = fitInside(rect, screen)
+        if (intersects(current, inflatedPill(pill))) return keepAwayFromPill(current, screen, pill)
+        val target = fitInside(
+            current.copy(
+                x = (current.x + dx).roundToInt(),
+                y = (current.y + dy).roundToInt(),
+            ),
+            screen,
+        )
+        val obstacle = inflatedPill(pill)
+        val hit = firstCollision(current, target, obstacle) ?: return target
+        val safeTime = (hit.time - 0.000001).coerceAtLeast(0.0)
+        // The epsilon and four-edge interpolation keep the panel on the original trajectory while
+        // rounding to the last safe integer position. Do not infer a collision normal here: an axis
+        // can already overlap at t=0 while the other one is merely touching.
+        return current.copy(
+            x = (current.x + (target.x - current.x) * safeTime).roundToInt(),
+            y = (current.y + (target.y - current.y) * safeTime).roundToInt(),
+        )
+    }
 
     fun resize(
         rect: Rect,
@@ -63,13 +81,31 @@ internal class OverlayPanelGeometry(
         val limits = limits(screen)
         val fromLeft = handle == PanelResizeHandle.TOP_LEFT || handle == PanelResizeHandle.BOTTOM_LEFT
         val fromTop = handle == PanelResizeHandle.TOP_LEFT || handle == PanelResizeHandle.TOP_RIGHT
-        val width = (if (fromLeft) rect.width - dx else rect.width + dx)
+        var width = (if (fromLeft) rect.width - dx else rect.width + dx)
             .roundToInt().coerceIn(limits.minWidth, limits.maxWidth)
-        val height = (if (fromTop) rect.height - dy else rect.height + dy)
+        var height = (if (fromTop) rect.height - dy else rect.height + dy)
             .roundToInt().coerceIn(limits.minHeight, limits.maxHeight)
-        val x = if (fromLeft) rect.right - width else rect.x
-        val y = if (fromTop) rect.bottom - height else rect.y
-        return bound(Rect(x, y, width, height), screen, pill)
+        val fixedLeft = rect.x
+        val fixedRight = rect.right
+        val fixedTop = rect.y
+        val fixedBottom = rect.bottom
+        if (fromLeft) {
+            width = width.coerceAtMost((fixedRight - screen.x).coerceAtLeast(1))
+        } else {
+            width = width.coerceAtMost((screen.right - fixedLeft).coerceAtLeast(1))
+        }
+        if (fromTop) {
+            height = height.coerceAtMost((fixedBottom - screen.y).coerceAtLeast(1))
+        } else {
+            height = height.coerceAtMost((screen.bottom - fixedTop).coerceAtLeast(1))
+        }
+        val candidate = Rect(
+            x = if (fromLeft) fixedRight - width else fixedLeft,
+            y = if (fromTop) fixedBottom - height else fixedTop,
+            width = width,
+            height = height,
+        )
+        return constrainResizeCollision(candidate, rect, handle, screen, pill)
     }
 
     fun bound(rect: Rect, screen: Rect, pill: Rect): Rect {
@@ -190,45 +226,157 @@ internal class OverlayPanelGeometry(
         Edge.BOTTOM to screen.bottom - pill.bottom,
     ).minBy { it.second }.first
 
+    /**
+     * Keep a restored rectangle away from the pill while preserving its size whenever one of the
+     * four sides can contain it. Only when no full-size side fits do we choose the largest readable
+     * side, so a nearby short strip cannot win merely because it is closest.
+     */
     private fun keepAwayFromPill(rect: Rect, screen: Rect, pill: Rect): Rect {
-        if (!intersects(rect, pill)) return rect
-        val leftRoom = (pill.x - gap - screen.x).coerceAtLeast(0)
-        val rightRoom = (screen.right - pill.right - gap).coerceAtLeast(0)
-        val topRoom = (pill.y - gap - screen.y).coerceAtLeast(0)
-        val bottomRoom = (screen.bottom - pill.bottom - gap).coerceAtLeast(0)
-        // If a very large panel overlaps the pill, reduce only the dimension that blocks each
-        // candidate side. This preserves the pill's touch target even when no full-size side is
-        // wide/tall enough (for example on a short IME viewport).
-        val candidates = listOfNotNull(
+        val obstacle = inflatedPill(pill)
+        if (!intersects(rect, obstacle)) return rect
+
+        data class Candidate(val rect: Rect, val area: Long, val distance: Int)
+        fun inside(candidate: Rect): Boolean =
+            candidate.x >= screen.x && candidate.y >= screen.y &&
+                candidate.right <= screen.right && candidate.bottom <= screen.bottom &&
+                !intersects(candidate, obstacle)
+        // Keep the original size first. This is the common path after a rotation or a persisted
+        // panel collision and avoids changing readable content just to choose a nearby side.
+        val originalX = rect.x
+        val originalY = rect.y
+        val sameSize = listOf(
+            rect.copy(x = obstacle.x - rect.width),
+            rect.copy(x = obstacle.right),
+            rect.copy(y = obstacle.y - rect.height),
+            rect.copy(y = obstacle.bottom),
+        ).filter(::inside)
+        if (sameSize.isNotEmpty()) {
+            return sameSize.minWithOrNull(
+                compareBy<Rect> { abs(it.x - originalX) + abs(it.y - originalY) },
+            ) ?: rect
+        }
+
+        val leftRoom = (obstacle.x - screen.x).coerceAtLeast(0)
+        val rightRoom = (screen.right - obstacle.right).coerceAtLeast(0)
+        val topRoom = (obstacle.y - screen.y).coerceAtLeast(0)
+        val bottomRoom = (screen.bottom - obstacle.bottom).coerceAtLeast(0)
+        // No full-size side fits. Preserve the largest surface, keeping the other dimension intact
+        // where possible so an IME-height panel does not become a title-only horizontal strip.
+        val resized = listOfNotNull(
             leftRoom.takeIf { it > 0 }?.let { room ->
-                val width = rect.width.coerceAtMost(room)
-                rect.copy(x = pill.x - gap - width, width = width)
+                rect.copy(x = obstacle.x - rect.width.coerceAtMost(room), width = rect.width.coerceAtMost(room))
             },
             rightRoom.takeIf { it > 0 }?.let { room ->
-                val width = rect.width.coerceAtMost(room)
-                rect.copy(x = pill.right + gap, width = width)
+                rect.copy(x = obstacle.right, width = rect.width.coerceAtMost(room))
             },
             topRoom.takeIf { it > 0 }?.let { room ->
-                val height = rect.height.coerceAtMost(room)
-                rect.copy(y = pill.y - gap - height, height = height)
+                rect.copy(y = obstacle.y - rect.height.coerceAtMost(room), height = rect.height.coerceAtMost(room))
             },
             bottomRoom.takeIf { it > 0 }?.let { room ->
-                val height = rect.height.coerceAtMost(room)
-                rect.copy(y = pill.bottom + gap, height = height)
+                rect.copy(y = obstacle.bottom, height = rect.height.coerceAtMost(room))
             },
         ).map { candidate ->
             candidate.copy(
                 x = candidate.x.coerceIn(screen.x, (screen.right - candidate.width).coerceAtLeast(screen.x)),
                 y = candidate.y.coerceIn(screen.y, (screen.bottom - candidate.height).coerceAtLeast(screen.y)),
             )
-        }
-        return candidates
-            .filter { !intersects(it, pill) }
-            .minByOrNull { abs(it.x - rect.x) + abs(it.y - rect.y) }
-            ?: rect.copy(
-                width = rect.width.coerceAtMost((screen.width - 1).coerceAtLeast(1)),
-                height = rect.height.coerceAtMost((screen.height - 1).coerceAtLeast(1)),
+        }.filter(::inside).map { candidate ->
+            Candidate(
+                rect = candidate,
+                area = candidate.width.toLong() * candidate.height.toLong(),
+                distance = abs(candidate.x - originalX) + abs(candidate.y - originalY),
             )
+        }
+        val readable = resized.filter { candidate ->
+            candidate.rect.width >= limits(screen).minWidth && candidate.rect.height >= limits(screen).minHeight
+        }
+        return (readable.ifEmpty { resized })
+            .sortedWith(compareByDescending<Candidate> { it.area }.thenBy { it.distance })
+            .firstOrNull()?.rect ?: rect
+    }
+
+    private fun inflatedPill(pill: Rect): Rect = Rect(
+        pill.x - gap,
+        pill.y - gap,
+        pill.width + 2 * gap,
+        pill.height + 2 * gap,
+    )
+
+    private fun fitInside(rect: Rect, screen: Rect): Rect = rect.copy(
+        x = rect.x.coerceIn(screen.x, (screen.right - rect.width).coerceAtLeast(screen.x)),
+        y = rect.y.coerceIn(screen.y, (screen.bottom - rect.height).coerceAtLeast(screen.y)),
+    )
+
+    private fun constrainResizeCollision(
+        candidate: Rect,
+        original: Rect,
+        handle: PanelResizeHandle,
+        screen: Rect,
+        pill: Rect,
+    ): Rect {
+        val obstacle = inflatedPill(pill)
+        if (!intersects(original, obstacle)) {
+            val hit = firstCollision(original, candidate, obstacle)
+            if (hit == null) return fitInside(candidate, screen)
+            val safeTime = (hit.time - 0.000001).coerceAtLeast(0.0)
+            val atHit = interpolate(original, candidate, safeTime)
+            return fitInside(atHit, screen)
+        }
+        return keepAwayFromPill(candidate, screen, pill)
+    }
+
+    /** Earliest t in [0, 1] for which the swept rectangles overlap. */
+    private fun firstCollision(start: Rect, end: Rect, obstacle: Rect): SweepCollision? {
+        fun axisInterval(
+            startMin: Int,
+            startMax: Int,
+            endMin: Int,
+            endMax: Int,
+            obstacleMin: Int,
+            obstacleMax: Int,
+        ): Pair<Double, Double>? {
+            var lower = 0.0
+            var upper = 1.0
+
+            fun applyLess(startValue: Int, endValue: Int, threshold: Int): Boolean {
+                val delta = (endValue - startValue).toDouble()
+                if (delta == 0.0) return startValue < threshold
+                val crossing = (threshold - startValue) / delta
+                if (delta > 0.0) upper = minOf(upper, crossing) else lower = maxOf(lower, crossing)
+                return lower < upper
+            }
+
+            fun applyGreater(startValue: Int, endValue: Int, threshold: Int): Boolean {
+                val delta = (endValue - startValue).toDouble()
+                if (delta == 0.0) return startValue > threshold
+                val crossing = (threshold - startValue) / delta
+                if (delta > 0.0) lower = maxOf(lower, crossing) else upper = minOf(upper, crossing)
+                return lower < upper
+            }
+
+            // min < obstacleMax and max > obstacleMin, with strict bounds so touching is safe.
+            if (!applyLess(startMin, endMin, obstacleMax)) return null
+            if (!applyGreater(startMax, endMax, obstacleMin)) return null
+            return (lower to upper).takeIf { lower < upper && upper > 0.0 && lower < 1.0 }
+        }
+
+        val x = axisInterval(start.x, start.right, end.x, end.right, obstacle.x, obstacle.right)
+            ?: return null
+        val y = axisInterval(start.y, start.bottom, end.y, end.bottom, obstacle.y, obstacle.bottom)
+            ?: return null
+        val entry = maxOf(x.first, y.first)
+        val exit = minOf(x.second, y.second)
+        return if (entry < exit && exit > 0.0 && entry < 1.0) {
+            SweepCollision(entry)
+        } else null
+    }
+
+    private fun interpolate(start: Rect, end: Rect, fraction: Double): Rect {
+        val left = (start.x + (end.x - start.x) * fraction).roundToInt()
+        val top = (start.y + (end.y - start.y) * fraction).roundToInt()
+        val right = (start.right + (end.right - start.right) * fraction).roundToInt()
+        val bottom = (start.bottom + (end.bottom - start.bottom) * fraction).roundToInt()
+        return Rect(left, top, (right - left).coerceAtLeast(1), (bottom - top).coerceAtLeast(1))
     }
 
     private fun intersects(first: Rect, second: Rect): Boolean =
