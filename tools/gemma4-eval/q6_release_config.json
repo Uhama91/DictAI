@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "ready_for_reviewed_release",
+  "release_id": 392486209,
+  "assets": {
+    "model_manifest_name": "q6_parts_manifest.json",
+    "model_manifest_sha256": "635132c86f111ad19c6ca605c6852706efaeefa7d7bffb3035ea0a79582d1f4c",
+    "tokenizer_name": "tokenizer.zip",
+    "tokenizer_archive_sha256": "1b3ed2a312929df6700a84063ec418e642f3e432a963f722bd4cd901af5c3f77",
+    "tokenizer_archive_bytes": 32190060,
+    "tokenizer_directory_sha256": "e95cf5aa065263f7ebdc0cce4a767a0e56c0373668d80715d9ae271fc7579b46",
+    "tokenizer_files": [
+      "chat_template.jinja",
+      "tokenizer.json",
+      "tokenizer_config.json"
+    ]
+  },
+  "model": {
+    "source_sha256": "4d8a18db6843337832cebf3f230183241fc3f83ddf5ffbe9f0c798923a6e3cf4",
+    "source_bytes": 3931578880
+  },
+  "llama_cpp_commit": "1511ce3bc3f087376c8526b4ad07100bfabb277f",
+  "frozen_client_sha256": "8e6f0ea79068b354980270ba0bc57d3dd36848d3c04210d0fe464802358719f4",
+  "prompt_v6_sha256": "af0d7c808150cd27960cd4506261e6b29fc6ac45df13db2694c6c870affbb0d6",
+  "prompt_v6_source_last_sha256": "234b6fb22392caa6fc05b9bfb39ceae3373d4bac46b625cb881a69175b8bb72d",
+  "selection_sha256": "ea5ba2fc6138764326f4bd46bb6ffe8d85fc59079c1d6365153804a13d90ec54",
+  "records_sha256": "4edc9d3d4b9bc7dd0562f0768ca1ea677abace355a1efadd5076db9a23cc74ff"
+}

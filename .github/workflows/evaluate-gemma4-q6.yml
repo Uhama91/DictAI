@@ -1,0 +1,189 @@
+name: Gemma 4 Q6 evaluation
+
+on:
+  push:
+    branches:
+      - codex/gemma4-layout-validation
+    paths:
+      - .github/workflows/evaluate-gemma4-q6.yml
+      - tools/gemma4-eval/**
+
+# The draft release is created by an approved release action after review.  The
+# job only reads that release; it never creates or mutates GitHub releases.
+permissions:
+  contents: write
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - name: Checkout without a persistent token
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install tokenizer-only dependencies
+        run: python -m pip install --disable-pip-version-check --no-cache-dir -r tools/gemma4-eval/requirements.txt
+
+      - name: Run package and wrapper contract tests
+        run: python -m unittest discover -s tools/gemma4-eval/tests -p 'test_*.py' -v
+
+      - name: Load the reviewed immutable Q6 identity
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          config = json.loads(Path("tools/gemma4-eval/q6_release_config.json").read_text(encoding="utf-8"))
+          if config.get("status") != "ready_for_reviewed_release":
+              raise SystemExit("q6_release_config.json is intentionally pending release review")
+          assets = config.get("assets") or {}
+          required = {
+              "Q6_RELEASE_ID": config.get("release_id"),
+              "Q6_ASSET_MANIFEST_NAME": assets.get("model_manifest_name"),
+              "Q6_ASSET_MANIFEST_SHA256": assets.get("model_manifest_sha256"),
+              "Q6_TOKENIZER_ASSET_NAME": assets.get("tokenizer_name"),
+              "Q6_TOKENIZER_ARCHIVE_SHA256": assets.get("tokenizer_archive_sha256"),
+              "Q6_TOKENIZER_ARCHIVE_BYTES": assets.get("tokenizer_archive_bytes"),
+              "Q6_TOKENIZER_DIRECTORY_SHA256": assets.get("tokenizer_directory_sha256"),
+              "Q6_TOKENIZER_FILES": ",".join(assets.get("tokenizer_files") or []),
+              "Q6_MODEL_SHA256": (config.get("model") or {}).get("source_sha256"),
+              "Q6_MODEL_BYTES": (config.get("model") or {}).get("source_bytes"),
+              "LLAMA_CPP_COMMIT": config.get("llama_cpp_commit"),
+          }
+          if any(value in (None, "") for value in required.values()):
+              raise SystemExit("q6_release_config.json has an incomplete release identity")
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as env:
+              for key, value in required.items():
+                  env.write(f"{key}={value}\n")
+          PY
+
+      - name: Download release assets and assemble one model stream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          required=(Q6_RELEASE_ID Q6_ASSET_MANIFEST_NAME Q6_ASSET_MANIFEST_SHA256 Q6_TOKENIZER_ASSET_NAME Q6_TOKENIZER_ARCHIVE_SHA256 Q6_TOKENIZER_ARCHIVE_BYTES Q6_TOKENIZER_DIRECTORY_SHA256 Q6_TOKENIZER_FILES)
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "missing repository variable: $name" >&2
+              exit 2
+            fi
+          done
+          mkdir -p "$RUNNER_TEMP/gemma4-q6/assets" "$RUNNER_TEMP/gemma4-q6/run"
+          python tools/gemma4-eval/scripts/download_release_assets.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --release-id "$Q6_RELEASE_ID" \
+            --manifest-name "$Q6_ASSET_MANIFEST_NAME" \
+            --manifest-destination "$RUNNER_TEMP/gemma4-q6/assets/model-manifest.json" \
+            --manifest-sha256 "$Q6_ASSET_MANIFEST_SHA256" \
+            --assembled-destination "$RUNNER_TEMP/gemma4-q6/assets/gemma4-q6.gguf" \
+            --source-sha256 "$Q6_MODEL_SHA256" \
+            --source-bytes "$Q6_MODEL_BYTES"
+          python tools/gemma4-eval/scripts/download_release_asset.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --release-id "$Q6_RELEASE_ID" \
+            --asset-name "$Q6_TOKENIZER_ASSET_NAME" \
+            --destination "$RUNNER_TEMP/gemma4-q6/assets/tokenizer.zip" \
+            --sha256 "$Q6_TOKENIZER_ARCHIVE_SHA256" \
+            --bytes "$Q6_TOKENIZER_ARCHIVE_BYTES"
+
+      - name: Extract and verify the minimal tokenizer
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path("tools/gemma4-eval").resolve()))
+          from q6_runner import extract_bounded_archive, sha256_directory
+
+          expected = tuple(name for name in os.environ["Q6_TOKENIZER_FILES"].split(",") if name)
+          extracted = extract_bounded_archive(
+              Path(os.environ["RUNNER_TEMP"]) / "gemma4-q6/assets/tokenizer.zip",
+              Path(os.environ["RUNNER_TEMP"]) / "gemma4-q6/assets/tokenizer",
+              expected_names=expected,
+              max_total_bytes=128 * 1024 * 1024,
+          )
+          actual = sha256_directory(extracted["path"])
+          if actual != os.environ["Q6_TOKENIZER_DIRECTORY_SHA256"].lower():
+              raise SystemExit(f"tokenizer directory SHA-256 mismatch: {actual}")
+          print({"files": expected, "bytes": extracted["bytes"], "sha256": actual})
+          PY
+
+      - name: Build llama-server at the reviewed CPU commit
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/ggerganov/llama.cpp.git "$RUNNER_TEMP/llama.cpp"
+          git -C "$RUNNER_TEMP/llama.cpp" fetch --depth 1 origin "$LLAMA_CPP_COMMIT"
+          git -C "$RUNNER_TEMP/llama.cpp" checkout --detach "$LLAMA_CPP_COMMIT"
+          # The Linux ARM runner uses generic CPU code rather than host-specific tuning.
+          cmake -S "$RUNNER_TEMP/llama.cpp" -B "$RUNNER_TEMP/llama-build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_NATIVE=OFF \
+            -DGGML_OPENMP=OFF -DGGML_METAL=OFF -DGGML_CUDA=OFF \
+            -DGGML_VULKAN=OFF -DGGML_OPENCL=OFF -DGGML_BLAS=OFF \
+            -DGGML_RPC=OFF -DGGML_ACCELERATE=OFF \
+            -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_UI=OFF -DLLAMA_USE_PREBUILT_UI=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
+          cmake --build "$RUNNER_TEMP/llama-build" --target llama-server --parallel 2
+          python - <<'PY'
+          import hashlib, json, os, platform, subprocess
+          from pathlib import Path
+          binary = Path(os.environ["RUNNER_TEMP"]) / "llama-build/bin/llama-server"
+          digest = hashlib.sha256(binary.read_bytes()).hexdigest()
+          commit = subprocess.check_output(["git", "-C", str(Path(os.environ["RUNNER_TEMP"]) / "llama.cpp"), "rev-parse", "HEAD"], text=True).strip()
+          report = {
+              "status": "built",
+              "commit": commit,
+              "binary": str(binary),
+              "binary_sha256": digest,
+              "system": platform.platform(),
+              "machine": platform.machine(),
+              "python": platform.python_version(),
+              "flags": ["CPU", "generic_linux_arm", "threads=2", "ctx=4096", "batch=128", "ubatch=128", "parallel=1", "gpu_layers=0", "no_openmp", "no_blas", "no_metal", "no_openssl", "no_webui"],
+          }
+          destination = Path(os.environ["RUNNER_TEMP"]) / "gemma4-q6/run/build_manifest.json"
+          destination.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+          PY
+
+      - name: Run one bounded frozen selection60 evaluation
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gemma4-q6/run/evaluation"
+          python tools/gemma4-eval/q6_runner.py \
+            --server "$RUNNER_TEMP/llama-build/bin/llama-server" \
+            --model "$RUNNER_TEMP/gemma4-q6/assets/gemma4-q6.gguf" \
+            --client "$GITHUB_WORKSPACE/tools/gemma4-eval/scripts/evaluate_gemma4_gguf_native.py" \
+            --python "$(command -v python)" \
+            --output "$RUNNER_TEMP/gemma4-q6/run/evaluation/selection60" \
+            --report "$RUNNER_TEMP/gemma4-q6/run/supervisor" \
+            --selection "$GITHUB_WORKSPACE/tools/gemma4-eval/reports/gemma4_v6/usage_audit_v1/selection.json" \
+            --records "$GITHUB_WORKSPACE/tools/gemma4-eval/data_v6/records/valid.jsonl" \
+            --tokenizer "$RUNNER_TEMP/gemma4-q6/assets/tokenizer" \
+            --tokenizer-sha256 "$Q6_TOKENIZER_DIRECTORY_SHA256" \
+            --client-sha256 8e6f0ea79068b354980270ba0bc57d3dd36848d3c04210d0fe464802358719f4 \
+            --selection-sha256 ea5ba2fc6138764326f4bd46bb6ffe8d85fc59079c1d6365153804a13d90ec54 \
+            --records-sha256 4edc9d3d4b9bc7dd0562f0768ca1ea677abace355a1efadd5076db9a23cc74ff \
+            --prompt-v6 "$GITHUB_WORKSPACE/tools/gemma4-eval/src/asr_postclean/prompt_v6.py" \
+            --prompt-v6-source-last "$GITHUB_WORKSPACE/tools/gemma4-eval/src/asr_postclean/prompt_v6_source_last.py" \
+            --prompt-v6-sha256 af0d7c808150cd27960cd4506261e6b29fc6ac45df13db2694c6c870affbb0d6 \
+            --prompt-v6-source-last-sha256 234b6fb22392caa6fc05b9bfb39ceae3373d4bac46b625cb881a69175b8bb72d \
+            --gguf-sha256 "$Q6_MODEL_SHA256"
+
+      - name: Upload diagnostic reports only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemma4-q6-evaluation-${{ github.run_id }}
+          path: ${{ runner.temp }}/gemma4-q6/run
+          if-no-files-found: warn
