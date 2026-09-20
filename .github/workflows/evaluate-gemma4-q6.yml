@@ -119,16 +119,26 @@ jobs:
           print({"files": expected, "bytes": extracted["bytes"], "sha256": actual})
           PY
 
+      - name: Verify ARM dotprod and FP16 capabilities
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gemma4-q6/run"
+          python tools/gemma4-eval/scripts/check_arm_capabilities.py \
+            --machine "$(uname -m)" \
+            --cpuinfo /proc/cpuinfo \
+            --output "$RUNNER_TEMP/gemma4-q6/run/arm_capabilities.json"
+
       - name: Build llama-server at the reviewed CPU commit
         run: |
           set -euo pipefail
           git clone --filter=blob:none --no-checkout https://github.com/ggerganov/llama.cpp.git "$RUNNER_TEMP/llama.cpp"
           git -C "$RUNNER_TEMP/llama.cpp" fetch --depth 1 origin "$LLAMA_CPP_COMMIT"
           git -C "$RUNNER_TEMP/llama.cpp" checkout --detach "$LLAMA_CPP_COMMIT"
-          # The Linux ARM runner uses generic CPU code rather than host-specific tuning.
+          # Keep generic CPU selection while matching the Android ARM build's ISA.
           cmake -S "$RUNNER_TEMP/llama.cpp" -B "$RUNNER_TEMP/llama-build" \
             -DCMAKE_BUILD_TYPE=Release \
             -DGGML_NATIVE=OFF \
+            -DGGML_CPU_ARM_ARCH=armv8-a+dotprod+fp16 \
             -DGGML_OPENMP=OFF -DGGML_METAL=OFF -DGGML_CUDA=OFF \
             -DGGML_VULKAN=OFF -DGGML_OPENCL=OFF -DGGML_BLAS=OFF \
             -DGGML_RPC=OFF -DGGML_ACCELERATE=OFF \
@@ -136,10 +146,20 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
           cmake --build "$RUNNER_TEMP/llama-build" --target llama-server --parallel 2
+          # The probe below rejects a cache without HAVE_DOTPROD or
+          # HAVE_FP16_VECTOR_ARITHMETIC; keep both checks visible in the CI contract.
+          python tools/gemma4-eval/scripts/check_arm_capabilities.py \
+            --machine "$(uname -m)" \
+            --cpuinfo /proc/cpuinfo \
+            --cmake-cache "$RUNNER_TEMP/llama-build/CMakeCache.txt" \
+            --output "$RUNNER_TEMP/gemma4-q6/run/cmake_capabilities.json"
           python - <<'PY'
           import hashlib, json, os, platform, subprocess
           from pathlib import Path
           binary = Path(os.environ["RUNNER_TEMP"]) / "llama-build/bin/llama-server"
+          run_root = Path(os.environ["RUNNER_TEMP"]) / "gemma4-q6/run"
+          arm = json.loads((run_root / "arm_capabilities.json").read_text(encoding="utf-8"))
+          cmake = json.loads((run_root / "cmake_capabilities.json").read_text(encoding="utf-8"))
           digest = hashlib.sha256(binary.read_bytes()).hexdigest()
           commit = subprocess.check_output(["git", "-C", str(Path(os.environ["RUNNER_TEMP"]) / "llama.cpp"), "rev-parse", "HEAD"], text=True).strip()
           report = {
@@ -150,9 +170,16 @@ jobs:
               "system": platform.platform(),
               "machine": platform.machine(),
               "python": platform.python_version(),
-              "flags": ["CPU", "generic_linux_arm", "threads=2", "ctx=4096", "batch=128", "ubatch=128", "parallel=1", "gpu_layers=0", "no_openmp", "no_blas", "no_metal", "no_openssl", "no_webui"],
+              "arm_build": {
+                  "machine": arm["machine"],
+                  "compiler_arch": cmake["compiler_arch"],
+                  "required_cpu_capabilities": arm["required_capabilities"],
+                  "feature_line_count": arm["feature_line_count"],
+                  "cmake_checks": cmake["cmake"]["checks"],
+              },
+              "flags": ["CPU", "linux_arm64", "armv8-a+dotprod+fp16", "threads=2", "ctx=4096", "batch=128", "ubatch=128", "parallel=1", "gpu_layers=0", "no_openmp", "no_blas", "no_metal", "no_openssl", "no_webui"],
           }
-          destination = Path(os.environ["RUNNER_TEMP"]) / "gemma4-q6/run/build_manifest.json"
+          destination = run_root / "build_manifest.json"
           destination.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
           PY
 

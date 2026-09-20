@@ -11,6 +11,21 @@
     "minimal_tokenizer_archive": "provided by research_artifacts outside Git after review",
     "q6_model_parts_manifest": "provided by research_artifacts outside Git after review"
   },
+  "arm_build_alignment": {
+    "machine": "aarch64",
+    "compiler_arch": "armv8-a+dotprod+fp16",
+    "cpu_capabilities": [
+      "asimd",
+      "asimddp",
+      "fphp",
+      "asimdhp"
+    ],
+    "cmake_checks": [
+      "HAVE_DOTPROD",
+      "HAVE_FP16_VECTOR_ARITHMETIC"
+    ],
+    "probe_script": "scripts/check_arm_capabilities.py"
+  },
   "files": {
     "README.md": {
       "bytes": 622,
@@ -43,6 +58,10 @@
     "scripts/download_release_assets.py": {
       "bytes": 17966,
       "sha256": "d5358b9326ef1145873657f6bf600f88e4522ef036ee3fe2cb974b935b7567b6"
+    },
+    "scripts/check_arm_capabilities.py": {
+      "bytes": 5782,
+      "sha256": "b6869ed1634ab8d193504a9563fe5f5ed8ec31407e3163051cd101924e8625ba"
     },
     "scripts/evaluate_gemma4_gguf_native.py": {
       "bytes": 51664,
@@ -79,6 +98,10 @@
     "tests/test_q6_workflow.py": {
       "bytes": 2647,
       "sha256": "81a0ba500cbeb64bd8834b534feca770157878ce7074c874723bd44731252312"
+    },
+    "tests/test_arm_capabilities.py": {
+      "bytes": 5851,
+      "sha256": "bcf141166abb425f5d354846242d1f297eae4efd5191f400b066863977da61aa"
     }
   },
   "frozen_sources": {
