@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Download signed GitHub release assets without retaining a second model copy.
 
-The token is accepted only from the process environment and is never included
-in returned metadata or error messages.  Redirects to a different GitHub CDN
-host deliberately drop the Authorization header.
+Release metadata is listed through the GitHub API; binary bodies are streamed
+through ``gh api`` stdout.  The token is supplied only as the child process's
+``GH_TOKEN`` environment value and is never included in argv, metadata, or
+error messages.  Direct urllib redirects to a different GitHub CDN host still
+drop the Authorization header.
 """
 
 from __future__ import annotations
@@ -12,7 +14,12 @@ import argparse
 import hashlib
 import json
 import os
+import re
+import select
 import sys
+import subprocess
+import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -29,6 +36,9 @@ ALLOWED_REDIRECT_HOSTS = frozenset(
         "github-releases.githubusercontent.com",
     }
 )
+GH_API_CHUNK_BYTES = 8 * 1024 * 1024
+GH_API_TIMEOUT_SECONDS = 300.0
+GH_API_STDERR_MAX_BYTES = 64 * 1024
 
 
 class AssetDownloadError(RuntimeError):
@@ -100,14 +110,159 @@ def _sha256_stream(response, output, *, max_bytes: int | None = None) -> tuple[s
     return digest.hexdigest(), total
 
 
+def _drain_stderr(stream, buffer: bytearray) -> None:  # type: ignore[no-untyped-def]
+    """Drain child diagnostics without retaining or exposing untrusted text."""
+    try:
+        while True:
+            block = stream.read(4096)
+            if not block:
+                return
+            remaining = GH_API_STDERR_MAX_BYTES - len(buffer)
+            if remaining > 0:
+                buffer.extend(block[:remaining])
+    except (OSError, ValueError):
+        return
+
+
+def _http_status_from_stderr(buffer: bytearray) -> int | None:
+    match = re.search(rb"\bHTTP(?:Error)?\s+(\d{3})\b", bytes(buffer))
+    return int(match.group(1)) if match else None
+
+
+def _terminate_owned_process(process) -> None:  # type: ignore[no-untyped-def]
+    """Stop only the gh child created by this downloader."""
+    if process.poll() is not None:
+        return
+    try:
+        process.terminate()
+    except (OSError, ProcessLookupError):
+        return
+    try:
+        process.wait(timeout=5.0)
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+        except (OSError, ProcessLookupError):
+            return
+        try:
+            process.wait(timeout=5.0)
+        except (OSError, subprocess.TimeoutExpired):
+            return
+
+
+def _run_gh_api_stream(
+    url: str,
+    token: str,
+    sink,
+    *,
+    expected_sha256: str | None = None,
+    expected_bytes: int | None = None,
+    popen=subprocess.Popen,
+    select_fn=select.select,
+    clock=time.monotonic,
+    timeout_seconds: float = GH_API_TIMEOUT_SECONDS,
+) -> dict[str, object]:  # type: ignore[no-untyped-def]
+    """Stream one API asset through gh without buffering its body in Python."""
+    _safe_url(url, allow_cdn=False)
+    if not token:
+        raise AssetDownloadError("GITHUB_TOKEN is required")
+    command = ["gh", "api", url, "--header", "Accept: application/octet-stream"]
+    environment = os.environ.copy()
+    environment["GH_TOKEN"] = token
+    process = None
+    stderr_buffer = bytearray()
+    stderr_thread = None
+    digest = hashlib.sha256()
+    total = 0
+    try:
+        try:
+            process = popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=environment,
+                close_fds=True,
+                start_new_session=True,
+                bufsize=0,
+            )
+        except OSError as error:
+            raise AssetDownloadError("gh api executable unavailable") from error
+        if process.stdout is None or process.stderr is None:
+            raise AssetDownloadError("gh api did not provide stream handles")
+        stderr_thread = threading.Thread(
+            target=_drain_stderr,
+            args=(process.stderr, stderr_buffer),
+            daemon=True,
+        )
+        stderr_thread.start()
+        deadline = clock() + timeout_seconds
+        while True:
+            remaining = deadline - clock()
+            if remaining <= 0:
+                raise AssetDownloadError(f"gh api asset transfer timed out after {timeout_seconds:g} seconds")
+            readable, _, _ = select_fn([process.stdout], [], [], remaining)
+            if not readable:
+                raise AssetDownloadError(f"gh api asset transfer timed out after {timeout_seconds:g} seconds")
+            block = process.stdout.read(GH_API_CHUNK_BYTES)
+            if not block:
+                break
+            total += len(block)
+            if expected_bytes is not None and total > expected_bytes:
+                raise AssetDownloadError("asset exceeds its declared size")
+            sink(block)
+            digest.update(block)
+        remaining = deadline - clock()
+        if remaining <= 0:
+            raise AssetDownloadError(f"gh api asset transfer timed out after {timeout_seconds:g} seconds")
+        try:
+            exit_code = process.wait(timeout=remaining)
+        except subprocess.TimeoutExpired as error:
+            raise AssetDownloadError(f"gh api asset transfer timed out after {timeout_seconds:g} seconds") from error
+        if stderr_thread is not None:
+            stderr_thread.join(timeout=1.0)
+        if exit_code != 0:
+            http_status = _http_status_from_stderr(stderr_buffer)
+            status_text = str(http_status) if http_status is not None else "unknown"
+            raise AssetDownloadError(
+                f"gh api asset transfer failed: exit_code={exit_code} http_status={status_text}"
+            )
+    except AssetDownloadError:
+        raise
+    except (OSError, ValueError) as error:
+        raise AssetDownloadError(f"gh api asset stream failed: {type(error).__name__}") from error
+    finally:
+        if process is not None:
+            _terminate_owned_process(process)
+            for stream_name in ("stdout", "stderr"):
+                stream = getattr(process, stream_name, None)
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except (OSError, ValueError):
+                        pass
+        if stderr_thread is not None:
+            stderr_thread.join(timeout=1.0)
+    actual_sha256 = digest.hexdigest()
+    if expected_bytes is not None and total != expected_bytes:
+        raise AssetDownloadError(f"asset byte count differs: expected {expected_bytes}, got {total}")
+    if expected_sha256 is not None and actual_sha256 != expected_sha256.lower():
+        raise AssetDownloadError(f"asset SHA-256 mismatch: expected {expected_sha256}, got {actual_sha256}")
+    return {"bytes": total, "sha256": actual_sha256}
+
+
 def _download_to_new_path(
-    opener: urllib.request.OpenerDirector,
+    opener: urllib.request.OpenerDirector | None,
     url: str,
     destination: Path,
     token: str,
     *,
     expected_sha256: str | None = None,
     expected_bytes: int | None = None,
+    popen=subprocess.Popen,
+    select_fn=select.select,
+    clock=time.monotonic,
+    timeout_seconds: float = GH_API_TIMEOUT_SECONDS,
 ) -> dict[str, object]:
     if destination.exists() or destination.is_symlink():
         raise AssetDownloadError(f"refusing to overwrite {destination}")
@@ -116,19 +271,26 @@ def _download_to_new_path(
         raise AssetDownloadError(f"refusing to reuse partial download {partial}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with opener.open(_request(url, token, accept="application/octet-stream"), timeout=60) as response:
-            with partial.open("xb") as output:
-                actual_sha256, actual_bytes = _sha256_stream(response, output, max_bytes=expected_bytes)
-                output.flush()
-                os.fsync(output.fileno())
-    except (OSError, urllib.error.URLError) as error:
+        with partial.open("xb") as output:
+            result = _run_gh_api_stream(
+                url,
+                token,
+                output.write,
+                expected_sha256=expected_sha256,
+                expected_bytes=expected_bytes,
+                popen=popen,
+                select_fn=select_fn,
+                clock=clock,
+                timeout_seconds=timeout_seconds,
+            )
+            output.flush()
+            os.fsync(output.fileno())
+    except AssetDownloadError:
+        raise
+    except OSError as error:
         raise AssetDownloadError(f"asset download failed: {type(error).__name__}") from error
-    if expected_bytes is not None and actual_bytes != expected_bytes:
-        raise AssetDownloadError(f"asset byte count differs: expected {expected_bytes}, got {actual_bytes}")
-    if expected_sha256 is not None and actual_sha256 != expected_sha256.lower():
-        raise AssetDownloadError(f"asset SHA-256 mismatch: expected {expected_sha256}, got {actual_sha256}")
     os.replace(partial, destination)
-    return {"path": str(destination), "bytes": actual_bytes, "sha256": actual_sha256}
+    return {"path": str(destination), **result}
 
 
 def _check_server_digest(asset: dict[str, object], expected_sha256: str, label: str) -> None:
@@ -143,7 +305,7 @@ def _check_server_digest(asset: dict[str, object], expected_sha256: str, label: 
 
 
 def _append_response(
-    opener: urllib.request.OpenerDirector,
+    opener: urllib.request.OpenerDirector | None,
     url: str,
     output,
     token: str,
@@ -151,26 +313,26 @@ def _append_response(
     expected_sha256: str,
     expected_bytes: int,
     global_digest: hashlib._Hash,
+    popen=subprocess.Popen,
+    select_fn=select.select,
+    clock=time.monotonic,
+    timeout_seconds: float = GH_API_TIMEOUT_SECONDS,
 ) -> dict[str, object]:  # type: ignore[attr-defined,no-untyped-def]
-    digest = hashlib.sha256()
-    total = 0
-    with opener.open(_request(url, token, accept="application/octet-stream"), timeout=120) as response:
-        while True:
-            block = response.read(8 * 1024 * 1024)
-            if not block:
-                break
-            total += len(block)
-            if total > expected_bytes:
-                raise AssetDownloadError("model part exceeds declared size")
-            output.write(block)
-            digest.update(block)
-            global_digest.update(block)
-    actual = digest.hexdigest()
-    if total != expected_bytes:
-        raise AssetDownloadError(f"model part byte count differs: expected {expected_bytes}, got {total}")
-    if actual != expected_sha256.lower():
-        raise AssetDownloadError(f"model part SHA-256 mismatch: expected {expected_sha256}, got {actual}")
-    return {"bytes": total, "sha256": actual}
+    def sink(block: bytes) -> None:
+        output.write(block)
+        global_digest.update(block)
+
+    return _run_gh_api_stream(
+        url,
+        token,
+        sink,
+        expected_sha256=expected_sha256,
+        expected_bytes=expected_bytes,
+        popen=popen,
+        select_fn=select_fn,
+        clock=clock,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _release_assets(opener, repo: str, release_id: str, token: str) -> dict[str, dict[str, object]]:  # type: ignore[no-untyped-def]

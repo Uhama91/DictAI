@@ -41,8 +41,8 @@
       "sha256": "d4eb32fd2cfa1770350a8ae5c5c374c2518c5d9c05a6dc90448a9e28e6bbc60c"
     },
     "scripts/download_release_assets.py": {
-      "bytes": 12538,
-      "sha256": "35a2eb627dafb640e183505fec39e6f7fb142fcf865fb557c5b078a82c6c9936"
+      "bytes": 17966,
+      "sha256": "d5358b9326ef1145873657f6bf600f88e4522ef036ee3fe2cb974b935b7567b6"
     },
     "scripts/evaluate_gemma4_gguf_native.py": {
       "bytes": 51664,
@@ -65,8 +65,8 @@
       "sha256": "234b6fb22392caa6fc05b9bfb39ceae3373d4bac46b625cb881a69175b8bb72d"
     },
     "tests/test_download_release_assets.py": {
-      "bytes": 2397,
-      "sha256": "ed5217dca454b3437fcb2e5aacdf7ecc0f4151e3f17bc13b294e4fb99449c7ea"
+      "bytes": 11557,
+      "sha256": "1e34bad0727f7286b616aec9067da475811ecd9f41b313f2fa0c8141556e7cef"
     },
     "tests/test_q6_package.py": {
       "bytes": 4034,
