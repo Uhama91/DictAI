@@ -117,12 +117,121 @@ class GemmaFormattingTest {
         assertNull(policy.previewOutput(output.replace("14", "40")))
     }
 
-    @Test fun bulletMarkersAreNormalizedButUnmarkedProseIsNotAList() {
+    @Test fun bulletMarkersAreNormalizedButProseAloneIsNotAList() {
         val policy = request("des fraises du miel")
         assertEquals("• des fraises\n• du miel", policy.acceptOutput("- des fraises\n* du miel"))
         assertNull(policy.acceptOutput("des fraises du miel"))
-        assertNull(policy.acceptOutput("• des fraises\ndu miel"))
+        assertEquals("• des fraises\ndu miel", policy.acceptOutput("• des fraises\ndu miel"))
         assertNull(policy.acceptOutput("1. des fraises\n2. du miel"))
+    }
+
+    @Test fun listKeepsSurroundingProseUnbulleted() {
+        val source = "Avant le départ vérifier les billets noter l'adresse puis confirmer l'heure Conclusion tout est prêt"
+        val output = "Avant le départ :\n• vérifier les billets ;\n• noter l'adresse ;\n• puis confirmer l'heure.\n\nConclusion : tout est prêt."
+
+        assertEquals(output, request(source).acceptOutput(output))
+    }
+
+    @Test fun textNormalizesOnlyLocalBulletMarkers() {
+        val source = "Avant le départ vérifier les billets noter l'adresse puis confirmer l'heure Conclusion tout est prêt"
+        val output = "Avant le départ :\n- vérifier les billets ;\n* noter l'adresse ;\n• puis confirmer l'heure.\n\nConclusion : tout est prêt."
+        val expected = output.replace("- vérifier", "• vérifier").replace("* noter", "• noter")
+
+        assertEquals(expected, request(source, LocalLayoutKind.TEXT).acceptOutput(output))
+    }
+
+    @Test fun emailKeepsGreetingListAndClosingOutsideBullets() {
+        val source = "Bonjour Léa préparer le dossier joindre la facture Merci Karim"
+        val output = "Bonjour Léa,\n\n- préparer le dossier ;\n* joindre la facture.\n\nMerci,\nKarim."
+        val expected = "Bonjour Léa,\n\n• préparer le dossier ;\n• joindre la facture.\n\nMerci,\nKarim."
+
+        assertEquals(expected, request(source, LocalLayoutKind.EMAIL).acceptOutput(output))
+    }
+
+    @Test fun mixedLayoutRejectsEmptyQuotedAndNumberedMarkers() {
+        val textRequest = request("Avant lire le message Après prévenir Léa", LocalLayoutKind.TEXT)
+        assertNull(textRequest.acceptOutput("Avant :\n• lire le message.\n• \nAprès : prévenir Léa."))
+
+        val quotedSource = "La citation dit ne pas supprimer la note"
+        val quoted = "La citation dit :\n«\n- ne pas supprimer\n»\nla note."
+        assertNull(request(quotedSource, LocalLayoutKind.TEXT).acceptOutput(quoted))
+
+        val numberedSource = "Préparer le dossier et envoyer la copie"
+        val numbered = "1. Préparer le dossier\n2. et envoyer la copie"
+        assertNull(request(numberedSource).acceptOutput(numbered))
+    }
+
+    @Test fun bulletInsideAnExistingApostropheQuoteIsNotParsedAsLayout() {
+        val source = "La citation dit 'ne pas supprimer la note'."
+        val quoted = "La citation dit '\n- ne pas supprimer la note\n'."
+
+        assertNull(request(source, LocalLayoutKind.TEXT).acceptOutput(quoted))
+    }
+
+    @Test fun typographicSimpleQuotesAlsoProtectTheirInteriorFromBullets() {
+        val source = "La citation dit ‘ne pas supprimer la note’."
+        val candidates = listOf(
+            "La citation dit ‘\n- ne pas supprimer la note\n’.",
+            "La citation dit '\n- ne pas supprimer la note\n'.",
+        )
+
+        candidates.forEach { candidate ->
+            assertNull(request(source, LocalLayoutKind.TEXT).acceptOutput(candidate))
+        }
+
+        val contractionSource = "L'adresse d'abord reste intacte."
+        val contractionCandidate = "L'adresse :\n- d'abord reste intacte."
+        assertEquals("L'adresse :\n• d'abord reste intacte.",
+            request(contractionSource, LocalLayoutKind.TEXT).acceptOutput(contractionCandidate))
+    }
+
+    @Test fun consecutiveNumericBulletItemsAreAllNormalized() {
+        val source = "Codes 12 13 14"
+        val candidate = "Codes :\n- 12\n- 13\n- 14"
+
+        assertEquals("Codes :\n• 12\n• 13\n• 14", request(source, LocalLayoutKind.TEXT).acceptOutput(candidate))
+    }
+
+    @Test fun newlineInAConservativelyRestoredOmissionIsRejected() {
+        val source = "Le courrier précise que le dossier de demande reste disponible pour chaque personne et que\ncette copie sera envoyée demain. Ensuite vérifier les pièces."
+        val candidate = "Le courrier précise que le dossier de demande reste disponible pour chaque personne et que copie sera envoyée demain.\n- Ensuite vérifier les pièces."
+
+        assertNull(request(source, LocalLayoutKind.TEXT).acceptOutput(candidate))
+    }
+
+    @Test fun newlineInAWordRestorationRemainsAllowedWithoutBulletAnchors() {
+        val source = "Le courrier précise que le dossier de demande reste disponible pour chaque personne et que\ncette copie sera envoyée demain. Ensuite vérifier les pièces."
+        val candidate = "Le courrier précise que le dossier de demande reste disponible pour chaque personne et que copie sera envoyée demain.\nEnsuite vérifier les pièces."
+
+        val accepted = request(source, LocalLayoutKind.TEXT).acceptOutput(candidate)
+        assertNotNull(accepted)
+        assertTrue(accepted!!.contains("\ncette copie"))
+        assertFalse(accepted.contains("•"))
+    }
+
+    @Test fun numericBulletsRemainBulletsAfterAnEmptyLine() {
+        val source = "Codes 12 13 14"
+        val candidate = "Codes :\n- 12\n\n- 13\n- 14"
+
+        assertEquals("Codes :\n• 12\n\n• 13\n• 14", request(source, LocalLayoutKind.TEXT).acceptOutput(candidate))
+    }
+
+    @Test fun multiplicationAtLineStartKeepsItsSourceSymbol() {
+        val source = "Calculer 3 * 2 égale 6"
+        val output = "Calculer 3\n* 2 égale 6"
+
+        assertEquals(output, request(source, LocalLayoutKind.TEXT).acceptOutput(output))
+    }
+
+    @Test fun localListsDoNotRelaxNegationNamesOrNumbers() {
+        val source = "Bonjour Anaïs ne pas envoyer les 12 copies"
+        val output = "Bonjour Anaïs :\n• ne pas envoyer les 12 copies."
+        val policy = request(source, LocalLayoutKind.TEXT, listOf("Anaïs"))
+
+        assertEquals(output, policy.acceptOutput(output))
+        assertNull(policy.acceptOutput(output.replace("ne pas", "")))
+        assertNull(policy.acceptOutput(output.replace("Anaïs", "Agnès")))
+        assertNull(policy.acceptOutput(output.replace("12", "13")))
     }
 
     @Test fun tinyAcknowledgementsKeepTheDirectPathAndLegacyRemainsStrict() {

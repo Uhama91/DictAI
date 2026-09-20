@@ -1,0 +1,41 @@
+DictAI Gemma 4 V6 — notice du pilote expérimental
+==================================================
+
+Cette notice décrit la provenance du chemin local CPU fine-tuné V6. Elle ne
+décrit pas le paquet historique LiteRT-LM : `gemma-NOTICE.txt` est conservée
+pour la variante GPU et reste inchangée.
+
+Provenance du modèle
+--------------------
+
+La source Gemma 4 référencée est la révision Google
+70af34e20bd4b7a91f0de6b22675850c43922a03 :
+https://huggingface.co/google/gemma-4-E2B-it/blob/70af34e20bd4b7a91f0de6b22675850c43922a03/README.md
+
+La conversion MLX épinglée est la révision
+238767527555cb75a05732a84dff5d6ba0dd6809 :
+https://huggingface.co/mlx-community/gemma-4-E2B-it-4bit/blob/238767527555cb75a05732a84dff5d6ba0dd6809/README.md
+Elle utilise l'outil `mlx_vlm.convert`. La métadonnée de licence de cette
+conversion reste distincte de celle de la fiche source ; cette divergence est
+conservée dans la provenance complète.
+
+DictAI applique l'adaptateur V6 du checkpoint 1956 et l'adaptation textuelle
+évaluée avec la consigne V6. La recette de conversion et de quantification
+retenue doit être lue dans le manifeste de l'artefact distribué ; cette notice
+ne choisit pas de poids ni de quantification.
+
+Runtime et licences
+-------------------
+
+Le runtime natif de ce pilote s'appuie sur llama.cpp/ggml, épinglé à la
+révision 1511ce3bc3f087376c8526b4ad07100bfabb277f :
+https://github.com/ggml-org/llama.cpp/tree/1511ce3bc3f087376c8526b4ad07100bfabb277f
+La licence MIT de llama.cpp/ggml est fournie dans `llama-LICENSE.txt`.
+Le texte Apache-2.0 conservé dans `Apache-2.0.txt` accompagne la provenance
+Gemma et les composants qui l'exigent ; les autres bibliothèques gardent leurs
+notices dans `assets/licenses/`.
+
+Le pilote n'embarque aucun poids de modèle. Ce n'est pas un artefact officiel
+Google et cette notice ne constitue aucun soutien de Google. La
+qualité sémantique, la latence, la mémoire et l'interaction sur téléphone ne
+sont pas établies par la présence de ce fichier.

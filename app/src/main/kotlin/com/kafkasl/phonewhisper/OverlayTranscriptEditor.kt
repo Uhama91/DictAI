@@ -5,6 +5,9 @@ import android.graphics.Rect
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputConnectionWrapper
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import kotlin.math.abs
@@ -13,6 +16,8 @@ import kotlin.math.abs
 internal open class OverlayTranscriptEditor(context: Context) : EditText(context) {
     var acquireWindow: () -> Unit = {}
     var finishEditing: () -> Unit = {}
+    /** Called after the IME has removed its composing span, without changing editor text. */
+    var onCompositionFinished: () -> Unit = {}
     var canEdit: () -> Boolean = { true }
     var isEditing = false
         private set
@@ -30,6 +35,17 @@ internal open class OverlayTranscriptEditor(context: Context) : EditText(context
         // Native focus must not move the window under the user's finger before ACTION_UP.
         showSoftInputOnFocus = false
         isFocusableInTouchMode = true
+    }
+
+    override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
+        val input = super.onCreateInputConnection(outAttrs) ?: return null
+        return object : InputConnectionWrapper(input, false) {
+            override fun finishComposingText(): Boolean {
+                val finished = super.finishComposingText()
+                onCompositionFinished()
+                return finished
+            }
+        }
     }
 
     fun beginEditing() {

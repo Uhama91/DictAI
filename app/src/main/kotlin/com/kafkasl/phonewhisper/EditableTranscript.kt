@@ -2,12 +2,20 @@ package com.kafkasl.phonewhisper
 
 /** User edits own the visible prefix; recognition may only revise the unedited continuation. */
 internal class EditableTranscript {
+    internal data class FinalContinuationSnapshot(
+        val revision: Long,
+        val recognized: Boolean,
+        val humanPrefix: String,
+        val continuation: String,
+    )
+
     private var raw = emptyList<String>()
     private var protectedWords = 0
     private var edited: String? = null
     private var userEdited = false
     private var displayed = ""
     private var manualRanges = emptyList<IntRange>()
+    private var revision = 0L
 
     @Synchronized fun hasUserEdits(): Boolean = userEdited
 
@@ -17,6 +25,7 @@ internal class EditableTranscript {
         else if (userEdited && text.isNotEmpty()) listOf(text.indices) else emptyList()
 
     @Synchronized fun clear() {
+        revision++
         raw = emptyList()
         protectedWords = 0
         edited = null
@@ -26,6 +35,7 @@ internal class EditableTranscript {
     }
 
     @Synchronized fun edit(text: String) {
+        revision++
         trackChange(text, manual = true)
         userEdited = true
         anchor(text)
@@ -33,6 +43,7 @@ internal class EditableTranscript {
 
     /** Insert a context reference without pretending it was a manual wording correction. */
     @Synchronized fun anchor(text: String) {
+        revision++
         trackChange(text, manual = false)
         edited = text
         protectedWords = raw.size
@@ -41,6 +52,7 @@ internal class EditableTranscript {
     // Align the recognizer's words, not vocabulary output: a two-word alias can become one name.
     // Transform only the unedited continuation so a user's manual prefix is never rewritten.
     @Synchronized fun update(text: String, transform: (String) -> String = { it }): String {
+        revision++
         val matches = Regex("\\S+").findAll(text).toList()
         val next = matches.map { it.value }
         if (edited == null) {
@@ -61,6 +73,47 @@ internal class EditableTranscript {
     /** A manually written draft remains publishable when the recognizer returns no speech. */
     @Synchronized fun resolveFinal(recognized: String?, transform: (String) -> String = { it }): String? =
         if (recognized.isNullOrBlank()) edited?.also { displayed = it } else update(recognized, transform)
+
+    /**
+     * Captures only the final continuation under the short transcript monitor. The caller may
+     * then perform slow native formatting and must commit through [commitFinalContinuation].
+     */
+    @Synchronized fun prepareFinalContinuation(recognized: String?): FinalContinuationSnapshot {
+        if (recognized.isNullOrBlank()) {
+            return FinalContinuationSnapshot(revision, false, edited.orEmpty(), "")
+        }
+        val matches = Regex("\\S+").findAll(recognized).toList()
+        val next = matches.map { it.value }
+        val continuation = if (edited == null) {
+            recognized
+        } else {
+            val boundary = mapBoundary(raw, next, protectedWords)
+            matches.getOrNull(boundary)?.range?.first?.let { recognized.substring(it) }.orEmpty()
+        }
+        // Identity update preserves the existing transcript alignment/display semantics. The
+        // raw continuation above is captured before update changes the alignment boundary.
+        update(recognized)
+        return FinalContinuationSnapshot(revision, true, edited.orEmpty(), continuation)
+    }
+
+    /** Publishes a slow final result only if no edit/ASR update occurred since its snapshot. */
+    @Synchronized fun commitFinalContinuation(
+        snapshot: FinalContinuationSnapshot,
+        continuation: String,
+    ): String? {
+        if (snapshot.revision != revision) return null
+        val prefix = snapshot.humanPrefix
+        val result = when {
+            prefix.isBlank() -> continuation
+            continuation.isBlank() -> prefix
+            prefix.last().isWhitespace() || continuation.first().isWhitespace() -> prefix + continuation
+            else -> "$prefix $continuation"
+        }
+        displayed = result
+        return result
+    }
+
+    @Synchronized fun visibleText(): String = displayed
 
     private fun trackChange(next: String, manual: Boolean) {
         if (next == displayed) return

@@ -54,9 +54,10 @@ class PostprocessingDiagnosticTest {
         text: String = "Contenu privé à ne pas enregistrer.",
         runtime: String = "arm64-dotprod-fp16",
         suppressed: Boolean = false,
+        pilot: Boolean = false,
     ) = PostprocessingDiagnostic.report(
         "test", 0, format, requested, applied, local, runtime, 800, 900,
-        text, InjectionResult.Copied, suppressed,
+        text, InjectionResult.Copied, suppressed, pilot = pilot,
     )
 
     @Test fun reportsAppliedSingleParagraphWithoutClaimingGoodGrouping() {
@@ -108,5 +109,57 @@ class PostprocessingDiagnosticTest {
         val suppressed = report(null, PostprocessingDiagnostic.Applied.ORIGINAL,
             PostprocessingDiagnostic.Requested.CLOUD, suppressed = true)
         assertTrue(suppressed.contains("Cloud désactivé pour ce champ sensible"))
+    }
+
+    @Test fun fineTunedPilotDiagnosticNamesCpuGreedyAndFrozenQ6Descriptor() {
+        val value = report(runtime = "arm64-dotprod-fp16", pilot = true)
+
+        assertTrue(value.contains("Modèle : Gemma 4 E2B V6 expérimental · gemma4-e2b-v6-1956-q6k-qof16.gguf"))
+        assertTrue(value.contains("Calcul : CPU · llama.cpp · greedy · arm64-dotprod-fp16"))
+        assertTrue(value.contains("Thinking : désactivé · budget 0"))
+        assertFalse(value.contains(".litertlm"))
+        assertFalse(value.contains("GPU"))
+    }
+
+    @Test fun fineTunedPilotDiagnosticKeepsCpuFailureRuntimeVisible() {
+        val value = report(
+            local = LocalFinishDiagnostic("generated", "backend_error", false, 2),
+            applied = PostprocessingDiagnostic.Applied.ORIGINAL,
+            runtime = "cpu-error",
+            pilot = true,
+        )
+
+        assertTrue(value.contains("Calcul : CPU · llama.cpp · greedy · cpu-error"))
+        assertTrue(value.contains("État : erreur du moteur"))
+        assertFalse(value.contains("indéterminé"))
+    }
+
+    @Test fun fineTunedPilotProgressiveResultDoesNotInventNativeCallDetails() {
+        val value = report(
+            local = null,
+            applied = PostprocessingDiagnostic.Applied.LOCAL_LLM,
+            runtime = "arm64-baseline",
+            pilot = true,
+        )
+
+        assertTrue(value.contains("Résultat : correction progressive appliquée"))
+        assertTrue(value.contains("détail des appels progressifs non mesuré"))
+        assertTrue(value.contains("État : correction progressive appliquée"))
+        assertFalse(value.contains("Appel natif pour ce résultat : non"))
+        assertFalse(value.contains("Origine : non appelé"))
+        assertFalse(value.contains("mode Texte : aucun appel au LLM prévu"))
+    }
+
+    @Test fun fineTunedPilotProgressiveOriginalIsReportedAsTextPreserved() {
+        val value = report(
+            local = null,
+            applied = PostprocessingDiagnostic.Applied.ORIGINAL,
+            runtime = "arm64-baseline",
+            pilot = true,
+        )
+
+        assertTrue(value.contains("détail des appels progressifs non mesuré"))
+        assertTrue(value.contains("État : texte conservé"))
+        assertFalse(value.contains("mode Texte : aucun appel au LLM prévu"))
     }
 }

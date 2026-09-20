@@ -9,8 +9,12 @@ on:
         description: Build the Gemma GPU text/list/email prototype
         type: boolean
         default: false
+      gemma4_finetuned_pilot:
+        description: Build the CPU Gemma4 fine-tuned pilot APK
+        type: boolean
+        default: false
       publish_prerelease:
-        description: Publish the prototype APK as a downloadable prerelease
+        description: Publish the selected prototype or pilot APK as a downloadable prerelease
         type: boolean
         default: false
 
@@ -19,6 +23,7 @@ permissions:
 
 env:
   PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[local-layout-test]') || contains(github.event.head_commit.message, '[local-layout-artifact]'))) }}
+  GEMMA4_PILOT: ${{ (github.event_name == 'workflow_dispatch' && inputs.gemma4_finetuned_pilot) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma4-v6-test]')) }}
 
 jobs:
   build:
@@ -47,18 +52,28 @@ jobs:
       - name: Run native alignment controller tests
         run: python3 -m unittest scripts/test_check_apk_native_alignment.py -v
 
+      - name: Run APK packaging contract tests
+        run: python3 -m unittest scripts/test_prepare_ci_apk.py -v
+
+      - name: Run Gemma4 pilot publication contract tests
+        run: python3 -m unittest scripts/test_gemma4_pilot_publication.py -v
+
       - name: Run transcribe.cpp native bundle contract
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" bash scripts/test_transcribe_cpp_bundle.sh
 
       - name: Build isolated local formatter
-        if: env.PROTOTYPE != 'true'
+        if: env.PROTOTYPE != 'true' || env.GEMMA4_PILOT == 'true'
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" DICTAI_CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake" bash scripts/build_local_format_android.sh
 
       - name: Run unit tests and build selected APK
         shell: bash
         run: |
           args=(testDebugUnitTest assembleDebug assembleDebugAndroidTest --stacktrace)
-          if [[ "$PROTOTYPE" == true ]]; then args+=(-PlocalFormatPrototype=true); fi
+          if [[ "$GEMMA4_PILOT" == true ]]; then
+            args+=(-Pgemma4FineTunedPilot=true)
+          elif [[ "$PROTOTYPE" == true ]]; then
+            args+=(-PlocalFormatPrototype=true)
+          fi
           ./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' "${args[@]}"
 
       - name: Check native library alignment and denylist
@@ -70,19 +85,27 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
 
       - name: Verify packaged model and prepare download
-        run: python3 scripts/prepare_ci_apk.py
+        run: |
+          if [[ "$GEMMA4_PILOT" == true ]]; then
+            variant=pilot
+          elif [[ "$PROTOTYPE" == true ]]; then
+            variant=gpu
+          else
+            variant=normal
+          fi
+          python3 scripts/prepare_ci_apk.py --variant "$variant"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'dictai-debug-apk' }}
+          name: ${{ env.GEMMA4_PILOT == 'true' && 'dictai-gemma4-v6-test' || env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'dictai-debug-apk' }}
           path: dist/*
           compression-level: 0
           if-no-files-found: error
 
   publish-test:
     needs: build
-    if: (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype && inputs.publish_prerelease) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[local-layout-test]'))
+    if: (!inputs.gemma4_finetuned_pilot && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma4-v6-test]')) && ((github.event_name == 'workflow_dispatch' && inputs.local_format_prototype && inputs.publish_prerelease) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[local-layout-test]'))))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -110,3 +133,40 @@ jobs:
           gh release create "$tag" dictai-local-layout-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
             --title 'DictAI 0.9.5 — notes protégées et édition plus douce' --notes-file release-notes.md
+
+  publish-gemma4-pilot:
+    needs: build
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.gemma4_finetuned_pilot && inputs.publish_prerelease) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma4-v6-test]'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dictai-gemma4-v6-test
+          path: dist
+      - name: Publish experimental Gemma 4 V6 pilot APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          cd dist
+          sha256sum -c SHA256SUMS
+          tag="gemma4-v6-test-$GITHUB_RUN_ID"
+          cat > release-notes.md <<'EOF'
+          DictAI Gemma 4 V6 — APK pilote expérimental.
+
+          Cette préversion active le chemin local CPU fine-tuné V6 pour les textes, les listes et les e-mails. Elle conserve le formatage progressif éditable et les garde-fous de fidélité avant insertion.
+
+          L'APK ne contient aucun poids. L'application propose le téléchargement de Gemma 4 E2B V6 expérimental, checkpoint 1956, pour environ 3,93 Go. Les poids Q6_K avec les matrices Q/O en F16 et leur provenance sont disponibles sur la page du modèle : https://github.com/Uhama91/DictAI/releases/tag/gemma4-v6-1956-q6-evaluation-20260920. Les retouches humaines sont protégées pendant le traitement progressif.
+
+          Aucun score de qualité ni mesure de latence sur téléphone n'est revendiqué ici. La qualité sémantique, la mémoire, la vitesse et l'interaction sur appareil restent à vérifier séparément.
+
+          Cette publication est expérimentale et n'est pas un produit officiel Google.
+          EOF
+          gh release create "$tag" dictai-gemma4-v6-test.apk SHA256SUMS \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title 'DictAI Gemma 4 V6 — APK pilote expérimental' --notes-file release-notes.md

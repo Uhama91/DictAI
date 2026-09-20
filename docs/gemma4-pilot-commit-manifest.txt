@@ -1,0 +1,68 @@
+# Manifeste de commit du pilote Gemma 4 V6
+
+Ce manifeste recense les fichiers applicatifs, de test, de workflow, de script et de documentation visibles dans cet état du worktree et destinés au commit du pilote. Les empreintes sont SHA-256 calculées sur les fichiers locaux au moment de la génération.
+
+Exclusions intentionnelles : `reports/`, poids et artefacts binaires, staging et bibliothèques JNI binaires ignorées (`app/src/main/jniLibs/`). Les sources JNI suivies sont incluses lorsqu’elles sont modifiées. Les sorties de build et APK ne sont pas des fichiers à committer. Le présent manifeste n’est pas auto-référencé ; son empreinte est fournie séparément dans la restitution.
+
+Fichiers inclus : 58
+
+```text
+1eb70c19b37941a054770a67b11f012d7db2ef91208cc169b0b546bc59e20201  .github/workflows/build.yml
+1aa8e98b6fb74e041e06735ad17343b91ce5d76d2c0c50d6d2043c5a99202342  CLAUDE.md
+6b134a42a0155b0021ac9965fb2a3117fb3770dc53ad61a35888710802c79724  app/build.gradle.kts
+5c51dd9e9bcb616706c9800dc458f69ab305bd23ced32db6b256bef16d58eb23  app/src/main/assets/local-format/gemma4-v6-pilot-NOTICE.txt
+2aefc8b00cecd2644cc9e789cef06c173f0665d63cae0337a33c1c159acc9191  app/src/main/cpp/llm/local_format_jni.cpp
+f567746759e49994355a49e4e4c7da3aa6727c13d6a64840495ac00217eba55b  app/src/main/kotlin/com/kafkasl/phonewhisper/EditableTranscript.kt
+91c3ac4180bb8bf76747cfa18d999924ed96d431e5851aa52c39baba040f53b7  app/src/main/kotlin/com/kafkasl/phonewhisper/GemmaFaithfulLayout.kt
+943a6c3526609f032efc9f4befa859627e3496825e04e09c6ecf8feaea72bc06  app/src/main/kotlin/com/kafkasl/phonewhisper/GemmaFineTunedPrompt.kt
+ea27c20a9418a53ab6694e6b520d700e7398a9ab3c632f800936027ae06a6af8  app/src/main/kotlin/com/kafkasl/phonewhisper/GemmaModelStore.kt
+f45465dccf7b73cdca85630eb0f052298748f231c4067e623a8fd7c4ed032ee7  app/src/main/kotlin/com/kafkasl/phonewhisper/LocalFormatBenchmarkDialog.kt
+53d0f1b4e4d702a1ee53353aea536415bc9857072af472e2d69974210ed1b10d  app/src/main/kotlin/com/kafkasl/phonewhisper/LocalFormatCpuEngine.kt
+9a4ba1967b99d9bbe6347256e3f664dd0a1c0d3fc668f8cf48ce4c08627a0023  app/src/main/kotlin/com/kafkasl/phonewhisper/LocalFormatEngine.kt
+12797f5aa6b1e0ef42f414fab7262d2156eb1d4167dae4060b08a1c6b3d888e5  app/src/main/kotlin/com/kafkasl/phonewhisper/LocalFormatEngineFacade.kt
+3da81b1b13b98a41b2e41ed65179d07309d51857fb28ec9df6ce72970405fd20  app/src/main/kotlin/com/kafkasl/phonewhisper/LocalFormatNative.kt
+b16555a6c2969c7c510dca9bf1bf567c26aacbb9c655c090baa8cc3691177334  app/src/main/kotlin/com/kafkasl/phonewhisper/LocalFormatting.kt
+682c8d02065cf3a8f4f33a44db6a614fa42f9f5a8ea71891e95350fbb841cd36  app/src/main/kotlin/com/kafkasl/phonewhisper/MainActivity.kt
+33865673eae66dc8dc3c87185f0a5fd2401f4baffdf5f8ca664f4be422021554  app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt
+a91540d89052c9abc45bab2922d0fad8acb803ea2e12caff339097686230afa6  app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayTranscriptEditor.kt
+44a4ae6c5df4d14e29d2c3130bbc33a051089caf865050d60f68f3c7bd73657b  app/src/main/kotlin/com/kafkasl/phonewhisper/PostprocessingDiagnostic.kt
+09e0483655555738ddac8481909433fec9dd61a98524800b682e770bd264d11b  app/src/main/kotlin/com/kafkasl/phonewhisper/ProgressiveFormattingBuffer.kt
+44ca336423c7c25186188aa5ce6c1fd67412972bae9532e6fca9aaa066a06c6e  app/src/main/kotlin/com/kafkasl/phonewhisper/ProgressiveFormattingCoordinator.kt
+83050d2b3375dd8ef7cf0a2cb081271b9f0b5622b560e2ec191fd06c4522de01  app/src/test/kotlin/com/kafkasl/phonewhisper/EditableTranscriptTest.kt
+4d3ae50c093ea19b9b09b7c47a4b7bbbaf9ef1049e64b3ce3851f055f3f13561  app/src/test/kotlin/com/kafkasl/phonewhisper/GemmaConservativeEditingTest.kt
+e8e6d6c25b83faa7b771df07f8bfa8f4c937b67a2ba19d313ade4f4c079625f7  app/src/test/kotlin/com/kafkasl/phonewhisper/GemmaFineTunedPromptTest.kt
+ebdffa7ee221907a89cdc528fbe813f79fb65e472dfcec5886be8362f5110098  app/src/test/kotlin/com/kafkasl/phonewhisper/GemmaFormattingTest.kt
+9f17ad757d83c6c453368ad22a310522d5fbe5bd4a5a51ea359f3316910398aa  app/src/test/kotlin/com/kafkasl/phonewhisper/GemmaListConnectorRestorationTest.kt
+18fb857f287b3140d2bdbc899a57a15ccd3a0d977f99dda8ce00f26ca2922d4a  app/src/test/kotlin/com/kafkasl/phonewhisper/GemmaModelStoreTest.kt
+6577403e5d434bfff8544c1ccd6bef5599fd6482669e113af25069213f06a5ba  app/src/test/kotlin/com/kafkasl/phonewhisper/GemmaQ6DescriptorTest.kt
+120e574977b9e0b55e8ef77faa1533f4560f21021db1a02a131804dfa3a5bc32  app/src/test/kotlin/com/kafkasl/phonewhisper/LocalFormatCpuEngineTest.kt
+3a54f6920ffeb26b5f5c4338324e3e166bebf122c6556dc9dd3ad0ce7fde3bc9  app/src/test/kotlin/com/kafkasl/phonewhisper/LocalFormatNativeTest.kt
+7fad2ac29f662646dcc7004b65e5fd75f7b80a38a8fd6bce4d70470016461140  app/src/test/kotlin/com/kafkasl/phonewhisper/LocalFormatRuntimeLabelsTest.kt
+ebc1047fe397d2b82b02b8bb32be8f1ca956bbea48f00638ff4751ec4b43a064  app/src/test/kotlin/com/kafkasl/phonewhisper/MainActivityTest.kt
+648352ec5a090e4b07ed033eef9935f316115bd1fda64bb4084d1e98b8849c2d  app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayTranscriptEditorRobolectricTest.kt
+01a57e301491a76719f47545d9d2541ed3c8d21d643eb1c8b2a1295086e97ed1  app/src/test/kotlin/com/kafkasl/phonewhisper/PostprocessingDiagnosticTest.kt
+58d22168524cdb7cf165ec61c18ea6f41544cecbfb8597a018b010c13906e655  app/src/test/kotlin/com/kafkasl/phonewhisper/ProgressiveCompositionGateTest.kt
+372f72fb36bc069baeef89cccbb4f246b388cc6551d9287f9f3065f8564c3a31  app/src/test/kotlin/com/kafkasl/phonewhisper/ProgressiveFormattingBufferTest.kt
+d450d56a830de1971772f36e6522c2e90995cfaf0de1b96d1c2928e30ed73898  app/src/test/kotlin/com/kafkasl/phonewhisper/ProgressiveFormattingCoordinatorTest.kt
+2531da07cef85cb0eca015b621c3883e53a8a8c4de207e430e0c14bd93d10555  app/src/test/kotlin/com/kafkasl/phonewhisper/ProgressiveOverlayVisualRenderTest.kt
+24c253fa90f050a2f68ec50c455b9cc417c110d7f831518c5e8e409b7ae22e94  app/src/test/resources/gemma4-prompt-parity/envelope_fixtures.tsv
+1c1bab99dc34d3b7c07329da608401533bada24ab518a0215b242647aac3a1c9  app/src/test/resources/gemma4-prompt-parity/envelope_manifest.json
+57edf399e29738ff6b3d9691e5b21108291da4d32be00963e4f041692baff882  app/src/test/resources/gemma4-prompt-parity/fixtures.jsonl
+86cf03a1239a87c867e33c8986e47ed9e31436ffaae0869b993d0c92ba1486e6  app/src/test/resources/gemma4-prompt-parity/fixtures.tsv
+844b811da38639e680ed1b82ec5b15baf0c9fbf74bba68a57de387c0af50b5ca  app/src/test/resources/gemma4-prompt-parity/manifest.json
+b52f889353fef1633c97f9d7474e83aeb95713e22a926aba7c6e944bd28a4c63  docs/gemma4-pilot-test-guide.md
+6b2dd5d48c6162db35ad9ff42766a918368c7aa78805f0534fc91bf734694494  docs/superpowers/plans/2026-09-20-gemma4-finetuned-delivery.md
+480fe3974f1f69d37d749e65bd53080e1db5626f0c8469b61c698785d33b1be9  docs/superpowers/plans/2026-09-20-gemma4-list-connector-restoration.md
+3b15afcc3edee1d3e24856ad8dbc5c6113aa2b3f7f6a2ff8b34f9dd7a7dc83f4  docs/superpowers/plans/2026-09-20-gemma4-mixed-layout-validation.md
+8b7faf7dfd54ee667e90db83a0030a2a02c9fee3379f1e9b7d57f5a1f3e31ba0  docs/superpowers/plans/2026-09-20-gemma4-multipart-download.md
+f8ff6c14fb6967a2795b11dbea5254bd3496c7415cf99bc3d9cff78afb07b1f1  docs/superpowers/plans/2026-09-20-gemma4-native-decoding.md
+6d1afb2f2bab032a07ffefc8679b77d2fa52a12bf61d10a09e60afb5145fb1d8  docs/superpowers/plans/2026-09-20-gemma4-native-engine.md
+d1204dbe1ee744a5761180fd05d0427ec25751e69d33d3ff2f87d66f0fa5877e  docs/superpowers/plans/2026-09-20-gemma4-native-envelope.md
+c1f7c1bd3e4886bc122bcc105f359d8878c955a44848703a8f4e795589c6b8ca  docs/superpowers/plans/2026-09-20-gemma4-progressive-buffer.md
+eafd19001c8c4b0944af27e4a0763c62a6a3b6f3062e9a9d5d7e735433b6a4c4  docs/superpowers/plans/2026-09-20-gemma4-progressive-integration.md
+8ceb66a4c164620a1cd135b402e993c2a503203b4915846fe2894854595ee698  docs/superpowers/plans/2026-09-20-gemma4-q6-actions-evaluation.md
+9a730f495e696937948ad5adcd80e42d1d325af9b086f83506578407a7c7e3db  docs/superpowers/plans/2026-09-20-gemma4-trained-prompt-parity.md
+348a79105d83e66ecfdce6c66cd99fd6a5312bcf8d9457140724c2f89af0fb12  scripts/prepare_ci_apk.py
+f23608da1fe4198091c3fe54f9420304df29b53de84f61f5b2dc6b91888b89f4  scripts/test_gemma4_pilot_publication.py
+01050ca5d72297859ff7702300817cf8571e1e7fb7bcf99d113630ca95c897ab  scripts/test_prepare_ci_apk.py
+```

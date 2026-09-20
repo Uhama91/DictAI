@@ -4,6 +4,43 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EditableTranscriptTest {
+    @Test fun `final snapshot keeps the raw continuation and commits it after the prefix`() {
+        val buffer = EditableTranscript()
+        buffer.update("Préface humaine")
+        buffer.edit("Préface humaine.")
+
+        val snapshot = buffer.prepareFinalContinuation("Préface humaine suite dictée")
+
+        assertEquals("Préface humaine.", snapshot.humanPrefix)
+        assertEquals("suite dictée", snapshot.continuation)
+        assertEquals("Préface humaine. suite corrigée", buffer.commitFinalContinuation(snapshot, "suite corrigée"))
+        assertEquals("Préface humaine. suite corrigée", buffer.visibleText())
+    }
+
+    @Test fun `final snapshot cannot publish after a later human edit`() {
+        val buffer = EditableTranscript()
+        buffer.update("Préface humaine")
+        buffer.edit("Préface humaine.")
+        val snapshot = buffer.prepareFinalContinuation("Préface humaine suite dictée")
+
+        buffer.edit("Préface humaine. choix local")
+
+        assertNull(buffer.commitFinalContinuation(snapshot, "suite corrigée"))
+        assertEquals("Préface humaine. choix local", buffer.visibleText())
+    }
+
+    @Test fun `invalid final snapshot preserves an intentional empty edit`() {
+        val buffer = EditableTranscript()
+        buffer.update("Préface humaine")
+        buffer.edit("Préface humaine.")
+        val snapshot = buffer.prepareFinalContinuation("Préface humaine suite dictée")
+
+        buffer.edit("")
+
+        assertNull(buffer.commitFinalContinuation(snapshot, "suite corrigée"))
+        assertEquals("", buffer.visibleText())
+    }
+
     @Test fun `correcting Grok does not protect unrelated dictated hesitations`() {
         val buffer = EditableTranscript()
         buffer.update("Je consulte grek euh demain")

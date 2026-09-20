@@ -211,10 +211,12 @@ class OverlayService : Service() {
         var finishAfterPause = false
         var finishAfterCapture = false
         var pendingPreview: Pair<String, String>? = null
+        val progressiveCompositionGate = ProgressiveCompositionGate()
         val finalPublication = DictationFinalPublicationGate(DOUBLE_TAP_MS)
         val completion = DictationRunCompletionGate()
         val cancellationWaitStarted = java.util.concurrent.atomic.AtomicBoolean(false)
         var localFormatting: LocalFormattingSession? = null
+        var progressiveFormatting: ProgressiveFormattingCoordinator? = null
         var formatOffer: Runnable? = null
         var formatOfferRequest: LocalFormatRequest? = null
         var stoppedAtMs = 0L
@@ -611,8 +613,36 @@ class OverlayService : Service() {
         val run = ActiveDictationRun(started.session, options, purpose)
         if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
             localFormatter.warm()
-            run.localFormatting = LocalFormattingSession(localFormatter.backend())
-            run.cancellation.onCancel { run.localFormatting?.close() }
+            if (BuildConfig.GEMMA4_FINE_TUNED_PILOT) {
+                val layout = requireNotNull(options.format.localLayoutKind)
+                run.progressiveFormatting = ProgressiveFormattingCoordinator(
+                    mode = layout,
+                    backend = localFormatter.backend(),
+                    normalizer = { value -> normalizeRecognizedText(value, options) },
+                    mainDispatcher = { task -> main.post(task) },
+                    requestFactory = { segment, source ->
+                        localFormatRequest(source, options, applyVocabulary = false).copy(
+                            phase = segment.phase,
+                            contextBefore = segment.contextBefore,
+                            simpleEmailLayout = false,
+                        )
+                    },
+                    onSnapshot = {
+                        run.pendingPreview?.let { (committed, tentative) ->
+                            if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                                renderLivePreview(run, committed, tentative)
+                            }
+                        }
+                    },
+                )
+                run.cancellation.onCancel {
+                    run.progressiveCompositionGate.clear()
+                    run.progressiveFormatting?.close()
+                }
+            } else {
+                run.localFormatting = LocalFormattingSession(localFormatter.backend())
+                run.cancellation.onCancel { run.localFormatting?.close() }
+            }
         }
         run.cancellation.onCancel { started.session.cancel() }
         run.startRequestedAtMs = requestedAt
@@ -639,6 +669,9 @@ class OverlayService : Service() {
             tailFollower?.reset()
             editableTranscript.clear()
             if (restored != null) editableTranscript.edit(restored)
+            run.progressiveFormatting?.let { formatter ->
+                if (restored != null) formatter.resetForHumanEdit(restored)
+            }
             updatingLiveText = true
             liveText?.setText(restored.orEmpty())
             updatingLiveText = false
@@ -878,7 +911,7 @@ class OverlayService : Service() {
             run.formatOffer = null
             run.formatOfferRequest = null
         }
-        setLivePreviewVisible(run.localFormatting != null)
+        setLivePreviewVisible(run.localFormatting != null || run.progressiveFormatting != null)
         setState(State.TRANSCRIBING)
         run.formatStage = "Transcription…"
         currentAnchor?.let(::positionLivePanel)
@@ -971,14 +1004,48 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        val resolvedText = editableTranscript.resolveFinal(r.text) { normalizeRecognizedText(it, capture.options) }
+        val progressive = run.progressiveFormatting
+        // Start the format clock before the final continuation snapshot and native wait. The
+        // pilot must report the user-visible LLM wait, not only postprocessing after it.
         val formatStarted = SystemClock.elapsedRealtime()
-        val prepared = if (!run.archiveAsNote && resolvedText != null)
+        if (progressive != null) {
+            main.post {
+                if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                    run.formatStage = "Correction en cours…"
+                    currentAnchor?.let(::positionLivePanel)
+                }
+            }
+        }
+        val finalSnapshot = progressive?.let { editableTranscript.prepareFinalContinuation(r.text) }
+        val resolvedText = if (progressive == null) {
+            editableTranscript.resolveFinal(r.text) { normalizeRecognizedText(it, capture.options) }
+        } else {
+            val snapshot = requireNotNull(finalSnapshot)
+            val finalState = if (snapshot.recognized) {
+                progressive.finish(
+                    snapshot.continuation,
+                    stableWordCount = countTranscriptWords(snapshot.continuation),
+                    totalDictationWordCount = countTranscriptWords(r.text.orEmpty()),
+                )
+            } else progressive.state()
+            // A human edit, cancellation, or run replacement during native work invalidates the
+            // snapshot. Never publish the old model result into the new transcript.
+            if (run.cancellation.isCancelled || !isCurrentRun(run)) return
+            editableTranscript.commitFinalContinuation(snapshot, finalState.renderedText)
+                ?: editableTranscript.visibleText()
+        }
+        val prepared = if (progressive == null && !run.archiveAsNote && resolvedText != null)
             prepareCorrectedText(resolvedText, capture.options) else null
-        val lightCleanupApplied = !resolvedText.isNullOrBlank() && capture.options.lightTextCleanup &&
+        val lightCleanupApplied = progressive == null && !resolvedText.isNullOrBlank() && capture.options.lightTextCleanup &&
             capture.options.format.id == "cleanup" && !editableTranscript.hasUserEdits()
-        val localText = if (lightCleanupApplied) LightTextCleanup.apply(resolvedText, protectedVocabularyTerms(resolvedText))
+        val localText = if (progressive != null) resolvedText
+            else if (lightCleanupApplied) LightTextCleanup.apply(resolvedText, protectedVocabularyTerms(resolvedText))
             else prepared?.text ?: resolvedText
+        val progressiveState = progressive?.state()
+        progressiveState?.let { progressiveState ->
+            Log.i(TAG, "event=progressive_format accepted_segments=${progressiveState.acceptedSegments.size} " +
+                "remainder_words=${progressiveRemainderWords(progressiveState)}")
+        }
         if (run.cancellation.isCancelled) {
             return
         }
@@ -997,7 +1064,10 @@ class OverlayService : Service() {
         }
         var localDirect = false
         var localDiagnostic: LocalFinishDiagnostic? = null
-        val localFormatted = if (!localText.isNullOrBlank() && capture.options.localFormattingEnabled &&
+        val progressiveAccepted = progressiveState?.acceptedSegments?.isNotEmpty() == true
+        val localFormatted = if (progressive != null) {
+            localText.takeIf { progressiveAccepted }
+        } else if (!localText.isNullOrBlank() && capture.options.localFormattingEnabled &&
             capture.options.format.usesLanguageModel) {
             val request = localFormatRequest(localText, capture.options, applyVocabulary = false).let {
                 if (editableTranscript.hasUserEdits()) it.copy(validation = LocalFormatValidation.GEMMA_PROJECTION) else it
@@ -1056,6 +1126,10 @@ class OverlayService : Service() {
         }
         val formatted = localFormatted ?: cloudText
         val formatOutcome = when {
+            progressive != null && progressiveAccepted && progressiveState != null && progressiveRemainderWords(progressiveState) > 0 ->
+                "Correction progressive appliquée · reliquat brut conservé"
+            progressive != null && progressiveAccepted -> "Correction progressive appliquée"
+            progressive != null -> "Reliquat brut conservé"
             localFormatted != null && localDirect -> "Local appliqué · sans appel LLM"
             localFormatted != null -> "LLM local appliqué"
             cloudText != null -> "Cloud appliqué"
@@ -1075,6 +1149,8 @@ class OverlayService : Service() {
                 else "Mise en forme indisponible : texte conservé sans format.")
         }
         run.localFormatting?.close()
+        run.progressiveCompositionGate.clear()
+        run.progressiveFormatting?.close()
         val postprocessMs = SystemClock.elapsedRealtime() - formatStarted
         val localRuntime = if (capture.options.localFormattingEnabled) localFormatter.runtimeName() else "not-loaded"
         Log.i(TAG, "event=postprocess engine=${if (capture.options.localFormattingEnabled) "local" else "cloud_or_off"} " +
@@ -1295,6 +1371,8 @@ class OverlayService : Service() {
         run.formatOffer = null
         run.formatOfferRequest = null
         run.localFormatting?.close()
+        run.progressiveCompositionGate.clear()
+        run.progressiveFormatting?.close()
         activeRun = null
         archiveAfterImageDelivery = false
         recoveredDraft = null
@@ -1550,13 +1628,47 @@ class OverlayService : Service() {
         val text = listOf(committed.trim(), tentative.trim()).filter { it.isNotEmpty() }.joinToString(" ")
         if (text.isBlank()) return
         run.pendingPreview = committed to tentative
+        val preview = ProgressivePreviewSnapshot(committed, tentative)
+        val progressive = run.progressiveFormatting
+        val ready = if (progressive != null) {
+            run.progressiveCompositionGate.offer(
+                preview,
+                composing = isLiveEditorComposing(),
+                valid = isCurrentRun(run) && !run.cancellation.isCancelled,
+            )
+        } else preview
+        if (ready == null) return
+        publishLivePreview(run, ready)
+    }
+
+    private fun publishLivePreview(run: ActiveDictationRun, preview: ProgressivePreviewSnapshot) {
+        val committed = preview.committed
+        val tentative = preview.tentative
+        val text = listOf(committed.trim(), tentative.trim()).filter { it.isNotEmpty() }.joinToString(" ")
+        if (text.isBlank()) return
         DictationPreviewPublicationGate.publishIfAllowed(
             isCurrentRun = isCurrentRun(run),
             isRecording = state == State.RECORDING,
             cancellation = run.cancellation,
         ) {
-            val display = editableTranscript.update(text) { normalizeRecognizedText(it, run.formatOptions) }
-            scheduleLocalFormatting(run, display)
+            val progressive = run.progressiveFormatting
+            val display = editableTranscript.update(text) { continuation ->
+                if (progressive == null) {
+                    normalizeRecognizedText(continuation, run.formatOptions)
+                } else {
+                    val committedEnd = committed.trim().length.coerceAtMost(text.length)
+                    val continuationStart = (text.length - continuation.length).coerceAtLeast(0)
+                    val stableEnd = (committedEnd - continuationStart)
+                        .coerceIn(0, continuation.length)
+                    val stableWords = countTranscriptWords(continuation.substring(0, stableEnd))
+                    progressive.update(
+                        continuation,
+                        stableWordCount = stableWords,
+                        totalDictationWordCount = countTranscriptWords(text),
+                    ).renderedText
+                }
+            }
+            if (progressive == null) scheduleLocalFormatting(run, display)
             persistDraft(display)
             val editor = liveText ?: return@publishIfAllowed
             if (display.isNotEmpty()) editor.hint = "Touchez pour corriger pendant la dictée"
@@ -1583,6 +1695,36 @@ class OverlayService : Service() {
             setLivePreviewVisible(true)
             scrollTranscriptToEnd(run)
         }
+    }
+
+    private fun replayProgressivePreviewIfReady() {
+        val run = activeRun ?: return
+        if (run.progressiveFormatting == null || isLiveEditorComposing()) return
+        val ready = run.progressiveCompositionGate.replay(
+            composing = false,
+            valid = isCurrentRun(run) && !run.cancellation.isCancelled,
+        ) ?: return
+        publishLivePreview(run, ready)
+    }
+
+    private fun isLiveEditorComposing(): Boolean {
+        val editable = liveText?.text ?: return false
+        val start = BaseInputConnection.getComposingSpanStart(editable)
+        val end = BaseInputConnection.getComposingSpanEnd(editable)
+        return start >= 0 && end >= start
+    }
+
+    private fun countTranscriptWords(text: String): Int = Regex("\\S+").findAll(text).count()
+
+    private fun progressiveRemainderWords(state: ProgressiveBufferState): Int =
+        (countTranscriptWords(state.rawText) -
+            state.acceptedSegments.sumOf { segment -> countTranscriptWords(segment.source) }).coerceAtLeast(0)
+
+    private fun joinTranscriptParts(prefix: String, continuation: String): String = when {
+        prefix.isBlank() -> continuation
+        continuation.isBlank() -> prefix
+        prefix.last().isWhitespace() || continuation.first().isWhitespace() -> prefix + continuation
+        else -> "$prefix $continuation"
     }
 
     /** Keep a correction's caret stable when a later ASR revision replaces the tail. */
@@ -1617,7 +1759,7 @@ class OverlayService : Service() {
             options.format.localLayoutKind ?: if (hasImageReferences) LocalLayoutKind.TEXT else null else null
         return LocalFormatRequest(source, options.format.instructions + numbers + if (NoteImageMarkers.markers(source).isEmpty()) "" else NoteImageMarkers.INSTRUCTIONS, options.language.cleanupLanguageName, spellings, layout,
             validation = if (layout != null) LocalFormatValidation.GEMMA_EDITING else LocalFormatValidation.EXACT_LAYOUT,
-            simpleEmailLayout = true)
+            simpleEmailLayout = !BuildConfig.GEMMA4_FINE_TUNED_PILOT)
     }
 
     private fun protectedVocabularyTerms(text: String): List<String> = Vocabulary.corrections(this)
@@ -1697,6 +1839,7 @@ class OverlayService : Service() {
 
     /** Prepare at natural pauses; an ASR revision or a user edit invalidates the old source key. */
     private fun scheduleLocalFormatting(run: ActiveDictationRun, text: String) {
+        if (run.progressiveFormatting != null) return
         val formatter = run.localFormatting ?: return
         val options = run.formatOptions
         val request = text.takeIf { it.isNotBlank() }?.let {
@@ -2417,6 +2560,7 @@ class OverlayService : Service() {
                     tailFollower?.userInteraction()
                     vocabularyTracker.onSelectionChanged(text.toString(), start, end)
                     scheduleVocabularySuggestion(resetTimer = false)
+                    replayProgressivePreviewIfReady()
                 }
             }
         }.apply {
@@ -2436,6 +2580,7 @@ class OverlayService : Service() {
                 }
             }
             finishEditing = { releaseTranscriptFocus() }
+            onCompositionFinished = { main.post { replayProgressivePreviewIfReady() } }
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
                     liveEditorChanging = true
@@ -2452,7 +2597,13 @@ class OverlayService : Service() {
                     if (!updatingLiveText && isTranscriptEditable()) {
                         invalidateNoteInsertion()
                         editableTranscript.edit(s.toString())
-                        activeRun?.let { scheduleLocalFormatting(it, s.toString()) }
+                        activeRun?.let { run ->
+                            if (run.progressiveFormatting != null) {
+                                run.progressiveFormatting?.resetForHumanEdit(s.toString())
+                            } else {
+                                scheduleLocalFormatting(run, s.toString())
+                            }
+                        }
                         if (recoveredDraft != null) recoveredDraft = s.toString()
                         persistDraft(s.toString())
                     }
@@ -2462,6 +2613,7 @@ class OverlayService : Service() {
                         vocabularyTracker.afterChange(s.toString(), SystemClock.elapsedRealtime())
                     } else vocabularyTracker.onProgrammaticTextChanged(s.toString())
                     liveEditorChanging = false
+                    replayProgressivePreviewIfReady()
                     scheduleVocabularySuggestion(resetTimer = !updatingLiveText)
                 }
             })
@@ -3281,6 +3433,7 @@ class OverlayService : Service() {
     private fun replaceNoteText(text: String) {
         resetVocabularyLearning()
         editableTranscript.anchor(text)
+        activeRun?.progressiveFormatting?.resetForHumanEdit(text)
         updatingLiveText = true
         try { liveText?.setText(text) } finally { updatingLiveText = false }
         if (recoveredDraft != null || activeRun == null) recoveredDraft = text

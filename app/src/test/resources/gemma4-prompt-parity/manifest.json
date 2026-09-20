@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "status": "fixture_only_not_training_ready",
+  "purpose": "Gemma 4 Android/Python prompt byte parity; synthetic data only",
+  "builder": {
+    "parent": {
+      "module": "asr_postclean.prompt_v6.build_prompt_v6",
+      "version": "gemma4-v6",
+      "path": "/Users/ulliemaillot/dev_project/asr-postclean-fr/src/asr_postclean/prompt_v6.py",
+      "sha256": "af0d7c808150cd27960cd4506261e6b29fc6ac45df13db2694c6c870affbb0d6"
+    },
+    "source_last": {
+      "module": "asr_postclean.prompt_v6_source_last.build_prompt_v6_source_last",
+      "version": "gemma4-v6-source-last",
+      "path": "/Users/ulliemaillot/dev_project/asr-postclean-fr/src/asr_postclean/prompt_v6_source_last.py",
+      "sha256": "234b6fb22392caa6fc05b9bfb39ceae3373d4bac46b625cb881a69175b8bb72d"
+    }
+  },
+  "generator": {
+    "path": "/Users/ulliemaillot/dev_project/asr-postclean-fr/scripts/generate_gemma4_prompt_parity_fixtures.py",
+    "sha256": "e0c26cdbe99bafb77adffa5f3a5f0f06f2e9b97b12a6099a0927204d94b027f5"
+  },
+  "fixtures": {
+    "jsonl": {
+      "path": "/Users/ulliemaillot/.codex/worktrees/gemma4-layout-validation/phone-whisper/app/src/test/resources/gemma4-prompt-parity/fixtures.jsonl",
+      "sha256": "57edf399e29738ff6b3d9691e5b21108291da4d32be00963e4f041692baff882",
+      "encoding": "UTF-8"
+    },
+    "tsv": {
+      "path": "/Users/ulliemaillot/.codex/worktrees/gemma4-layout-validation/phone-whisper/app/src/test/resources/gemma4-prompt-parity/fixtures.tsv",
+      "sha256": "86cf03a1239a87c867e33c8986e47ed9e31436ffaae0869b993d0c92ba1486e6",
+      "encoding": "ASCII base64 fields separated by tabs"
+    },
+    "count": 6,
+    "ids": [
+      "text-partial-empty",
+      "text-final-context",
+      "list-partial-quoted",
+      "list-final-separators",
+      "email-partial-controls",
+      "email-final-escaped"
+    ]
+  },
+  "coverage": {
+    "mode_phase_pairs": [
+      "corrected/partial",
+      "corrected/final",
+      "list/partial",
+      "list/final",
+      "email/partial",
+      "email/final"
+    ],
+    "empty_context_ids": [
+      "text-partial-empty",
+      "list-final-separators",
+      "email-final-escaped"
+    ],
+    "nonempty_context_ids": [
+      "text-final-context",
+      "list-partial-quoted",
+      "email-partial-controls"
+    ],
+    "multiple_protected_term_ids": [
+      "text-final-context",
+      "list-partial-quoted",
+      "email-partial-controls",
+      "email-final-escaped"
+    ],
+    "unicode_cases": [
+      "text-final-context",
+      "list-final-separators",
+      "email-final-escaped"
+    ],
+    "json_edge_cases": [
+      "list-partial-quoted",
+      "email-partial-controls",
+      "email-final-escaped"
+    ]
+  },
+  "contract": {
+    "json_dumps": "ensure_ascii=False,separators=(',',':'),allow_nan=False",
+    "source_last_suffix": "source_json={\\\"source\\\":...}",
+    "template_tokens_included": false,
+    "production_wiring": false,
+    "training_data": false
+  }
+}

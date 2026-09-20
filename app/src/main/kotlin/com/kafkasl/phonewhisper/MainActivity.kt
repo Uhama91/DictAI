@@ -532,7 +532,7 @@ class MainActivity : AppCompatActivity() {
         engineRow.setOnClickListener { showEngineDialog(engineRow) }
         root.addView(engineRow)
         if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
-            val row = settingsRow("Installer Gemma 4 E2B", gemmaInstallLabel()) { showGemmaDownload() }
+            val row = settingsRow(gemmaInstallTitle(), gemmaInstallLabel()) { showGemmaDownload() }
             gemmaSubtitle = row.findViewWithTag("subtitle")
             root.addView(row)
         }
@@ -548,7 +548,7 @@ class MainActivity : AppCompatActivity() {
             showPostprocessingDiagnostic()
         })
         if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
-            root.addView(settingsRow("Tester Gemma sur ce téléphone", "GPU · sans thinking · vitesse et fidélité FR/EN") {
+            root.addView(settingsRow("Tester Gemma sur ce téléphone", benchmarkSubtitle(BuildConfig.GEMMA4_FINE_TUNED_PILOT)) {
                 if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
                 else if (localFormatBenchmark?.isShowing != true) {
                     localFormatBenchmark?.close()
@@ -758,9 +758,9 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun gemmaInstallLabel(): String = if (GemmaModelStore(this).installedModel() != null)
-        "Installé · hors ligne · texte corrigé, listes et mails"
-    else "2,6 Go · téléchargement reprenable · puis utilisation hors ligne"
+    private fun gemmaInstallLabel(): String = gemmaInstallSubtitle(
+        installed = GemmaModelStore(this).installedModel() != null,
+    )
 
     private fun showGemmaDownload() {
         if (gemmaDownload?.isShowing == true) return
@@ -1114,5 +1114,19 @@ class MainActivity : AppCompatActivity() {
 
         internal fun credentialDeletionFeedback(deleted: Boolean): String =
             if (deleted) "Clé supprimée" else "Suppression de la clé impossible"
+
+        internal fun gemmaInstallTitle(): String = "Installer ${GemmaModelStore.MODEL_TITLE}"
+
+        internal fun gemmaInstallSubtitle(installed: Boolean): String = if (installed) {
+            "Installé · hors ligne · texte corrigé, listes et mails"
+        } else {
+            "${GemmaModelStore.formatBytes(GemmaModelStore.EXPECTED_SIZE_BYTES)} · téléchargement reprenable · puis utilisation hors ligne"
+        }
+
+        internal fun benchmarkSubtitle(pilot: Boolean): String = if (pilot) {
+            "CPU · pilote Gemma · sans thinking"
+        } else {
+            "GPU · LiteRT-LM · sans thinking"
+        }
     }
 }

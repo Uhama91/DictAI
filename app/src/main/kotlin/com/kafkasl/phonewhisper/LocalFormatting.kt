@@ -16,6 +16,8 @@ internal data class LocalFormatRequest(
     val layoutKind: LocalLayoutKind? = null,
     val validation: LocalFormatValidation = LocalFormatValidation.EXACT_LAYOUT,
     val simpleEmailLayout: Boolean = false,
+    val phase: GemmaFineTunedPrompt.Phase = GemmaFineTunedPrompt.Phase.FINAL,
+    val contextBefore: String = "",
 ) {
     fun prompt(): String {
         fun safe(value: String) = value.replace("<|", "< |")

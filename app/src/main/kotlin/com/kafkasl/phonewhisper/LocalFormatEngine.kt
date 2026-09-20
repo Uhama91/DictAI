@@ -37,7 +37,8 @@ internal data class LocalFormatPreparation(val loadMs: Long, val wasAlreadyLoade
  * A lightweight owner of the process-wide GPU engine. The overlay and benchmark share one model;
  * each request receives an independent conversation. No initialization or cancellation joins the UI.
  */
-internal class LocalFormatEngine(context: Context) : AutoCloseable {
+/** Existing LiteRT-LM implementation, kept separate from the fine-tuned CPU pilot. */
+internal class GpuLocalFormatEngine(context: Context) : AutoCloseable {
     private val core = synchronized(sharedLock) {
         (shared ?: GemmaEngineCore(context.applicationContext).also { shared = it }).also { it.retain() }
     }

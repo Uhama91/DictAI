@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong
 /** Synthetic local benchmark. No dictation, credentials or cloud are read. */
 internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private val longMailsOnly: Boolean = false) : AutoCloseable {
     private val activityRef = WeakReference(activity)
+    private val pilot = BuildConfig.GEMMA4_FINE_TUNED_PILOT
     private val main = Handler(Looper.getMainLooper())
     private val engine = LocalFormatEngine(activity.applicationContext)
     private val backend = engine.backend()
@@ -173,12 +174,12 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
 
     private fun runBenchmark() {
         val report = StringBuilder().apply {
-            append("DictAI — test local du post-traitement\nModèle : ${LocalFormatEngine.MODEL_FILE}\n")
+            append("DictAI — test local du post-traitement\nModèle : ${LocalFormatRuntimeLabels.model(pilot)}\n")
             append("Application : ${BuildConfig.VERSION_NAME}\n")
             append("Appareil : ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n")
             append("${examples.size} exemples synthétiques × 2 passages, sans cloud.\n")
-            append("Moteur partagé avec l’overlay. Le premier essai indique si Gemma était déjà chargé. Caches système/GPU non vidés.\n")
-            append("Configuration : LiteRT-LM 0.17.0 · GPU · MTP activé · thinking désactivé (budget 0).\n")
+            append("Moteur partagé avec l’overlay. Le premier essai indique si Gemma était déjà chargé. ${LocalFormatRuntimeLabels.cacheNote(pilot)}\n")
+            append("Configuration : ${LocalFormatRuntimeLabels.configuration(pilot)}.\n")
             append("Mails longs : Gemma seul, sans disposition directe. Les réponses directes des autres cas ne mesurent pas le LLM.\n")
             append("Limite du banc : ${LocalFormatEngine.GENERATION_DEADLINE_MS} ms par appel après préparation initiale, file comprise ; aucune coupure à 5, 8 ou 10 secondes.\n")
             append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Le texte est validé avant publication.\n")
@@ -217,7 +218,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
                         returnedAt - callStarted, SystemClock.elapsedRealtime() - returnedAt,
                         generated.isSuccess && !raw.isNullOrBlank(),
                     )
-                    if (cold) report.append("Calcul : ${engine.runtimeName()}\n\n")
+                    if (cold) report.append("Calcul : ${LocalFormatRuntimeLabels.calculation(pilot, engine.runtimeName())}\n\n")
                     if (cold) engine.lastLoadMs()?.let { report.append("Dernière initialisation du moteur partagé : $it ms\n\n") }
                     report.append("Passage $pass · ${example.name} · ${if (preparation?.wasAlreadyLoaded == false) "chargement effectué" else "moteur chargé"}\n")
                     report.append("Chargement : ${preparation?.takeUnless { it.wasAlreadyLoaded }?.let { "${it.loadMs} ms" } ?: "déjà effectué"}\n")
@@ -273,7 +274,12 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
             if (!cancelled.get()) {
                 failed = true
                 report.append("Le test local n'a pas pu se terminer (${error.javaClass.simpleName}).\n")
-                report.append("État GPU : ${engine.runtimeName()} ; motif : ${engine.failureCode() ?: "indisponible"}. Aucun repli CPU ou cloud.\n")
+                report.append("${LocalFormatRuntimeLabels.failure(pilot, engine.runtimeName(), engine.failureCode())}. ")
+                if (pilot) {
+                    report.append("Le calcul CPU est le moteur principal ; aucun repli cloud.\n")
+                } else {
+                    report.append("Aucun repli CPU ou cloud.\n")
+                }
             }
         } finally {
             report.append("Après les essais : ${deviceSample()}\n")
@@ -293,7 +299,7 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
         val thermal = (activity.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).currentThermalStatus
         val memory = android.app.ActivityManager.MemoryInfo()
         (activity.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memory)
-        "PSS processus ${android.os.Debug.getPss() / 1024} Mio (mémoire GPU partagée potentiellement exclue), RAM disponible ${memory.availMem / (1024 * 1024)} Mio, état thermique Android $thermal"
+        "PSS processus ${android.os.Debug.getPss() / 1024} Mio${LocalFormatRuntimeLabels.pssNote(pilot)}, RAM disponible ${memory.availMem / (1024 * 1024)} Mio, état thermique Android $thermal"
     }.getOrDefault("échantillon indisponible")
 
     private fun hasTerm(text: String, term: String): Boolean =

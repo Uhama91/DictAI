@@ -5,7 +5,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true"
+val gemma4FineTunedPilot = providers.gradleProperty("gemma4FineTunedPilot").orNull == "true"
+val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true" || gemma4FineTunedPilot
 
 android {
     namespace = "com.kafkasl.phonewhisper"
@@ -17,15 +18,22 @@ android {
 
     androidResources { noCompress += listOf("gguf", "litertlm") }
     // Gemma is installed once from inside the app. The old bundled 350M is not packaged.
-    if (localFormatPrototype) packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
+    if (localFormatPrototype && !gemma4FineTunedPilot) {
+        packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
+    }
 
     defaultConfig {
         applicationId = "com.uhama.whisperpin"
         minSdk = 30
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
+        buildConfigField("boolean", "GEMMA4_FINE_TUNED_PILOT", gemma4FineTunedPilot.toString())
         versionCode = 35
-        versionName = if (localFormatPrototype) "0.9.6-dictai-gemma-test" else "0.9.6-dictai"
+        versionName = when {
+            gemma4FineTunedPilot -> "0.9.6-dictai-gemma4-v6-test"
+            localFormatPrototype -> "0.9.6-dictai-gemma-test"
+            else -> "0.9.6-dictai"
+        }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }

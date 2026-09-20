@@ -32,6 +32,12 @@ std::mutex registry_mutex;
 std::unordered_map<jlong, std::shared_ptr<Session>> sessions;
 jlong next_handle = 1;
 std::once_flag backend_once;
+constexpr jint kProfileHistorical = 0;
+constexpr jint kProfileGemmaFineTunedGreedy = 1;
+
+bool is_valid_profile(jint profile_id) {
+    return profile_id == kProfileHistorical || profile_id == kProfileGemmaFineTunedGreedy;
+}
 
 std::shared_ptr<Session> acquire(jlong handle) {
     std::lock_guard<std::mutex> lock(registry_mutex);
@@ -124,10 +130,12 @@ jlong native_open(JNIEnv *env, jobject, jbyteArray path_bytes, jint context_size
 }
 
 jbyteArray native_generate(JNIEnv *env, jobject, jlong handle, jlong generation, jbyteArray prompt_bytes, jbyteArray grammar_bytes,
-                           jint max_tokens, jlong timeout_ms, jobject sink) {
+                           jint profile_id, jint max_tokens, jlong timeout_ms, jobject sink) {
     try {
         auto s = acquire(handle);
-        if (!s || generation <= 0 || max_tokens <= 0 || max_tokens > 8192 || timeout_ms <= 0 || !sink) return nullptr;
+        if (!s || !is_valid_profile(profile_id) ||
+            (profile_id == kProfileGemmaFineTunedGreedy && grammar_bytes != nullptr) ||
+            generation <= 0 || max_tokens <= 0 || max_tokens > 8192 || timeout_ms <= 0 || !sink) return nullptr;
         const int64_t deadline = now_ms() + std::min<int64_t>(timeout_ms, 120000);
         std::lock_guard<std::mutex> lock(s->inference);
         s->generation.store(generation);
@@ -150,8 +158,7 @@ jbyteArray native_generate(JNIEnv *env, jobject, jlong handle, jlong generation,
         count = llama_tokenize(vocab, prompt.data(), static_cast<int32_t>(prompt.size()), tokens.data(), count, false, true);
         if (count <= 0) return nullptr;
         using Sampler = std::unique_ptr<llama_sampler, decltype(&llama_sampler_free)>;
-        Sampler sampler(llama_sampler_chain_init(llama_sampler_chain_default_params()), llama_sampler_free);
-        if (!sampler) return nullptr;
+        Sampler sampler(nullptr, llama_sampler_free);
         auto add = [&](llama_sampler *child) {
             Sampler owned(child, llama_sampler_free);
             if (!owned) return false;
@@ -159,20 +166,27 @@ jbyteArray native_generate(JNIEnv *env, jobject, jlong handle, jlong generation,
             owned.release();
             return true;
         };
-        Sampler penalties(llama_sampler_init_penalties(llama_vocab_n_tokens(vocab), 64, 1.05f, 0.0f, 0.0f), llama_sampler_free);
-        if (!penalties) return nullptr;
-        for (const auto token : tokens) llama_sampler_accept(penalties.get(), token);
-        if (!add(penalties.release())) return nullptr;
-        if (grammar_bytes) {
-            const auto grammar = read_bytes(env, grammar_bytes);
-            const auto valid = utf8_prefix(grammar);
-            if (env->ExceptionCheck() || grammar.empty() || grammar.size() > 65536 ||
-                grammar.find('\0') != std::string::npos || !valid || *valid != grammar.size()) return nullptr;
-            if (abort_inference(s.get())) return nullptr;
-            if (!add(llama_sampler_init_grammar(vocab, grammar.c_str(), "root"))) return nullptr;
+        if (profile_id == kProfileGemmaFineTunedGreedy) {
+            sampler.reset(llama_sampler_init_greedy());
+        } else {
+            sampler.reset(llama_sampler_chain_init(llama_sampler_chain_default_params()));
+            if (!sampler) return nullptr;
+            Sampler penalties(llama_sampler_init_penalties(llama_vocab_n_tokens(vocab), 64, 1.05f, 0.0f, 0.0f), llama_sampler_free);
+            if (!penalties) return nullptr;
+            for (const auto token : tokens) llama_sampler_accept(penalties.get(), token);
+            if (!add(penalties.release())) return nullptr;
+            if (grammar_bytes) {
+                const auto grammar = read_bytes(env, grammar_bytes);
+                const auto valid = utf8_prefix(grammar);
+                if (env->ExceptionCheck() || grammar.empty() || grammar.size() > 65536 ||
+                    grammar.find('\0') != std::string::npos || !valid || *valid != grammar.size()) return nullptr;
+                if (abort_inference(s.get())) return nullptr;
+                if (!add(llama_sampler_init_grammar(vocab, grammar.c_str(), "root"))) return nullptr;
+            }
+            if (!add(llama_sampler_init_top_k(50)) || !add(llama_sampler_init_temp(0.1f)) ||
+                !add(llama_sampler_init_dist(1234))) return nullptr;
         }
-        if (!add(llama_sampler_init_top_k(50)) || !add(llama_sampler_init_temp(0.1f)) ||
-            !add(llama_sampler_init_dist(1234))) return nullptr;
+        if (!sampler) return nullptr;
         for (int offset = 0; offset < count; offset += 128) {
             if (abort_inference(s.get())) return nullptr;
             auto batch = llama_batch_get_one(tokens.data() + offset, std::min(128, count - offset));
@@ -246,7 +260,7 @@ const JNINativeMethod methods[] = {
     {const_cast<char *>("supportsArm82"), const_cast<char *>("()Z"), reinterpret_cast<void *>(native_supports_arm82)},
 #endif
     {const_cast<char *>("open"), const_cast<char *>("([BII)J"), reinterpret_cast<void *>(native_open)},
-    {const_cast<char *>("generate"), const_cast<char *>("(JJ[B[BIJLcom/kafkasl/phonewhisper/LocalFormatChunkSink;)[B"), reinterpret_cast<void *>(native_generate)},
+    {const_cast<char *>("generateNative"), const_cast<char *>("(JJ[B[BIIJLcom/kafkasl/phonewhisper/LocalFormatChunkSink;)[B"), reinterpret_cast<void *>(native_generate)},
     {const_cast<char *>("cancel"), const_cast<char *>("(JJ)V"), reinterpret_cast<void *>(native_cancel)},
     {const_cast<char *>("close"), const_cast<char *>("(J)V"), reinterpret_cast<void *>(native_close)},
 };

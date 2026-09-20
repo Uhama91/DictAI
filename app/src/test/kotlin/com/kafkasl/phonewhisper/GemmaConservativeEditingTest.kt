@@ -39,6 +39,13 @@ class GemmaConservativeEditingTest {
         assertNull(request(source).copy(validation = LocalFormatValidation.GEMMA_PROJECTION).acceptOutput(candidate))
     }
 
+    @Test fun conservativeEditingKeepsProseAroundALocalList() {
+        val source = "Avant le départ vérifier les billets noter l'adresse puis confirmer l'heure Conclusion tout est prêt"
+        val candidate = "Avant le départ :\n• vérifier les billets ;\n• noter l'adresse ;\n• puis confirmer l'heure.\n\nConclusion : tout est prêt."
+
+        assertEquals(candidate, request(source, LocalLayoutKind.TEXT).acceptOutput(candidate))
+    }
+
     @Test fun removesFillersFalseStartsAndAdjacentWordOrPhraseRepetitions() {
         val cases = listOf(
             "Bonjour euh voici le le dossier merci Léa" to "Bonjour,\n\nVoici le dossier.\n\nMerci Léa",
