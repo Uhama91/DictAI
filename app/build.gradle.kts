@@ -28,9 +28,9 @@ android {
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
         buildConfigField("boolean", "GEMMA4_FINE_TUNED_PILOT", gemma4FineTunedPilot.toString())
-        versionCode = 35
+        versionCode = if (gemma4FineTunedPilot) 37 else 35
         versionName = when {
-            gemma4FineTunedPilot -> "0.9.6-dictai-gemma4-v6-test"
+            gemma4FineTunedPilot -> "0.9.8-dictai-gemma4-v6-test"
             localFormatPrototype -> "0.9.6-dictai-gemma-test"
             else -> "0.9.6-dictai"
         }

@@ -1,0 +1,11 @@
+# Corriger la mise à jour depuis le pilote Gemma 270M
+
+Le Poco refuse le nouvel APK. L'application existante testée précédemment correspond probablement au pilote Gemma 270M : son commit publié `e8249e59f43cb4b6826fff471c669cd03db0a15b` fixe versionCode 36 et versionName 0.9.7-gemma270-v3-test. Le nouveau pilote Gemma 4 au commit `50efde9f1f4540e90cf1b2e3c47614aa941eab06` porte le même identifiant mais versionCode 35. Android interdit cette mise à jour descendante. L'état installé exact du Poco n'est pas accessible par ADB ; ce défaut de distribution est cependant établi et doit être corrigé.
+
+Tâche moyenne, Luna Max :
+
+1. Récupérer l'APK du run 35458263066 et relever son identifiant, versionCode et certificat. Comparer les APK réellement publiés. Observer le contrôle de compatibilité de mise à jour en échec sur le nouveau code 35 face au précédent 36. Aucune installation, désinstallation ni perte de données.
+2. Modifier uniquement les métadonnées du pilote dans app/build.gradle.kts : versionCode 37 et versionName 0.9.8-dictai-gemma4-v6-test lorsque gemma4FineTunedPilot est actif. Les poids, prompts, traitement, protections, identifiant applicatif et certificat restent ceux de la version testée. Les autres variantes conservent leurs métadonnées actuelles. Assembler le pilote sous JDK21, sans réentraîner/reconvertir de modèle. Contrôler la compatibilité de mise à jour sur les manifestes et certificats réels : package identique, nouveau code strictement supérieur, même signataire. Les tests existants appropriés doivent rester verts ; ne pas créer un test qui vérifie seulement une ligne Gradle.
+3. Après revue du principal, commit explicite et push marqué [gemma4-v6-test] pour reconstruire le pilote via la CI existante. Vérifier le nouvel APK publié et sa compatibilité avec le pilote précédent. Donner son lien direct à l'utilisateur ; aucun conseil de désinstallation. L'installation réelle sur Poco reste à confirmer après cette correction documentée.
+
+Le premier APK Gemma 4 n'est pas supprimé ; sa release doit signaler le remplacement après disponibilité du nouveau. Les notes de livraison et de continuité seront actualisées. Pas de nouveau téléchargement des poids ni de modification de l'automatisation désactivée nécessaire pour ce correctif borné.
