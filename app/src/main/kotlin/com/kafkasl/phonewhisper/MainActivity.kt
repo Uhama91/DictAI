@@ -513,7 +513,14 @@ class MainActivity : AppCompatActivity() {
         return root
     }
 
-    private fun buildFormattingPage(): LinearLayout {
+    private fun buildFormattingPage(): LinearLayout =
+        buildFormattingPage(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
+
+    /** Used by the native render test to inspect the pilot-only branch without a model. */
+    internal fun buildFormattingPageForTest(pilot: Boolean): LinearLayout =
+        buildFormattingPage(pilot)
+
+    private fun buildFormattingPage(pilot: Boolean): LinearLayout {
         val root = vertical(0, 0)
         root.addView(navigationHeader("Mise en forme"))
         val formattingPrefs = PersistencePrefs(this)
@@ -531,7 +538,7 @@ class MainActivity : AppCompatActivity() {
         val engineRow = settingsRow("Moteur de post-traitement", engineLabel(formattingPrefs))
         engineRow.setOnClickListener { showEngineDialog(engineRow) }
         root.addView(engineRow)
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
+        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE || pilot) {
             val row = settingsRow(gemmaInstallTitle(), gemmaInstallLabel()) { showGemmaDownload() }
             gemmaSubtitle = row.findViewWithTag("subtitle")
             root.addView(row)
@@ -547,8 +554,8 @@ class MainActivity : AppCompatActivity() {
         root.addView(settingsRow("Dernier post-traitement", "Diagnostic copiable conservé après la dictée") {
             showPostprocessingDiagnostic()
         })
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
-            root.addView(settingsRow("Tester Gemma sur ce téléphone", benchmarkSubtitle(BuildConfig.GEMMA4_FINE_TUNED_PILOT)) {
+        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE || pilot) {
+            root.addView(settingsRow("Tester Gemma sur ce téléphone", benchmarkSubtitle(pilot)) {
                 if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
                 else if (localFormatBenchmark?.isShowing != true) {
                     localFormatBenchmark?.close()
@@ -562,6 +569,19 @@ class MainActivity : AppCompatActivity() {
                     localFormatBenchmark = LocalFormatBenchmarkDialog(this, longMailsOnly = true).also { it.show() }
                 }
             })
+            if (shouldShowLatencyBenchmark(pilot)) {
+                root.addView(settingsRow("Mesurer la latence — 6 textes", latencyBenchmarkSubtitle()) {
+                    if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
+                    else if (localFormatBenchmark?.isShowing != true) {
+                        localFormatBenchmark?.close()
+                        localFormatBenchmark = LocalFormatBenchmarkDialog(
+                            this,
+                            latencyOnly = true,
+                            pilotOverride = pilot,
+                        ).also { it.show() }
+                    }
+                })
+            }
         }
         return root
     }
@@ -1128,5 +1148,9 @@ class MainActivity : AppCompatActivity() {
         } else {
             "GPU · LiteRT-LM · sans thinking"
         }
+
+        internal fun shouldShowLatencyBenchmark(pilot: Boolean): Boolean = pilot
+
+        internal fun latencyBenchmarkSubtitle(): String = "6 textes français · 3 passages · résultat copiable"
     }
 }

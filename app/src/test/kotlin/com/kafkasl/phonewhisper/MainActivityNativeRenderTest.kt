@@ -11,6 +11,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.appcompat.app.AlertDialog
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -77,6 +78,71 @@ class MainActivityNativeRenderTest {
         } finally {
             context.resources.updateConfiguration(previousConfiguration, previousMetrics)
         }
+    }
+
+    @Test
+    fun latencyBenchmarkLinkMatchesThePilotBuildFlagOnFormattingPage() {
+        controller = Robolectric.buildActivity(MainActivity::class.java)
+        val activity = controller!!.create().start().resume().get()
+        val page = activity.buildFormattingPageForTest(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
+        val width = 390
+        val height = 844
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        page.measure(widthSpec, heightSpec)
+        page.layout(0, 0, width, height)
+        assertTrue("Home page should be measured", page != null && page.width > 0 && page.height > 0)
+        assertTrue(
+            "Latency link visibility must follow the pilot build flag",
+            containsText(page, "Mesurer la latence — 6 textes") == BuildConfig.GEMMA4_FINE_TUNED_PILOT,
+        )
+    }
+
+    @Test
+    fun pilotLatencyLinkAndInitialDialogRenderWithoutStartingAModelWorker() {
+        controller = Robolectric.buildActivity(MainActivity::class.java)
+        val activity = controller!!.create().start().resume().get()
+        val page = activity.buildFormattingPageForTest(pilot = true)
+        val scroll = ScrollView(activity).apply { addView(page) }
+        activity.setContentView(scroll)
+        val width = 390
+        val height = 844
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        scroll.measure(widthSpec, heightSpec)
+        scroll.layout(0, 0, width, height)
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(containsText(scroll, "Mesurer la latence — 6 textes"))
+        val latencyText = findTextView(page, "Mesurer la latence — 6 textes")
+            ?: error("Pilot latency row is missing")
+        val latencyRow = latencyText.parent?.parent as? View ?: error("Pilot latency card has no view parent")
+        assertTrue("Pilot latency row should be measured", latencyRow.width > 0 && latencyRow.height > 0)
+        writeBitmap(latencyRow, latencyRow.width, latencyRow.height, "main-pilot-latency-link.png")
+
+        val benchmark = LocalFormatBenchmarkDialog(
+            activity,
+            latencyOnly = true,
+            pilotOverride = true,
+            workerLauncher = { _, _ -> },
+        )
+        benchmark.show()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        val field = LocalFormatBenchmarkDialog::class.java.getDeclaredField("dialog").apply {
+            isAccessible = true
+        }
+        val alert = field.get(benchmark) as AlertDialog
+        val decor = alert.window?.decorView ?: error("Latency dialog has no decor view")
+        assertTrue(containsText(decor, "Six textes français synthétiques"))
+        val dialogWidth = width
+        val dialogHeight = 600
+        decor.measure(
+            View.MeasureSpec.makeMeasureSpec(dialogWidth, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(dialogHeight, View.MeasureSpec.AT_MOST),
+        )
+        decor.layout(0, 0, dialogWidth, decor.measuredHeight)
+        writeBitmap(decor, dialogWidth, decor.measuredHeight, "latency-dialog-initial.png")
+        alert.dismiss()
+        benchmark.close()
     }
 
     @Test
@@ -208,18 +274,26 @@ class MainActivityNativeRenderTest {
                     .any { it.width > 0 && it.height > 0 }
             } == true,
         )
+        writeBitmap(content, width, height, fileName, ThemeTokens.palette(activity))
+        val output = File("build/robolectric-renders", fileName)
+        assertTrue("Native render should produce a non-empty PNG", output.length() > 1_000L)
+    }
+
+    private fun writeBitmap(view: View, width: Int, height: Int, fileName: String, palette: ThemePalette? = null) {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         try {
-            content.draw(Canvas(bitmap))
+            view.draw(Canvas(bitmap))
+            palette?.let {
+                assertTrue(
+                    "Native render should contain visible ink pixels",
+                    countInkPixels(bitmap, it) > 100,
+                )
+            }
             val output = File("build/robolectric-renders", fileName).apply { parentFile?.mkdirs() }
             output.outputStream().use { stream ->
                 check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
             }
             assertTrue("Native render should produce a non-empty PNG", output.length() > 1_000L)
-            assertTrue(
-                "Native render should contain visible ink pixels",
-                countInkPixels(bitmap, ThemeTokens.palette(activity)) > 100,
-            )
         } finally {
             bitmap.recycle()
         }
@@ -229,6 +303,15 @@ class MainActivityNativeRenderTest {
         is TextView -> view.text?.toString()?.contains(needle) == true
         is ViewGroup -> (0 until view.childCount).any { containsText(view.getChildAt(it), needle) }
         else -> false
+    }
+
+    private fun findTextView(view: View, needle: String): TextView? = when {
+        view is TextView && view.text?.toString()?.contains(needle) == true -> view
+        view is ViewGroup -> (0 until view.childCount)
+            .asSequence()
+            .mapNotNull { findTextView(view.getChildAt(it), needle) }
+            .firstOrNull()
+        else -> null
     }
 
     private fun countInkPixels(bitmap: Bitmap, palette: ThemePalette): Int {

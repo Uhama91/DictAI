@@ -1,6 +1,8 @@
 package com.kafkasl.phonewhisper
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MainActivityTest {
@@ -27,5 +29,12 @@ class MainActivityTest {
     fun benchmark_subtitle_names_the_selected_runtime() {
         assertEquals("CPU · pilote Gemma · sans thinking", MainActivity.benchmarkSubtitle(pilot = true))
         assertEquals("GPU · LiteRT-LM · sans thinking", MainActivity.benchmarkSubtitle(pilot = false))
+    }
+
+    @Test
+    fun latency_benchmark_link_is_pilot_only_and_describes_the_synthetic_protocol() {
+        assertTrue(MainActivity.shouldShowLatencyBenchmark(pilot = true))
+        assertFalse(MainActivity.shouldShowLatencyBenchmark(pilot = false))
+        assertEquals("6 textes français · 3 passages · résultat copiable", MainActivity.latencyBenchmarkSubtitle())
     }
 }

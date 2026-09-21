@@ -157,16 +157,18 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma4-v6-test-$GITHUB_RUN_ID"
           cat > release-notes.md <<'EOF'
-          DictAI Gemma 4 V6 — APK pilote expérimental.
+          DictAI 0.9.9 — mesure de la latence sur Poco.
 
-          Cette préversion active le chemin local CPU fine-tuné V6 pour les textes, les listes et les e-mails. Elle conserve le formatage progressif éditable et les garde-fous de fidélité avant insertion.
+          Cette préversion du pilote expérimental active le même chemin local CPU Gemma4 V6 pour les textes, les listes et les e-mails. Le formatage progressif éditable et les garde-fous de fidélité restent inchangés.
 
-          L'APK ne contient aucun poids. L'application propose le téléchargement de Gemma 4 E2B V6 expérimental, checkpoint 1956, pour environ 3,93 Go. Les poids Q6_K avec les matrices Q/O en F16 et leur provenance sont disponibles sur la page du modèle : https://github.com/Uhama91/DictAI/releases/tag/gemma4-v6-1956-q6-evaluation-20260920. Les retouches humaines sont protégées pendant le traitement progressif.
+          L'APK ne contient aucun poids.
 
-          Aucun score de qualité ni mesure de latence sur téléphone n'est revendiqué ici. La qualité sémantique, la mémoire, la vitesse et l'interaction sur appareil restent à vérifier séparément.
+          Ce diagnostic mesure la latence ; il ne constitue pas encore un correctif de vitesse. Il utilise les mêmes poids Gemma4 V6 du checkpoint 1956 et le téléchargement existant d'environ 3,93 Go. Les poids Q6_K avec les matrices Q/O en F16 et leur provenance sont disponibles sur la page du modèle : https://github.com/Uhama91/DictAI/releases/tag/gemma4-v6-1956-q6-evaluation-20260920. L'installation met à jour le pilote avec la même signature et le code 38.
 
-          Cette publication est expérimentale et n'est pas un produit officiel Google.
+          Depuis l'écran Diagnostics, l'action « Mesurer la latence — 6 textes » lance 18 appels synthétiques sur quelques minutes et permet de copier le rapport. Le banc utilise uniquement des textes fictifs ; le diagnostic d'une dictée personnelle contient des durées et compteurs, sans son texte. Le dernier post-traitement mesure séparément les temps ASR, de correction et des segments partiels. Une mesure réelle sur Poco reste requise.
+
+          Aucun score de qualité ni mesure de latence sur téléphone n'est revendiqué ici. La comparaison des modèles et les mesures sur Poco restent à faire. Cette publication est expérimentale et n'est pas un produit officiel Google.
           EOF
           gh release create "$tag" dictai-gemma4-v6-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI Gemma 4 V6 — APK pilote expérimental' --notes-file release-notes.md
+            --title 'DictAI 0.9.9 — mesure de la latence sur Poco' --notes-file release-notes.md

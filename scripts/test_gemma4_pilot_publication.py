@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 WORKFLOW = ROOT / ".github/workflows/build.yml"
+BUILD_GRADLE = ROOT / "app/build.gradle.kts"
 NOTICE = ROOT / "app/src/main/assets/local-format/gemma4-v6-pilot-NOTICE.txt"
 HISTORICAL_NOTICE = ROOT / "app/src/main/assets/local-format/gemma-NOTICE.txt"
 
@@ -17,6 +18,7 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.workflow = WORKFLOW.read_text(encoding="utf-8")
+        cls.build_gradle = BUILD_GRADLE.read_text(encoding="utf-8")
         cls.notice = NOTICE.read_text(encoding="utf-8") if NOTICE.exists() else ""
 
     def test_dedicated_pilot_job_publishes_the_pilot_artifact(self) -> None:
@@ -34,7 +36,7 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
         self.assertIn("name: dictai-gemma4-v6-test", pilot_job)
         self.assertIn('tag="gemma4-v6-test-$GITHUB_RUN_ID"', pilot_job)
         self.assertIn("--prerelease --latest=false", pilot_job)
-        self.assertIn("DictAI Gemma 4 V6", pilot_job)
+        self.assertIn("DictAI 0.9.9", pilot_job)
 
     def test_pilot_notes_state_scope_and_limits(self) -> None:
         pilot_job = " ".join(self.workflow.split("publish-gemma4-pilot:", 1)[1].split()).lower()
@@ -48,6 +50,58 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
             self.assertIn(phrase, pilot_job)
         for prohibited_claim in ("validé sur téléphone", "performance garantie"):
             self.assertNotIn(prohibited_claim, pilot_job)
+
+    def test_latency_diagnostic_version_is_pilot_only(self) -> None:
+        self.assertIn("versionCode = if (gemma4FineTunedPilot) 38 else 35", self.build_gradle)
+        self.assertIn('gemma4FineTunedPilot -> "0.9.9-dictai-latency-test"', self.build_gradle)
+        self.assertIn('localFormatPrototype -> "0.9.6-dictai-gemma-test"', self.build_gradle)
+        self.assertIn('else -> "0.9.6-dictai"', self.build_gradle)
+
+    def test_latency_diagnostic_notes_describe_bounded_poco_measurement(self) -> None:
+        pilot_job = " ".join(self.workflow.split("publish-gemma4-pilot:", 1)[1].split()).lower()
+        for phrase in (
+            "dictai 0.9.9 — mesure de la latence sur poco",
+            "ce diagnostic mesure la latence",
+            "ne constitue pas encore un correctif de vitesse",
+            "mêmes poids gemma4 v6 du checkpoint 1956",
+            "téléchargement existant",
+            "3,93 go",
+            "installation met à jour le pilote avec la même signature et le code 38",
+            "apk ne contient aucun poids",
+            "poids q6_k avec les matrices q/o en f16",
+            "gemma4-v6-1956-q6-evaluation-20260920",
+            "mesurer la latence — 6 textes",
+            "18 appels synthétiques",
+            "quelques minutes",
+            "copier le rapport",
+            "banc utilise uniquement des textes fictifs",
+            "diagnostic d'une dictée personnelle",
+            "durées et compteurs",
+            "sans son texte",
+            "temps asr",
+            "correction",
+            "partiels",
+            "mesure réelle sur poco reste requise",
+            "comparaison des modèles",
+            "mesures sur poco restent à faire",
+        ):
+            self.assertIn(phrase, pilot_job)
+        for prohibited_claim in (
+            "comparaison avec gemma3 disponible",
+            "gemma3 est sélectionné",
+            "gpu activé",
+            "qualité validée",
+            "performance garantie",
+        ):
+            self.assertNotIn(prohibited_claim, pilot_job)
+
+    def test_latency_diagnostic_preserves_existing_artifact_and_release_marker(self) -> None:
+        workflow = self.workflow
+        self.assertIn("contains(github.event.head_commit.message, '[gemma4-v6-test]')", workflow)
+        self.assertIn("name: ${{ env.GEMMA4_PILOT == 'true' && 'dictai-gemma4-v6-test'", workflow)
+        self.assertIn('tag="gemma4-v6-test-$GITHUB_RUN_ID"', workflow)
+        self.assertIn("--prerelease --latest=false", workflow)
+        self.assertNotIn("dictai-gemma4-latency-test", workflow)
 
     def test_gpu_publication_path_remains_separate(self) -> None:
         gpu_job = self.workflow.split("publish-test:", 1)[1].split("publish-gemma4-pilot:", 1)[0]

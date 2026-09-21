@@ -69,6 +69,8 @@ internal class ProgressiveFormattingCoordinator(
     private val requestFactory: (ProgressiveFormatRequest, String) -> LocalFormatRequest,
     private val onSnapshot: (ProgressiveBufferState) -> Unit = {},
     private val finalWaitMs: Long = FINAL_WAIT_MS,
+    private val diagnostic: ProgressiveFormattingDiagnostic? = null,
+    private val clock: ProgressiveMonotonicClock = SystemProgressiveMonotonicClock,
 ) : AutoCloseable {
     private val lock = Any()
     private val buffer = ProgressiveFormattingBuffer(normalizer = normalizer)
@@ -95,23 +97,31 @@ internal class ProgressiveFormattingCoordinator(
         lateinit var state: ProgressiveBufferState
         var cancel = false
         var next: ProgressiveFormatRequest? = null
+        var cancelledId: Long? = null
         synchronized(lock) {
             if (closed) return buffer.state()
+            val before = buffer.state()
             state = buffer.update(rawText, stableWordCount, totalDictationWordCount)
+            val afterIds = state.acceptedSegments.mapTo(mutableSetOf()) { it.id }
+            before.acceptedSegments.mapNotNull { segment ->
+                segment.id.takeIf { it !in afterIds }
+            }.forEach { diagnostic?.invalidateAccepted(it, ProgressiveCancellationReason.ASR_REVISION) }
             val current = state.inFlight
             val previous = activeRequest
             if (previous != null && current?.id != previous.id) {
                 activeRequest = null
+                cancelledId = previous.id
                 cancel = true
             }
             if (!finalizing) {
-                if (current != null && activeRequest == null) activeRequest = current
+                if (current != null && activeRequest == null) assignActiveRequest(current)
                 if (current == null || activeRequest == null) {
                     next = buffer.request(mode, GemmaFineTunedPrompt.Phase.PARTIAL)
-                    if (next != null) activeRequest = next
+                    if (next != null) assignActiveRequest(next)
                 }
             }
         }
+        cancelledId?.let { diagnostic?.markCancelled(it, ProgressiveCancellationReason.ASR_REVISION) }
         if (cancel) backend.cancel()
         next?.let { dispatch(it, isFinal = false) }
         return state
@@ -122,17 +132,23 @@ internal class ProgressiveFormattingCoordinator(
         lateinit var state: ProgressiveBufferState
         var cancel = false
         var waiter: CompletableFuture<ProgressiveBufferState>? = null
+        var cancelledId: Long? = null
         synchronized(lock) {
             if (closed) return buffer.state()
+            buffer.state().acceptedSegments.forEach {
+                diagnostic?.invalidateAccepted(it.id, ProgressiveCancellationReason.HUMAN_EDIT)
+            }
             state = buffer.resetForHumanEdit(visiblePrefix)
             if (closed) return state
             cancel = activeRequest != null
+            cancelledId = activeRequest?.id
             activeRequest = null
             finalRequest = null
             finalizing = false
             waiter = finalResult
             finalResult = null
         }
+        cancelledId?.let { diagnostic?.markCancelled(it, ProgressiveCancellationReason.HUMAN_EDIT) }
         if (cancel) backend.cancel()
         waiter?.complete(state)
         publish()
@@ -141,6 +157,9 @@ internal class ProgressiveFormattingCoordinator(
 
     /** Returns the latest pure buffer state without scheduling work. */
     fun state(): ProgressiveBufferState = synchronized(lock) { buffer.state() }
+
+    /** Returns the text-free lifecycle trace accumulated for this dictation. */
+    fun diagnosticSnapshot(): ProgressiveFormattingDiagnosticSnapshot? = diagnostic?.snapshot()
 
     /**
      * Runs one bounded FINAL request over only the current unaccepted continuation.
@@ -152,16 +171,27 @@ internal class ProgressiveFormattingCoordinator(
         totalDictationWordCount: Int = wordCount(rawText),
     ): ProgressiveBufferState {
         var cancel = false
+        var cancelledId: Long? = null
         synchronized(lock) {
             if (closed) return buffer.state()
-            if (rawText.isNotBlank()) buffer.update(rawText, stableWordCount, totalDictationWordCount)
+            diagnostic?.markDictationEnded()
+            if (rawText.isNotBlank()) {
+                val before = buffer.state()
+                val updated = buffer.update(rawText, stableWordCount, totalDictationWordCount)
+                val afterIds = updated.acceptedSegments.mapTo(mutableSetOf()) { it.id }
+                before.acceptedSegments.mapNotNull { segment ->
+                    segment.id.takeIf { it !in afterIds }
+                }.forEach { diagnostic?.invalidateAccepted(it, ProgressiveCancellationReason.END_OF_DICTATION) }
+            }
             cancel = activeRequest != null
+            cancelledId = activeRequest?.id
             activeRequest = null
             finalizing = true
             finalRequest = null
             finalResult?.complete(buffer.state())
             finalResult = null
         }
+        cancelledId?.let { diagnostic?.markCancelled(it, ProgressiveCancellationReason.END_OF_DICTATION) }
         if (cancel) backend.cancel()
 
         val result = CompletableFuture<ProgressiveBufferState>()
@@ -171,7 +201,7 @@ internal class ProgressiveFormattingCoordinator(
             request = buffer.request(mode, GemmaFineTunedPrompt.Phase.FINAL)
                 ?: return finishWithoutRequest()
             finalRequest = request
-            activeRequest = request
+            assignActiveRequest(request)
             finalResult = result
         }
         dispatch(request, isFinal = true)
@@ -179,9 +209,11 @@ internal class ProgressiveFormattingCoordinator(
             result.get(finalWaitMs.coerceAtLeast(1L), TimeUnit.MILLISECONDS)
         } catch (_: TimeoutException) {
             backend.cancel()
+            diagnostic?.markFinalDeadlineExceeded(request.id)
             settleTimeout(request, result)
         } catch (_: InterruptedException) {
             backend.cancel()
+            diagnostic?.markNotReturned(request.id)
             Thread.currentThread().interrupt()
             settleTimeout(request, result)
         }
@@ -191,10 +223,12 @@ internal class ProgressiveFormattingCoordinator(
         var cancel = false
         var waiter: CompletableFuture<ProgressiveBufferState>? = null
         lateinit var state: ProgressiveBufferState
+        var cancelledId: Long? = null
         synchronized(lock) {
             if (closed) return
             closed = true
             cancel = activeRequest != null
+            cancelledId = activeRequest?.id
             activeRequest = null
             finalRequest = null
             finalizing = false
@@ -202,6 +236,8 @@ internal class ProgressiveFormattingCoordinator(
             finalResult = null
             state = buffer.state()
         }
+        cancelledId?.let { diagnostic?.markCancelled(it, ProgressiveCancellationReason.CLOSE) }
+        cancelledId?.let { diagnostic?.markNotReturned(it) }
         if (cancel) backend.cancel()
         waiter?.complete(state)
         ownedWorker?.shutdownNow()
@@ -243,7 +279,8 @@ internal class ProgressiveFormattingCoordinator(
         try {
             work.dispatch { runRequest(request, isFinal) }
         } catch (_: Throwable) {
-            val current = acceptIfCurrent(request, null)
+            diagnostic?.markNotReturned(request.id)
+            val current = acceptIfCurrent(request, null, null)
             completeRequest(request, isFinal, publish = current)
         }
     }
@@ -251,27 +288,42 @@ internal class ProgressiveFormattingCoordinator(
     private fun runRequest(request: ProgressiveFormatRequest, isFinal: Boolean) {
         // A cancelled task can remain in a caller-provided queue. Do not let it enter the
         // backend after a human edit, ASR revision, note switch, or close.
-        if (!isCurrentRequest(request)) return
+        if (!isCurrentRequest(request)) {
+            diagnostic?.markNotReturned(request.id)
+            return
+        }
+        diagnostic?.markWorkerStarted(request.id)
         val localRequest = runCatching {
             val normalized = normalizer(request.source).ifBlank { request.source }
             requestFactory(request, normalized)
         }.getOrNull()
-        val generated = localRequest?.let {
-            if (!isCurrentRequest(request)) return@let null
-            runCatching {
-                backend.generate(
-                    it,
-                    onChunk = {},
-                    onNativeStart = {
-                        // The native backend gets one last identity check immediately before
-                        // entering JNI. Its own call object also observes cancellation.
-                        if (!isCurrentRequest(request)) backend.cancel()
-                    },
-                )
-            }.getOrNull()
+        if (localRequest == null) {
+            diagnostic?.markNotReturned(request.id)
+            val current = acceptIfCurrent(request, null, null)
+            completeRequest(request, isFinal, publish = current)
+            return
         }
-        val validated = localRequest?.acceptOutput(generated)
-        val current = acceptIfCurrent(request, validated)
+        if (!isCurrentRequest(request)) {
+            diagnostic?.markNotReturned(request.id)
+            return
+        }
+        diagnostic?.markBackendEntered(request.id)
+        val generated = runCatching {
+            backend.generate(
+                localRequest,
+                onChunk = { chunk -> if (chunk.isNotEmpty()) diagnostic?.markFirstFragment(request.id) },
+                onNativeStart = {
+                    diagnostic?.markNativeStarted(request.id)
+                    // The native backend gets one last identity check immediately before
+                    // entering JNI. Its own call object also observes cancellation.
+                    if (!isCurrentRequest(request)) backend.cancel()
+                },
+            )
+        }.getOrNull()
+        diagnostic?.markGenerationReturned(request.id)
+        diagnostic?.markValidationStarted(request.id)
+        val validated = localRequest.acceptOutput(generated)
+        val current = acceptIfCurrent(request, generated, validated)
         completeRequest(request, isFinal, publish = current)
     }
 
@@ -284,14 +336,20 @@ internal class ProgressiveFormattingCoordinator(
     /** Checks lifecycle and accepts under one coordinator->buffer lock order. */
     private fun acceptIfCurrent(
         request: ProgressiveFormatRequest,
+        generated: String?,
         validated: String?,
     ): Boolean = synchronized(lock) {
-        if (closed || activeRequest?.id != request.id) return@synchronized false
-        if (buffer.state().inFlight?.id != request.id) return@synchronized false
+        if (closed || activeRequest?.id != request.id || buffer.state().inFlight?.id != request.id) {
+            // The backend may return after cancellation or a revision. Settle the trace as
+            // invalidated so an in-flight detail cannot remain PENDING forever.
+            diagnostic?.markSettled(request, generated, validated, current = false)
+            return@synchronized false
+        }
         // A null/blank model output still settles the raw source and must advance to the next
         // segment. The Boolean returned by the buffer means “accepted model text”, whereas this
         // coordinator result means “the request was current and was settled”.
         buffer.acceptValidated(request, validated)
+        diagnostic?.markSettled(request, generated, validated, current = true)
         true
     }
 
@@ -313,13 +371,19 @@ internal class ProgressiveFormattingCoordinator(
             }
             if (!isFinal && publish && !closed && !finalizing) {
                 next = buffer.request(mode, GemmaFineTunedPrompt.Phase.PARTIAL)
-                if (next != null) activeRequest = next
+                if (next != null) assignActiveRequest(next)
             }
             state = buffer.state()
         }
         result?.complete(state)
         if (publish) publish()
         next?.let { dispatch(it, isFinal = false) }
+    }
+
+    /** Must be called while [lock] is held so cancellation cannot precede trace registration. */
+    private fun assignActiveRequest(request: ProgressiveFormatRequest) {
+        activeRequest = request
+        diagnostic?.schedule(request)
     }
 
     private fun publish() {

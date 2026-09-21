@@ -20,9 +20,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /** Synthetic local benchmark. No dictation, credentials or cloud are read. */
-internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private val longMailsOnly: Boolean = false) : AutoCloseable {
+internal class LocalFormatBenchmarkDialog(
+    activity: AppCompatActivity,
+    private val longMailsOnly: Boolean = false,
+    private val latencyOnly: Boolean = false,
+    private val pilotOverride: Boolean? = null,
+    private val workerLauncher: ((Runnable, String) -> Unit)? = null,
+) : AutoCloseable {
     private val activityRef = WeakReference(activity)
-    private val pilot = BuildConfig.GEMMA4_FINE_TUNED_PILOT
+    private val pilot = pilotOverride ?: BuildConfig.GEMMA4_FINE_TUNED_PILOT
     private val main = Handler(Looper.getMainLooper())
     private val engine = LocalFormatEngine(activity.applicationContext)
     private val backend = engine.backend()
@@ -35,12 +41,18 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
     private var reportView: TextView? = null
     private var latestReport = ""
     private var finished = false
-    private val examples by lazy { cases().filter { !longMailsOnly || it.longMail } }
-    private val totalRuns get() = examples.size * 2
+    private val examples by lazy {
+        if (latencyOnly) latencyCases()
+        else cases().filter { !longMailsOnly || it.longMail }
+    }
+    private val passCount get() = if (latencyOnly) LocalLatencyBenchmarkCases.PASS_COUNT else 2
+    private val totalRuns get() = examples.size * passCount
     val isShowing: Boolean get() = dialog?.isShowing == true
 
     fun show() {
-        if (!BuildConfig.LOCAL_FORMAT_PROTOTYPE || closed.get() || !started.compareAndSet(false, true)) return
+        if ((!BuildConfig.LOCAL_FORMAT_PROTOTYPE && pilotOverride == null) ||
+            (latencyOnly && !pilot) || closed.get() || !started.compareAndSet(false, true)
+        ) return
         val activity = activityRef.get() ?: return
         if (activity.isFinishing || activity.isDestroyed) return
         fun dp(value: Int) = (value * activity.resources.displayMetrics.density).toInt()
@@ -59,7 +71,8 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
             content.addView(this, LinearLayout.LayoutParams(-1, dp(12)))
         }
         val report = TextView(activity).apply {
-            text = if (longMailsOnly) "Deux mails longs, deux passages chacun, entièrement traités par Gemma.\nChaque calcul peut durer jusqu’à 20 secondes. La préparation initiale est mesurée séparément.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
+            text = if (latencyOnly) "Six textes français synthétiques, trois passages chacun, sans score de qualité.\nLe chargement est mesuré séparément. Si le modèle est déjà chargé, le rapport le précise. Prévoir quelques minutes.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
+                else if (longMailsOnly) "Deux mails longs, deux passages chacun, entièrement traités par Gemma.\nChaque calcul peut durer jusqu’à 20 secondes. La préparation initiale est mesurée séparément.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
                 else "${totalRuns} essais français/anglais, dont ${examples.count { it.request.directOutput() != null } * 2} réponses directes sans appel LLM.\nLe chargement est mesuré si Gemma n’est pas déjà prêt.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
             textSize = 13f
             setTextIsSelectable(true)
@@ -69,7 +82,11 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
         content.addView(ScrollView(activity).apply { addView(report) },
             LinearLayout.LayoutParams(-1, (activity.resources.displayMetrics.heightPixels * 0.43f).toInt()))
         val popup = AlertDialog.Builder(activity)
-            .setTitle(if (longMailsOnly) "Durée des mails longs · Gemma" else "Tester le post-traitement local")
+            .setTitle(when {
+                latencyOnly -> "Mesurer la latence · 6 textes"
+                longMailsOnly -> "Durée des mails longs · Gemma"
+                else -> "Tester le post-traitement local"
+            })
             .setView(content)
             .setPositiveButton("Copier les résultats", null)
             .setNegativeButton("Annuler", null)
@@ -90,7 +107,9 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
         popup.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
             if (finished) popup.dismiss() else cancel()
         }
-        Thread(::runBenchmark, "dictai-local-benchmark").apply { isDaemon = true; start() }
+        val workerName = if (latencyOnly) "dictai-local-latency" else "dictai-local-benchmark"
+        workerLauncher?.invoke(Runnable(::runBenchmark), workerName) ?: Thread(::runBenchmark, workerName)
+            .apply { isDaemon = true; start() }
     }
 
     /** Lifecycle and UI callers; cancellation never joins the inference worker. */
@@ -104,7 +123,17 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
 
     private data class Case(val name: String, val request: LocalFormatRequest,
         val expected: List<String>, val forbidden: List<String> = emptyList(), val grouping: LayoutGroupingExpectation? = null,
-        val longMail: Boolean = false, val minBodyParagraphs: Int? = null)
+        val longMail: Boolean = false, val minBodyParagraphs: Int? = null,
+        val latencyCase: LocalLatencyBenchmarkCase? = null)
+
+    private fun latencyCases(): List<Case> = LocalLatencyBenchmarkCases.all.map { spec ->
+        Case(
+            name = "${spec.id} · ${spec.label}",
+            request = spec.request,
+            expected = emptyList(),
+            latencyCase = spec,
+        )
+    }
 
     private fun cases(): List<Case> {
         val list = PostProcessingFormats.builtins.first { it.id == "list" }.instructions
@@ -173,6 +202,160 @@ internal class LocalFormatBenchmarkDialog(activity: AppCompatActivity, private v
     }
 
     private fun runBenchmark() {
+        if (latencyOnly) runLatencyBenchmark() else runLegacyBenchmark()
+    }
+
+    private fun runLatencyBenchmark() {
+        val report = StringBuilder().apply {
+            append("DictAI — mesure de latence du pilote\n")
+            append("Modèle : ${LocalFormatRuntimeLabels.model(pilot)}\n")
+            append("Application : ${BuildConfig.VERSION_NAME}\n")
+            append("Appareil : ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n")
+            append("${examples.size} textes synthétiques × ${LocalLatencyBenchmarkCases.PASS_COUNT} passages, sans cloud ni score de qualité.\n")
+            append("Le moteur est partagé avec l’overlay. Le chargement est mesuré séparément ; si le modèle est déjà chargé, le rapport le précise.\n")
+            append("Configuration : ${LocalFormatRuntimeLabels.configuration(pilot)} · ${LocalFormatCpuEngine.CPU_THREADS} threads CPU · contexte ${LocalFormatCpuEngine.CPU_CONTEXT_SIZE}. Validation : GEMMA_EDITING · Texte · phase finale · e-mail simplifié désactivé.\n")
+            append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Les temps de calcul et de validation sont séparés.\n")
+            append("Le banc ne mesure ni l’ASR, ni l’affichage, ni l’insertion dans une autre application, et ne compare pas Gemma 3. Les réponses brutes et finales restent copiables pour une revue humaine.\n\n")
+            append("Avant les essais : ${deviceSample()}\n\n")
+        }
+        var completed = 0
+        var failed = false
+        var transportFailures = 0
+        var lease: LocalMeasurementAdmission.Lease? = null
+        val observations = mutableListOf<LocalLatencyObservation>()
+        val dispositions = linkedMapOf(
+            LocalLatencyDisposition.ACCEPTED_UNCHANGED to 0,
+            LocalLatencyDisposition.ACCEPTED_MODIFIED to 0,
+            LocalLatencyDisposition.FALLBACK_SOURCE to 0,
+        )
+        try {
+            lease = LocalMeasurementAdmission.tryAcquire(LocalMeasurementAdmission.Owner.BENCHMARK)
+            if (lease == null) {
+                failed = true
+                report.append("Banc indisponible : une dictée ou une autre mesure est déjà en cours. Aucun moteur n’a été préparé.\n")
+            } else {
+                runs@ for (pass in 1..LocalLatencyBenchmarkCases.PASS_COUNT) {
+                    for ((index, example) in examples.withIndex()) {
+                        if (cancelled.get()) break@runs
+                        val firstRun = completed == 0
+                        postUpdate("Passage $pass/${LocalLatencyBenchmarkCases.PASS_COUNT} · exemple ${index + 1}/${examples.size}\n${example.name}", completed, report.toString())
+                        val start = SystemClock.elapsedRealtime()
+                        val preparation = if (firstRun) engine.prepareForBenchmarkInfo() else null
+                        if (cancelled.get()) break@runs
+                        val callStarted = SystemClock.elapsedRealtime()
+                        val firstFragmentAt = AtomicLong(-1)
+                        val nativeStartedAt = AtomicLong(-1)
+                        val generated = runCatching {
+                            backend.generate(example.request, { chunk ->
+                                if (chunk.isNotBlank()) firstFragmentAt.compareAndSet(-1, SystemClock.elapsedRealtime())
+                            }, { nativeStartedAt.compareAndSet(-1, SystemClock.elapsedRealtime()) })
+                        }
+                        val returnedAt = SystemClock.elapsedRealtime()
+                        val raw = generated.getOrNull()
+                        if (cancelled.get()) break@runs
+                        val output = example.request.acceptOutput(raw)
+                        val timing = LocalGenerationTiming(
+                            nativeStartedAt.get().takeIf { it >= 0 }?.minus(callStarted),
+                            firstFragmentAt.get().takeIf { it >= 0 }?.minus(callStarted),
+                            returnedAt - callStarted,
+                            SystemClock.elapsedRealtime() - returnedAt,
+                            generated.isSuccess && !raw.isNullOrBlank(),
+                        )
+                        val direct = example.request.directOutput() != null
+                        val outcome = classifyLocalLatencyOutcome(
+                            source = example.request.text,
+                            raw = raw,
+                            output = output,
+                            generationError = generated.exceptionOrNull()?.javaClass?.simpleName,
+                            direct = direct,
+                        )
+                        dispositions[outcome.disposition] = dispositions.getValue(outcome.disposition) + 1
+                        observations += LocalLatencyObservation(
+                            totalMs = timing.callMs + timing.validationMs,
+                            firstFragmentMs = timing.firstFragmentMs,
+                            complete = outcome.complete,
+                            disposition = outcome.disposition,
+                            direct = outcome.direct,
+                        )
+                        if (!outcome.complete) transportFailures++
+                        report.append("Passage $pass/${LocalLatencyBenchmarkCases.PASS_COUNT} · ${example.name}\n")
+                        preparation?.let {
+                            val state = if (it.wasAlreadyLoaded) "moteur déjà chargé" else "chargement effectué"
+                            report.append("Préparation initiale : $state · attente ${it.waitMs} ms")
+                            if (!it.wasAlreadyLoaded) report.append(" · chargement ${it.loadMs} ms")
+                            report.append("\n")
+                        }
+                        report.append("Traitement : ${if (direct) "réponse directe locale · durée LLM exclue" else "Gemma · appel LLM mesuré"}\n")
+                        report.append("Premier fragment depuis l’appel : ${timing.firstFragmentMs?.let { "$it ms" } ?: "aucun"} ; retour total appel + validation : ${timing.callMs + timing.validationMs} ms\n")
+                        report.append(timing.report())
+                        report.append("Résultat : ${outcome.disposition.label}\n")
+                        outcome.failureCode?.let { report.append("Code de rejet/absence : $it\n") }
+                        report.append("Entrée synthétique [${example.latencyCase?.id}] : ${example.request.text}\n")
+                        if (raw != null) report.append("Brut :\n$raw\n") else report.append("Brut : aucun texte retourné\n")
+                        if (output != null) report.append("Final validé :\n$output\n\n")
+                        else report.append("Final validé : aucune sortie ; repli de l’application = source conservée\n\n")
+                        completed++
+                        postUpdate("$completed/$totalRuns essais terminés", completed, report.toString())
+                        if (generated.isFailure) {
+                            failed = true
+                            break@runs
+                        }
+                    }
+                }
+                val summary = summarizeLocalLatencyObservations(observations)
+                report.append("\nRésumé des mesures de latence\n")
+                report.append("Résultats : accepté inchangé ${dispositions.getValue(LocalLatencyDisposition.ACCEPTED_UNCHANGED)}, accepté modifié ${dispositions.getValue(LocalLatencyDisposition.ACCEPTED_MODIFIED)}, repli ${dispositions.getValue(LocalLatencyDisposition.FALLBACK_SOURCE)}.\n")
+                report.append("Réponses complètes mesurables pour le LLM : ${summary.completeCount}/${observations.size} ; échecs de transport/absence : $transportFailures.\n")
+                report.append("Retour total appel + validation (réponses complètes) : médiane ${median(summary.completeDurationsMs)?.let { "$it ms" } ?: "n/a"}, maximum ${summary.completeDurationsMs.maxOrNull()?.let { "$it ms" } ?: "n/a"}.\n")
+                report.append("Premier fragment (réponses complètes) : médiane ${median(summary.completeFirstFragmentsMs)?.let { "$it ms" } ?: "n/a"}, maximum ${summary.completeFirstFragmentsMs.maxOrNull()?.let { "$it ms" } ?: "n/a"}.\n")
+                report.append("Retour total appel + validation (sorties acceptées uniquement) : médiane ${median(summary.acceptedDurationsMs)?.let { "$it ms" } ?: "n/a"}, maximum ${summary.acceptedDurationsMs.maxOrNull()?.let { "$it ms" } ?: "n/a"}.\n")
+                report.append("Premier fragment (sorties acceptées uniquement) : médiane ${median(summary.acceptedFirstFragmentsMs)?.let { "$it ms" } ?: "n/a"}, maximum ${summary.acceptedFirstFragmentsMs.maxOrNull()?.let { "$it ms" } ?: "n/a"}.\n")
+                report.append("Réponses acceptées parmi ces sorties : ${summary.acceptedCount}/${summary.completeCount}. Réponses directes exclues : ${summary.directCount}. Les sorties incomplètes restent hors des agrégats.\n")
+                if (completed < totalRuns || cancelled.get()) report.append("Banc incomplet ou annulé : les agrégats ne sont pas comparables à un passage complet.\n")
+                report.append("Ces nombres décrivent ce banc synthétique et ne démontrent ni qualité sémantique générale ni vitesse sur tous les téléphones.\n")
+            }
+        } catch (error: Throwable) {
+            if (!cancelled.get()) {
+                failed = true
+                report.append("Le banc de latence n'a pas pu se terminer (${error.javaClass.simpleName}).\n")
+                report.append("${LocalFormatRuntimeLabels.failure(pilot, engine.runtimeName(), engine.failureCode())}. Le calcul CPU est le moteur principal ; aucun repli cloud.\n")
+            }
+        } finally {
+            report.append("Après les essais : ${deviceSample()}\n")
+            engine.close()
+            lease?.close()
+            val status = when {
+                cancelled.get() -> "Mesure interrompue · $completed/$totalRuns essais terminés"
+                failed -> "Mesure indisponible · $completed/$totalRuns essais terminés"
+                else -> "Mesure de latence terminée · $completed/$totalRuns essais"
+            }
+            if (cancelled.get()) report.append("Banc interrompu par l'utilisateur ou la fermeture de l'écran.\n")
+            postUpdate(status, completed, report.toString(), done = true)
+        }
+    }
+
+    private fun median(values: List<Long>): Long? = medianLatencyMs(values)
+
+    private fun runLegacyBenchmark() {
+        val lease = LocalMeasurementAdmission.tryAcquire(LocalMeasurementAdmission.Owner.BENCHMARK)
+        if (lease == null) {
+            engine.close()
+            postUpdate(
+                "Test local indisponible · une dictée ou une autre mesure est en cours",
+                0,
+                "Banc indisponible : une dictée ou une autre mesure est déjà en cours. Aucun moteur n’a été préparé.\n",
+                done = true,
+            )
+            return
+        }
+        try {
+            runLegacyBenchmarkBody()
+        } finally {
+            lease.close()
+        }
+    }
+
+    private fun runLegacyBenchmarkBody() {
         val report = StringBuilder().apply {
             append("DictAI — test local du post-traitement\nModèle : ${LocalFormatRuntimeLabels.model(pilot)}\n")
             append("Application : ${BuildConfig.VERSION_NAME}\n")

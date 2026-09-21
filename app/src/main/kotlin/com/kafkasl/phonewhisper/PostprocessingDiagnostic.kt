@@ -77,6 +77,9 @@ internal object PostprocessingDiagnostic {
         lightTextCleanup: Boolean = false,
         hesitationsRemoved: Int = 0,
         pilot: Boolean = BuildConfig.GEMMA4_FINE_TUNED_PILOT,
+        progressive: ProgressiveFormattingDiagnosticSnapshot? = null,
+        asrFinalRecoveryMs: Long? = null,
+        asrAwaitSessionExitMs: Long? = null,
     ): String = buildString {
         append("DictAI — dernier post-traitement\n")
         append("Application : $version\n")
@@ -84,8 +87,8 @@ internal object PostprocessingDiagnostic {
         append("Format : ${when (formatId) { "list" -> "Liste"; "email" -> "Mail"; "cleanup" -> "Texte"; "corrected" -> "Texte corrigé"; else -> "Personnalisé" }}\n")
         append("Moteur demandé : ${when (requested) { Requested.LOCAL -> "local"; Requested.CLOUD -> "cloud"; Requested.OFF -> "désactivé" }}\n")
         append("Résultat : ${when (applied) {
-            Applied.LOCAL_LLM -> if (pilot && local == null) "correction progressive appliquée" else "LLM local appliqué"
-            Applied.LOCAL_DIRECT -> if (pilot && local == null) "correction progressive appliquée" else "traitement direct, sans appel LLM"
+            Applied.LOCAL_LLM -> if (pilot && local == null) progressiveResultLabel(progressive) else "LLM local appliqué"
+            Applied.LOCAL_DIRECT -> if (pilot && local == null) progressiveResultLabel(progressive) else "traitement direct, sans appel LLM"
             Applied.CLOUD -> "cloud appliqué"
             Applied.ORIGINAL -> when {
                 hesitationsRemoved > 0 -> "hésitations retirées localement, sans réécriture appliquée"
@@ -102,7 +105,10 @@ internal object PostprocessingDiagnostic {
                 append("Thinking : désactivé · budget 0 · MTP activé\n")
             }
             modelLoadMs?.takeIf { it >= 0 }?.let { append("Dernier chargement du moteur partagé : $it ms (peut précéder la dictée)\n") }
-            if (pilot && local == null) {
+            if (pilot && local == null && progressive != null) {
+                append("Appel natif pour ce résultat : instrumentation progressive\n")
+                append("Origine : trace par appel, sans conservation de texte\n")
+            } else if (pilot && local == null) {
                 append("Appel natif pour ce résultat : détail des appels progressifs non mesuré\n")
                 append("Origine : détail des appels progressifs non mesuré\n")
             } else {
@@ -125,10 +131,7 @@ internal object PostprocessingDiagnostic {
                 "backend_error", "error" -> "erreur du moteur"
                 "cancelled", "interrupted" -> "calcul interrompu"
                 else -> if (pilot && local == null) {
-                    when (applied) {
-                        Applied.LOCAL_LLM, Applied.LOCAL_DIRECT -> "correction progressive appliquée"
-                        else -> "texte conservé"
-                    }
+                    progressiveResultLabel(progressive, applied)
                 } else if (formatId == "cleanup" && local == null && applied == Applied.ORIGINAL)
                     "mode Texte : aucun appel au LLM prévu"
                 else "traitement non exécuté ou indisponible"
@@ -140,6 +143,12 @@ internal object PostprocessingDiagnostic {
                 append("Mots rétablis depuis la transcription : $it (aucun mot inventé)\n")
             }
         }
+        asrFinalRecoveryMs?.takeIf { it >= 0 }?.let { append("ASR — récupération finale : $it ms\n") }
+        asrAwaitSessionExitMs?.takeIf { it >= 0 }?.let { append("ASR — attente sortie session : $it ms\n") }
+        progressive?.let {
+            append(it.summary())
+            append('\n')
+        }
         if (cloudSuppressed) append("Cloud désactivé pour ce champ sensible.\n")
         if (lightTextCleanup) append("Nettoyage léger du texte : règles locales, sans appel LLM.\n")
         if (hesitationsRemoved > 0) append("Hésitations retirées avant correction : $hesitationsRemoved · règles locales.\n")
@@ -149,5 +158,21 @@ internal object PostprocessingDiagnostic {
         append("Lignes non vides : ${lines.size} ; puces : ${lines.count { it.trimStart().startsWith("• ") }}\n")
         append("Publication : ${when (injection) { InjectionResult.Inserted -> "inséré"; InjectionResult.Copied -> "copié"; InjectionResult.Failed -> "échec" }}\n")
         append("Ce diagnostic ne contient ni dictée, ni vocabulaire, ni clé API.")
+    }
+
+    private fun progressiveResultLabel(
+        progressive: ProgressiveFormattingDiagnosticSnapshot?,
+        applied: Applied? = null,
+    ): String = when {
+        progressive == null && applied == Applied.ORIGINAL -> "texte conservé"
+        progressive == null -> "correction progressive appliquée"
+        progressive.resultsApplied + progressive.resultsUnchanged > 0 && progressive.stillDelivered > 0 ->
+            "correction progressive appliquée"
+        progressive.acceptedThenInvalidated > 0 -> "correction progressive invalidée"
+        progressive.resultsRejected > 0 -> "correction progressive rejetée"
+        progressive.resultsAbsent > 0 -> "correction progressive sans résultat"
+        progressive.resultsNotReturned > 0 || progressive.finalDeadlineExceeded > 0 ->
+            "correction progressive non retournée"
+        else -> "texte conservé"
     }
 }

@@ -215,6 +215,8 @@ class OverlayService : Service() {
         val finalPublication = DictationFinalPublicationGate(DOUBLE_TAP_MS)
         val completion = DictationRunCompletionGate()
         val cancellationWaitStarted = java.util.concurrent.atomic.AtomicBoolean(false)
+        val progressiveDiagnostic = ProgressiveFormattingDiagnostic(SystemProgressiveMonotonicClock)
+        var measurementLease: LocalMeasurementAdmission.Lease? = null
         var localFormatting: LocalFormattingSession? = null
         var progressiveFormatting: ProgressiveFormattingCoordinator? = null
         var formatOffer: Runnable? = null
@@ -583,9 +585,18 @@ class OverlayService : Service() {
                 }
             },
         )
-        val started = when (val result = transaction.start()) {
+        val admissionLease = LocalMeasurementAdmission.tryAcquire(LocalMeasurementAdmission.Owner.DICTATION)
+        if (admissionLease == null) {
+            toast("Test de latence en cours…")
+            return
+        }
+        val started = when (val result = runCatching { transaction.start() }.getOrElse {
+            admissionLease.close()
+            throw it
+        }) {
             is RecordingStartupTransaction.Result.Started -> result
             is RecordingStartupTransaction.Result.Failed -> {
+                admissionLease.close()
                 val message = when (result.reason) {
                     RecordingStartupTransaction.Failure.CONSTRUCTION_FAILED,
                     RecordingStartupTransaction.Failure.START_FAILED -> "Accès au micro refusé"
@@ -600,51 +611,64 @@ class OverlayService : Service() {
         val recorder = started.recorder as? AndroidRecordingRecorder
         if (recorder == null) {
             started.session.cancel()
+            admissionLease.close()
             toast("Mic indisponible.")
             Log.w(TAG, "event=audio_start outcome=unexpected_recorder")
             return
         }
         if (activeRun != null) {
             started.session.cancel()
+            admissionLease.close()
             toast("Dictée déjà en cours.")
             return
         }
         invalidateNoteInsertion()
         val run = ActiveDictationRun(started.session, options, purpose)
-        if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
-            localFormatter.warm()
-            if (BuildConfig.GEMMA4_FINE_TUNED_PILOT) {
-                val layout = requireNotNull(options.format.localLayoutKind)
-                run.progressiveFormatting = ProgressiveFormattingCoordinator(
-                    mode = layout,
-                    backend = localFormatter.backend(),
-                    normalizer = { value -> normalizeRecognizedText(value, options) },
-                    mainDispatcher = { task -> main.post(task) },
-                    requestFactory = { segment, source ->
-                        localFormatRequest(source, options, applyVocabulary = false).copy(
-                            phase = segment.phase,
-                            contextBefore = segment.contextBefore,
-                            simpleEmailLayout = false,
-                        )
-                    },
-                    onSnapshot = {
-                        run.pendingPreview?.let { (committed, tentative) ->
-                            if (isCurrentRun(run) && !run.cancellation.isCancelled) {
-                                renderLivePreview(run, committed, tentative)
+        run.measurementLease = admissionLease
+        try {
+            if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
+                localFormatter.warm()
+                if (BuildConfig.GEMMA4_FINE_TUNED_PILOT) {
+                    val layout = requireNotNull(options.format.localLayoutKind)
+                    run.progressiveFormatting = ProgressiveFormattingCoordinator(
+                        mode = layout,
+                        backend = localFormatter.backend(),
+                        normalizer = { value -> normalizeRecognizedText(value, options) },
+                        mainDispatcher = { task -> main.post(task) },
+                        requestFactory = { segment, source ->
+                            localFormatRequest(source, options, applyVocabulary = false).copy(
+                                phase = segment.phase,
+                                contextBefore = segment.contextBefore,
+                                simpleEmailLayout = false,
+                            )
+                        },
+                        diagnostic = run.progressiveDiagnostic,
+                        onSnapshot = {
+                            run.pendingPreview?.let { (committed, tentative) ->
+                                if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                                    renderLivePreview(run, committed, tentative)
+                                }
                             }
-                        }
-                    },
-                )
-                run.cancellation.onCancel {
-                    run.progressiveCompositionGate.clear()
-                    run.progressiveFormatting?.close()
+                        },
+                    )
+                    run.cancellation.onCancel {
+                        run.progressiveCompositionGate.clear()
+                        run.progressiveFormatting?.close()
+                    }
+                } else {
+                    run.localFormatting = LocalFormattingSession(localFormatter.backend())
+                    run.cancellation.onCancel { run.localFormatting?.close() }
                 }
-            } else {
-                run.localFormatting = LocalFormattingSession(localFormatter.backend())
-                run.cancellation.onCancel { run.localFormatting?.close() }
             }
+            run.cancellation.onCancel { started.session.cancel() }
+        } catch (t: Throwable) {
+            run.cancellation.cancel()
+            admissionLease.close()
+            try { started.session.cancel() } catch (_: Throwable) {}
+            try { recorder.stop() } catch (_: Throwable) {}
+            try { recorder.release() } catch (_: Throwable) {}
+            throw t
         }
-        run.cancellation.onCancel { started.session.cancel() }
         run.startRequestedAtMs = requestedAt
         val ar = recorder.audioRecord
         val recordingPcm = java.io.ByteArrayOutputStream()
@@ -706,6 +730,8 @@ class OverlayService : Service() {
                 awaitSessionExit(run)
                 main.post {
                     if (localEngineLifecycle.isDestroyed() || activeRun !== run) return@post
+                    run.measurementLease?.close()
+                    run.measurementLease = null
                     activeRun = null
                     setLivePreviewVisible(false)
                     setState(State.IDLE)
@@ -907,6 +933,9 @@ class OverlayService : Service() {
         releaseTranscriptFocus()
         activeRun?.let { run ->
             run.stoppedAtMs = SystemClock.elapsedRealtime()
+            // Capture has ended here, before ASR recovery and the final continuation wait.
+            // This keeps "started during dictation" independent of post-ASR timing.
+            run.progressiveDiagnostic.markDictationEnded()
             run.formatOffer?.let(main::removeCallbacks)
             run.formatOffer = null
             run.formatOfferRequest = null
@@ -994,13 +1023,15 @@ class OverlayService : Service() {
             return
         }
         if (capture.pcm.isEmpty()) capture.session?.cancel()
-        val t0 = System.currentTimeMillis()
+        val t0 = SystemClock.elapsedRealtime()
         val r = if (capture.pcm.isEmpty()) TranscriptionEngine.Result(null) else runCatching {
             capture.session?.finish(capture.pcm)
                 ?: TranscriptionEngine.Result(null, "Transcription locale indisponible.")
         }.getOrElse { TranscriptionEngine.Result(null, "Transcription locale indisponible.") }
-        val transcribeMs = System.currentTimeMillis() - t0
+        val finalAsrRecoveryMs = SystemClock.elapsedRealtime() - t0
+        val awaitStartedAt = SystemClock.elapsedRealtime()
         awaitSessionExit(run)
+        val asrAwaitSessionExitMs = SystemClock.elapsedRealtime() - awaitStartedAt
         if (run.cancellation.isCancelled) {
             return
         }
@@ -1151,6 +1182,7 @@ class OverlayService : Service() {
         run.localFormatting?.close()
         run.progressiveCompositionGate.clear()
         run.progressiveFormatting?.close()
+        val progressiveDiagnosticSnapshot = progressive?.diagnosticSnapshot()
         val postprocessMs = SystemClock.elapsedRealtime() - formatStarted
         val localRuntime = if (capture.options.localFormattingEnabled) localFormatter.runtimeName() else "not-loaded"
         Log.i(TAG, "event=postprocess engine=${if (capture.options.localFormattingEnabled) "local" else "cloud_or_off"} " +
@@ -1165,7 +1197,7 @@ class OverlayService : Service() {
         if (!finalText.isNullOrBlank() && prefs.trailingSpace) finalText += " "
         val outText = finalText
         val source = if (capture.options.asrMode == DictationAsrMode.STREAMING) "stream" else "batch"
-        Log.i(TAG, "event=transcription source=$source outcome=${if (outText.isNullOrBlank()) "empty_or_failure" else "success"} elapsedMs=$transcribeMs")
+        Log.i(TAG, "event=transcription source=$source outcome=${if (outText.isNullOrBlank()) "empty_or_failure" else "success"} elapsedMs=$finalAsrRecoveryMs")
         main.post {
             if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed()) return@post
             run.finalPublication.submit(SystemClock.uptimeMillis()) {
@@ -1202,6 +1234,9 @@ class OverlayService : Service() {
                             InjectionResult.Failed
                         }
                         if (result != InjectionResult.Failed) preserveImageClipboard = false
+                        val stopToInsertionMs = run.stoppedAtMs.takeIf { it > 0 }?.let {
+                            SystemClock.elapsedRealtime() - it
+                        }
                         runCatching {
                             val diagnostic = PostprocessingDiagnostic.report(
                                 version = BuildConfig.VERSION_NAME,
@@ -1221,20 +1256,23 @@ class OverlayService : Service() {
                                 local = localDiagnostic,
                                 runtime = localRuntime,
                                 postprocessMs = postprocessMs,
-                                stopToPublicationMs = run.stoppedAtMs.takeIf { it > 0 }?.let { SystemClock.elapsedRealtime() - it },
+                                stopToPublicationMs = stopToInsertionMs,
                                 finalText = outText,
                                 injection = result,
                                 cloudSuppressed = capture.options.cloudSuppressedForSensitiveTarget,
                                 modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
                                 lightTextCleanup = lightCleanupApplied,
                                 hesitationsRemoved = prepared?.removed ?: 0,
+                                progressive = progressiveDiagnosticSnapshot,
+                                asrFinalRecoveryMs = finalAsrRecoveryMs,
+                                asrAwaitSessionExitMs = asrAwaitSessionExitMs,
                             )
                             prefs.recordPostprocessingDiagnostic(diagnostic,
                                 formatRequested = capture.options.format.usesLanguageModel)
                         }.onFailure {
                             Log.w(TAG, "event=postprocess_diagnostic outcome=unavailable type=${it.javaClass.simpleName}")
                         }
-                        Log.i(TAG, "event=dictation_insert_complete stop_to_insert_ms=${if (run.stoppedAtMs > 0) SystemClock.elapsedRealtime() - run.stoppedAtMs else -1}")
+                        Log.i(TAG, "event=dictation_insert_complete stop_to_insert_ms=${stopToInsertionMs ?: -1}")
                         injectionFeedbackMessage(result)?.let(::toast)
                     } else if (capture.options.asrMode != DictationAsrMode.STREAMING || r.error != null) {
                         toast("Erreur: ${r.error ?: "vide"}")
@@ -1250,6 +1288,7 @@ class OverlayService : Service() {
         if (state != State.RECORDING) return
         val run = activeRun ?: return
         run.captureGate.pause()
+        run.progressiveDiagnostic.markDictationEnded()
         // CANCELLING blocks a second AudioRecord until the current reader has fully exited.
         run.completion.markWorkerStarted()
         if (!requestCancellation(run, showFeedback)) {
@@ -1373,6 +1412,8 @@ class OverlayService : Service() {
         run.localFormatting?.close()
         run.progressiveCompositionGate.clear()
         run.progressiveFormatting?.close()
+        run.measurementLease?.close()
+        run.measurementLease = null
         activeRun = null
         archiveAfterImageDelivery = false
         recoveredDraft = null
@@ -4501,18 +4542,28 @@ class OverlayService : Service() {
         asrSession = null
         if (releaseResident) {
             dispatchResidentClose(close = {
-                joinUninterruptibly(recordingThreadToJoin)
-                joinUninterruptibly(runToCancel?.pauseWorker)
-                runToCancel?.completion?.awaitWorkerIfStarted()
-                try { recorderToRelease?.release() } catch (_: Throwable) {}
-                while (sessionToCancel != null && !sessionToCancel.cancelAndAwait()) {
-                    // Keep the resident engine alive until the cancelled native session really exits.
+                try {
+                    joinUninterruptibly(recordingThreadToJoin)
+                    joinUninterruptibly(runToCancel?.pauseWorker)
+                    runToCancel?.completion?.awaitWorkerIfStarted()
+                    try { recorderToRelease?.release() } catch (_: Throwable) {}
+                    while (sessionToCancel != null && !sessionToCancel.cancelAndAwait()) {
+                        // Keep the resident engine alive until the cancelled native session really exits.
+                    }
+                    residentAsrEngine.close()
+                } finally {
+                    runToCancel?.measurementLease?.close()
+                    runToCancel?.measurementLease = null
                 }
-                residentAsrEngine.close()
             })
         } else {
-            sessionToCancel?.cancel()
-            try { recorderToRelease?.release() } catch (_: Throwable) {}
+            try {
+                sessionToCancel?.cancel()
+                try { recorderToRelease?.release() } catch (_: Throwable) {}
+            } finally {
+                runToCancel?.measurementLease?.close()
+                runToCancel?.measurementLease = null
+            }
         }
         main.removeCallbacksAndMessages(null)
         try { wave?.stop() } catch (_: Exception) {}

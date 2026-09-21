@@ -162,4 +162,50 @@ class PostprocessingDiagnosticTest {
         assertTrue(value.contains("État : texte conservé"))
         assertFalse(value.contains("mode Texte : aucun appel au LLM prévu"))
     }
+
+    @Test fun fineTunedPilotProgressiveTraceReportsOutcomeAndAsrBoundaries() {
+        val trace = ProgressiveFormattingDiagnosticSnapshot(
+            scheduledPartial = 2,
+            scheduledFinal = 1,
+            launchedPartial = 2,
+            launchedFinal = 1,
+            startedDuringDictation = 2,
+            nativeStartedDuringDictation = 2,
+            resultsApplied = 0,
+            resultsUnchanged = 0,
+            resultsRejected = 1,
+            resultsAbsent = 0,
+            resultsNotReturned = 0,
+            acceptedThenInvalidated = 0,
+            stillDelivered = 0,
+            finalDeadlineExceeded = 0,
+            cancellations = emptyMap(),
+            calls = emptyList(),
+        )
+        val value = PostprocessingDiagnostic.report(
+            version = "test",
+            timestampMs = 0,
+            formatId = "email",
+            requested = PostprocessingDiagnostic.Requested.LOCAL,
+            applied = PostprocessingDiagnostic.Applied.LOCAL_LLM,
+            local = null,
+            runtime = "arm64-baseline",
+            postprocessMs = 33,
+            stopToPublicationMs = 44,
+            finalText = "Texte privé",
+            injection = InjectionResult.Copied,
+            cloudSuppressed = false,
+            pilot = true,
+            progressive = trace,
+            asrFinalRecoveryMs = 12,
+            asrAwaitSessionExitMs = 8,
+        )
+
+        assertTrue(value.contains("Résultat : correction progressive rejetée"))
+        assertTrue(value.contains("Appel natif pour ce résultat : instrumentation progressive"))
+        assertTrue(value.contains("ASR — récupération finale : 12 ms"))
+        assertTrue(value.contains("ASR — attente sortie session : 8 ms"))
+        assertTrue(value.contains("rejetes=1"))
+        assertFalse(value.contains("Texte privé"))
+    }
 }
