@@ -1,6 +1,6 @@
 # DictAI — plan de mesure, de choix du modèle et de spécialisation
 
-**Statut : exécution autorisée le 21 septembre 2026. Phase 1 engagée ; aucun entraînement ni changement de modèle.**
+**Statut : exécution autorisée le 21 septembre 2026. APK de diagnostic livré ; mesures Poco attendues. Aucun entraînement ni changement de modèle.**
 
 **Objectif :** retrouver une dictée réactive sur le Poco F7 et retenir le modèle qui produit une correction utile dans ce budget de temps.
 
@@ -30,7 +30,7 @@
 
 - [ ] Lire d'abord le diagnostic copiable de la version 0.9.8 : format, moteur, chargement, durée du post-traitement, arrêt vers insertion, résultat appliqué.
 - [x] Ajouter des métadonnées par dictée : fin ASR, appels partiels/final, attente avant calcul, calcul, acceptation/rejet, annulation. Aucun texte dicté dans le diagnostic. Le détail progressif de la version précédente était insuffisant.
-- [ ] Si ces mesures exigent une version instrumentée, fournir un APK de diagnostic installable en mise à jour, avec la même signature et un `versionCode` supérieur à celui déjà installé. Ne pas demander à l'utilisateur d'exécuter des commandes de développement sur son téléphone.
+- [x] Fournir un APK de diagnostic préparé pour une mise à jour : code 38, même certificat que le code 37, fichier public vérifié. L'installation effective sur Poco reste à confirmer. Aucune commande de développement demandée sur le téléphone.
 - [x] Vérifier avec des horloges et moteurs substituables que les compteurs distinguent un résultat accepté, un délai dépassé et un rejet de fidélité. Préserver les retouches et refuser les callbacks périmés.
 - [ ] Mesurer les mêmes enregistrements avec post-traitement désactivé pour isoler le coût ASR. Mesurer aussi la correction seule sur un texte ASR fixé, puis l'ensemble en concurrence avec Nemotron. Aucun temps serveur ou Mac ne remplace cette mesure.
 
@@ -95,4 +95,6 @@ La mesure réelle sur Poco et le choix du modèle resteront ouverts après la li
 
 ### Vérification du premier lot
 
-Le 21 septembre : 686 tests JVM réussis (aucun échec, erreur ou test ignoré), 13 contrats Python réussis, APK debug et androidTest construits avec JDK 21. Les aperçus du dialogue et de son entrée dans Mise en forme ont été inspectés. Aucun modèle n'a été exécuté pendant ces tests. Le guide `docs/poco-latency-test-guide.md` décrit les mesures attendues ; la publication Actions et la vérification du fichier public restent à achever.
+Le 21 septembre : 686 tests JVM réussis (aucun échec, erreur ou test ignoré), 13 contrats Python réussis, APK debug et androidTest construits avec JDK 21. Les aperçus du dialogue et de son entrée dans Mise en forme ont été inspectés. Aucun modèle n'a été exécuté pendant ces tests.
+
+Le [run Actions 35648476423](https://github.com/Uhama91/DictAI/actions/runs/35648476423) a réussi sur le commit `a7b104f427de47f4006929b030989065eff27904`. L'APK public et l'artefact CI sont identiques : 87 563 641 octets, SHA-256 `63e8d1945abc4571cd7ba57116b9d6539e4ff1113230421a7ff64218003e5d66`. Le code 38, le certificat identique, la signature v2, les notices et les alignements ELF/ZIP 16 Ko des 12 bibliothèques ont été contrôlés ; aucun poids n'est inclus. Le guide `docs/poco-latency-test-guide.md` contient le téléchargement et les étapes Poco. Les critères des six cas sont dans `docs/poco-latency-case-review.md`. Aucune installation, mesure de latence ou évaluation de qualité n'a encore été effectuée sur le téléphone pour cette livraison.
