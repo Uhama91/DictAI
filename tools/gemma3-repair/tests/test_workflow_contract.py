@@ -50,8 +50,25 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("gh release create", workflow)
         self.assertIn("persist-credentials: false", workflow)
         self.assertIn("pip install --no-cache-dir", workflow)
-        self.assertIn("PYTHONPATH: ${{ runner.temp }}/gemma3-repair-workspace:${{ runner.temp }}/gemma3-repair-workspace/src", workflow)
         self.assertIn('--config "$GEMMA3_WORKSPACE/configs/gemma3_repair_v1.json"', workflow)
+
+    def test_runner_temp_paths_are_initialized_in_first_step_not_job_env(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        job = re.search(r"(?ms)^  gemma3-repair:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\s*$|\Z)", workflow)
+        self.assertIsNotNone(job)
+        job_setup = job.group("body").split("    steps:", 1)[0]
+        self.assertNotIn("${{ runner.temp }}", job_setup)
+        self.assertNotRegex(job_setup, r"(?m)^    env:\s*$")
+
+        init_start = workflow.index("      - name: Initialize Gemma 3 CI workspace paths")
+        checkout_start = workflow.index("      - name: Check out workflow and download helper without persisting credentials")
+        self.assertEqual(workflow.index("      - name: "), init_start)
+        self.assertLess(init_start, checkout_start)
+        init_step = workflow[init_start:checkout_start]
+        for variable in ("GEMMA3_WORKSPACE", "GEMMA3_PREPARED_DIR", "GEMMA3_RESULTS_DIR", "PYTHONPATH"):
+            self.assertRegex(init_step, rf"printf '[^']*{variable}=")
+        self.assertEqual(init_step.count('>> "$GITHUB_ENV"'), 1)
+        self.assertIn('"$RUNNER_TEMP"', init_step)
 
     def test_workflow_orders_parent_training_candidate_and_always_packages_safe_outputs(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

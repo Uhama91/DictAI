@@ -19,13 +19,18 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
-    env:
-      GEMMA3_WORKSPACE: ${{ runner.temp }}/gemma3-repair-workspace
-      GEMMA3_PREPARED_DIR: ${{ runner.temp }}/gemma3-repair-output
-      GEMMA3_RESULTS_DIR: ${{ runner.temp }}/gemma3-repair-results
-      PYTHONPATH: ${{ runner.temp }}/gemma3-repair-workspace:${{ runner.temp }}/gemma3-repair-workspace/src
 
     steps:
+      - name: Initialize Gemma 3 CI workspace paths
+        shell: bash
+        run: |
+          {
+            printf 'GEMMA3_WORKSPACE=%s/gemma3-repair-workspace\n' "$RUNNER_TEMP"
+            printf 'GEMMA3_PREPARED_DIR=%s/gemma3-repair-output\n' "$RUNNER_TEMP"
+            printf 'GEMMA3_RESULTS_DIR=%s/gemma3-repair-results\n' "$RUNNER_TEMP"
+            printf 'PYTHONPATH=%s/gemma3-repair-workspace:%s/gemma3-repair-workspace/src\n' "$RUNNER_TEMP" "$RUNNER_TEMP"
+          } >> "$GITHUB_ENV"
+
       - name: Check out workflow and download helper without persisting credentials
         uses: actions/checkout@v4
         with:
