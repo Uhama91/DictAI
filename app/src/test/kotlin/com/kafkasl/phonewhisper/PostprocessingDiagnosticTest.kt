@@ -7,7 +7,8 @@ class PostprocessingDiagnosticTest {
     @Test fun hesitationRemovalIsReportedEvenWhenModelTimesOutWithoutLoggingContent() {
         val value = PostprocessingDiagnostic.report("test", 0, "corrected", PostprocessingDiagnostic.Requested.LOCAL,
             PostprocessingDiagnostic.Applied.ORIGINAL, LocalFinishDiagnostic("generated", "wait_timeout", true, 5000),
-            "litert-lm-gpu-mtp-thinking-off", 5000, 5200, "Grok et contenu privé.", InjectionResult.Inserted, false,
+            "litert-lm-gpu-mtp-thinking-off", 5000, 5200, "Grok et contenu privé.",
+            PostprocessingDiagnostic.PublicationResult.INSERTED, false,
             hesitationsRemoved = 2)
         assertTrue(value.contains("hésitations retirées localement"))
         assertTrue(value.contains("Hésitations retirées avant correction : 2"))
@@ -57,7 +58,7 @@ class PostprocessingDiagnosticTest {
         pilot: Boolean = false,
     ) = PostprocessingDiagnostic.report(
         "test", 0, format, requested, applied, local, runtime, 800, 900,
-        text, InjectionResult.Copied, suppressed, pilot = pilot,
+        text, PostprocessingDiagnostic.PublicationResult.COPIED, suppressed, pilot = pilot,
     )
 
     @Test fun reportsAppliedSingleParagraphWithoutClaimingGoodGrouping() {
@@ -193,7 +194,7 @@ class PostprocessingDiagnosticTest {
             postprocessMs = 33,
             stopToPublicationMs = 44,
             finalText = "Texte privé",
-            injection = InjectionResult.Copied,
+            publication = PostprocessingDiagnostic.PublicationResult.COPIED,
             cloudSuppressed = false,
             pilot = true,
             progressive = trace,

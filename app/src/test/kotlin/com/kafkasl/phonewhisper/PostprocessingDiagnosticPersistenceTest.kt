@@ -33,6 +33,33 @@ class PostprocessingDiagnosticPersistenceTest {
         assertNull(PersistencePrefs(storage).lastFormatPostprocessingDiagnostic)
     }
 
+    @Test fun successfulNoteReportReplacesThePreviousFormatReport() {
+        val storage = memoryPreferences()
+        val prefs = PersistencePrefs(storage)
+        prefs.recordPostprocessingDiagnostic("Format : Mail\nPublication : copié", formatRequested = true)
+
+        val noteReport = PostprocessingDiagnostic.report(
+            version = "0.9.10",
+            timestampMs = 0,
+            formatId = "list",
+            requested = PostprocessingDiagnostic.Requested.OFF,
+            applied = PostprocessingDiagnostic.Applied.ORIGINAL,
+            local = null,
+            runtime = "not-loaded",
+            postprocessMs = 5,
+            stopToPublicationMs = 8,
+            finalText = "Texte privé",
+            publication = PostprocessingDiagnostic.PublicationResult.NOTE_SAVED,
+            cloudSuppressed = false,
+        )
+        prefs.recordPostprocessingDiagnostic(noteReport, formatRequested = true)
+
+        assertEquals(noteReport, prefs.lastPostprocessingDiagnostic)
+        assertEquals(noteReport, prefs.lastFormatPostprocessingDiagnostic)
+        assertTrue(noteReport.contains("Publication : note enregistrée"))
+        assertFalse(noteReport.contains("Texte privé"))
+    }
+
     /** JVM fixture models atomic editor application and persisted strings used by these preferences. */
     private fun memoryPreferences(values: MutableMap<String, String?> = mutableMapOf()): SharedPreferences {
         fun editor(): SharedPreferences.Editor {

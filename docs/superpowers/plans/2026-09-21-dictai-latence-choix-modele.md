@@ -1,6 +1,6 @@
 # DictAI — plan de mesure, de choix du modèle et de spécialisation
 
-**Statut : exécution autorisée le 21 septembre 2026. APK de diagnostic livré ; mesures Poco attendues. Aucun entraînement ni changement de modèle.**
+**Statut : exécution autorisée le 21 septembre 2026. APK de diagnostic livré ; un deuxième essai sur Pad 7 atteint la limite de 20 secondes sans fragment du correcteur. Comparaison Gemma 3 prioritaire ; mesures Poco encore attendues. Aucun nouvel entraînement.**
 
 **Objectif :** retrouver une dictée réactive sur le Poco F7 et retenir le modèle qui produit une correction utile dans ce budget de temps.
 
@@ -8,7 +8,7 @@
 
 **Stack :** Android/Kotlin, Nemotron, llama.cpp CPU pour les pilotes existants ; LiteRT-LM/GPU comme expérience distincte de faisabilité pour Gemma 4.
 
-**Références :** demande de réactivité et retours utilisateur de 10–15 secondes ; `docs/gemma4-pilot-test-guide.md` ; `docs/superpowers/plans/2026-09-20-gemma4-finetuned-delivery.md`. Exécution selon la politique canonique Sol–Luna : tâches bornées à Luna Max, recherche et décisions au principal, revue avant publication.
+**Références :** demande de réactivité et retours utilisateur signalant des délais de 10 à 15 secondes ; `docs/gemma4-pilot-test-guide.md` ; `docs/superpowers/plans/2026-09-20-gemma4-finetuned-delivery.md`. Exécution selon la politique canonique Sol–Luna : tâches bornées à Luna Max, recherche et décisions au principal, revue avant publication.
 
 ## Contraintes et critères proposés
 
@@ -98,3 +98,9 @@ La mesure réelle sur Poco et le choix du modèle resteront ouverts après la li
 Le 21 septembre : 686 tests JVM réussis (aucun échec, erreur ou test ignoré), 13 contrats Python réussis, APK debug et androidTest construits avec JDK 21. Les aperçus du dialogue et de son entrée dans Mise en forme ont été inspectés. Aucun modèle n'a été exécuté pendant ces tests.
 
 Le [run Actions 35648476423](https://github.com/Uhama91/DictAI/actions/runs/35648476423) a réussi sur le commit `a7b104f427de47f4006929b030989065eff27904`. L'APK public et l'artefact CI sont identiques : 87 563 641 octets, SHA-256 `63e8d1945abc4571cd7ba57116b9d6539e4ff1113230421a7ff64218003e5d66`. Le code 38, le certificat identique, la signature v2, les notices et les alignements ELF/ZIP 16 Ko des 12 bibliothèques ont été contrôlés ; aucun poids n'est inclus. Le guide `docs/poco-latency-test-guide.md` contient le téléchargement et les étapes Poco. Les critères des six cas sont dans `docs/poco-latency-case-review.md`. Aucune installation, mesure de latence ou évaluation de qualité n'a encore été effectuée sur le téléphone pour cette livraison.
+
+### Retour du 22 septembre et ordre des prochaines actions
+
+Sur Pad 7, l'utilisateur rapporte pour son deuxième essai avec 0.9.9 : récupération finale ASR de 218 ms, post-traitement de 20 086 ms, insertion à 20 664 ms, aucun appel partiel, un appel final arrivé à échéance et aucun premier fragment. Le texte source est conservé. Ce cas ne permet pas de juger la qualité d'une réponse du modèle, puisqu'aucune correction n'a abouti ; il suffit à rendre prioritaire le témoin léger. Le chargement historique de 5 303 ms n'est pas ajouté à ces durées : l'attente du backend pour ce nouvel appel est de 10 ms.
+
+Le diagnostic des notes doit être réparé en parallèle (plan du 22 septembre), sans changement de modèle. La prochaine expérience de modèle consiste à porter le banc des six textes sur le Gemma 3 270M V3 existant. Le pilote de référence `e8249e59f43cb4b6826fff471c669cd03db0a15b` est limité à la langue française et au format Texte corrigé, avec sa consigne V3, deux threads CPU et un contexte de 8 192. Son ancien APK est au code 36 : il ne constitue pas une mise à jour du code 38/39. La comparaison exige donc une nouvelle livraison compatible, avec identité des poids vérifiée et maintien des fonctions d'overlay récentes. Elle comparera des configurations utilisables, sans attribuer toute différence au seul modèle de base.

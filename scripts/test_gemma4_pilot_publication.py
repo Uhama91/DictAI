@@ -36,7 +36,7 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
         self.assertIn("name: dictai-gemma4-v6-test", pilot_job)
         self.assertIn('tag="gemma4-v6-test-$GITHUB_RUN_ID"', pilot_job)
         self.assertIn("--prerelease --latest=false", pilot_job)
-        self.assertIn("DictAI 0.9.9", pilot_job)
+        self.assertIn("DictAI 0.9.10", pilot_job)
 
     def test_pilot_notes_state_scope_and_limits(self) -> None:
         pilot_job = " ".join(self.workflow.split("publish-gemma4-pilot:", 1)[1].split()).lower()
@@ -52,21 +52,20 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
             self.assertNotIn(prohibited_claim, pilot_job)
 
     def test_latency_diagnostic_version_is_pilot_only(self) -> None:
-        self.assertIn("versionCode = if (gemma4FineTunedPilot) 38 else 35", self.build_gradle)
-        self.assertIn('gemma4FineTunedPilot -> "0.9.9-dictai-latency-test"', self.build_gradle)
+        self.assertIn("versionCode = if (gemma4FineTunedPilot) 39 else 35", self.build_gradle)
+        self.assertIn('gemma4FineTunedPilot -> "0.9.10-dictai-latency-test"', self.build_gradle)
         self.assertIn('localFormatPrototype -> "0.9.6-dictai-gemma-test"', self.build_gradle)
         self.assertIn('else -> "0.9.6-dictai"', self.build_gradle)
 
     def test_latency_diagnostic_notes_describe_bounded_poco_measurement(self) -> None:
         pilot_job = " ".join(self.workflow.split("publish-gemma4-pilot:", 1)[1].split()).lower()
         for phrase in (
-            "dictai 0.9.9 — mesure de la latence sur poco",
-            "ce diagnostic mesure la latence",
-            "ne constitue pas encore un correctif de vitesse",
+            "dictai 0.9.10 — diagnostic des dictées et des notes",
+            "ce diagnostic concerne les dictées et les notes",
+            "ne revendique aucune accélération ni amélioration de qualité nouvelle",
             "mêmes poids gemma4 v6 du checkpoint 1956",
-            "téléchargement existant",
-            "3,93 go",
-            "installation met à jour le pilote avec la même signature et le code 38",
+            "la même signature",
+            "l'applicationid com.uhama.whisperpin",
             "apk ne contient aucun poids",
             "poids q6_k avec les matrices q/o en f16",
             "gemma4-v6-1956-q6-evaluation-20260920",
@@ -81,9 +80,16 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
             "temps asr",
             "correction",
             "partiels",
-            "mesure réelle sur poco reste requise",
-            "comparaison des modèles",
-            "mesures sur poco restent à faire",
+            "corrige le diagnostic resté ancien après une prise de notes",
+            "après terminer, la note dispose de son propre rapport à jour",
+            "le diagnostic concerne aussi une note",
+            "version installée",
+            "dernière dictée",
+            "affiche par défaut",
+            "accès au dernier formatage",
+            "mise à jour en code 39",
+            "poco f7",
+            "tablette pad 7",
         ):
             self.assertIn(phrase, pilot_job)
         for prohibited_claim in (
@@ -102,6 +108,16 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
         self.assertIn('tag="gemma4-v6-test-$GITHUB_RUN_ID"', workflow)
         self.assertIn("--prerelease --latest=false", workflow)
         self.assertNotIn("dictai-gemma4-latency-test", workflow)
+
+    def test_latency_diagnostic_keeps_application_identity_and_nonpilot_versions(self) -> None:
+        self.assertIn('applicationId = "com.uhama.whisperpin"', self.build_gradle)
+        self.assertIn("versionCode = if (gemma4FineTunedPilot) 39 else 35", self.build_gradle)
+        self.assertIn('localFormatPrototype -> "0.9.6-dictai-gemma-test"', self.build_gradle)
+        self.assertIn('else -> "0.9.6-dictai"', self.build_gradle)
+        pilot_job = " ".join(self.workflow.split("publish-gemma4-pilot:", 1)[1].split()).lower()
+        self.assertIn("mêmes poids gemma4 v6", pilot_job)
+        self.assertIn("la même signature", pilot_job)
+        self.assertIn("l'applicationid com.uhama.whisperpin", pilot_job)
 
     def test_gpu_publication_path_remains_separate(self) -> None:
         gpu_job = self.workflow.split("publish-test:", 1)[1].split("publish-gemma4-pilot:", 1)[0]

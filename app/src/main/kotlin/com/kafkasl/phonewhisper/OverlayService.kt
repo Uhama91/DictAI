@@ -1081,10 +1081,36 @@ class OverlayService : Service() {
             return
         }
         if (run.archiveAsNote) {
+            // Capture the model/post-processing boundary before the main-thread save. The save
+            // duration belongs to the separate stop-to-note-publication measurement below.
+            val archivePostprocessMs = SystemClock.elapsedRealtime() - formatStarted
+            val archiveRuntime = if (capture.options.localFormattingEnabled) localFormatter.runtimeName() else "not-loaded"
+            val archiveProgressive = progressive?.diagnosticSnapshot()
             main.post {
                 if (!isCurrentRun(run) || run.cancellation.isCancelled || localEngineLifecycle.isDestroyed()) return@post
                 val text = localText ?: liveText?.text?.toString().orEmpty()
                 val saved = saveNoteWithCaptures(text)
+                recordPostprocessingDiagnostic(
+                    capture = capture,
+                    applied = if (progressive != null && progressiveState?.acceptedSegments?.isNotEmpty() == true) {
+                        PostprocessingDiagnostic.Applied.LOCAL_LLM
+                    } else {
+                        PostprocessingDiagnostic.Applied.ORIGINAL
+                    },
+                    local = null,
+                    runtime = archiveRuntime,
+                    postprocessMs = archivePostprocessMs,
+                    stopToPublicationMs = run.stoppedAtMs.takeIf { it > 0 }?.let {
+                        SystemClock.elapsedRealtime() - it
+                    },
+                    finalText = text,
+                    publication = PostprocessingDiagnostic.PublicationResult.NOTE_SAVED,
+                    lightTextCleanup = lightCleanupApplied,
+                    hesitationsRemoved = prepared?.removed ?: 0,
+                    progressive = archiveProgressive,
+                    asrFinalRecoveryMs = finalAsrRecoveryMs,
+                    asrAwaitSessionExitMs = asrAwaitSessionExitMs,
+                )
                 run.afterCompletion = {
                     toast("Note enregistrée : ${saved.title}")
                     showNotesOverlay()
@@ -1210,6 +1236,30 @@ class OverlayService : Service() {
                     )
                     if (destination != NoteInteractionPolicy.Destination.MESSAGE) {
                         val saved = saveNoteWithCaptures(outText ?: liveText?.text?.toString().orEmpty())
+                        recordPostprocessingDiagnostic(
+                            capture = capture,
+                            applied = when {
+                                localFormatted != null && localDirect -> PostprocessingDiagnostic.Applied.LOCAL_DIRECT
+                                localFormatted != null -> PostprocessingDiagnostic.Applied.LOCAL_LLM
+                                cloudText != null -> PostprocessingDiagnostic.Applied.CLOUD
+                                else -> PostprocessingDiagnostic.Applied.ORIGINAL
+                            },
+                            local = localDiagnostic,
+                            runtime = localRuntime,
+                            postprocessMs = postprocessMs,
+                            stopToPublicationMs = run.stoppedAtMs.takeIf { it > 0 }?.let {
+                                SystemClock.elapsedRealtime() - it
+                            },
+                            finalText = saved.text,
+                            publication = requireNotNull(
+                                PostprocessingDiagnostic.PublicationResult.fromDestination(destination)
+                            ),
+                            lightTextCleanup = lightCleanupApplied,
+                            hesitationsRemoved = prepared?.removed ?: 0,
+                            progressive = progressiveDiagnosticSnapshot,
+                            asrFinalRecoveryMs = finalAsrRecoveryMs,
+                            asrAwaitSessionExitMs = asrAwaitSessionExitMs,
+                        )
                         run.afterCompletion = {
                             if (destination == NoteInteractionPolicy.Destination.NOTE_LIST) showNotesOverlay()
                             else {
@@ -1237,41 +1287,28 @@ class OverlayService : Service() {
                         val stopToInsertionMs = run.stoppedAtMs.takeIf { it > 0 }?.let {
                             SystemClock.elapsedRealtime() - it
                         }
-                        runCatching {
-                            val diagnostic = PostprocessingDiagnostic.report(
-                                version = BuildConfig.VERSION_NAME,
-                                timestampMs = System.currentTimeMillis(),
-                                formatId = capture.options.format.id,
-                                requested = when {
-                                    capture.options.localFormattingEnabled -> PostprocessingDiagnostic.Requested.LOCAL
-                                    capture.options.cloudCleanupEnabled || capture.options.cloudSuppressedForSensitiveTarget -> PostprocessingDiagnostic.Requested.CLOUD
-                                    else -> PostprocessingDiagnostic.Requested.OFF
-                                },
-                                applied = when {
-                                    localFormatted != null && localDirect -> PostprocessingDiagnostic.Applied.LOCAL_DIRECT
-                                    localFormatted != null -> PostprocessingDiagnostic.Applied.LOCAL_LLM
-                                    cloudText != null -> PostprocessingDiagnostic.Applied.CLOUD
-                                    else -> PostprocessingDiagnostic.Applied.ORIGINAL
-                                },
-                                local = localDiagnostic,
-                                runtime = localRuntime,
-                                postprocessMs = postprocessMs,
-                                stopToPublicationMs = stopToInsertionMs,
-                                finalText = outText,
-                                injection = result,
-                                cloudSuppressed = capture.options.cloudSuppressedForSensitiveTarget,
-                                modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
-                                lightTextCleanup = lightCleanupApplied,
-                                hesitationsRemoved = prepared?.removed ?: 0,
-                                progressive = progressiveDiagnosticSnapshot,
-                                asrFinalRecoveryMs = finalAsrRecoveryMs,
-                                asrAwaitSessionExitMs = asrAwaitSessionExitMs,
-                            )
-                            prefs.recordPostprocessingDiagnostic(diagnostic,
-                                formatRequested = capture.options.format.usesLanguageModel)
-                        }.onFailure {
-                            Log.w(TAG, "event=postprocess_diagnostic outcome=unavailable type=${it.javaClass.simpleName}")
-                        }
+                        recordPostprocessingDiagnostic(
+                            capture = capture,
+                            applied = when {
+                                localFormatted != null && localDirect -> PostprocessingDiagnostic.Applied.LOCAL_DIRECT
+                                localFormatted != null -> PostprocessingDiagnostic.Applied.LOCAL_LLM
+                                cloudText != null -> PostprocessingDiagnostic.Applied.CLOUD
+                                else -> PostprocessingDiagnostic.Applied.ORIGINAL
+                            },
+                            local = localDiagnostic,
+                            runtime = localRuntime,
+                            postprocessMs = postprocessMs,
+                            stopToPublicationMs = stopToInsertionMs,
+                            finalText = outText,
+                            publication = requireNotNull(
+                                PostprocessingDiagnostic.PublicationResult.fromDestination(destination, result)
+                            ),
+                            lightTextCleanup = lightCleanupApplied,
+                            hesitationsRemoved = prepared?.removed ?: 0,
+                            progressive = progressiveDiagnosticSnapshot,
+                            asrFinalRecoveryMs = finalAsrRecoveryMs,
+                            asrAwaitSessionExitMs = asrAwaitSessionExitMs,
+                        )
                         Log.i(TAG, "event=dictation_insert_complete stop_to_insert_ms=${stopToInsertionMs ?: -1}")
                         injectionFeedbackMessage(result)?.let(::toast)
                     } else if (capture.options.asrMode != DictationAsrMode.STREAMING || r.error != null) {
@@ -1280,6 +1317,56 @@ class OverlayService : Service() {
                 }
                 if (published) completeRunOnMain(run)
             }
+        }
+    }
+
+    /** Persists one metadata-only report only after the caller has crossed its publication boundary. */
+    private fun recordPostprocessingDiagnostic(
+        capture: RecordingCapture,
+        applied: PostprocessingDiagnostic.Applied,
+        local: LocalFinishDiagnostic?,
+        runtime: String,
+        postprocessMs: Long,
+        stopToPublicationMs: Long?,
+        finalText: String?,
+        publication: PostprocessingDiagnostic.PublicationResult,
+        lightTextCleanup: Boolean = false,
+        hesitationsRemoved: Int = 0,
+        progressive: ProgressiveFormattingDiagnosticSnapshot? = null,
+        asrFinalRecoveryMs: Long? = null,
+        asrAwaitSessionExitMs: Long? = null,
+    ) {
+        runCatching {
+            val diagnostic = PostprocessingDiagnostic.report(
+                version = BuildConfig.VERSION_NAME,
+                timestampMs = System.currentTimeMillis(),
+                formatId = capture.options.format.id,
+                requested = when {
+                    capture.options.localFormattingEnabled -> PostprocessingDiagnostic.Requested.LOCAL
+                    capture.options.cloudCleanupEnabled || capture.options.cloudSuppressedForSensitiveTarget -> PostprocessingDiagnostic.Requested.CLOUD
+                    else -> PostprocessingDiagnostic.Requested.OFF
+                },
+                applied = applied,
+                local = local,
+                runtime = runtime,
+                postprocessMs = postprocessMs,
+                stopToPublicationMs = stopToPublicationMs,
+                finalText = finalText.orEmpty(),
+                publication = publication,
+                cloudSuppressed = capture.options.cloudSuppressedForSensitiveTarget,
+                modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
+                lightTextCleanup = lightTextCleanup,
+                hesitationsRemoved = hesitationsRemoved,
+                progressive = progressive,
+                asrFinalRecoveryMs = asrFinalRecoveryMs,
+                asrAwaitSessionExitMs = asrAwaitSessionExitMs,
+            )
+            prefs.recordPostprocessingDiagnostic(
+                diagnostic,
+                formatRequested = capture.options.format.usesLanguageModel,
+            )
+        }.onFailure {
+            Log.w(TAG, "event=postprocess_diagnostic outcome=unavailable type=${it.javaClass.simpleName}")
         }
     }
 

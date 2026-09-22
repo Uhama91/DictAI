@@ -1,4 +1,4 @@
-# Mesurer l'attente de DictAI sur Poco
+# Mesurer l'attente de DictAI sur Poco et Pad 7
 
 [Télécharger l'APK 0.9.9](https://github.com/Uhama91/DictAI/releases/download/gemma4-v6-test-35648476423/dictai-gemma4-v6-test.apk) · [Construction GitHub Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/35648476423).
 
@@ -8,9 +8,11 @@ Le fichier public a été téléchargé et vérifié : code de version 38, même
 
 ## Essai principal : une dictée habituelle
 
-1. Installer l'APK en mise à jour de DictAI, sans désinstaller l'application.
+1. Installer l'APK comme mise à jour de DictAI, sans désinstaller l'application.
 2. Garder le moteur local et le format **Texte corrigé**, puis faire une dictée représentative du problème.
 3. Ouvrir **Mise en forme → Diagnostics → Dernier post-traitement**, puis copier le rapport.
+
+En mode de prise de notes, le bouton micro met la capture en pause. Le bouton **Terminer** achève la note. Le pilote 0.9.9 ne renouvelle pas le diagnostic dans ce parcours : un rapport ancien peut donc subsister après l'installation d'une nouvelle version. Le correctif 0.9.10 est en cours de validation ; il enregistrera le diagnostic de la note terminée et distinguera la version installée de celle du rapport conservé.
 
 Le rapport contient les durées, les appels progressifs et leur issue. Il ne contient ni la dictée, ni le vocabulaire personnel, ni les clés API. Il permet de distinguer le temps de fin de transcription du temps ajouté par la correction. Un retour au texte brut après rejet du modèle ne sera pas compté comme une correction réussie.
 
@@ -26,4 +28,6 @@ Pour interpréter les résultats, préciser simplement si le téléphone était 
 
 ## Suite du travail
 
-Les six textes serviront à comparer le même parcours avec Gemma 3. Ce premier APK mesure uniquement la configuration Gemma 4 actuelle. Le choix du modèle, une éventuelle optimisation et le prochain entraînement dépendront du délai complet et des corrections réellement utilisables sur le Poco.
+Le deuxième essai utilisateur sur Pad 7 avec 0.9.9 a atteint la limite de 20 secondes sans premier fragment du correcteur, avec une récupération finale ASR de 218 ms. Il n'est pas nécessaire de répéter une longue dictée pour établir ce défaut de réactivité. Le temps de chargement historique du moteur, affiché séparément, ne s'ajoute pas automatiquement à l'attente de cette dictée.
+
+Les six textes serviront à comparer le même parcours avec Gemma 3. Cet APK mesure uniquement la configuration Gemma 4 actuelle. Le choix du modèle, une éventuelle optimisation et le prochain entraînement dépendront du délai complet et des corrections réellement utilisables sur l'appareil. Les résultats Pad 7 et Poco seront présentés séparément.

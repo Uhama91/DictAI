@@ -157,18 +157,24 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma4-v6-test-$GITHUB_RUN_ID"
           cat > release-notes.md <<'EOF'
-          DictAI 0.9.9 — mesure de la latence sur Poco.
+          DictAI 0.9.10 — diagnostic des dictées et des notes.
 
           Cette préversion du pilote expérimental active le même chemin local CPU Gemma4 V6 pour les textes, les listes et les e-mails. Le formatage progressif éditable et les garde-fous de fidélité restent inchangés.
 
           L'APK ne contient aucun poids.
 
-          Ce diagnostic mesure la latence ; il ne constitue pas encore un correctif de vitesse. Il utilise les mêmes poids Gemma4 V6 du checkpoint 1956 et le téléchargement existant d'environ 3,93 Go. Les poids Q6_K avec les matrices Q/O en F16 et leur provenance sont disponibles sur la page du modèle : https://github.com/Uhama91/DictAI/releases/tag/gemma4-v6-1956-q6-evaluation-20260920. L'installation met à jour le pilote avec la même signature et le code 38.
+          Ce diagnostic concerne les dictées et les notes ; il ne revendique aucune accélération ni amélioration de qualité nouvelle. Il utilise les mêmes poids Gemma4 V6 du checkpoint 1956 et le téléchargement existant d'environ 3,93 Go. Les poids Q6_K avec les matrices Q/O en F16 et leur provenance sont disponibles sur la page du modèle : https://github.com/Uhama91/DictAI/releases/tag/gemma4-v6-1956-q6-evaluation-20260920. La même signature et l'applicationId com.uhama.whisperpin sont conservés.
 
-          Depuis l'écran Diagnostics, l'action « Mesurer la latence — 6 textes » lance 18 appels synthétiques sur quelques minutes et permet de copier le rapport. Le banc utilise uniquement des textes fictifs ; le diagnostic d'une dictée personnelle contient des durées et compteurs, sans son texte. Le dernier post-traitement mesure séparément les temps ASR, de correction et des segments partiels. Une mesure réelle sur Poco reste requise.
+          Depuis l'écran Diagnostics, l'action « Mesurer la latence — 6 textes » lance 18 appels synthétiques sur quelques minutes et permet de copier le rapport. Le banc utilise uniquement des textes fictifs ; le diagnostic d'une dictée personnelle contient des durées et compteurs, sans son texte. Le dernier post-traitement mesure séparément les temps ASR, de correction et des segments partiels. Corrige le diagnostic resté ancien après une prise de notes : après Terminer, la note dispose de son propre rapport à jour. Le diagnostic concerne aussi une note.
 
-          Aucun score de qualité ni mesure de latence sur téléphone n'est revendiqué ici. La comparaison des modèles et les mesures sur Poco restent à faire. Cette publication est expérimentale et n'est pas un produit officiel Google.
+          L'écran affiche par défaut la version installée et la dernière dictée. L'accès au dernier formatage reste disponible.
+
+          Aucun score de qualité ni mesure de latence sur téléphone n'est revendiqué ici.
+
+          La mise à jour en code 39 conserve la même signature et l'applicationId com.uhama.whisperpin pour le Poco F7 et la tablette Pad 7.
+
+          Cette publication est expérimentale et n'est pas un produit officiel Google. Une mesure réelle sur Poco et la comparaison des modèles restent à faire.
           EOF
           gh release create "$tag" dictai-gemma4-v6-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.9.9 — mesure de la latence sur Poco' --notes-file release-notes.md
+            --title 'DictAI 0.9.10 — diagnostic des dictées et des notes' --notes-file release-notes.md

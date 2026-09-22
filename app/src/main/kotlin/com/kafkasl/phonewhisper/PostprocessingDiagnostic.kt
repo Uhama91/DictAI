@@ -59,6 +59,30 @@ internal object LocalFormatRuntimeLabels {
 internal object PostprocessingDiagnostic {
     enum class Requested { LOCAL, CLOUD, OFF }
     enum class Applied { LOCAL_LLM, LOCAL_DIRECT, CLOUD, ORIGINAL }
+    enum class PublicationResult {
+        INSERTED,
+        COPIED,
+        FAILED,
+        NOTE_SAVED;
+
+        companion object {
+            fun fromInjection(result: InjectionResult): PublicationResult = when (result) {
+                InjectionResult.Inserted -> INSERTED
+                InjectionResult.Copied -> COPIED
+                InjectionResult.Failed -> FAILED
+            }
+
+            /** Maps only an operation that has crossed its publication boundary. */
+            fun fromDestination(
+                destination: NoteInteractionPolicy.Destination,
+                injection: InjectionResult? = null,
+            ): PublicationResult? = when {
+                destination != NoteInteractionPolicy.Destination.MESSAGE -> NOTE_SAVED
+                injection != null -> fromInjection(injection)
+                else -> null
+            }
+        }
+    }
 
     fun report(
         version: String,
@@ -71,7 +95,7 @@ internal object PostprocessingDiagnostic {
         postprocessMs: Long,
         stopToPublicationMs: Long?,
         finalText: String,
-        injection: InjectionResult,
+        publication: PublicationResult,
         cloudSuppressed: Boolean,
         modelLoadMs: Long? = null,
         lightTextCleanup: Boolean = false,
@@ -153,10 +177,22 @@ internal object PostprocessingDiagnostic {
         if (lightTextCleanup) append("Nettoyage léger du texte : règles locales, sans appel LLM.\n")
         if (hesitationsRemoved > 0) append("Hésitations retirées avant correction : $hesitationsRemoved · règles locales.\n")
         append("Post-traitement : $postprocessMs ms\n")
-        stopToPublicationMs?.let { append("Arrêt → insertion/copie : $it ms\n") }
+        stopToPublicationMs?.let {
+            val label = if (publication == PublicationResult.NOTE_SAVED) {
+                "Fin → enregistrement de la note"
+            } else {
+                "Arrêt → insertion/copie"
+            }
+            append("$label : $it ms\n")
+        }
         val lines = finalText.lines().filter { it.isNotBlank() }
         append("Lignes non vides : ${lines.size} ; puces : ${lines.count { it.trimStart().startsWith("• ") }}\n")
-        append("Publication : ${when (injection) { InjectionResult.Inserted -> "inséré"; InjectionResult.Copied -> "copié"; InjectionResult.Failed -> "échec" }}\n")
+        append("Publication : ${when (publication) {
+            PublicationResult.INSERTED -> "inséré"
+            PublicationResult.COPIED -> "copié"
+            PublicationResult.FAILED -> "échec"
+            PublicationResult.NOTE_SAVED -> "note enregistrée"
+        }}\n")
         append("Ce diagnostic ne contient ni dictée, ni vocabulaire, ni clé API.")
     }
 

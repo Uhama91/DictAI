@@ -761,19 +761,26 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showPostprocessingDiagnostic(latestDictation: Boolean = false) {
+    private fun showPostprocessingDiagnostic(panel: DiagnosticPanel = DiagnosticPanel.LATEST_DICTATION) {
         val prefs = PersistencePrefs(this)
-        val latest = prefs.lastPostprocessingDiagnostic
-        val formatted = prefs.lastFormatPostprocessingDiagnostic
-        val report = if (latestDictation) latest else formatted ?: latest
-        val title = if (!latestDictation && formatted != null) "Dernier format demandé" else "Dernière dictée"
+        val state = diagnosticPanelState(
+            latest = prefs.lastPostprocessingDiagnostic,
+            formatted = prefs.lastFormatPostprocessingDiagnostic,
+            requested = panel,
+        )
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(report ?: "Aucun traitement enregistré. Après un essai Mail ou Liste, son diagnostic restera disponible ici même après une dictée en mode Texte.")
-            .setPositiveButton("Copier") { _, _ -> report?.let { DictationClipboard.copy(this, it) } }
+            .setTitle(state.title)
+            .setMessage(diagnosticDialogMessage(BuildConfig.VERSION_NAME, state.report))
+            .setPositiveButton("Copier") { _, _ ->
+                state.report?.let {
+                    DictationClipboard.copy(this, diagnosticCopyText(BuildConfig.VERSION_NAME, it))
+                }
+            }
             .setNegativeButton("Fermer", null)
-        if (!latestDictation && formatted != null && latest != null && latest != formatted) {
-            dialog.setNeutralButton("Dernière dictée") { _, _ -> showPostprocessingDiagnostic(latestDictation = true) }
+        if (state.alternatePanel != null && state.alternateTitle != null) {
+            dialog.setNeutralButton(state.alternateTitle) { _, _ ->
+                showPostprocessingDiagnostic(state.alternatePanel)
+            }
         }
         dialog.show()
     }
