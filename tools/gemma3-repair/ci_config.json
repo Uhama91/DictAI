@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "ready",
+  "release_repository": "Uhama91/DictAI",
+  "release_id": 394184652,
+  "archive_name": "gemma3-repair-v1-payload.tar.gz",
+  "archive_sha256": "be2fe536d41dab37ce201bf12738862967fe05fda2db4a1ec2397fa74987b99d",
+  "archive_bytes": 443653358,
+  "max_archive_bytes": 2000000000,
+  "max_expanded_bytes": 1500000000,
+  "model_id": "google/gemma-3-270m-it",
+  "model_revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+  "child_dataset_revision": "49737105494d7c4fa45aa65f55efac6a245ebdfcc593decbbb59aa7559bc9b90",
+  "parent_manifest_sha256": "632eb66fd1688f9e68f843917031f1cbea286e25845fb580f2ed19771cd9fc1d",
+  "parent_adapter_sha256": "4cd49c499c441e582dd1e297f211a53075b999d4a62c63e164a87d576d669511",
+  "old_validation_records": 76,
+  "new_evaluation_records": 32,
+  "evaluation_records_per_model": 108,
+  "training_updates": 64,
+  "max_training_seconds": 900,
+  "max_cumulative_evaluation_seconds": 1200,
+  "per_case_timeout_seconds": 20
+}

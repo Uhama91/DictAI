@@ -1,0 +1,204 @@
+name: Gemma 3 Repair V1 CPU pilot
+
+on:
+  push:
+    branches:
+      - codex/gemma4-layout-validation
+    paths:
+      - tools/gemma3-repair/**
+      - .github/workflows/train-gemma3-repair.yml
+
+permissions:
+  contents: read
+
+jobs:
+  gemma3-repair:
+    # A separate marker is required after reviews; config remains the second gate.
+    if: ${{ contains(github.event.head_commit.message, '[gemma3-repair-authorized]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      GEMMA3_WORKSPACE: ${{ runner.temp }}/gemma3-repair-workspace
+      GEMMA3_PREPARED_DIR: ${{ runner.temp }}/gemma3-repair-output
+      GEMMA3_RESULTS_DIR: ${{ runner.temp }}/gemma3-repair-results
+      PYTHONPATH: ${{ runner.temp }}/gemma3-repair-workspace:${{ runner.temp }}/gemma3-repair-workspace/src
+
+    steps:
+      - name: Check out workflow and download helper without persisting credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate reviewed draft release lock
+        id: release-lock
+        run: >-
+          python tools/gemma3-repair/payload.py release-lock
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Download the exact reviewed draft payload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python tools/gemma4-eval/scripts/download_release_asset.py
+          --repo Uhama91/DictAI
+          --release-id '${{ steps.release-lock.outputs.release_id }}'
+          --asset-name '${{ steps.release-lock.outputs.archive_name }}'
+          --destination "$RUNNER_TEMP/${{ steps.release-lock.outputs.archive_name }}"
+          --sha256 '${{ steps.release-lock.outputs.archive_sha256 }}'
+          --bytes '${{ steps.release-lock.outputs.archive_bytes }}'
+
+      - name: Verify archive and extract the allowlisted workspace
+        run: >-
+          python tools/gemma3-repair/payload.py extract
+          --archive "$RUNNER_TEMP/${{ steps.release-lock.outputs.archive_name }}"
+          --output "$GEMMA3_WORKSPACE"
+          --sha256 '${{ steps.release-lock.outputs.archive_sha256 }}'
+          --bytes '${{ steps.release-lock.outputs.archive_bytes }}'
+          --max-archive-bytes 2000000000
+          --max-expanded-bytes 1500000000
+
+      - name: Install pinned CPU dependencies without a wheel cache
+        run: >-
+          python -m pip install --no-cache-dir
+          --requirement tools/gemma3-repair/requirements-linux-cpu.txt
+
+      - name: Smoke import only from the extracted workspace
+        working-directory: ${{ runner.temp }}
+        env:
+          PYTHONPATH: ${{ runner.temp }}/gemma3-repair-workspace:${{ runner.temp }}/gemma3-repair-workspace/src:${{ runner.temp }}/gemma3-repair-workspace/scripts
+        run: |
+          unset GH_TOKEN GITHUB_TOKEN HF_TOKEN HUGGINGFACE_HUB_TOKEN
+          python -c 'import asr_postclean.training, asr_postclean.evaluation, scripts.supervise_gemma4_parent1956_export'
+          python "$GEMMA3_WORKSPACE/scripts/run_gemma3_repair_v1.py" --help >/dev/null
+
+      - name: Prepare sealed inputs without loading a model
+        working-directory: ${{ runner.temp }}
+        env:
+          HF_HUB_CACHE: ${{ runner.temp }}/gemma3-repair-workspace/base/hub
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+        run: |
+          unset GH_TOKEN GITHUB_TOKEN HF_TOKEN HUGGINGFACE_HUB_TOKEN
+          python "$GEMMA3_WORKSPACE/scripts/run_gemma3_repair_v1.py" prepare \
+            --config "$GEMMA3_WORKSPACE/configs/gemma3_repair_v1.json" \
+            --child-dataset "$GEMMA3_WORKSPACE/data_gemma3_repair_v1" \
+            --old-valid "$GEMMA3_WORKSPACE/data_v3/valid.jsonl" \
+            --parent-manifest "$GEMMA3_WORKSPACE/parent/manifest.json" \
+            --parent-adapter "$GEMMA3_WORKSPACE/parent/best" \
+            --output-dir "$GEMMA3_PREPARED_DIR"
+
+      - name: Evaluate the V3 parent on all 108 frozen cases
+        working-directory: ${{ runner.temp }}
+        env:
+          HF_HUB_CACHE: ${{ runner.temp }}/gemma3-repair-workspace/base/hub
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+          TOKENIZERS_PARALLELISM: 'false'
+        run: |
+          unset GH_TOKEN GITHUB_TOKEN HF_TOKEN HUGGINGFACE_HUB_TOKEN
+          python "$GEMMA3_WORKSPACE/scripts/run_gemma3_repair_v1.py" evaluate \
+            --prepared-dir "$GEMMA3_PREPARED_DIR" --model parent \
+            --output-dir "$GEMMA3_PREPARED_DIR/parent_evaluation" --execute
+
+      - name: Require the complete parent baseline before training
+        working-directory: ${{ runner.temp }}
+        env:
+          HF_HUB_CACHE: ${{ runner.temp }}/gemma3-repair-workspace/base/hub
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+          TOKENIZERS_PARALLELISM: 'false'
+        run: |
+          unset GH_TOKEN GITHUB_TOKEN HF_TOKEN HUGGINGFACE_HUB_TOKEN
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("${{ runner.temp }}") / "gemma3-repair-output"
+          manifest = json.loads((root / "parent_evaluation/manifest.json").read_text())
+          budget = json.loads((root / "evaluation_budget.json").read_text())
+          phase = budget.get("phases", {}).get("parent", {})
+          if (manifest.get("status") != "completed" or manifest.get("records_expected") != 108
+                  or manifest.get("records_written") != 108 or manifest.get("model_loaded") is not True
+                  or phase.get("status") != "completed"):
+              raise SystemExit("parent baseline incomplete; training is forbidden")
+          PY
+
+      - name: Train exactly one 64-update continuation
+        working-directory: ${{ runner.temp }}
+        env:
+          HF_HUB_CACHE: ${{ runner.temp }}/gemma3-repair-workspace/base/hub
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+          TOKENIZERS_PARALLELISM: 'false'
+        run: |
+          unset GH_TOKEN GITHUB_TOKEN HF_TOKEN HUGGINGFACE_HUB_TOKEN
+          python "$GEMMA3_WORKSPACE/scripts/run_gemma3_repair_v1.py" train \
+            --prepared-dir "$GEMMA3_PREPARED_DIR" --execute
+
+      - name: Require the completed 64-update adapter
+        working-directory: ${{ runner.temp }}
+        env:
+          HF_HUB_CACHE: ${{ runner.temp }}/gemma3-repair-workspace/base/hub
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+          TOKENIZERS_PARALLELISM: 'false'
+        run: |
+          unset GH_TOKEN GITHUB_TOKEN HF_TOKEN HUGGINGFACE_HUB_TOKEN
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("${{ runner.temp }}") / "gemma3-repair-output"
+          manifest = json.loads((root / "training/manifest.json").read_text())
+          if manifest.get("status") != "completed" or manifest.get("completed_updates") != 64:
+              raise SystemExit("training incomplete; candidate evaluation is forbidden")
+          PY
+
+      - name: Evaluate the candidate on the same 108 cases
+        working-directory: ${{ runner.temp }}
+        env:
+          HF_HUB_CACHE: ${{ runner.temp }}/gemma3-repair-workspace/base/hub
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+          TOKENIZERS_PARALLELISM: 'false'
+        run: |
+          unset GH_TOKEN GITHUB_TOKEN HF_TOKEN HUGGINGFACE_HUB_TOKEN
+          python "$GEMMA3_WORKSPACE/scripts/run_gemma3_repair_v1.py" evaluate \
+            --prepared-dir "$GEMMA3_PREPARED_DIR" --model candidate \
+            --output-dir "$GEMMA3_PREPARED_DIR/candidate_evaluation" --execute
+
+      - name: Package allowlisted reports and synthetic predictions
+        if: always()
+        run: >-
+          python tools/gemma3-repair/package_results.py
+          --prepared-dir "$GEMMA3_PREPARED_DIR"
+          --output-dir "$GEMMA3_RESULTS_DIR"
+
+      - name: Upload diagnostic artifact, including incomplete-run reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemma3-repair-v1-review
+          path: ${{ runner.temp }}/gemma3-repair-results
+          if-no-files-found: ignore
+          retention-days: 14

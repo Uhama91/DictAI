@@ -1,0 +1,18 @@
+Gemma 3 270M IT — Gemma 3 Repair V1 CPU research payload
+========================================================
+
+Base model: google/gemma-3-270m-it
+Hugging Face revision: ac82b4e820549b854eebf28ce6dedaf9fdfa17b3
+
+This research payload contains the unmodified Gemma 3 base snapshot and the
+V3 parent adapter. The separately generated candidate adapter is a modified
+model derivative. The parent and candidate adapters are not official Google
+models, products, or endorsements.
+
+Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms
+
+The Terms of Use are included in Gemma-Terms-of-Use.html. This payload is for
+the reviewed synthetic CPU pilot and its human review; any further use or
+distribution remains subject to those terms, including the incorporated
+Prohibited Use Policy. No private dictations, credentials, or holdout data are
+included.

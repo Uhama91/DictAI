@@ -1,0 +1,9 @@
+Official source: https://ai.google.dev/gemma/terms
+Page title: Gemma Terms of Use
+Last modified by Google: 2026-04-01
+Retrieved: 2026-09-23 UTC
+Saved as: Gemma-Terms-of-Use.html (response body, text/html)
+SHA-256: 4973a253f308763e6b21da4242f8bf5220aed9c283d0276ff92ff11958a9555e
+
+The source page's Appendix lists Gemma 3. This terms copy is separate from the
+nine-file model snapshot so it does not alter the snapshot identity.
