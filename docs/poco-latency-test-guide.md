@@ -1,10 +1,10 @@
 # Mesurer l'attente de DictAI sur Poco et Pad 7
 
-[Télécharger l'APK 0.9.9](https://github.com/Uhama91/DictAI/releases/download/gemma4-v6-test-35648476423/dictai-gemma4-v6-test.apk) · [Construction GitHub Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/35648476423).
+[Télécharger l'APK 0.9.10](https://github.com/Uhama91/DictAI/releases/download/gemma4-v6-test-35766071521/dictai-gemma4-v6-test.apk) · [Construction GitHub Actions réussie](https://github.com/Uhama91/DictAI/actions/runs/35766071521).
 
-Cette version de diagnostic 0.9.9 conserve Gemma 4 V6 et ses réglages. Elle sert à expliquer les 10–15 secondes signalées ; elle n'annonce pas encore une réduction de ce délai. Les poids Gemma 4 V6 déjà téléchargés sont réutilisés.
+Cette version de diagnostic 0.9.10 corrige le rapport des notes et l'affichage des anciens rapports. Elle conserve Gemma 4 V6 et ses réglages ; elle n'annonce pas encore une réduction du délai. Les poids Gemma 4 V6 déjà téléchargés sont réutilisés.
 
-Le fichier public a été téléchargé et vérifié : code de version 38, même signature que le pilote précédent, 87 563 641 octets. Il est préparé pour une mise à jour sans désinstallation ; l'installation sur Poco reste à essayer. SHA-256 : `63e8d1945abc4571cd7ba57116b9d6539e4ff1113230421a7ff64218003e5d66`.
+Le fichier public a été téléchargé et vérifié : code de version 39, même certificat que le pilote précédent, 87 580 033 octets. Il est identique à l'artefact CI et préparé pour une mise à jour sans désinstallation ; l'installation de cette version sur Poco et Pad 7 reste à essayer. SHA-256 : `f2ccd0378d8e359d35cd4fa8566fafcc6ef4bc0741e0c16b24049141de42f3d1`.
 
 ## Essai principal : une dictée habituelle
 
@@ -12,7 +12,9 @@ Le fichier public a été téléchargé et vérifié : code de version 38, même
 2. Garder le moteur local et le format **Texte corrigé**, puis faire une dictée représentative du problème.
 3. Ouvrir **Mise en forme → Diagnostics → Dernier post-traitement**, puis copier le rapport.
 
-En mode de prise de notes, le bouton micro met la capture en pause. Le bouton **Terminer** achève la note. Le pilote 0.9.9 ne renouvelle pas le diagnostic dans ce parcours : un rapport ancien peut donc subsister après l'installation d'une nouvelle version. Le correctif 0.9.10 est en cours de validation ; il enregistrera le diagnostic de la note terminée et distinguera la version installée de celle du rapport conservé.
+En mode de prise de notes, le bouton micro met la capture en pause. Le bouton **Terminer** achève la note et renouvelle son diagnostic avec la mention **Publication : note enregistrée**. Un essai court suffit pour vérifier ce parcours.
+
+L'écran ouvre le rapport le plus récent. Il affiche la version installée et signale un rapport conservé d'une autre version, sans en modifier la date ni les mesures. Le dernier format distinct reste accessible par un bouton. La version inscrite dans un ancien rapport ne prouve pas que l'APK installé est ancien.
 
 Le rapport contient les durées, les appels progressifs et leur issue. Il ne contient ni la dictée, ni le vocabulaire personnel, ni les clés API. Il permet de distinguer le temps de fin de transcription du temps ajouté par la correction. Un retour au texte brut après rejet du modèle ne sera pas compté comme une correction réussie.
 
