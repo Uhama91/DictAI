@@ -20,7 +20,8 @@ class MainActivityTest {
             MainActivity.gemmaInstallSubtitle(installed = false),
         )
         assertEquals(
-            "Installé · hors ligne · texte corrigé, listes et mails",
+            if (BuildConfig.GEMMA3_REPAIR_PILOT) "Installé · hors ligne · texte corrigé en français"
+            else "Installé · hors ligne · texte corrigé, listes et mails",
             MainActivity.gemmaInstallSubtitle(installed = true),
         )
     }

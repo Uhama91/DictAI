@@ -514,19 +514,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildFormattingPage(): LinearLayout =
-        buildFormattingPage(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
+        buildFormattingPage(BuildConfig.GEMMA4_FINE_TUNED_PILOT, BuildConfig.GEMMA3_REPAIR_PILOT)
 
     /** Used by the native render test to inspect the pilot-only branch without a model. */
     internal fun buildFormattingPageForTest(pilot: Boolean): LinearLayout =
-        buildFormattingPage(pilot)
+        buildFormattingPage(pilot, gemma3RepairPilot = false)
 
-    private fun buildFormattingPage(pilot: Boolean): LinearLayout {
+    internal fun buildFormattingPageForTest(gemma4Pilot: Boolean, gemma3RepairPilot: Boolean): LinearLayout =
+        buildFormattingPage(gemma4Pilot, gemma3RepairPilot)
+
+    private fun buildFormattingPage(pilot: Boolean, gemma3RepairPilot: Boolean): LinearLayout {
+        require(!(pilot && gemma3RepairPilot)) { "Gemma pilot settings are mutually exclusive." }
         val root = vertical(0, 0)
         root.addView(navigationHeader("Mise en forme"))
         val formattingPrefs = PersistencePrefs(this)
         val formatStore = PostProcessingFormats(this)
         val selectedFormat = formatStore.selected()
         root.addView(sectionHeader("Format de la dictée"))
+        if (gemma3RepairPilot) {
+            root.addView(settingsRow(
+                "Essai Gemma 3",
+                "Essai Gemma 3 : texte corrigé français, attente limitée à ${LocalFormatCpuProfile.Gemma3Final.deadlineMs / 1_000} s. Listes et mails non pris en charge par ce modèle. Poids V3 inchangés.",
+            ))
+        }
         val formatRow = settingsRow("Format de la dictée", selectedFormatLabel(selectedFormat), null) {
             showFormatsDialog()
         }
@@ -538,8 +548,15 @@ class MainActivity : AppCompatActivity() {
         val engineRow = settingsRow("Moteur de post-traitement", engineLabel(formattingPrefs))
         engineRow.setOnClickListener { showEngineDialog(engineRow) }
         root.addView(engineRow)
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE || pilot) {
-            val row = settingsRow(gemmaInstallTitle(), gemmaInstallLabel()) { showGemmaDownload() }
+        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE || pilot || gemma3RepairPilot) {
+            val row = settingsRow(
+                gemmaInstallTitle(pilot, gemma3RepairPilot),
+                gemmaInstallSubtitle(
+                    installed = GemmaModelStore(this).installedModel() != null,
+                    gemma4Pilot = pilot,
+                    gemma3RepairPilot = gemma3RepairPilot,
+                ),
+            ) { showGemmaDownload() }
             gemmaSubtitle = row.findViewWithTag("subtitle")
             root.addView(row)
         }
@@ -554,8 +571,8 @@ class MainActivity : AppCompatActivity() {
         root.addView(settingsRow("Dernier post-traitement", "Diagnostic copiable conservé après la dictée") {
             showPostprocessingDiagnostic()
         })
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE || pilot) {
-            root.addView(settingsRow("Tester Gemma sur ce téléphone", benchmarkSubtitle(pilot)) {
+        if ((BuildConfig.LOCAL_FORMAT_PROTOTYPE || pilot || gemma3RepairPilot) && !gemma3RepairPilot) {
+            root.addView(settingsRow("Tester Gemma sur ce téléphone", benchmarkSubtitle(pilot, gemma3RepairPilot)) {
                 if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
                 else if (localFormatBenchmark?.isShowing != true) {
                     localFormatBenchmark?.close()
@@ -569,8 +586,11 @@ class MainActivity : AppCompatActivity() {
                     localFormatBenchmark = LocalFormatBenchmarkDialog(this, longMailsOnly = true).also { it.show() }
                 }
             })
-            if (shouldShowLatencyBenchmark(pilot)) {
-                root.addView(settingsRow("Mesurer la latence — 6 textes", latencyBenchmarkSubtitle()) {
+        }
+        if ((BuildConfig.LOCAL_FORMAT_PROTOTYPE || pilot || gemma3RepairPilot) &&
+            shouldShowLatencyBenchmark(pilot, gemma3RepairPilot)
+        ) {
+                root.addView(settingsRow("Mesurer la latence — 6 textes", latencyBenchmarkSubtitle(gemma3RepairPilot)) {
                     if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
                     else if (localFormatBenchmark?.isShowing != true) {
                         localFormatBenchmark?.close()
@@ -578,10 +598,10 @@ class MainActivity : AppCompatActivity() {
                             this,
                             latencyOnly = true,
                             pilotOverride = pilot,
+                            gemma3RepairPilot = gemma3RepairPilot,
                         ).also { it.show() }
                     }
                 })
-            }
         }
         return root
     }
@@ -1142,22 +1162,35 @@ class MainActivity : AppCompatActivity() {
         internal fun credentialDeletionFeedback(deleted: Boolean): String =
             if (deleted) "Clé supprimée" else "Suppression de la clé impossible"
 
-        internal fun gemmaInstallTitle(): String = "Installer ${GemmaModelStore.MODEL_TITLE}"
+        internal fun gemmaInstallTitle(
+            gemma4Pilot: Boolean = BuildConfig.GEMMA4_FINE_TUNED_PILOT,
+            gemma3RepairPilot: Boolean = BuildConfig.GEMMA3_REPAIR_PILOT,
+        ): String = "Installer ${GemmaModelStore.modelTitleForBuild(gemma4Pilot, gemma3RepairPilot)}"
 
-        internal fun gemmaInstallSubtitle(installed: Boolean): String = if (installed) {
-            "Installé · hors ligne · texte corrigé, listes et mails"
+        internal fun gemmaInstallSubtitle(
+            installed: Boolean,
+            gemma4Pilot: Boolean = BuildConfig.GEMMA4_FINE_TUNED_PILOT,
+            gemma3RepairPilot: Boolean = BuildConfig.GEMMA3_REPAIR_PILOT,
+        ): String = if (installed) {
+            if (gemma3RepairPilot) "Installé · hors ligne · texte corrigé en français"
+            else "Installé · hors ligne · texte corrigé, listes et mails"
         } else {
-            "${GemmaModelStore.formatBytes(GemmaModelStore.EXPECTED_SIZE_BYTES)} · téléchargement reprenable · puis utilisation hors ligne"
+            "${GemmaModelStore.formatBytes(GemmaModelStore.expectedSizeBytesForBuild(gemma4Pilot, gemma3RepairPilot))} · téléchargement reprenable · puis utilisation hors ligne"
         }
 
-        internal fun benchmarkSubtitle(pilot: Boolean): String = if (pilot) {
+        internal fun benchmarkSubtitle(pilot: Boolean, gemma3RepairPilot: Boolean = false): String = if (gemma3RepairPilot) {
+            "CPU · Gemma 3 270M V3 · français uniquement · ${LocalFormatCpuProfile.Gemma3Final.deadlineMs / 1_000} s"
+        } else if (pilot) {
             "CPU · pilote Gemma · sans thinking"
         } else {
             "GPU · LiteRT-LM · sans thinking"
         }
 
-        internal fun shouldShowLatencyBenchmark(pilot: Boolean): Boolean = pilot
+        internal fun shouldShowLatencyBenchmark(pilot: Boolean, gemma3RepairPilot: Boolean = false): Boolean =
+            pilot || gemma3RepairPilot
 
-        internal fun latencyBenchmarkSubtitle(): String = "6 textes français · 3 passages · résultat copiable"
+        internal fun latencyBenchmarkSubtitle(gemma3RepairPilot: Boolean = false): String = if (gemma3RepairPilot) {
+            "6 textes français · 3 passages · ${LocalFormatCpuProfile.Gemma3Final.deadlineMs / 1_000} s maximum par essai · résultat copiable"
+        } else "6 textes français · 3 passages · résultat copiable"
     }
 }

@@ -44,4 +44,23 @@ class LocalFormatRuntimeLabelsTest {
         assertTrue(LocalFormatRuntimeLabels.pssNote(pilot = false).contains("mémoire GPU partagée potentiellement exclue"))
         assertFalse(LocalFormatRuntimeLabels.pssNote(pilot = true).contains("mémoire GPU"))
     }
+
+    @Test fun gemma3RuntimeLabelsNameTheFrozenV3WeightsAndTheThreeSecondCpuLimit() {
+        val model = LocalFormatRuntimeLabels.model(pilot = false, gemma3RepairPilot = true)
+        val configuration = LocalFormatRuntimeLabels.configuration(pilot = false, gemma3RepairPilot = true)
+        val calculation = LocalFormatRuntimeLabels.calculation(
+            pilot = false,
+            gemma3RepairPilot = true,
+            runtime = "arm64-baseline",
+        )
+
+        assertTrue(model.contains("Gemma 3 270M V3 expérimental"))
+        assertTrue(model.contains("gemma3-270m-postclean-v3-q8_0.gguf"))
+        assertTrue(configuration.contains("CPU · llama.cpp · greedy"))
+        assertTrue(configuration.contains("3000 ms"))
+        assertTrue(calculation.contains("CPU · llama.cpp · greedy"))
+        assertTrue(calculation.contains("arm64-baseline"))
+        assertFalse(model.contains("Gemma 4"))
+        assertFalse(configuration.contains("GPU"))
+    }
 }

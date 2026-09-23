@@ -1,0 +1,75 @@
+{
+  "source": {
+    "path": "/Users/ulliemaillot/dev_project/asr-postclean-fr/src/asr_postclean/prompting.py",
+    "sha256": "b3e28a6a2c769c61f14a80154385f4eda0811f4cd7097fe58de51c132e20ac3d"
+  },
+  "python": "3.12.13",
+  "transformers": "5.17.0",
+  "tokenizer_source": "local AutoTokenizer only; local_files_only=True; no model loaded",
+  "tokenizer_snapshot": "/Users/ulliemaillot/.cache/huggingface/hub/models--google--gemma-3-270m-it/snapshots/ac82b4e820549b854eebf28ce6dedaf9fdfa17b3",
+  "tokenizer_files": {
+    "tokenizer.json": "7d4046bf0505a327dd5a0abbb427ecd4fc82f99c2ceaa170bc61ecde12809b0c",
+    "tokenizer.model": "1299c11d7cf632ef3b4e11937501358ada021bbdf7c47638d13c0ee982f2e79c",
+    "tokenizer_config.json": "94b03056ec5831e9021c3e3fe9db682778c4f2d081c4188f1fcb8b90541cf1cf"
+  },
+  "chat_template": {
+    "path": "/Users/ulliemaillot/.cache/huggingface/hub/models--google--gemma-3-270m-it/snapshots/ac82b4e820549b854eebf28ce6dedaf9fdfa17b3/chat_template.jinja",
+    "sha256": "7de1c58e208eda46e9c7f86397df37ec49883aeece39fb961e0a6b24088dd3c4"
+  },
+  "prompt_version": "v3",
+  "python_isspace_codepoints": [
+    "U+0009",
+    "U+000A",
+    "U+000B",
+    "U+000C",
+    "U+000D",
+    "U+001C",
+    "U+001D",
+    "U+001E",
+    "U+001F",
+    "U+0020",
+    "U+0085",
+    "U+00A0",
+    "U+1680",
+    "U+2000",
+    "U+2001",
+    "U+2002",
+    "U+2003",
+    "U+2004",
+    "U+2005",
+    "U+2006",
+    "U+2007",
+    "U+2008",
+    "U+2009",
+    "U+200A",
+    "U+2028",
+    "U+2029",
+    "U+202F",
+    "U+205F",
+    "U+3000"
+  ],
+  "tokenization_cross_check": "apply_chat_template(tokenize=True) IDs equal tokenizing build_prompt_text output with add_special_tokens=False",
+  "fixtures": [
+    {
+      "id": "accent-and-spacing",
+      "protected_term_count": 0,
+      "token_count": 170,
+      "token_ids_sha256": "1cd4bbe984495c44a9153658355d98c487c29dac117b22b7ff91b84fe0362d4b",
+      "rendered_utf8_sha256": "5daa35efbf9fee19b01e8f262bf828179b00032d18aa6e6ce54ebf53a619291f"
+    },
+    {
+      "id": "quotes-newlines-protected-duplicates",
+      "protected_term_count": 3,
+      "token_count": 210,
+      "token_ids_sha256": "7a09818f77da7903a3e8e504dbd93e37b7c2500a5708dd8aca984b6c8f5f64ed",
+      "rendered_utf8_sha256": "f000e37917f4a0f5dfbf1158ed463df1de38f505ba22ab37b9ff78bf180cb194"
+    },
+    {
+      "id": "python-whitespace-strip-table",
+      "protected_term_count": 0,
+      "token_count": 164,
+      "token_ids_sha256": "828bc090c4cca4b47145a43bfb54bae579e9f5284e7a5ff494e084700f1ae6d0",
+      "rendered_utf8_sha256": "6dfa4bce11af3a79018bcdbed2be9fbc1a8bdb73af9292d166481689f77a507c"
+    }
+  ]
+}

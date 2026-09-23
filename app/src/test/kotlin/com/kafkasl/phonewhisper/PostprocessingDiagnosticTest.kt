@@ -9,7 +9,7 @@ class PostprocessingDiagnosticTest {
             PostprocessingDiagnostic.Applied.ORIGINAL, LocalFinishDiagnostic("generated", "wait_timeout", true, 5000),
             "litert-lm-gpu-mtp-thinking-off", 5000, 5200, "Grok et contenu privé.",
             PostprocessingDiagnostic.PublicationResult.INSERTED, false,
-            hesitationsRemoved = 2)
+            hesitationsRemoved = 2, gemma3RepairPilot = false)
         assertTrue(value.contains("hésitations retirées localement"))
         assertTrue(value.contains("Hésitations retirées avant correction : 2"))
         assertTrue(value.contains("délai d’attente finale dépassé"))
@@ -58,7 +58,8 @@ class PostprocessingDiagnosticTest {
         pilot: Boolean = false,
     ) = PostprocessingDiagnostic.report(
         "test", 0, format, requested, applied, local, runtime, 800, 900,
-        text, PostprocessingDiagnostic.PublicationResult.COPIED, suppressed, pilot = pilot,
+        text, PostprocessingDiagnostic.PublicationResult.COPIED, suppressed,
+        pilot = pilot, gemma3RepairPilot = false,
     )
 
     @Test fun reportsAppliedSingleParagraphWithoutClaimingGoodGrouping() {
@@ -197,6 +198,7 @@ class PostprocessingDiagnosticTest {
             publication = PostprocessingDiagnostic.PublicationResult.COPIED,
             cloudSuppressed = false,
             pilot = true,
+            gemma3RepairPilot = false,
             progressive = trace,
             asrFinalRecoveryMs = 12,
             asrAwaitSessionExitMs = 8,
@@ -208,5 +210,37 @@ class PostprocessingDiagnosticTest {
         assertTrue(value.contains("ASR — attente sortie session : 8 ms"))
         assertTrue(value.contains("rejetes=1"))
         assertFalse(value.contains("Texte privé"))
+    }
+
+    @Test fun gemma3UnsupportedLanguageReportsRefusalWithoutClaimingNativeOrAppliedOutput() {
+        val value = PostprocessingDiagnostic.report(
+            version = "test",
+            timestampMs = 0,
+            formatId = "corrected",
+            requested = PostprocessingDiagnostic.Requested.LOCAL,
+            applied = PostprocessingDiagnostic.Applied.ORIGINAL,
+            local = LocalFinishDiagnostic(
+                route = "not_called",
+                outcome = "profile_refused_language",
+                nativeStarted = false,
+                waitMs = 0,
+                waitLimitMs = 3_000,
+            ),
+            runtime = "not-loaded",
+            postprocessMs = 0,
+            stopToPublicationMs = 0,
+            finalText = "Contenu privé.",
+            publication = PostprocessingDiagnostic.PublicationResult.COPIED,
+            cloudSuppressed = false,
+            gemma3RepairPilot = true,
+        )
+
+        assertTrue(value.contains("Gemma 3 270M V3 expérimental"))
+        assertTrue(value.contains("gemma3-270m-postclean-v3-q8_0.gguf"))
+        assertTrue(value.contains("Refus : langue non prise en charge"))
+        assertTrue(value.contains("Appel natif pour ce résultat : non"))
+        assertTrue(value.contains("Limite d’attente finale locale : 3000 ms"))
+        assertFalse(value.contains("LLM local appliqué"))
+        assertFalse(value.contains("Contenu privé"))
     }
 }

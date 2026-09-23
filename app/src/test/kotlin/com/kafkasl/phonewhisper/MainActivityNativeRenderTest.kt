@@ -99,6 +99,30 @@ class MainActivityNativeRenderTest {
     }
 
     @Test
+    fun gemma3SettingsPageStatesItsFrenchTextScopeAndHidesMailBenchmark() {
+        controller = Robolectric.buildActivity(MainActivity::class.java)
+        val activity = controller!!.create().start().resume().get()
+        val page = activity.buildFormattingPageForTest(
+            gemma4Pilot = false,
+            gemma3RepairPilot = true,
+        )
+        val width = 390
+        val height = 844
+        page.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
+        )
+        page.layout(0, 0, width, height)
+
+        assertTrue(containsText(page, "Gemma 3 270M V3 expérimental"))
+        assertTrue(containsText(page, "Essai Gemma 3 : texte corrigé français, attente limitée à 3 s."))
+        assertTrue(containsText(page, "Listes et mails non pris en charge par ce modèle."))
+        assertTrue(containsText(page, "Mesurer la latence — 6 textes"))
+        assertTrue(!containsText(page, "Mesurer les mails longs avec Gemma"))
+        writeBitmap(page, width, height, "main-gemma3-formatting.png", ThemeTokens.palette(activity))
+    }
+
+    @Test
     fun pilotLatencyLinkAndInitialDialogRenderWithoutStartingAModelWorker() {
         controller = Robolectric.buildActivity(MainActivity::class.java)
         val activity = controller!!.create().start().resume().get()
@@ -123,6 +147,7 @@ class MainActivityNativeRenderTest {
             activity,
             latencyOnly = true,
             pilotOverride = true,
+            gemma3RepairPilot = false,
             workerLauncher = { _, _ -> },
         )
         benchmark.show()

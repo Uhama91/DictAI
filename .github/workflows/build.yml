@@ -13,6 +13,10 @@ on:
         description: Build the CPU Gemma4 fine-tuned pilot APK
         type: boolean
         default: false
+      gemma3_repair_pilot:
+        description: Build the CPU Gemma 3 270M V3 short-wait pilot APK
+        type: boolean
+        default: false
       publish_prerelease:
         description: Publish the selected prototype or pilot APK as a downloadable prerelease
         type: boolean
@@ -24,6 +28,7 @@ permissions:
 env:
   PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[local-layout-test]') || contains(github.event.head_commit.message, '[local-layout-artifact]'))) }}
   GEMMA4_PILOT: ${{ (github.event_name == 'workflow_dispatch' && inputs.gemma4_finetuned_pilot) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma4-v6-test]')) }}
+  GEMMA3_PILOT: ${{ (github.event_name == 'workflow_dispatch' && inputs.gemma3_repair_pilot) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma3-latency-test]')) }}
 
 jobs:
   build:
@@ -32,6 +37,14 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Reject conflicting Gemma pilot selections
+        shell: bash
+        run: |
+          if [[ "$GEMMA3_PILOT" == true && ( "$GEMMA4_PILOT" == true || "$PROTOTYPE" == true ) ]]; then
+            echo "Gemma 3 cannot be selected with Gemma 4 or the GPU prototype." >&2
+            exit 1
+          fi
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -59,18 +72,26 @@ jobs:
       - name: Run Gemma4 pilot publication contract tests
         run: python3 -m unittest scripts/test_gemma4_pilot_publication.py -v
 
+      - name: Run Gemma3 pilot publication contract tests
+        run: python3 -m unittest scripts/test_gemma3_pilot_publication.py -v
+
+      - name: Run Gemma 3 APK identity checker tests
+        run: python3 -m unittest scripts/test_check_gemma3_apk_identity.py -v
+
       - name: Run transcribe.cpp native bundle contract
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" bash scripts/test_transcribe_cpp_bundle.sh
 
       - name: Build isolated local formatter
-        if: env.PROTOTYPE != 'true' || env.GEMMA4_PILOT == 'true'
+        if: env.PROTOTYPE != 'true' || env.GEMMA4_PILOT == 'true' || env.GEMMA3_PILOT == 'true'
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" DICTAI_CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake" bash scripts/build_local_format_android.sh
 
       - name: Run unit tests and build selected APK
         shell: bash
         run: |
           args=(testDebugUnitTest assembleDebug assembleDebugAndroidTest --stacktrace)
-          if [[ "$GEMMA4_PILOT" == true ]]; then
+          if [[ "$GEMMA3_PILOT" == true ]]; then
+            args+=(-Pgemma3RepairPilot=true)
+          elif [[ "$GEMMA4_PILOT" == true ]]; then
             args+=(-Pgemma4FineTunedPilot=true)
           elif [[ "$PROTOTYPE" == true ]]; then
             args+=(-PlocalFormatPrototype=true)
@@ -85,9 +106,19 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
 
+      - name: Verify Gemma 3 APK identity
+        if: env.GEMMA3_PILOT == 'true'
+        run: >-
+          python3 scripts/check_gemma3_apk_identity.py
+          app/build/outputs/apk/debug/app-debug.apk
+          --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt"
+          --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+
       - name: Verify packaged model and prepare download
         run: |
-          if [[ "$GEMMA4_PILOT" == true ]]; then
+          if [[ "$GEMMA3_PILOT" == true ]]; then
+            variant=gemma3-pilot
+          elif [[ "$GEMMA4_PILOT" == true ]]; then
             variant=pilot
           elif [[ "$PROTOTYPE" == true ]]; then
             variant=gpu
@@ -99,14 +130,14 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.GEMMA4_PILOT == 'true' && 'dictai-gemma4-v6-test' || env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'dictai-debug-apk' }}
+          name: ${{ env.GEMMA3_PILOT == 'true' && 'dictai-gemma3-test' || env.GEMMA4_PILOT == 'true' && 'dictai-gemma4-v6-test' || env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'dictai-debug-apk' }}
           path: dist/*
           compression-level: 0
           if-no-files-found: error
 
   publish-test:
     needs: build
-    if: (!inputs.gemma4_finetuned_pilot && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma4-v6-test]')) && ((github.event_name == 'workflow_dispatch' && inputs.local_format_prototype && inputs.publish_prerelease) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[local-layout-test]'))))
+    if: (!inputs.gemma4_finetuned_pilot && !inputs.gemma3_repair_pilot && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma4-v6-test]')) && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma3-latency-test]')) && ((github.event_name == 'workflow_dispatch' && inputs.local_format_prototype && inputs.publish_prerelease) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[local-layout-test]'))))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -179,3 +210,43 @@ jobs:
           gh release create "$tag" dictai-gemma4-v6-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
             --title 'DictAI 0.9.10 — diagnostic des dictées et des notes' --notes-file release-notes.md
+
+  publish-gemma3-pilot:
+    needs: build
+    if: >-
+      needs.build.result == 'success' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.gemma3_repair_pilot && inputs.publish_prerelease) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[gemma3-latency-test]')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dictai-gemma3-test
+          path: dist
+      - name: Publish experimental Gemma 3 V3 pilot APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          cd dist
+          sha256sum -c SHA256SUMS
+          tag="gemma3-test-$GITHUB_RUN_ID"
+          cat > release-notes.md <<'EOF'
+          DictAI 0.9.11 — essai Gemma 3 à attente courte.
+
+          Cet essai utilise les poids Gemma 3 270M V3 existants, sans les modifier. L'APK ne contient aucun poids. Le fichier du modèle est téléchargé séparément dans l'application depuis la release gemma270-v3-model : gemma3-270m-postclean-v3-q8_0.gguf, 291 545 280 octets, SHA-256 6c4b7b6654c9638287c31e50fd0bf849f33a2ff2dd93bee685bdd9632f20ecf5.
+
+          Le format testé est « Texte corrigé » en français. Les listes, les mails et les corrections progressives ne sont pas pris en charge par ce pilote local ; l'ASR direct et l'édition humaine restent disponibles. Il n'y a pas de bascule cloud implicite.
+
+          La limite de 3 secondes borne l'attente de correction après la fin de l'ASR ; elle ne mesure pas le délai total entre l'arrêt de la dictée et son insertion. En cas d'expiration ou de sortie refusée, le texte reconnu reste disponible.
+
+          Le candidat MLP rejeté lors de l'évaluation du 23 septembre n'est pas inclus. Cette préversion revient au Gemma 3 V3 inchangé ; elle ne revendique pas d'amélioration de qualité ni de latence réelle sur téléphone. Les mesures sur appareil restent à faire.
+
+          Le même identifiant d'application com.uhama.whisperpin et le même certificat de signature de débogage sont conservés pour permettre une installation comme mise à jour. N'effacez pas les données de l'application.
+          EOF
+          gh release create "$tag" dictai-gemma3-test.apk SHA256SUMS \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title 'DictAI 0.9.11 — essai Gemma 3 à attente courte' --notes-file release-notes.md

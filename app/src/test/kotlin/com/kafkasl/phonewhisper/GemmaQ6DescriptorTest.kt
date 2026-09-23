@@ -50,13 +50,19 @@ class GemmaQ6DescriptorTest {
 
     @Test
     fun buildVariantSelectsItsDefaultDescriptorAndMetadata() {
-        val expected = GemmaModelStore.artifactForPilot(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
+        val expected = GemmaModelStore.artifactForBuild(
+            gemma4Pilot = BuildConfig.GEMMA4_FINE_TUNED_PILOT,
+            gemma3RepairPilot = BuildConfig.GEMMA3_REPAIR_PILOT,
+        )
 
         assertEquals(expected, GemmaModelStore.defaultArtifact())
         assertEquals(expected.fileName, GemmaModelStore.MODEL_FILE)
         assertEquals(expected.sizeBytes, GemmaModelStore.EXPECTED_SIZE_BYTES)
         assertEquals(expected.sha256, GemmaModelStore.MODEL_SHA256)
-        assertEquals(GemmaModelStore.modelTitle(BuildConfig.GEMMA4_FINE_TUNED_PILOT), GemmaModelStore.MODEL_TITLE)
+        assertEquals(
+            GemmaModelStore.modelTitleForBuild(BuildConfig.GEMMA4_FINE_TUNED_PILOT, BuildConfig.GEMMA3_REPAIR_PILOT),
+            GemmaModelStore.MODEL_TITLE,
+        )
     }
 
     @Test

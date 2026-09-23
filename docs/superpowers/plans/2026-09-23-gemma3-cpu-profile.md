@@ -1,0 +1,17 @@
+# Profil CPU Gemma 3 pour un essai à attente bornée
+
+Objectif utilisateur : poursuivre Gemma 3 et fournir un APK de test, en donnant priorité à une attente courte. Ce lot prépare un profil indépendant du choix des nouveaux poids. Il ne sélectionne aucun candidat et n'active pas encore de variante APK.
+
+Lot complexe : deux revues Astra avant branchement. Luna 6 Max possède un nouveau helper pur `LocalFormatCpuProfile.kt`, `LocalFormatCpuEngine.kt` et leurs tests. Le correctif de garde « hum », le magasin de modèles, la façade, Gradle, l'overlay et les workflows sont hors de ce lot. Pas de modèle réel, commit, push ou publication.
+
+Conserver strictement le profil Gemma 4 existant par défaut : enveloppe et modes, contexte 4096, deux threads, budget calculé actuel et délai 20 secondes. Ajouter un profil Gemma 3 explicite : contexte 4096, deux threads, génération greedy identique, maximum 256 nouveaux tokens et délai total de l'appel de 3000 ms, file et chargement compris. Ce plafond est une politique d'attente expérimentale, pas une mesure de vitesse.
+
+Gemma 3 accepte uniquement le français, le format TEXT, la phase FINAL et un contexte précédent vide. Les langues reconnues sont `français` (libellé réel de `DictationLanguage.FRENCH.cleanupLanguageName`), `French`, `fr`, `fra` et leurs suffixes de locale usuels, insensibles à la casse. Une requête hors périmètre retourne null avant soumission native. Utiliser exactement `Gemma3RepairPrompt.build`, en traitant son refus de termes invalides comme un repli, sans exception propagée. Refuser les délimiteurs natifs `<start_of_turn>` et `<end_of_turn>` dans les données en plus des marqueurs déjà protégés. Les champs hors contrat ne doivent pas être silencieusement ignorés.
+
+Arbitrage des autres champs : refuser des `instructions` non vides ou `simpleEmailLayout=true` avant résultat direct/JNI. Le branchement ne transmettra au profil que le format prédéfini Texte corrigé avec instructions vides ; sa consigne vient du helper figé. `validation` reste une politique du garde aval, y compris son mode plus strict pour une édition humaine, sans changer le prompt.
+
+Le profil fixe l'enveloppe, les paramètres et les capacités ; il doit participer à la clé réelle du moteur partagé, même si deux clients fournissent le même `sharedKey`, afin qu'un handle ou ses paramètres Gemma 4 ne soient pas réutilisés par Gemma 3. Même profil et même clé continuent de partager un seul handle. Le mécanisme d'annulation, la génération native identifiée et la fermeture restent inchangés.
+
+TDD sans modèle : prouver la parité du prompt G3 avec les goldens, les refus avant JNI (format, langue, phase, contexte, termes invalides, marqueurs), les paramètres réellement reçus par le faux natif, l'isolation des profils et le partage dans un même profil. Couvrir l'expiration avant entrée native et le refus d'une réponse tardive sans attendre réellement trois secondes, au moyen de l'horloge contrôlée existante. Exécuter les tests CPU historiques et du prompt ; aucune modification du comportement Gemma 4 ne doit être nécessaire pour les faire passer. Compiler directement les suites pures avec les outils en cache ; pas de Gradle complet dans ce lot.
+
+Intégration ultérieure distincte : sélectionner un artefact vérifié, ajouter une variante Gemma 3 identifiable et aligner le délai du coordinateur/session et les diagnostics sur ce profil. Aucun argument de latence mobile ne sera tiré des seuls tests unitaires ou des temps GitHub.

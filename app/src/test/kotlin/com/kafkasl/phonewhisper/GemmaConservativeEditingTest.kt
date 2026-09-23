@@ -4,8 +4,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GemmaConservativeEditingTest {
-    private fun request(source: String, kind: LocalLayoutKind = LocalLayoutKind.EMAIL, terms: List<String> = emptyList()) =
-        LocalFormatRequest(source, "", "French", terms, kind, LocalFormatValidation.GEMMA_EDITING)
+    private fun request(
+        source: String,
+        kind: LocalLayoutKind = LocalLayoutKind.EMAIL,
+        terms: List<String> = emptyList(),
+        language: String = "French",
+    ) = LocalFormatRequest(source, "", language, terms, kind, LocalFormatValidation.GEMMA_EDITING)
 
     @Test fun realPhoneOutputRejectedIn084IsAcceptedWithoutRestoringTheSpellingMistake() {
         fun fixture(name: String) = javaClass.getResourceAsStream("/gemma-editing/$name.txt")!!.bufferedReader().use { it.readText() }
@@ -54,6 +58,52 @@ class GemmaConservativeEditingTest {
             "Je prépare le dossier dossier demain" to "Je prépare le dossier demain.",
         )
         for ((source, output) in cases) assertEquals(source, output, request(source).acceptOutput(output))
+    }
+
+    @Test fun acceptsRemovalOfStandaloneLowercaseHumInFrenchAndFrenchLocale() {
+        val source = "Je réponds hum demain"
+        val output = "Je réponds demain."
+        assertEquals(output, request(source, LocalLayoutKind.TEXT).acceptOutput(output))
+        assertEquals(output, request(source, LocalLayoutKind.TEXT, language = "fr-FR").acceptOutput(output))
+    }
+
+    @Test fun acceptsRemovalOfStandaloneLowercaseHumForTheRuntimeFrenchLabel() {
+        val source = "Je réponds hum demain"
+        val output = "Je réponds demain."
+        assertEquals(output, request(source, LocalLayoutKind.TEXT, language = "français").acceptOutput(output))
+        assertEquals(output, request(source, LocalLayoutKind.TEXT, language = "FRANÇAIS").acceptOutput(output))
+    }
+
+    @Test fun doesNotTreatCapitalizedOrEnglishHumAsAFrenchFiller() {
+        assertNull(request("Hum, je réponds demain", LocalLayoutKind.TEXT)
+            .acceptOutput("Je réponds demain."))
+        assertNull(request("I hum the tune", LocalLayoutKind.TEXT, language = "English")
+            .acceptOutput("I the tune."))
+    }
+
+    @Test fun englishHumRepetitionRetainsTheExistingDuplicateRemovalBehavior() {
+        val source = "We hum hum the tune"
+        val output = "We hum the tune."
+        assertEquals(output, request(source, LocalLayoutKind.TEXT, language = "English").acceptOutput(output))
+    }
+
+    @Test fun doesNotRemoveHumFromQuotesMentionsProtectedTermsOrCompounds() {
+        val cases = listOf(
+            "Je conserve « hum » dans la phrase" to "Je conserve dans la phrase.",
+            "Je garde le mot hum dans la phrase" to "Je garde le mot dans la phrase.",
+            "Je garde @hum dans la phrase" to "Je garde dans la phrase.",
+            "Je conserve hum-hum dans le nom" to "Je conserve hum dans le nom.",
+        )
+        for ((source, output) in cases) assertNull(source, request(source, LocalLayoutKind.TEXT).acceptOutput(output))
+        val protected = request("Je dis hum demain", LocalLayoutKind.TEXT, terms = listOf("hum"))
+        assertNull(protected.acceptOutput("Je dis demain."))
+    }
+
+    @Test fun humRemovalDoesNotPermitAnAdditionalNegationOrNumberDeletion() {
+        assertNull(request("Je ne réponds hum demain", LocalLayoutKind.TEXT)
+            .acceptOutput("Je réponds demain."))
+        assertNull(request("Je prends hum les 23 dossiers", LocalLayoutKind.TEXT)
+            .acceptOutput("Je prends les dossiers."))
     }
 
     @Test fun acceptsLimitedSpellingInFrenchAndEnglish() {

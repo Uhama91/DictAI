@@ -52,7 +52,8 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
             self.assertNotIn(prohibited_claim, pilot_job)
 
     def test_latency_diagnostic_version_is_pilot_only(self) -> None:
-        self.assertIn("versionCode = if (gemma4FineTunedPilot) 39 else 35", self.build_gradle)
+        self.assertIn("gemma4FineTunedPilot -> 39", self.build_gradle)
+        self.assertIn("else -> 35", self.build_gradle)
         self.assertIn('gemma4FineTunedPilot -> "0.9.10-dictai-latency-test"', self.build_gradle)
         self.assertIn('localFormatPrototype -> "0.9.6-dictai-gemma-test"', self.build_gradle)
         self.assertIn('else -> "0.9.6-dictai"', self.build_gradle)
@@ -104,14 +105,15 @@ class Gemma4PilotPublicationTest(unittest.TestCase):
     def test_latency_diagnostic_preserves_existing_artifact_and_release_marker(self) -> None:
         workflow = self.workflow
         self.assertIn("contains(github.event.head_commit.message, '[gemma4-v6-test]')", workflow)
-        self.assertIn("name: ${{ env.GEMMA4_PILOT == 'true' && 'dictai-gemma4-v6-test'", workflow)
+        self.assertIn("'dictai-gemma4-v6-test'", workflow)
         self.assertIn('tag="gemma4-v6-test-$GITHUB_RUN_ID"', workflow)
         self.assertIn("--prerelease --latest=false", workflow)
         self.assertNotIn("dictai-gemma4-latency-test", workflow)
 
     def test_latency_diagnostic_keeps_application_identity_and_nonpilot_versions(self) -> None:
         self.assertIn('applicationId = "com.uhama.whisperpin"', self.build_gradle)
-        self.assertIn("versionCode = if (gemma4FineTunedPilot) 39 else 35", self.build_gradle)
+        self.assertIn("gemma4FineTunedPilot -> 39", self.build_gradle)
+        self.assertIn("else -> 35", self.build_gradle)
         self.assertIn('localFormatPrototype -> "0.9.6-dictai-gemma-test"', self.build_gradle)
         self.assertIn('else -> "0.9.6-dictai"', self.build_gradle)
         pilot_job = " ".join(self.workflow.split("publish-gemma4-pilot:", 1)[1].split()).lower()

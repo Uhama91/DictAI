@@ -219,6 +219,7 @@ class OverlayService : Service() {
         var measurementLease: LocalMeasurementAdmission.Lease? = null
         var localFormatting: LocalFormattingSession? = null
         var progressiveFormatting: ProgressiveFormattingCoordinator? = null
+        @Volatile var gemma3Refusal: Gemma3RepairRefusal? = null
         var formatOffer: Runnable? = null
         var formatOfferRequest: LocalFormatRequest? = null
         var stoppedAtMs = 0L
@@ -426,7 +427,10 @@ class OverlayService : Service() {
     }
 
     private fun warmLocalFormatter() {
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE && prefs.formattingEngine == "local" &&
+        val eligibleForWarm = !BuildConfig.GEMMA3_REPAIR_PILOT || gemma3RepairRefusal(
+            PostProcessingFormats(this).selected(), prefs.dictationLanguage,
+        ) == Gemma3RepairRefusal.NONE
+        if (eligibleForWarm && BuildConfig.LOCAL_FORMAT_PROTOTYPE && prefs.formattingEngine == "local" &&
             GemmaModelStore(this).installedModel() != null) localFormatter.warm()
     }
 
@@ -624,11 +628,14 @@ class OverlayService : Service() {
         }
         invalidateNoteInsertion()
         val run = ActiveDictationRun(started.session, options, purpose)
+        run.gemma3Refusal = if (BuildConfig.GEMMA3_REPAIR_PILOT && options.localFormattingEnabled &&
+            options.format.usesLanguageModel
+        ) gemma3RepairRefusal(options.format, options.language) else null
         run.measurementLease = admissionLease
         try {
             if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
-                localFormatter.warm()
                 if (BuildConfig.GEMMA4_FINE_TUNED_PILOT) {
+                    localFormatter.warm()
                     val layout = requireNotNull(options.format.localLayoutKind)
                     run.progressiveFormatting = ProgressiveFormattingCoordinator(
                         mode = layout,
@@ -655,7 +662,44 @@ class OverlayService : Service() {
                         run.progressiveCompositionGate.clear()
                         run.progressiveFormatting?.close()
                     }
+                } else if (BuildConfig.GEMMA3_REPAIR_PILOT) {
+                    if (run.gemma3Refusal == Gemma3RepairRefusal.NONE) {
+                        localFormatter.warm()
+                        val layout = requireNotNull(options.format.localLayoutKind)
+                        run.progressiveFormatting = ProgressiveFormattingCoordinator(
+                            mode = layout,
+                            backend = localFormatter.backend(),
+                            normalizer = { value -> normalizeRecognizedText(value, options) },
+                            mainDispatcher = { task -> main.post(task) },
+                            finalWaitMs = LocalFormatCpuProfile.Gemma3Final.deadlineMs,
+                            allowPartialRequests = false,
+                            requestFactory = { segment, source ->
+                                if (segment.contextBefore.isNotBlank()) {
+                                    run.gemma3Refusal = Gemma3RepairRefusal.NONEMPTY_CONTEXT
+                                }
+                                gemma3FinalLocalFormatRequest(
+                                    source = source,
+                                    language = options.language,
+                                    protectedTerms = protectedVocabularyTerms(source),
+                                    contextBefore = segment.contextBefore,
+                                )
+                            },
+                            diagnostic = run.progressiveDiagnostic,
+                            onSnapshot = {
+                                run.pendingPreview?.let { (committed, tentative) ->
+                                    if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                                        renderLivePreview(run, committed, tentative)
+                                    }
+                                }
+                            },
+                        )
+                        run.cancellation.onCancel {
+                            run.progressiveCompositionGate.clear()
+                            run.progressiveFormatting?.close()
+                        }
+                    }
                 } else {
+                    localFormatter.warm()
                     run.localFormatting = LocalFormattingSession(localFormatter.backend())
                     run.cancellation.onCancel { run.localFormatting?.close() }
                 }
@@ -1108,6 +1152,7 @@ class OverlayService : Service() {
                     lightTextCleanup = lightCleanupApplied,
                     hesitationsRemoved = prepared?.removed ?: 0,
                     progressive = archiveProgressive,
+                    gemma3Refusal = run.gemma3Refusal,
                     asrFinalRecoveryMs = finalAsrRecoveryMs,
                     asrAwaitSessionExitMs = asrAwaitSessionExitMs,
                 )
@@ -1257,6 +1302,7 @@ class OverlayService : Service() {
                             lightTextCleanup = lightCleanupApplied,
                             hesitationsRemoved = prepared?.removed ?: 0,
                             progressive = progressiveDiagnosticSnapshot,
+                            gemma3Refusal = run.gemma3Refusal,
                             asrFinalRecoveryMs = finalAsrRecoveryMs,
                             asrAwaitSessionExitMs = asrAwaitSessionExitMs,
                         )
@@ -1306,6 +1352,7 @@ class OverlayService : Service() {
                             lightTextCleanup = lightCleanupApplied,
                             hesitationsRemoved = prepared?.removed ?: 0,
                             progressive = progressiveDiagnosticSnapshot,
+                            gemma3Refusal = run.gemma3Refusal,
                             asrFinalRecoveryMs = finalAsrRecoveryMs,
                             asrAwaitSessionExitMs = asrAwaitSessionExitMs,
                         )
@@ -1333,6 +1380,7 @@ class OverlayService : Service() {
         lightTextCleanup: Boolean = false,
         hesitationsRemoved: Int = 0,
         progressive: ProgressiveFormattingDiagnosticSnapshot? = null,
+        gemma3Refusal: Gemma3RepairRefusal? = null,
         asrFinalRecoveryMs: Long? = null,
         asrAwaitSessionExitMs: Long? = null,
     ) {
@@ -1357,6 +1405,8 @@ class OverlayService : Service() {
                 modelLoadMs = if (capture.options.localFormattingEnabled) localFormatter.lastLoadMs() else null,
                 lightTextCleanup = lightTextCleanup,
                 hesitationsRemoved = hesitationsRemoved,
+                gemma3RepairPilot = BuildConfig.GEMMA3_REPAIR_PILOT,
+                gemma3Refusal = gemma3Refusal,
                 progressive = progressive,
                 asrFinalRecoveryMs = asrFinalRecoveryMs,
                 asrAwaitSessionExitMs = asrAwaitSessionExitMs,

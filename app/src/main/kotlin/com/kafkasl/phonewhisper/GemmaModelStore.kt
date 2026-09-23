@@ -76,6 +76,11 @@ internal class GemmaModelStore internal constructor(
         defaultArtifact(),
     )
 
+    internal constructor(context: Context, artifact: GemmaModelArtifact) : this(
+        File(context.applicationContext.noBackupFilesDir, "gemma-format"),
+        artifact,
+    )
+
     private val finalDir get() = File(root, "installed-${artifact.sha256.take(16)}")
     private val workspace get() = File(root, "download-${artifact.sha256.take(16)}")
     private val partFile get() = File(workspace, "model.part")
@@ -636,6 +641,14 @@ internal class GemmaModelStore internal constructor(
         private const val PILOT_RELEASE_BASE_URL =
             "https://github.com/Uhama91/DictAI/releases/download/$PILOT_RELEASE_TAG"
 
+        private const val GEMMA3_REPAIR_MODEL_TITLE = "Gemma 3 270M V3 expérimental"
+        private const val GEMMA3_REPAIR_MODEL_FILE = "gemma3-270m-postclean-v3-q8_0.gguf"
+        private const val GEMMA3_REPAIR_SIZE_BYTES = 291_545_280L
+        private const val GEMMA3_REPAIR_MODEL_SHA256 =
+            "6c4b7b6654c9638287c31e50fd0bf849f33a2ff2dd93bee685bdd9632f20ecf5"
+        private const val GEMMA3_REPAIR_MODEL_URL =
+            "https://github.com/Uhama91/DictAI/releases/download/gemma270-v3-model/$GEMMA3_REPAIR_MODEL_FILE"
+
         val ARTIFACT = GemmaModelArtifact(
             "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/$MODEL_REVISION/$LEGACY_MODEL_FILE",
             LEGACY_MODEL_FILE, LEGACY_SIZE_BYTES, LEGACY_MODEL_SHA256,
@@ -665,24 +678,76 @@ internal class GemmaModelStore internal constructor(
             ),
         )
 
+        /** Frozen V3 weights; this pilot changes only app-side execution and routing. */
+        val GEMMA3_REPAIR_ARTIFACT = GemmaModelArtifact(
+            GEMMA3_REPAIR_MODEL_URL,
+            GEMMA3_REPAIR_MODEL_FILE,
+            GEMMA3_REPAIR_SIZE_BYTES,
+            GEMMA3_REPAIR_MODEL_SHA256,
+        )
+
         /** Selects a descriptor without performing a download or publishing a model. */
         internal fun artifactForPilot(pilot: Boolean): GemmaModelArtifact = if (pilot) Q6_ARTIFACT else ARTIFACT
 
-        internal fun defaultArtifact(): GemmaModelArtifact = artifactForPilot(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
+        internal fun artifactForBuild(gemma4Pilot: Boolean, gemma3RepairPilot: Boolean): GemmaModelArtifact {
+            require(!(gemma4Pilot && gemma3RepairPilot)) { "Gemma pilot builds are mutually exclusive." }
+            return when {
+                gemma3RepairPilot -> GEMMA3_REPAIR_ARTIFACT
+                gemma4Pilot -> Q6_ARTIFACT
+                else -> ARTIFACT
+            }
+        }
+
+        internal fun defaultArtifact(): GemmaModelArtifact = artifactForBuild(
+            gemma4Pilot = BuildConfig.GEMMA4_FINE_TUNED_PILOT,
+            gemma3RepairPilot = BuildConfig.GEMMA3_REPAIR_PILOT,
+        )
 
         internal fun modelTitle(pilot: Boolean): String = if (pilot) PILOT_MODEL_TITLE else LEGACY_MODEL_TITLE
 
+        internal fun modelTitleForBuild(gemma4Pilot: Boolean, gemma3RepairPilot: Boolean): String {
+            artifactForBuild(gemma4Pilot, gemma3RepairPilot)
+            return when {
+                gemma3RepairPilot -> GEMMA3_REPAIR_MODEL_TITLE
+                gemma4Pilot -> PILOT_MODEL_TITLE
+                else -> LEGACY_MODEL_TITLE
+            }
+        }
+
         internal fun modelFile(pilot: Boolean): String = if (pilot) PILOT_MODEL_FILE else LEGACY_MODEL_FILE
+
+        internal fun modelFileForBuild(gemma4Pilot: Boolean, gemma3RepairPilot: Boolean): String {
+            artifactForBuild(gemma4Pilot, gemma3RepairPilot)
+            return when {
+                gemma3RepairPilot -> GEMMA3_REPAIR_MODEL_FILE
+                gemma4Pilot -> PILOT_MODEL_FILE
+                else -> LEGACY_MODEL_FILE
+            }
+        }
 
         internal fun expectedSizeBytes(pilot: Boolean): Long = if (pilot) PILOT_SIZE_BYTES else LEGACY_SIZE_BYTES
 
+        internal fun expectedSizeBytesForBuild(gemma4Pilot: Boolean, gemma3RepairPilot: Boolean): Long =
+            artifactForBuild(gemma4Pilot, gemma3RepairPilot).sizeBytes
+
         internal fun modelSha256(pilot: Boolean): String = if (pilot) PILOT_MODEL_SHA256 else LEGACY_MODEL_SHA256
 
+        internal fun modelSha256ForBuild(gemma4Pilot: Boolean, gemma3RepairPilot: Boolean): String =
+            artifactForBuild(gemma4Pilot, gemma3RepairPilot).sha256
+
         // These properties keep existing UI callers unchanged while following the selected build variant.
-        val MODEL_TITLE: String get() = modelTitle(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
-        val MODEL_FILE: String get() = modelFile(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
-        val EXPECTED_SIZE_BYTES: Long get() = expectedSizeBytes(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
-        val MODEL_SHA256: String get() = modelSha256(BuildConfig.GEMMA4_FINE_TUNED_PILOT)
+        val MODEL_TITLE: String get() = modelTitleForBuild(
+            BuildConfig.GEMMA4_FINE_TUNED_PILOT, BuildConfig.GEMMA3_REPAIR_PILOT,
+        )
+        val MODEL_FILE: String get() = modelFileForBuild(
+            BuildConfig.GEMMA4_FINE_TUNED_PILOT, BuildConfig.GEMMA3_REPAIR_PILOT,
+        )
+        val EXPECTED_SIZE_BYTES: Long get() = expectedSizeBytesForBuild(
+            BuildConfig.GEMMA4_FINE_TUNED_PILOT, BuildConfig.GEMMA3_REPAIR_PILOT,
+        )
+        val MODEL_SHA256: String get() = modelSha256ForBuild(
+            BuildConfig.GEMMA4_FINE_TUNED_PILOT, BuildConfig.GEMMA3_REPAIR_PILOT,
+        )
         private const val INTEGRITY_MAGIC = "dictai-gemma-integrity-v1"
         private const val RESUME_MAGIC = "dictai-gemma-resume-v1"
         private const val MULTIPART_RESUME_MAGIC = "dictai-gemma-multipart-resume-v1"

@@ -6,7 +6,12 @@ plugins {
 }
 
 val gemma4FineTunedPilot = providers.gradleProperty("gemma4FineTunedPilot").orNull == "true"
-val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true" || gemma4FineTunedPilot
+val gemma3RepairPilot = providers.gradleProperty("gemma3RepairPilot").orNull == "true"
+require(!(gemma4FineTunedPilot && gemma3RepairPilot)) {
+    "Gemma 3 repair and Gemma 4 pilots are mutually exclusive."
+}
+val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true" ||
+    gemma4FineTunedPilot || gemma3RepairPilot
 
 android {
     namespace = "com.kafkasl.phonewhisper"
@@ -17,8 +22,11 @@ android {
     }
 
     androidResources { noCompress += listOf("gguf", "litertlm") }
+    if (gemma3RepairPilot) {
+        sourceSets.getByName("main").assets.srcDir("src/gemma3RepairPilot/assets")
+    }
     // Gemma is installed once from inside the app. The old bundled 350M is not packaged.
-    if (localFormatPrototype && !gemma4FineTunedPilot) {
+    if (localFormatPrototype && !gemma4FineTunedPilot && !gemma3RepairPilot) {
         packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
     }
 
@@ -28,8 +36,14 @@ android {
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
         buildConfigField("boolean", "GEMMA4_FINE_TUNED_PILOT", gemma4FineTunedPilot.toString())
-        versionCode = if (gemma4FineTunedPilot) 39 else 35
+        buildConfigField("boolean", "GEMMA3_REPAIR_PILOT", gemma3RepairPilot.toString())
+        versionCode = when {
+            gemma3RepairPilot -> 40
+            gemma4FineTunedPilot -> 39
+            else -> 35
+        }
         versionName = when {
+            gemma3RepairPilot -> "0.9.11-dictai-gemma3-test"
             gemma4FineTunedPilot -> "0.9.10-dictai-latency-test"
             localFormatPrototype -> "0.9.6-dictai-gemma-test"
             else -> "0.9.6-dictai"

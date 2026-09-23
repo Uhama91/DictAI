@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify and stage a normal, GPU-prototype, or Gemma4 pilot APK."""
+"""Verify and stage a normal, GPU-prototype, or CPU pilot APK."""
 
 from __future__ import annotations
 
@@ -11,11 +11,12 @@ import zipfile
 from pathlib import Path
 
 
-VARIANTS = frozenset({"normal", "gpu", "pilot"})
+VARIANTS = frozenset({"normal", "gpu", "pilot", "gemma3-pilot"})
 OUTPUT_NAMES = {
     "normal": "dictai-debug.apk",
     "gpu": "dictai-local-layout-test.apk",
     "pilot": "dictai-gemma4-v6-test.apk",
+    "gemma3-pilot": "dictai-gemma3-test.apk",
 }
 REQUIRED_ASSETS = (
     "assets/local-format/gemma-NOTICE.txt",
@@ -30,6 +31,7 @@ REQUIRED_ASSETS = (
     "assets/THIRD_PARTY_NOTICES.txt",
 )
 PILOT_NOTICE_ASSET = "assets/local-format/gemma4-v6-pilot-NOTICE.txt"
+GEMMA3_PILOT_NOTICE_ASSET = "assets/local-format/gemma3-repair-pilot-NOTICE.txt"
 LOCAL_FORMAT_LIBRARIES = frozenset(
     {
         "lib/arm64-v8a/libdictai_llm.so",
@@ -39,10 +41,17 @@ LOCAL_FORMAT_LIBRARIES = frozenset(
 
 
 def variant_from_environment() -> str:
-    if os.environ.get("GEMMA4_PILOT") == "true":
+    gemma3_pilot = os.environ.get("GEMMA3_PILOT") == "true"
+    gemma4_pilot = os.environ.get("GEMMA4_PILOT") == "true"
+    prototype = os.environ.get("PROTOTYPE") == "true"
+    if gemma3_pilot and (gemma4_pilot or prototype):
+        raise ValueError("Gemma 3 pilot cannot be combined with another local-format prototype route")
+    if gemma3_pilot:
+        return "gemma3-pilot"
+    if gemma4_pilot:
         return "pilot"
     # Keep the existing CI helper contract for the GPU-only prototype.
-    if os.environ.get("PROTOTYPE") == "true":
+    if prototype:
         return "gpu"
     return "normal"
 
@@ -61,6 +70,8 @@ def verify_apk(apk: Path, variant: str) -> set[str]:
         assert not missing_assets, f"Missing required APK notices/assets: {', '.join(missing_assets)}"
         if variant == "pilot" and PILOT_NOTICE_ASSET not in names:
             raise AssertionError(f"pilot notice missing: {PILOT_NOTICE_ASSET}")
+        if variant == "gemma3-pilot" and GEMMA3_PILOT_NOTICE_ASSET not in names:
+            raise AssertionError(f"Gemma 3 pilot notice missing: {GEMMA3_PILOT_NOTICE_ASSET}")
         assert "lib/arm64-v8a/liblitertlm_jni.so" in names, "Missing LiteRT-LM Android runtime"
 
         has_local = names & LOCAL_FORMAT_LIBRARIES

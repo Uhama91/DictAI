@@ -69,6 +69,7 @@ internal class ProgressiveFormattingCoordinator(
     private val requestFactory: (ProgressiveFormatRequest, String) -> LocalFormatRequest,
     private val onSnapshot: (ProgressiveBufferState) -> Unit = {},
     private val finalWaitMs: Long = FINAL_WAIT_MS,
+    private val allowPartialRequests: Boolean = true,
     private val diagnostic: ProgressiveFormattingDiagnostic? = null,
     private val clock: ProgressiveMonotonicClock = SystemProgressiveMonotonicClock,
 ) : AutoCloseable {
@@ -113,7 +114,7 @@ internal class ProgressiveFormattingCoordinator(
                 cancelledId = previous.id
                 cancel = true
             }
-            if (!finalizing) {
+            if (!finalizing && allowPartialRequests) {
                 if (current != null && activeRequest == null) assignActiveRequest(current)
                 if (current == null || activeRequest == null) {
                     next = buffer.request(mode, GemmaFineTunedPrompt.Phase.PARTIAL)
@@ -159,7 +160,7 @@ internal class ProgressiveFormattingCoordinator(
     fun state(): ProgressiveBufferState = synchronized(lock) { buffer.state() }
 
     /** Returns the text-free lifecycle trace accumulated for this dictation. */
-    fun diagnosticSnapshot(): ProgressiveFormattingDiagnosticSnapshot? = diagnostic?.snapshot()
+    fun diagnosticSnapshot(): ProgressiveFormattingDiagnosticSnapshot? = diagnostic?.snapshot(finalWaitMs)
 
     /**
      * Runs one bounded FINAL request over only the current unaccepted continuation.
@@ -369,7 +370,7 @@ internal class ProgressiveFormattingCoordinator(
                 result = finalResult
                 finalResult = null
             }
-            if (!isFinal && publish && !closed && !finalizing) {
+            if (!isFinal && publish && !closed && !finalizing && allowPartialRequests) {
                 next = buffer.request(mode, GemmaFineTunedPrompt.Phase.PARTIAL)
                 if (next != null) assignActiveRequest(next)
             }

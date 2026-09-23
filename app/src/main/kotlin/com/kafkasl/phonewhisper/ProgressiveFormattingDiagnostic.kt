@@ -35,6 +35,7 @@ internal data class ProgressiveCallTiming(
     val id: Long,
     val phase: GemmaFineTunedPrompt.Phase,
     val startedDuringDictation: Boolean,
+    val nativeStarted: Boolean,
     val nativeStartedDuringDictation: Boolean,
     val dispatcherWaitMs: Long?,
     val backendWaitMs: Long?,
@@ -65,6 +66,7 @@ internal data class ProgressiveFormattingDiagnosticSnapshot(
     val finalDeadlineExceeded: Int,
     val cancellations: Map<ProgressiveCancellationReason, Int>,
     val calls: List<ProgressiveCallTiming>,
+    val configuredWaitLimitMs: Long? = null,
 ) {
     /** A bounded summary that deliberately contains no dictated text or exception details. */
     fun summary(): String {
@@ -89,6 +91,7 @@ internal data class ProgressiveFormattingDiagnosticSnapshot(
             append("; acceptes_puis_invalides=$acceptedThenInvalidated")
             append("; encore_livres=$stillDelivered")
             append("; echeances_finales_depassees=$finalDeadlineExceeded")
+            configuredWaitLimitMs?.let { append("; limite_attente_configuree=${it}ms") }
             append("; $cancellationSummary")
         }
         // Newest calls carry the useful end-of-dictation evidence. Keep them first so the
@@ -99,6 +102,7 @@ internal data class ProgressiveFormattingDiagnosticSnapshot(
                 "attente_backend=${call.backendWaitMs ?: -1}ms " +
                 "generation=${call.generationMs ?: -1}ms " +
                 "premier_fragment=${call.firstFragmentMs ?: -1}ms " +
+                "appel_natif=${if (call.nativeStarted) "oui" else "non"} " +
                 "validation=${call.validationMs ?: -1}ms " +
                 "fragment=${if (call.firstFragmentSeen) "oui" else "non"} " +
                 "etat=${call.outcome.name.lowercase()}"
@@ -159,6 +163,7 @@ internal class ProgressiveFormattingDiagnostic(
                 id = id,
                 phase = phase,
                 startedDuringDictation = startedDuringDictation,
+                nativeStarted = native != null,
                 nativeStartedDuringDictation = nativeStartedDuringDictation,
                 dispatcherWaitMs = worker?.let { elapsedMs(scheduledAtNanos, it) },
                 backendWaitMs = if (backendEntered != null && native != null) elapsedMs(backendEntered, native) else null,
@@ -356,7 +361,7 @@ internal class ProgressiveFormattingDiagnostic(
         }
     }
 
-    fun snapshot(): ProgressiveFormattingDiagnosticSnapshot = synchronized(lock) {
+    fun snapshot(configuredWaitLimitMs: Long? = null): ProgressiveFormattingDiagnosticSnapshot = synchronized(lock) {
         val timings = calls.values.map { it.timing() }
         val cancellations = ProgressiveCancellationReason.entries.associateWith { reason ->
             cancellationCounts[reason] ?: 0
@@ -378,6 +383,7 @@ internal class ProgressiveFormattingDiagnostic(
             finalDeadlineExceeded = finalDeadlineExceeded,
             cancellations = cancellations,
             calls = timings,
+            configuredWaitLimitMs = configuredWaitLimitMs,
         )
     }
 

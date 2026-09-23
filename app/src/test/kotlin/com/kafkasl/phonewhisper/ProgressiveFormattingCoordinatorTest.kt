@@ -182,6 +182,50 @@ class ProgressiveFormattingCoordinatorTest {
         coordinator.close()
     }
 
+    @Test fun `final-only coordinator tracks revisions but emits one final request`() {
+        val backend = FakeBackend(outputs = ArrayDeque(listOf("texte final relu")))
+        val submitted = mutableListOf<LocalFormatRequest>()
+        val diagnostic = ProgressiveFormattingDiagnostic(ProgressiveMonotonicClock { 1L })
+        val coordinator = ProgressiveFormattingCoordinator(
+            mode = LocalLayoutKind.TEXT,
+            backend = backend,
+            mainDispatcher = ImmediateDispatcher,
+            finalWaitMs = 3_000L,
+            allowPartialRequests = false,
+            diagnostic = diagnostic,
+            requestFactory = { segment, source ->
+                LocalFormatRequest(
+                    text = source,
+                    instructions = "",
+                    language = "français",
+                    layoutKind = LocalLayoutKind.TEXT,
+                    validation = LocalFormatValidation.EXACT_LAYOUT,
+                    phase = segment.phase,
+                    contextBefore = segment.contextBefore,
+                ).also(submitted::add)
+            },
+        )
+        val firstSource = longText()
+        val revisedSource = firstSource.replace("mot1", "source2")
+
+        coordinator.update(firstSource, stableWordCount = 25, totalDictationWordCount = 65)
+        coordinator.update(revisedSource, stableWordCount = 30, totalDictationWordCount = 65)
+        assertTrue("final-only updates must not launch partial work", backend.requests.isEmpty())
+
+        coordinator.finish(revisedSource, stableWordCount = 65, totalDictationWordCount = 65)
+
+        assertEquals(1, backend.requests.size)
+        assertEquals(1, submitted.size)
+        assertEquals(GemmaFineTunedPrompt.Phase.FINAL, submitted.single().phase)
+        assertEquals("français", submitted.single().language)
+        assertEquals(revisedSource, submitted.single().text)
+        val snapshot = coordinator.diagnosticSnapshot()!!
+        assertEquals(0, snapshot.scheduledPartial)
+        assertEquals(1, snapshot.scheduledFinal)
+        assertTrue(snapshot.summary().contains("limite_attente_configuree=3000ms"))
+        coordinator.close()
+    }
+
     @Test fun `close races a completed request without accepting its result`() {
         val dispatcher = ManualDispatcher()
         val backend = FakeBackend(outputs = ArrayDeque(listOf("ancien résultat")))

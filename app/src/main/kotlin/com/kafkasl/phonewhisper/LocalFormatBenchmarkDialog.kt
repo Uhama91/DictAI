@@ -25,10 +25,15 @@ internal class LocalFormatBenchmarkDialog(
     private val longMailsOnly: Boolean = false,
     private val latencyOnly: Boolean = false,
     private val pilotOverride: Boolean? = null,
+    private val gemma3RepairPilot: Boolean = BuildConfig.GEMMA3_REPAIR_PILOT,
     private val workerLauncher: ((Runnable, String) -> Unit)? = null,
 ) : AutoCloseable {
     private val activityRef = WeakReference(activity)
     private val pilot = pilotOverride ?: BuildConfig.GEMMA4_FINE_TUNED_PILOT
+    init {
+        require(!(pilot && gemma3RepairPilot)) { "Gemma pilot benchmarks are mutually exclusive." }
+        require(!longMailsOnly || !gemma3RepairPilot) { "Gemma 3 V3 does not support mail benchmarks." }
+    }
     private val main = Handler(Looper.getMainLooper())
     private val engine = LocalFormatEngine(activity.applicationContext)
     private val backend = engine.backend()
@@ -50,8 +55,10 @@ internal class LocalFormatBenchmarkDialog(
     val isShowing: Boolean get() = dialog?.isShowing == true
 
     fun show() {
-        if ((!BuildConfig.LOCAL_FORMAT_PROTOTYPE && pilotOverride == null) ||
-            (latencyOnly && !pilot) || closed.get() || !started.compareAndSet(false, true)
+        if ((!BuildConfig.LOCAL_FORMAT_PROTOTYPE && pilotOverride == null && !gemma3RepairPilot) ||
+            (latencyOnly && !pilot && !gemma3RepairPilot) ||
+            (gemma3RepairPilot && !BuildConfig.GEMMA3_REPAIR_PILOT) ||
+            closed.get() || !started.compareAndSet(false, true)
         ) return
         val activity = activityRef.get() ?: return
         if (activity.isFinishing || activity.isDestroyed) return
@@ -71,7 +78,8 @@ internal class LocalFormatBenchmarkDialog(
             content.addView(this, LinearLayout.LayoutParams(-1, dp(12)))
         }
         val report = TextView(activity).apply {
-            text = if (latencyOnly) "Six textes français synthétiques, trois passages chacun, sans score de qualité.\nLe chargement est mesuré séparément. Si le modèle est déjà chargé, le rapport le précise. Prévoir quelques minutes.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
+            text = if (latencyOnly && gemma3RepairPilot) "Six textes français synthétiques, trois passages chacun, sans score de qualité. Le modèle Gemma 3 270M V3 reste inchangé. Chaque requête respecte le profil final français et sa limite réelle de ${LocalFormatCpuProfile.Gemma3Final.deadlineMs} ms.\nLe chargement est mesuré séparément. Prévoir quelques minutes.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
+                else if (latencyOnly) "Six textes français synthétiques, trois passages chacun, sans score de qualité.\nLe chargement est mesuré séparément. Si le modèle est déjà chargé, le rapport le précise. Prévoir quelques minutes.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
                 else if (longMailsOnly) "Deux mails longs, deux passages chacun, entièrement traités par Gemma.\nChaque calcul peut durer jusqu’à 20 secondes. La préparation initiale est mesurée séparément.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
                 else "${totalRuns} essais français/anglais, dont ${examples.count { it.request.directOutput() != null } * 2} réponses directes sans appel LLM.\nLe chargement est mesuré si Gemma n’est pas déjà prêt.\nLaissez la dictée au repos et gardez cet écran ouvert jusqu’à la fin."
             textSize = 13f
@@ -126,13 +134,17 @@ internal class LocalFormatBenchmarkDialog(
         val longMail: Boolean = false, val minBodyParagraphs: Int? = null,
         val latencyCase: LocalLatencyBenchmarkCase? = null)
 
-    private fun latencyCases(): List<Case> = LocalLatencyBenchmarkCases.all.map { spec ->
-        Case(
+    private fun latencyCases(): List<Case> {
+        val requests = if (gemma3RepairPilot) gemma3FinalLatencyBenchmarkRequests()
+        else LocalLatencyBenchmarkCases.all.map { it.request }
+        return LocalLatencyBenchmarkCases.all.mapIndexed { index, spec ->
+            Case(
             name = "${spec.id} · ${spec.label}",
-            request = spec.request,
+            request = requests[index],
             expected = emptyList(),
             latencyCase = spec,
         )
+        }
     }
 
     private fun cases(): List<Case> {
@@ -208,14 +220,16 @@ internal class LocalFormatBenchmarkDialog(
     private fun runLatencyBenchmark() {
         val report = StringBuilder().apply {
             append("DictAI — mesure de latence du pilote\n")
-            append("Modèle : ${LocalFormatRuntimeLabels.model(pilot)}\n")
+            append("Modèle : ${LocalFormatRuntimeLabels.model(pilot, gemma3RepairPilot)}\n")
             append("Application : ${BuildConfig.VERSION_NAME}\n")
             append("Appareil : ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n")
             append("${examples.size} textes synthétiques × ${LocalLatencyBenchmarkCases.PASS_COUNT} passages, sans cloud ni score de qualité.\n")
             append("Le moteur est partagé avec l’overlay. Le chargement est mesuré séparément ; si le modèle est déjà chargé, le rapport le précise.\n")
-            append("Configuration : ${LocalFormatRuntimeLabels.configuration(pilot)} · ${LocalFormatCpuEngine.CPU_THREADS} threads CPU · contexte ${LocalFormatCpuEngine.CPU_CONTEXT_SIZE}. Validation : GEMMA_EDITING · Texte · phase finale · e-mail simplifié désactivé.\n")
+            append("Configuration : ${LocalFormatRuntimeLabels.configuration(pilot, gemma3RepairPilot)} · ${LocalFormatCpuEngine.CPU_THREADS} threads CPU · contexte ${LocalFormatCpuEngine.CPU_CONTEXT_SIZE}. Validation : GEMMA_EDITING · Texte · phase finale · e-mail simplifié désactivé.\n")
             append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Les temps de calcul et de validation sont séparés.\n")
-            append("Le banc ne mesure ni l’ASR, ni l’affichage, ni l’insertion dans une autre application, et ne compare pas Gemma 3. Les réponses brutes et finales restent copiables pour une revue humaine.\n\n")
+            append(if (gemma3RepairPilot)
+                "Ce banc ne mesure ni l’ASR, ni l’affichage, ni l’insertion dans une autre application ; il ne qualifie pas la qualité sémantique générale. Les réponses brutes et finales restent copiables pour une revue humaine.\n\n"
+            else "Le banc ne mesure ni l’ASR, ni l’affichage, ni l’insertion dans une autre application, et ne compare pas Gemma 3. Les réponses brutes et finales restent copiables pour une revue humaine.\n\n")
             append("Avant les essais : ${deviceSample()}\n\n")
         }
         var completed = 0
@@ -318,7 +332,7 @@ internal class LocalFormatBenchmarkDialog(
             if (!cancelled.get()) {
                 failed = true
                 report.append("Le banc de latence n'a pas pu se terminer (${error.javaClass.simpleName}).\n")
-                report.append("${LocalFormatRuntimeLabels.failure(pilot, engine.runtimeName(), engine.failureCode())}. Le calcul CPU est le moteur principal ; aucun repli cloud.\n")
+                report.append("${LocalFormatRuntimeLabels.failure(pilot, engine.runtimeName(), engine.failureCode(), gemma3RepairPilot)}. Le calcul CPU est le moteur principal ; aucun repli cloud.\n")
             }
         } finally {
             report.append("Après les essais : ${deviceSample()}\n")
@@ -357,14 +371,14 @@ internal class LocalFormatBenchmarkDialog(
 
     private fun runLegacyBenchmarkBody() {
         val report = StringBuilder().apply {
-            append("DictAI — test local du post-traitement\nModèle : ${LocalFormatRuntimeLabels.model(pilot)}\n")
+            append("DictAI — test local du post-traitement\nModèle : ${LocalFormatRuntimeLabels.model(pilot, gemma3RepairPilot)}\n")
             append("Application : ${BuildConfig.VERSION_NAME}\n")
             append("Appareil : ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n")
             append("${examples.size} exemples synthétiques × 2 passages, sans cloud.\n")
-            append("Moteur partagé avec l’overlay. Le premier essai indique si Gemma était déjà chargé. ${LocalFormatRuntimeLabels.cacheNote(pilot)}\n")
-            append("Configuration : ${LocalFormatRuntimeLabels.configuration(pilot)}.\n")
+            append("Moteur partagé avec l’overlay. Le premier essai indique si Gemma était déjà chargé. ${LocalFormatRuntimeLabels.cacheNote(pilot, gemma3RepairPilot)}\n")
+            append("Configuration : ${LocalFormatRuntimeLabels.configuration(pilot, gemma3RepairPilot)}.\n")
             append("Mails longs : Gemma seul, sans disposition directe. Les réponses directes des autres cas ne mesurent pas le LLM.\n")
-            append("Limite du banc : ${LocalFormatEngine.GENERATION_DEADLINE_MS} ms par appel après préparation initiale, file comprise ; aucune coupure à 5, 8 ou 10 secondes.\n")
+            append("Limite du banc : ${if (gemma3RepairPilot) LocalFormatCpuProfile.Gemma3Final.deadlineMs else LocalFormatEngine.GENERATION_DEADLINE_MS} ms par appel après préparation initiale, file comprise ; aucune coupure à 5, 8 ou 10 secondes.\n")
             append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Le texte est validé avant publication.\n")
             append("Mesure isolée : ne comprend pas l'arrêt ASR, l'affichage ni l'insertion dans une autre application.\n")
             append("Corrections de forme et répétitions autorisées ; contrôles lexicaux et structure évalués séparément. Le score de paragraphes ne vérifie pas leur pertinence. Un critère réussi ne valide pas tous les formats.\n\n")
@@ -401,7 +415,7 @@ internal class LocalFormatBenchmarkDialog(
                         returnedAt - callStarted, SystemClock.elapsedRealtime() - returnedAt,
                         generated.isSuccess && !raw.isNullOrBlank(),
                     )
-                    if (cold) report.append("Calcul : ${LocalFormatRuntimeLabels.calculation(pilot, engine.runtimeName())}\n\n")
+                    if (cold) report.append("Calcul : ${LocalFormatRuntimeLabels.calculation(pilot, engine.runtimeName(), gemma3RepairPilot)}\n\n")
                     if (cold) engine.lastLoadMs()?.let { report.append("Dernière initialisation du moteur partagé : $it ms\n\n") }
                     report.append("Passage $pass · ${example.name} · ${if (preparation?.wasAlreadyLoaded == false) "chargement effectué" else "moteur chargé"}\n")
                     report.append("Chargement : ${preparation?.takeUnless { it.wasAlreadyLoaded }?.let { "${it.loadMs} ms" } ?: "déjà effectué"}\n")
@@ -482,7 +496,7 @@ internal class LocalFormatBenchmarkDialog(
         val thermal = (activity.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).currentThermalStatus
         val memory = android.app.ActivityManager.MemoryInfo()
         (activity.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memory)
-        "PSS processus ${android.os.Debug.getPss() / 1024} Mio${LocalFormatRuntimeLabels.pssNote(pilot)}, RAM disponible ${memory.availMem / (1024 * 1024)} Mio, état thermique Android $thermal"
+        "PSS processus ${android.os.Debug.getPss() / 1024} Mio${LocalFormatRuntimeLabels.pssNote(pilot, gemma3RepairPilot)}, RAM disponible ${memory.availMem / (1024 * 1024)} Mio, état thermique Android $thermal"
     }.getOrDefault("échantillon indisponible")
 
     private fun hasTerm(text: String, term: String): Boolean =

@@ -8,6 +8,8 @@ import java.util.Locale
  */
 internal object GemmaConservativeEditing {
     private val word = Regex("[\\p{L}\\p{M}\\p{N}]+")
+    private val frenchLanguage = Regex("^(?:french|français|fr|fra)(?:[-_][a-z0-9]+)*$")
+    private val fillerMention = Regex("(?iu)\\b(?:mot|word|interjection)\\s*$")
     private val fillers = setOf("euh", "heu", "uh", "um")
     private val articles = setOf("le", "la", "les", "un", "une", "des", "du", "the", "a", "an")
     private val functions = articles + setOf("je", "tu", "il", "elle", "ils", "elles", "i", "we", "he", "she", "they", "que", "qui", "de")
@@ -37,6 +39,7 @@ internal object GemmaConservativeEditing {
         val dst = word.findAll(candidate).toList()
         if (src.isEmpty() || src.size > 2048 || dst.isEmpty() || dst.size > src.size) return null
         val locked = protectedRanges(source, request.protectedTerms)
+        val allowFrenchHum = frenchLanguage.matches(request.language.trim().lowercase(Locale.ROOT))
         fun key(value: String) = value.lowercase(Locale.ROOT)
         val a = src.map { key(it.value) }; val b = dst.map { key(it.value) }
         fun gap(i: Int, j: Int) = source.substring(src[i].range.last + 1, src[j].range.first)
@@ -55,8 +58,8 @@ internal object GemmaConservativeEditing {
         val protected = src.indices.map(::protected)
         fun removable(i: Int): Boolean {
             if (protected[i] || a[i] in emphatic) return false
-            if (a[i] in fillers) return !Regex("(?iu)\\b(?:mot|word|interjection)\\s*$")
-                .containsMatchIn(source.take(src[i].range.first))
+            if (a[i] in fillers || a[i] == "hum" && allowFrenchHum && src[i].value == "hum")
+                return !fillerMention.containsMatchIn(source.take(src[i].range.first))
             // Remove only an adjacent duplicate (up to four words), retaining the other copy.
             for (length in 1..4) for (offset in 0 until length) {
                 val start = i - offset

@@ -1,0 +1,37 @@
+DictAI Gemma 3 270M V3 — notice du pilote expérimental
+=======================================================
+
+Gemma is provided under and subject to the Gemma Terms of Use found at
+ai.google.dev/gemma/terms.
+
+Provenance du modèle
+--------------------
+
+Ce pilote utilise la référence Gemma 3 270M V3 de DictAI. Le modèle de base
+est `google/gemma-3-270m-it`, révision
+`ac82b4e820549b854eebf28ce6dedaf9fdfa17b3`. La version V3 a été adaptée par
+LoRA, fusionnée dans la base puis quantifiée en GGUF Q8_0.
+
+Fichier téléchargé séparément par l'application :
+`gemma3-270m-postclean-v3-q8_0.gguf`
+Release : https://github.com/Uhama91/DictAI/releases/tag/gemma270-v3-model
+Taille : 291545280 octets
+SHA-256 : 6c4b7b6654c9638287c31e50fd0bf849f33a2ff2dd93bee685bdd9632f20ecf5
+
+L'APK n'embarque aucun poids. Il référence le fichier V3 existant ; cette
+préversion ne distribue pas de nouvel adaptateur ni de poids provenant du pilote
+attention + MLP. Le modèle téléchargé et ses dérivés restent soumis aux Gemma
+Terms of Use et à la Gemma Prohibited Use Policy. La release du modèle fournit
+`LICENSE.txt`, `PROHIBITED_USE_POLICY.txt`, `NOTICE.txt` et
+`gemma270-model.json` avec ses poids.
+
+Runtime et portée
+-----------------
+
+Le moteur local CPU s'appuie sur llama.cpp/ggml, épinglé à la révision
+`1511ce3bc3f087376c8526b4ad07100bfabb277f`. Sa licence MIT figure dans
+`llama-LICENSE.txt`.
+
+Ce pilote expérimental ne constitue pas un produit officiel Google ni un
+endossement par Google. Cette notice ne démontre pas la qualité sémantique, la
+latence ou la mémoire sur un téléphone.

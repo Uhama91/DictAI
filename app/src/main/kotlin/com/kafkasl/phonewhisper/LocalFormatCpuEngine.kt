@@ -41,8 +41,9 @@ internal class LocalFormatCpuEngine(
     clock: LocalFormatCpuClock = LocalFormatCpuClock { System.nanoTime() / 1_000_000L },
     cancelDispatcher: LocalFormatCpuCancellationDispatcher? = null,
     sharedKey: String = CPU_DEFAULT_SHARED_KEY,
+    profile: LocalFormatCpuProfile = LocalFormatCpuProfile.Gemma4,
 ) : AutoCloseable {
-    private val owner = CpuCore.acquire(sharedKey, modelProvider, nativeFactory, clock, cancelDispatcher)
+    private val owner = CpuCore.acquire(sharedKey, profile, modelProvider, nativeFactory, clock, cancelDispatcher)
     private val closed = AtomicBoolean(false)
 
     fun runtimeName(): String = owner.runtimeName()
@@ -82,23 +83,12 @@ internal class LocalFormatCpuEngine(
             onNativeStart: () -> Unit,
         ): String? {
             if (owner.isClosed()) return null
-            if (LocalFormatCpuEngine.containsReservedTokenizerData(request)) return null
-            request.directOutput()?.let { return it }
-            val mode = when (request.layoutKind) {
-                LocalLayoutKind.TEXT -> GemmaFineTunedPrompt.Mode.TEXT
-                LocalLayoutKind.LIST -> GemmaFineTunedPrompt.Mode.LIST
-                LocalLayoutKind.EMAIL -> GemmaFineTunedPrompt.Mode.EMAIL
-                null -> return null
-            }
-            val prompt = GemmaFineTunedPrompt.buildNativeEnvelope(
-                GemmaFineTunedPrompt.build(
-                    request.text,
-                    mode,
-                    request.phase,
-                    request.contextBefore,
-                    request.protectedTerms,
-                ),
-            )
+            val profile = owner.profile
+            if (!profile.accepts(request)) return null
+            if (LocalFormatCpuEngine.containsReservedTokenizerData(request, profile)) return null
+            if (profile == LocalFormatCpuProfile.Gemma4) request.directOutput()?.let { return it }
+            val prompt = profile.buildPrompt(request) ?: return null
+            if (profile == LocalFormatCpuProfile.Gemma3Final) request.directOutput()?.let { return it }
             val started = owner.nowMs()
             val callEpoch = epoch.get()
             val call = CpuCall(
@@ -106,8 +96,8 @@ internal class LocalFormatCpuEngine(
                 backendToken = token,
                 stale = { owner.isClosed() || epoch.get() != callEpoch },
                 prompt = prompt,
-                maxTokens = request.outputTokenBudget(),
-                deadlineMs = started + GENERATION_DEADLINE_MS,
+                maxTokens = profile.maxNewTokens ?: request.outputTokenBudget(),
+                deadlineMs = started + profile.deadlineMs,
                 onChunk = onChunk,
                 onNativeStart = onNativeStart,
             )
@@ -208,6 +198,7 @@ internal class LocalFormatCpuEngine(
     }
 
     private class CpuOwner(private val core: CpuCore, val token: Any) {
+        val profile: LocalFormatCpuProfile get() = core.profile
         private val closed = AtomicBoolean(false)
 
         fun isClosed(): Boolean = closed.get()
@@ -231,7 +222,8 @@ internal class LocalFormatCpuEngine(
     }
 
     private class CpuCore(
-        private val key: String,
+        private val key: Pair<String, LocalFormatCpuProfile>,
+        val profile: LocalFormatCpuProfile,
         private val modelProvider: LocalFormatCpuModelProvider,
         private val nativeFactory: LocalFormatCpuNativeFactory,
         private val clock: LocalFormatCpuClock,
@@ -391,9 +383,9 @@ internal class LocalFormatCpuEngine(
             val started = nowMs()
             val opening = try {
                 nativeFactory.open(
-                    model.absolutePath,
-                    LocalFormatCpuEngine.CPU_CONTEXT_SIZE,
-                    LocalFormatCpuEngine.CPU_THREADS,
+                model.absolutePath,
+                    profile.contextSize,
+                    profile.threads,
                 )
             } catch (_: Throwable) {
                 setFailure("cpu_initialization_failed", "cpu-error")
@@ -472,22 +464,24 @@ internal class LocalFormatCpuEngine(
         }
 
         companion object {
-            private val REGISTRY = ConcurrentHashMap<String, CpuCore>()
+            private val REGISTRY = ConcurrentHashMap<Pair<String, LocalFormatCpuProfile>, CpuCore>()
             private val LOCK = Any()
 
             fun acquire(
-                key: String,
+                sharedKey: String,
+                profile: LocalFormatCpuProfile,
                 modelProvider: LocalFormatCpuModelProvider,
                 nativeFactory: LocalFormatCpuNativeFactory,
                 clock: LocalFormatCpuClock,
                 cancelDispatcher: LocalFormatCpuCancellationDispatcher?,
             ): CpuOwner = synchronized(LOCK) {
                 val token = Any()
+                val key = sharedKey to profile
                 val existing = REGISTRY[key]
                 val core = if (existing != null && existing.tryRetain(token)) {
                     existing
                 } else {
-                    CpuCore(key, modelProvider, nativeFactory, clock, cancelDispatcher).also {
+                    CpuCore(key, profile, modelProvider, nativeFactory, clock, cancelDispatcher).also {
                         check(it.tryRetain(token))
                         REGISTRY[key] = it
                     }
@@ -503,12 +497,17 @@ internal class LocalFormatCpuEngine(
         const val GENERATION_DEADLINE_MS = 20_000L
         const val LOAD_WAIT_MS = 45_000L
 
-        fun containsReservedTokenizerData(request: LocalFormatRequest): Boolean {
+        fun containsReservedTokenizerData(
+            request: LocalFormatRequest,
+            profile: LocalFormatCpuProfile = LocalFormatCpuProfile.Gemma4,
+        ): Boolean {
             return sequenceOf(
                 request.text,
                 request.contextBefore,
                 *request.protectedTerms.toTypedArray(),
-            ).any(::containsReservedTokenizerDelimiter)
+            ).any { value ->
+                containsReservedTokenizerDelimiter(value) || profile.hasAdditionalReservedToken(value)
+            }
         }
 
         fun containsReservedTokenizerDelimiter(value: String): Boolean =

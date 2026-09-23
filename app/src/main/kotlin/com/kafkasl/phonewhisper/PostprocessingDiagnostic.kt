@@ -7,6 +7,8 @@ import java.util.Locale
 /** User-facing runtime labels shared by the benchmark and persisted diagnostic. */
 internal object LocalFormatRuntimeLabels {
     private const val PILOT_CONFIGURATION = "CPU · llama.cpp · greedy · thinking désactivé (budget 0)"
+    private val GEMMA3_REPAIR_CONFIGURATION =
+        "CPU · llama.cpp · greedy · Gemma 3 270M V3 · attente finale maximale ${LocalFormatCpuProfile.Gemma3Final.deadlineMs} ms"
     private const val GPU_CONFIGURATION = "LiteRT-LM 0.17.0 · GPU · MTP activé · thinking désactivé (budget 0)"
     private val KNOWN_RUNTIMES = setOf(
         "arm64-baseline",
@@ -22,33 +24,44 @@ internal object LocalFormatRuntimeLabels {
         "litert-lm-gpu-mtp-thinking-off",
     )
 
-    fun model(pilot: Boolean): String = if (pilot) {
+    fun model(pilot: Boolean, gemma3RepairPilot: Boolean = false): String = if (gemma3RepairPilot) {
+        "${GemmaModelStore.modelTitleForBuild(gemma4Pilot = false, gemma3RepairPilot = true)} · " +
+            GemmaModelStore.modelFileForBuild(gemma4Pilot = false, gemma3RepairPilot = true)
+    } else if (pilot) {
         "${GemmaModelStore.modelTitle(pilot = true)} · ${GemmaModelStore.modelFile(pilot = true)}"
     } else {
         GpuLocalFormatEngine.MODEL_FILE
     }
 
-    fun configuration(pilot: Boolean): String = if (pilot) PILOT_CONFIGURATION else GPU_CONFIGURATION
+    fun configuration(pilot: Boolean, gemma3RepairPilot: Boolean = false): String = when {
+        gemma3RepairPilot -> GEMMA3_REPAIR_CONFIGURATION
+        pilot -> PILOT_CONFIGURATION
+        else -> GPU_CONFIGURATION
+    }
 
-    fun cacheNote(pilot: Boolean): String = if (pilot) {
+    fun cacheNote(pilot: Boolean, gemma3RepairPilot: Boolean = false): String = if (pilot || gemma3RepairPilot) {
         "Caches système/CPU non vidés."
     } else {
         "Caches système/GPU non vidés."
     }
 
-    fun pssNote(pilot: Boolean): String = if (pilot) {
+    fun pssNote(pilot: Boolean, gemma3RepairPilot: Boolean = false): String = if (pilot || gemma3RepairPilot) {
         ""
     } else {
         " (mémoire GPU partagée potentiellement exclue)"
     }
 
-    fun calculation(pilot: Boolean, runtime: String): String {
-        val engine = if (pilot) "CPU · llama.cpp · greedy" else "GPU · LiteRT-LM · MTP · thinking désactivé"
+    fun calculation(pilot: Boolean, runtime: String, gemma3RepairPilot: Boolean = false): String {
+        val engine = when {
+            gemma3RepairPilot -> "CPU · llama.cpp · greedy · Gemma 3 270M V3"
+            pilot -> "CPU · llama.cpp · greedy"
+            else -> "GPU · LiteRT-LM · MTP · thinking désactivé"
+        }
         return "$engine · ${safeRuntime(runtime)}"
     }
 
-    fun failure(pilot: Boolean, runtime: String, code: String?): String {
-        val state = if (pilot) "État CPU" else "État GPU"
+    fun failure(pilot: Boolean, runtime: String, code: String?, gemma3RepairPilot: Boolean = false): String {
+        val state = if (pilot || gemma3RepairPilot) "État CPU" else "État GPU"
         return "$state : ${safeRuntime(runtime)} ; motif : ${code ?: "indisponible"}"
     }
 
@@ -101,6 +114,8 @@ internal object PostprocessingDiagnostic {
         lightTextCleanup: Boolean = false,
         hesitationsRemoved: Int = 0,
         pilot: Boolean = BuildConfig.GEMMA4_FINE_TUNED_PILOT,
+        gemma3RepairPilot: Boolean = BuildConfig.GEMMA3_REPAIR_PILOT,
+        gemma3Refusal: Gemma3RepairRefusal? = null,
         progressive: ProgressiveFormattingDiagnosticSnapshot? = null,
         asrFinalRecoveryMs: Long? = null,
         asrAwaitSessionExitMs: Long? = null,
@@ -110,29 +125,53 @@ internal object PostprocessingDiagnostic {
         append("Date : ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.ROOT).format(Date(timestampMs))}\n")
         append("Format : ${when (formatId) { "list" -> "Liste"; "email" -> "Mail"; "cleanup" -> "Texte"; "corrected" -> "Texte corrigé"; else -> "Personnalisé" }}\n")
         append("Moteur demandé : ${when (requested) { Requested.LOCAL -> "local"; Requested.CLOUD -> "cloud"; Requested.OFF -> "désactivé" }}\n")
-        append("Résultat : ${when (applied) {
-            Applied.LOCAL_LLM -> if (pilot && local == null) progressiveResultLabel(progressive) else "LLM local appliqué"
-            Applied.LOCAL_DIRECT -> if (pilot && local == null) progressiveResultLabel(progressive) else "traitement direct, sans appel LLM"
-            Applied.CLOUD -> "cloud appliqué"
-            Applied.ORIGINAL -> when {
-                hesitationsRemoved > 0 -> "hésitations retirées localement, sans réécriture appliquée"
-                lightTextCleanup -> "traitement léger local"
-                else -> "transcription conservée"
+        val refusal = gemma3Refusal?.takeIf { gemma3RepairPilot && it != Gemma3RepairRefusal.NONE }
+            ?: if (gemma3RepairPilot && local?.outcome == "profile_refused_language")
+                Gemma3RepairRefusal.UNSUPPORTED_LANGUAGE else null
+        append("Résultat : ${when {
+            refusal != null -> "modèle local refusé (${refusalLabel(refusal)}) ; transcription conservée"
+            gemma3RepairPilot && local == null && progressive != null -> progressiveResultLabel(progressive, applied)
+            else -> when (applied) {
+                Applied.LOCAL_LLM -> if ((pilot || gemma3RepairPilot) && local == null) progressiveResultLabel(progressive) else "LLM local appliqué"
+                Applied.LOCAL_DIRECT -> if ((pilot || gemma3RepairPilot) && local == null) progressiveResultLabel(progressive) else "traitement direct, sans appel LLM"
+                Applied.CLOUD -> "cloud appliqué"
+                Applied.ORIGINAL -> when {
+                    hesitationsRemoved > 0 -> "hésitations retirées localement, sans réécriture appliquée"
+                    lightTextCleanup -> "traitement léger local"
+                    else -> "transcription conservée"
+                }
             }
         }}\n")
         if (requested == Requested.LOCAL) {
-            append("Modèle : ${LocalFormatRuntimeLabels.model(pilot)}\n")
-            append("Calcul : ${LocalFormatRuntimeLabels.calculation(pilot, runtime)}\n")
+            append("Modèle : ${LocalFormatRuntimeLabels.model(pilot, gemma3RepairPilot)}\n")
+            append("Calcul : ${LocalFormatRuntimeLabels.calculation(pilot, runtime, gemma3RepairPilot)}\n")
+            if (gemma3RepairPilot) {
+                val waitLimit = progressive?.configuredWaitLimitMs ?: local?.waitLimitMs
+                    ?: LocalFormatCpuProfile.Gemma3Final.deadlineMs
+                append("Limite d’attente finale locale : $waitLimit ms\n")
+            }
             if (pilot) {
                 append("Thinking : désactivé · budget 0\n")
             } else if (runtime == "litert-lm-gpu-mtp-thinking-off") {
                 append("Thinking : désactivé · budget 0 · MTP activé\n")
             }
             modelLoadMs?.takeIf { it >= 0 }?.let { append("Dernier chargement du moteur partagé : $it ms (peut précéder la dictée)\n") }
-            if (pilot && local == null && progressive != null) {
+            if (gemma3RepairPilot && progressive != null) {
+                val finalCall = progressive.calls.lastOrNull { it.phase == GemmaFineTunedPrompt.Phase.FINAL }
+                val nativeStarted = local?.nativeStarted == true || finalCall?.nativeStarted == true
+                append("Appel natif pour ce résultat : ${if (nativeStarted) "oui" else "non"}\n")
+                append("Origine : ${when {
+                    refusal != null -> "refus du profil Gemma 3"
+                    finalCall == null -> "aucun appel final mesuré"
+                    else -> "requête finale Gemma 3"
+                }}\n")
+            } else if (gemma3RepairPilot && refusal != null) {
+                append("Appel natif pour ce résultat : non\n")
+                append("Origine : refus avant le moteur Gemma 3\n")
+            } else if (pilot && local == null && progressive != null) {
                 append("Appel natif pour ce résultat : instrumentation progressive\n")
                 append("Origine : trace par appel, sans conservation de texte\n")
-            } else if (pilot && local == null) {
+            } else if ((pilot || gemma3RepairPilot) && local == null) {
                 append("Appel natif pour ce résultat : détail des appels progressifs non mesuré\n")
                 append("Origine : détail des appels progressifs non mesuré\n")
             } else {
@@ -146,7 +185,9 @@ internal object PostprocessingDiagnostic {
                     else -> "non appelé"
                 }}\n")
             }
-            append("État : ${when (local?.outcome) {
+            append("État : ${if (refusal != null) "Refus : ${refusalLabel(refusal)}" else if (gemma3RepairPilot && local == null && progressive != null) {
+                progressiveResultLabel(progressive, applied)
+            } else when (local?.outcome) {
                 "applied" -> "sortie validée (qualité du découpage non garantie)"
                 "wait_timeout" -> "délai d’attente finale dépassé"
                 "fidelity_rejected" -> "sortie rejetée : modification hors corrections autorisées"
@@ -210,5 +251,12 @@ internal object PostprocessingDiagnostic {
         progressive.resultsNotReturned > 0 || progressive.finalDeadlineExceeded > 0 ->
             "correction progressive non retournée"
         else -> "texte conservé"
+    }
+
+    private fun refusalLabel(refusal: Gemma3RepairRefusal): String = when (refusal) {
+        Gemma3RepairRefusal.NONE -> "aucun"
+        Gemma3RepairRefusal.UNSUPPORTED_FORMAT -> "format non pris en charge"
+        Gemma3RepairRefusal.UNSUPPORTED_LANGUAGE -> "langue non prise en charge"
+        Gemma3RepairRefusal.NONEMPTY_CONTEXT -> "contexte non vide"
     }
 }

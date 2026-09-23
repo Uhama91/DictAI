@@ -3,15 +3,39 @@ package com.kafkasl.phonewhisper
 import android.content.Context
 import android.os.Looper
 
-internal enum class LocalFormatEngineRouteKind { CPU_PILOT, GPU_LITERT }
+internal enum class LocalFormatEngineRouteKind { CPU_PILOT, CPU_GEMMA3_REPAIR, GPU_LITERT }
 
 internal fun localFormatEngineRouteKind(pilot: Boolean): LocalFormatEngineRouteKind =
-    if (pilot) LocalFormatEngineRouteKind.CPU_PILOT else LocalFormatEngineRouteKind.GPU_LITERT
+    localFormatEngineRouteKind(gemma4Pilot = pilot, gemma3RepairPilot = false)
+
+internal fun localFormatEngineRouteKind(
+    gemma4Pilot: Boolean,
+    gemma3RepairPilot: Boolean,
+): LocalFormatEngineRouteKind {
+    require(!(gemma4Pilot && gemma3RepairPilot)) { "Gemma pilot engines are mutually exclusive." }
+    return when {
+        gemma3RepairPilot -> LocalFormatEngineRouteKind.CPU_GEMMA3_REPAIR
+        gemma4Pilot -> LocalFormatEngineRouteKind.CPU_PILOT
+        else -> LocalFormatEngineRouteKind.GPU_LITERT
+    }
+}
 
 /** Stable formatter API. Only one runtime implementation is constructed per process owner. */
 internal class LocalFormatEngine(context: Context) : AutoCloseable {
-    private val route: LocalFormatEngineRoute = when (localFormatEngineRouteKind(BuildConfig.GEMMA4_FINE_TUNED_PILOT)) {
-        LocalFormatEngineRouteKind.CPU_PILOT -> CpuLocalFormatRoute(context.applicationContext)
+    private val route: LocalFormatEngineRoute = when (localFormatEngineRouteKind(
+        gemma4Pilot = BuildConfig.GEMMA4_FINE_TUNED_PILOT,
+        gemma3RepairPilot = BuildConfig.GEMMA3_REPAIR_PILOT,
+    )) {
+        LocalFormatEngineRouteKind.CPU_PILOT -> CpuLocalFormatRoute(
+            context.applicationContext,
+            GemmaModelStore.Q6_ARTIFACT,
+            LocalFormatCpuProfile.Gemma4,
+        )
+        LocalFormatEngineRouteKind.CPU_GEMMA3_REPAIR -> CpuLocalFormatRoute(
+            context.applicationContext,
+            GemmaModelStore.GEMMA3_REPAIR_ARTIFACT,
+            LocalFormatCpuProfile.Gemma3Final,
+        )
         LocalFormatEngineRouteKind.GPU_LITERT -> GpuLocalFormatRoute(context.applicationContext)
     }
 
@@ -56,12 +80,17 @@ private class GpuLocalFormatRoute(context: Context) : LocalFormatEngineRoute {
     override fun close() = engine.close()
 }
 
-private class CpuLocalFormatRoute(context: Context) : LocalFormatEngineRoute {
+private class CpuLocalFormatRoute(
+    context: Context,
+    artifact: GemmaModelArtifact,
+    profile: LocalFormatCpuProfile,
+) : LocalFormatEngineRoute {
     private val engine = LocalFormatCpuEngine(
         modelProvider = LocalFormatCpuModelProvider {
-            GemmaModelStore(context.applicationContext).installedModel()
+            GemmaModelStore(context.applicationContext, artifact).installedModel()
                 ?.takeIf { it.extension.equals("gguf", ignoreCase = true) }
         },
+        profile = profile,
     )
 
     override fun runtimeName(): String = engine.runtimeName()
