@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "status": "ready",
+  "source_payload_lock": "tools/gemma3-repair/ci_config.json"
+}

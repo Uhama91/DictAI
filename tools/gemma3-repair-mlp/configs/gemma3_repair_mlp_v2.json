@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "experiment": "gemma3_repair_mlp_v2",
+  "status": "candidate_configuration",
+  "model": {
+    "id": "google/gemma-3-270m-it",
+    "revision": "ac82b4e820549b854eebf28ce6dedaf9fdfa17b3"
+  },
+  "parent": {
+    "run_dir": "runs/gemma-3-270m-it-lora-v3",
+    "manifest": "runs/gemma-3-270m-it-lora-v3/manifest.json",
+    "adapter_dir": "runs/gemma-3-270m-it-lora-v3/best",
+    "dataset_revision_from_manifest": true
+  },
+  "child_dataset": {
+    "path": "data_gemma3_repair_v1",
+    "train_file": "train.jsonl",
+    "valid_file": "valid.jsonl",
+    "train_records": 256,
+    "valid_records": 32,
+    "revision": null,
+    "revision_is_sealed_by_prepare": true
+  },
+  "training": {
+    "train_records": 256,
+    "valid_records": 32,
+    "epochs": 1,
+    "seed": 42,
+    "max_length": 768,
+    "dynamic_padding": true,
+    "per_device_train_batch_size": 1,
+    "per_device_eval_batch_size": 1,
+    "gradient_accumulation_steps": 4,
+    "expected_updates": 64,
+    "learning_rate": 0.00002,
+    "lora_r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "prompt_version": "v3",
+    "edit_token_weight": 1.0,
+    "validation_selection_metric": "eval_loss",
+    "checkpoint_each_epoch": true,
+    "start_from_adapter": true
+  },
+  "evaluation": {
+    "new_dev_records": 32,
+    "old_valid_records": 76,
+    "max_new_tokens": 256,
+    "per_case_timeout_seconds": 20,
+    "global_timeout_seconds": 1200,
+    "decoding": "greedy",
+    "repeat_penalty": null,
+    "native_eos_required": true,
+    "parent_and_candidate_are_separate_runs": true,
+    "private_or_holdout_read": false
+  },
+  "runtime": {
+    "offline": true,
+    "min_launch_available_bytes": 4294967296,
+    "min_runtime_available_bytes": 1610612736,
+    "min_free_disk_bytes": 10737418240,
+    "rss_limit_bytes": 5368709120,
+    "mps_driver_limit_bytes": 5368709120,
+    "swap_delta_limit_bytes": 536870912,
+    "max_training_seconds": 900,
+    "monitoring_required": true,
+    "one_ml_process": true,
+    "gradle_conflict_forbidden": true,
+    "automatic_retry": false
+  },
+  "privacy": {
+    "synthetic_only": true,
+    "private_dictations_used": false,
+    "upload": false,
+    "android_integration": false
+  }
+}
