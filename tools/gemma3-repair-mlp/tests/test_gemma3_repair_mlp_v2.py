@@ -396,3 +396,38 @@ def test_prepare_seals_new_helper_and_rejects_mutation_before_worker(monkeypatch
     helper.write_bytes(helper.read_bytes() + b"\n# mutation after prepare\n")
     with pytest.raises(runner.RunnerError, match="helper changed"):
         runner._validate_prepared_integrity(sealed)
+
+
+def test_linux_mlx5_kernel_thread_is_not_a_conflicting_mlx_process():
+    runner = importlib.import_module("scripts.run_gemma3_repair_mlp_v2")
+    runner.check_process_conflicts(
+        [{"pid": 77, "command": "R-mlx5_cmd_382d:00:02.0]"}]
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "python -m mlx_lm.lora --model local",
+        "python -m mlx_lm.generate --model local",
+        "python -m mlx_vlm.generate --model local",
+        "python scripts/train_mlx.py --config local.json",
+        "python scripts/train-mlx.py --config local.json",
+        "torchrun --nproc_per_node=2 train.py",
+        "accelerate launch train.py",
+        "./gradlew :app:assembleDebug",
+        "gradle test",
+    ],
+)
+def test_process_conflict_guard_rejects_known_ml_and_gradle_commands(command):
+    runner = importlib.import_module("scripts.run_gemma3_repair_mlp_v2")
+    with pytest.raises(runner.RunnerError, match="conflicting ML/Gradle process"):
+        runner.check_process_conflicts([{"pid": 78, "command": command}])
+
+
+def test_process_conflict_guard_excludes_own_pid_even_for_mlx_command():
+    runner = importlib.import_module("scripts.run_gemma3_repair_mlp_v2")
+    runner.check_process_conflicts(
+        [{"pid": 79, "command": "python -m mlx_lm.lora"}],
+        own_pid=79,
+    )

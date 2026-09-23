@@ -50,6 +50,10 @@ EVALUATION_BUDGET_DEFAULT_SECONDS = 1200.0
 EVALUATION_FINALIZATION_RESERVE_SECONDS = 5.0
 EVALUATION_CASE_DEADLINE_SECONDS = 20.0
 _MPS_DRIVER_UNSET = object()
+_MLX_PROCESS_MARKER_RE = re.compile(
+    r"(?<![a-z0-9])(?:mlx_lm|mlx_vlm|mlx)(?![a-z0-9])",
+    re.IGNORECASE,
+)
 # Activated 2026-09-23 after principal functional and adversarial reviews; per-run gates remain.
 EXECUTION_REVIEWED = True
 
@@ -924,7 +928,6 @@ def check_process_conflicts(
         "gradlew",
         "torchrun",
         "accelerate",
-        "mlx",
         "train_lora.py",
         "train_gemma",
         "evaluate_gemma",
@@ -942,7 +945,9 @@ def check_process_conflicts(
         if own_pid is not None and pid is not None and int(pid) == own_pid:
             continue
         lowered = command.lower()
-        if any(token in lowered for token in forbidden):
+        if _MLX_PROCESS_MARKER_RE.search(lowered) or any(
+            token in lowered for token in forbidden
+        ):
             executable = Path(command.split(maxsplit=1)[0]).name if command.split() else "unknown"
             label = f"pid={pid} executable={executable}" if pid is not None else f"executable={executable}"
             raise RunnerError(f"conflicting ML/Gradle process is active ({label})")
