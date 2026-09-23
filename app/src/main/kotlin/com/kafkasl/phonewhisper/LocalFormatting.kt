@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
-internal enum class LocalFormatValidation { EXACT_LAYOUT, GEMMA_PROJECTION, GEMMA_EDITING }
+internal enum class LocalFormatValidation { EXACT_LAYOUT, GEMMA_PROJECTION, GEMMA_EDITING, GEMMA3_CONTEXTUAL }
 
 /** A format is explicit intent: even a three-word list must be formatted. */
 internal data class LocalFormatRequest(
@@ -60,6 +60,7 @@ internal data class LocalFormatRequest(
             layoutKind == null -> LocalFormatOutput.accept(text)
             validation == LocalFormatValidation.GEMMA_PROJECTION -> GemmaFaithfulLayout.accept(this, text)
             validation == LocalFormatValidation.GEMMA_EDITING -> GemmaConservativeEditing.accept(this, text)
+            validation == LocalFormatValidation.GEMMA3_CONTEXTUAL -> Gemma3ContextualEditing.accept(this, text)
             else -> layoutPolicy()?.accept(text)
         }
         return value?.takeIf { output -> protectedTerms.all { it in output } && NoteImageMarkers.preserved(this.text, output) }
@@ -69,7 +70,7 @@ internal data class LocalFormatRequest(
     fun previewOutput(prefix: String): String? = when (validation) {
         LocalFormatValidation.EXACT_LAYOUT -> layoutPolicy()?.preview(prefix)
         LocalFormatValidation.GEMMA_PROJECTION -> acceptOutput(prefix)
-        LocalFormatValidation.GEMMA_EDITING -> null // Corrections are published only after the engine returns.
+        LocalFormatValidation.GEMMA_EDITING, LocalFormatValidation.GEMMA3_CONTEXTUAL -> null // Corrections are published only after the engine returns.
     }
 }
 
@@ -145,7 +146,8 @@ internal class LocalFormattingSession(private val backend: LocalFormatBackend) :
         var route = "not_called"
         fun record(outcome: String, nativeStarted: Boolean = false, restoredSourceWords: Int = 0) {
             lastFinish = LocalFinishDiagnostic(route, outcome, nativeStarted,
-                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L), restoredSourceWords, timeoutMs, request.validation == LocalFormatValidation.GEMMA_EDITING)
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started).coerceAtLeast(0L), restoredSourceWords, timeoutMs,
+                request.validation in setOf(LocalFormatValidation.GEMMA_EDITING, LocalFormatValidation.GEMMA3_CONTEXTUAL))
         }
         val job = synchronized(lock) {
             if (closed || request.text.isBlank()) {

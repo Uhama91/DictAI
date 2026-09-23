@@ -1,10 +1,28 @@
-# Essai Gemma 3 270M V3 — guide de test
+# Essai DictAI 0.9.12 avec Gemma 3 — guide de test
 
 Cette préversion permet d'observer le formatage final d'une dictée avec la
 référence Gemma 3 270M V3 existante. Les poids V3 sont inchangés. Le candidat
 d'entraînement attention + MLP a été rejeté et n'est pas utilisé dans cet
-essai. Aucune mesure de qualité ou de latence sur téléphone n'est encore
-disponible.
+essai. Un retour utilisateur du 23 septembre mesure 1 987 ms de
+post-traitement et 2 382 ms entre l'arrêt et l'insertion, sans expiration.
+Il signale encore des corrections insuffisantes. Cet essai isolé, dont
+l'appareil n'est pas encore confirmé, ne qualifie pas la qualité ou la
+latence générale du modèle.
+
+La version préparée **0.9.12-dictai-gemma3-test** (code 41) ajuste le filtre
+qui valide les propositions du modèle : certaines corrections locales de
+grammaire et certains faux départs peuvent être acceptés lorsqu'ils sont
+reconnus et que les informations autour sont conservées. Ce changement ne
+garantit pas que le modèle proposera ces corrections. Il n'ajoute pas de
+nouveaux poids et ne constitue pas un nouveau fine-tuning.
+
+Sur 108 sorties V3 déjà enregistrées, la simulation du texte livré après
+validation passe de 67 à 72 correspondances exactes avec la correction
+attendue. Les cinq gains relus concernent des répétitions et des
+autocorrections explicites de date. Ce résultat ne mesure ni la latence sur
+téléphone ni une réussite générale. La grammaire reste partiellement couverte :
+huit corrections synthétiques attendues sont encore refusées, dont quatre
+qui relevaient du périmètre initialement envisagé.
 
 ## Préparer l'application
 
@@ -38,4 +56,20 @@ transmettez pas le contenu d'une dictée personnelle dans un rapport de mesure.
 Ce pilote teste le format **Texte corrigé** en français. Les listes, les mails
 et la correction progressive par Gemma ne sont pas pris en charge. Il n'y a
 pas de bascule cloud implicite ; l'ASR direct et l'édition humaine restent
-disponibles. La latence réelle sur téléphone reste à mesurer.
+disponibles. Dans la version 0.9.11, le diagnostic peut afficher
+« correction progressive appliquée » malgré un traitement uniquement final :
+les compteurs des appels partiels et finaux permettent de vérifier le travail
+réellement effectué. La version 0.9.12 corrige ce libellé pour identifier le
+traitement final. Plusieurs essais sur un même appareil restent nécessaires
+pour caractériser la latence.
+
+## Vérifier les corrections
+
+Essayez d'abord quelques phrases synthétiques courtes : un doublon
+« on on », un groupe de mots répété, puis une autocorrection explicite de
+jour (« lundi, non, mardi »). Vérifiez aussi qu'une phrase déjà correcte
+reste intacte, notamment un pronom réfléchi (« nous nous préparons »), une
+insistance (« très très »), une négation et une date sans autocorrection.
+Une bonne correction grammaticale proposée par le modèle doit conserver
+les noms, nombres et détails voisins ; un retour au texte reconnu signifie
+qu'aucune correction validée n'a été livrée.

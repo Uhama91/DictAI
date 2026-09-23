@@ -38,12 +38,12 @@ android {
         buildConfigField("boolean", "GEMMA4_FINE_TUNED_PILOT", gemma4FineTunedPilot.toString())
         buildConfigField("boolean", "GEMMA3_REPAIR_PILOT", gemma3RepairPilot.toString())
         versionCode = when {
-            gemma3RepairPilot -> 40
+            gemma3RepairPilot -> 41
             gemma4FineTunedPilot -> 39
             else -> 35
         }
         versionName = when {
-            gemma3RepairPilot -> "0.9.11-dictai-gemma3-test"
+            gemma3RepairPilot -> "0.9.12-dictai-gemma3-test"
             gemma4FineTunedPilot -> "0.9.10-dictai-latency-test"
             localFormatPrototype -> "0.9.6-dictai-gemma-test"
             else -> "0.9.6-dictai"

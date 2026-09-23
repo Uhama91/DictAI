@@ -130,10 +130,12 @@ internal object PostprocessingDiagnostic {
                 Gemma3RepairRefusal.UNSUPPORTED_LANGUAGE else null
         append("Résultat : ${when {
             refusal != null -> "modèle local refusé (${refusalLabel(refusal)}) ; transcription conservée"
-            gemma3RepairPilot && local == null && progressive != null -> progressiveResultLabel(progressive, applied)
+            gemma3RepairPilot && requested == Requested.LOCAL &&
+                (applied == Applied.LOCAL_LLM || applied == Applied.ORIGINAL) ->
+                gemma3FinalResultLabel(progressive, local, applied)
             else -> when (applied) {
-                Applied.LOCAL_LLM -> if ((pilot || gemma3RepairPilot) && local == null) progressiveResultLabel(progressive) else "LLM local appliqué"
-                Applied.LOCAL_DIRECT -> if ((pilot || gemma3RepairPilot) && local == null) progressiveResultLabel(progressive) else "traitement direct, sans appel LLM"
+                Applied.LOCAL_LLM -> if (pilot && local == null) progressiveResultLabel(progressive) else "LLM local appliqué"
+                Applied.LOCAL_DIRECT -> if (pilot && local == null) progressiveResultLabel(progressive) else "traitement direct, sans appel LLM"
                 Applied.CLOUD -> "cloud appliqué"
                 Applied.ORIGINAL -> when {
                     hesitationsRemoved > 0 -> "hésitations retirées localement, sans réécriture appliquée"
@@ -185,9 +187,13 @@ internal object PostprocessingDiagnostic {
                     else -> "non appelé"
                 }}\n")
             }
-            append("État : ${if (refusal != null) "Refus : ${refusalLabel(refusal)}" else if (gemma3RepairPilot && local == null && progressive != null) {
-                progressiveResultLabel(progressive, applied)
-            } else when (local?.outcome) {
+            append("État : ${when {
+                refusal != null -> "Refus : ${refusalLabel(refusal)}"
+                gemma3RepairPilot && requested == Requested.LOCAL &&
+                    (applied == Applied.LOCAL_LLM || applied == Applied.ORIGINAL) ->
+                    gemma3FinalResultLabel(progressive, local, applied)
+                pilot && local == null && progressive != null -> progressiveResultLabel(progressive, applied)
+                else -> when (local?.outcome) {
                 "applied" -> "sortie validée (qualité du découpage non garantie)"
                 "wait_timeout" -> "délai d’attente finale dépassé"
                 "fidelity_rejected" -> "sortie rejetée : modification hors corrections autorisées"
@@ -200,6 +206,7 @@ internal object PostprocessingDiagnostic {
                 } else if (formatId == "cleanup" && local == null && applied == Applied.ORIGINAL)
                     "mode Texte : aucun appel au LLM prévu"
                 else "traitement non exécuté ou indisponible"
+                }
             }}\n")
             if (local?.surfaceEditing == true) append("Corrections : fautes de forme et répétitions limitées autorisées.\n")
             local?.let { append("Attente finale locale : ${it.waitMs} ms\n") }
@@ -251,6 +258,41 @@ internal object PostprocessingDiagnostic {
         progressive.resultsNotReturned > 0 || progressive.finalDeadlineExceeded > 0 ->
             "correction progressive non retournée"
         else -> "texte conservé"
+    }
+
+    private fun gemma3FinalResultLabel(
+        progressive: ProgressiveFormattingDiagnosticSnapshot?,
+        local: LocalFinishDiagnostic?,
+        applied: Applied,
+    ): String = if (progressive != null) {
+        when {
+            progressive.acceptedThenInvalidated > 0 && progressive.stillDelivered == 0 ->
+                "correction finale Gemma 3 invalidée"
+            progressive.acceptedThenInvalidated > 0 ->
+                "résultat final Gemma 3 partiellement invalidé"
+            progressive.resultsApplied > 0 && progressive.stillDelivered > 0 ->
+                "correction finale Gemma 3 appliquée"
+            progressive.resultsUnchanged > 0 && progressive.stillDelivered > 0 ->
+                "texte conservé après correction finale Gemma 3"
+            progressive.resultsRejected > 0 -> "correction finale Gemma 3 rejetée"
+            progressive.resultsAbsent > 0 -> "résultat final Gemma 3 absent"
+            progressive.finalDeadlineExceeded > 0 ->
+                "correction finale Gemma 3 non terminée (délai dépassé)"
+            progressive.resultsNotReturned > 0 -> "correction finale Gemma 3 non retournée"
+            applied == Applied.ORIGINAL -> "texte conservé"
+            else -> "aucun résultat final Gemma 3 confirmé"
+        }
+    } else {
+        when (local?.outcome) {
+            "applied" -> "correction finale Gemma 3 appliquée"
+            "wait_timeout" -> "correction finale Gemma 3 non terminée (délai dépassé)"
+            "fidelity_rejected", "vocabulary_rejected" -> "correction finale Gemma 3 rejetée"
+            "backend_empty" -> "résultat final Gemma 3 absent"
+            "backend_error", "error" -> "erreur du moteur Gemma 3"
+            "cancelled", "interrupted" -> "correction finale Gemma 3 interrompue"
+            else -> if (applied == Applied.ORIGINAL) "texte conservé"
+            else "correction finale Gemma 3 non mesurée"
+        }
     }
 
     private fun refusalLabel(refusal: Gemma3RepairRefusal): String = when (refusal) {

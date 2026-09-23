@@ -14,8 +14,8 @@ from check_gemma3_apk_identity import verify_apk_identity  # noqa: E402
 
 
 AAPT_OUTPUT = (
-    "package: name='com.uhama.whisperpin' versionCode='40' "
-    "versionName='0.9.11-dictai-gemma3-test'\n"
+    "package: name='com.uhama.whisperpin' versionCode='41' "
+    "versionName='0.9.12-dictai-gemma3-test'\n"
 )
 CERTIFICATE_OUTPUT = (
     "Signer #1 certificate SHA-256 digest: "
@@ -38,14 +38,14 @@ class CheckGemma3ApkIdentityTest(unittest.TestCase):
     def test_accepts_only_the_reviewed_gemma3_application_identity(self) -> None:
         result = self.run_verification()
         self.assertEqual(result["application_id"], "com.uhama.whisperpin")
-        self.assertEqual(result["version_code"], 40)
-        self.assertEqual(result["version_name"], "0.9.11-dictai-gemma3-test")
+        self.assertEqual(result["version_code"], 41)
+        self.assertEqual(result["version_name"], "0.9.12-dictai-gemma3-test")
 
     def test_rejects_wrong_package_version_and_signing_certificate(self) -> None:
         badging_outputs = (
             AAPT_OUTPUT.replace("com.uhama.whisperpin", "com.other.app"),
-            AAPT_OUTPUT.replace("versionCode='40'", "versionCode='39'"),
-            AAPT_OUTPUT.replace("0.9.11-dictai-gemma3-test", "0.9.10-dictai-latency-test"),
+            AAPT_OUTPUT.replace("versionCode='41'", "versionCode='40'"),
+            AAPT_OUTPUT.replace("0.9.12-dictai-gemma3-test", "0.9.11-dictai-gemma3-test"),
         )
         for badging in badging_outputs:
             with self.subTest(badging=badging):

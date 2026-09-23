@@ -109,4 +109,26 @@ class LocalFormattingTest {
         assertNull(request.acceptOutput("Bonjour Maelis"))
         assertEquals("Bonjour Maëlys", request.acceptOutput("Bonjour Maëlys"))
     }
+
+    @Test fun gemma3ContextualRouteAcceptsTheCandidateRepairAndReportsSurfaceEditing() {
+        val source = "Je me permet de rappeler la consigne."
+        val candidate = "Je me permets de rappeler la consigne."
+        val request = LocalFormatRequest(
+            source,
+            "",
+            "français",
+            layoutKind = LocalLayoutKind.TEXT,
+            validation = LocalFormatValidation.GEMMA3_CONTEXTUAL,
+        )
+        val session = LocalFormattingSession(object : LocalFormatBackend {
+            override fun generate(request: LocalFormatRequest, onChunk: (String) -> Unit): String = candidate
+            override fun cancel() {}
+        })
+
+        try {
+            assertNull(request.previewOutput(candidate))
+            assertEquals(candidate, session.finish(request, 2000) {})
+            assertTrue(session.lastFinish!!.surfaceEditing)
+        } finally { session.close() }
+    }
 }

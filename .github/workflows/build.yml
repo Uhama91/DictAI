@@ -235,7 +235,7 @@ jobs:
           sha256sum -c SHA256SUMS
           tag="gemma3-test-$GITHUB_RUN_ID"
           cat > release-notes.md <<'EOF'
-          DictAI 0.9.11 — essai Gemma 3 à attente courte.
+          DictAI 0.9.12 — corrections Gemma 3.
 
           Cet essai utilise les poids Gemma 3 270M V3 existants, sans les modifier. L'APK ne contient aucun poids. Le fichier du modèle est téléchargé séparément dans l'application depuis la release gemma270-v3-model : gemma3-270m-postclean-v3-q8_0.gguf, 291 545 280 octets, SHA-256 6c4b7b6654c9638287c31e50fd0bf849f33a2ff2dd93bee685bdd9632f20ecf5.
 
@@ -243,10 +243,10 @@ jobs:
 
           La limite de 3 secondes borne l'attente de correction après la fin de l'ASR ; elle ne mesure pas le délai total entre l'arrêt de la dictée et son insertion. En cas d'expiration ou de sortie refusée, le texte reconnu reste disponible.
 
-          Le candidat MLP rejeté lors de l'évaluation du 23 septembre n'est pas inclus. Cette préversion revient au Gemma 3 V3 inchangé ; elle ne revendique pas d'amélioration de qualité ni de latence réelle sur téléphone. Les mesures sur appareil restent à faire.
+          Cette version ajuste la validation des corrections proposées par Gemma 3 et corrige le libellé du diagnostic final. Les poids V3 et la limite d’attente restent inchangés. Le candidat MLP rejeté lors de l’évaluation du 23 septembre n’est pas inclus. Les gains sur téléphone restent à vérifier.
 
           Le même identifiant d'application com.uhama.whisperpin et le même certificat de signature de débogage sont conservés pour permettre une installation comme mise à jour. N'effacez pas les données de l'application.
           EOF
           gh release create "$tag" dictai-gemma3-test.apk SHA256SUMS \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'DictAI 0.9.11 — essai Gemma 3 à attente courte' --notes-file release-notes.md
+            --title 'DictAI 0.9.12 — corrections Gemma 3' --notes-file release-notes.md

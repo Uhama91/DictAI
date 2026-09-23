@@ -243,4 +243,182 @@ class PostprocessingDiagnosticTest {
         assertFalse(value.contains("LLM local appliqué"))
         assertFalse(value.contains("Contenu privé"))
     }
+
+    @Test fun gemma3FinalOnlyAppliedTraceDoesNotClaimProgressiveFormatting() {
+        val value = gemma3Report(
+            trace = gemma3FinalTrace(
+                outcome = ProgressiveCallOutcome.APPLIED_MODIFIED,
+                resultsApplied = 1,
+                stillDelivered = 1,
+            ),
+        )
+
+        assertTrue(value.contains("Progressif: planifies_partial=0; planifies_final=1; lances_partial=0; lances_final=1"))
+        assertTrue(value.contains("Résultat : correction finale Gemma 3 appliquée"))
+        assertTrue(value.contains("État : correction finale Gemma 3 appliquée"))
+        assertTrue(value.contains("Origine : requête finale Gemma 3"))
+        assertTrue(value.contains("Appel natif pour ce résultat : oui"))
+        assertFalse(value.contains("correction progressive appliquée"))
+    }
+
+    @Test fun gemma3FinalOnlyOutcomeLabelsStayHonestForEveryTerminalResult() {
+        val cases = listOf(
+            Triple(
+                "unchanged",
+                gemma3FinalTrace(
+                    outcome = ProgressiveCallOutcome.APPLIED_UNCHANGED,
+                    resultsUnchanged = 1,
+                    stillDelivered = 1,
+                ),
+                "texte conservé après correction finale Gemma 3",
+            ),
+            Triple(
+                "rejected",
+                gemma3FinalTrace(outcome = ProgressiveCallOutcome.REJECTED, resultsRejected = 1),
+                "correction finale Gemma 3 rejetée",
+            ),
+            Triple(
+                "absent",
+                gemma3FinalTrace(outcome = ProgressiveCallOutcome.ABSENT, resultsAbsent = 1),
+                "résultat final Gemma 3 absent",
+            ),
+            Triple(
+                "deadline",
+                gemma3FinalTrace(
+                    outcome = ProgressiveCallOutcome.FINAL_DEADLINE_EXCEEDED,
+                    resultsNotReturned = 1,
+                    finalDeadlineExceeded = 1,
+                ),
+                "correction finale Gemma 3 non terminée (délai dépassé)",
+            ),
+            Triple(
+                "invalidated",
+                gemma3FinalTrace(
+                    outcome = ProgressiveCallOutcome.INVALIDATED,
+                    resultsApplied = 1,
+                    acceptedThenInvalidated = 1,
+                ),
+                "correction finale Gemma 3 invalidée",
+            ),
+        )
+
+        for ((case, trace, expectedLabel) in cases) {
+            val value = gemma3Report(trace)
+            assertTrue("$case result label", value.contains("Résultat : $expectedLabel"))
+            assertTrue("$case state label", value.contains("État : $expectedLabel"))
+            assertFalse("$case must not claim progressive output", value.contains("correction progressive"))
+            if (case != "unchanged") {
+                assertFalse("$case must not claim a delivered correction", value.contains("texte conservé après correction finale Gemma 3"))
+            }
+        }
+    }
+
+    @Test fun gemma3MissingFinalTraceDoesNotClaimCorrectionApplied() {
+        val value = gemma3Report(trace = null)
+
+        assertTrue(value.contains("Résultat : correction finale Gemma 3 non mesurée"))
+        assertTrue(value.contains("État : correction finale Gemma 3 non mesurée"))
+        assertFalse(value.contains("LLM local appliqué"))
+        assertFalse(value.contains("correction progressive appliquée"))
+    }
+
+    @Test fun gemma3BuildFlagDoesNotRelabelCloudDisabledOrDirectRoutes() {
+        val trace = gemma3FinalTrace(
+            outcome = ProgressiveCallOutcome.APPLIED_MODIFIED,
+            resultsApplied = 1,
+            stillDelivered = 1,
+        )
+        val cloud = gemma3Report(
+            trace = trace,
+            applied = PostprocessingDiagnostic.Applied.CLOUD,
+            requested = PostprocessingDiagnostic.Requested.CLOUD,
+        )
+        val disabled = gemma3Report(
+            trace = trace,
+            applied = PostprocessingDiagnostic.Applied.ORIGINAL,
+            requested = PostprocessingDiagnostic.Requested.OFF,
+        )
+        val direct = gemma3Report(
+            trace = trace,
+            applied = PostprocessingDiagnostic.Applied.LOCAL_DIRECT,
+            local = LocalFinishDiagnostic("direct", "applied", false, 0),
+        )
+
+        assertTrue(cloud.contains("Résultat : cloud appliqué"))
+        assertTrue(disabled.contains("Résultat : transcription conservée"))
+        assertTrue(direct.contains("Résultat : traitement direct, sans appel LLM"))
+        for (value in listOf(cloud, disabled, direct)) {
+            assertFalse(value.contains("correction finale Gemma 3"))
+            assertFalse(value.contains("correction progressive appliquée"))
+        }
+    }
+
+    private fun gemma3Report(
+        trace: ProgressiveFormattingDiagnosticSnapshot?,
+        applied: PostprocessingDiagnostic.Applied = PostprocessingDiagnostic.Applied.LOCAL_LLM,
+        requested: PostprocessingDiagnostic.Requested = PostprocessingDiagnostic.Requested.LOCAL,
+        local: LocalFinishDiagnostic? = null,
+    ) = PostprocessingDiagnostic.report(
+        version = "0.9.11",
+        timestampMs = 0,
+        formatId = "corrected",
+        requested = requested,
+        applied = applied,
+        local = local,
+        runtime = "arm64-baseline",
+        postprocessMs = 3_000,
+        stopToPublicationMs = 3_000,
+        finalText = "Texte privé",
+        publication = PostprocessingDiagnostic.PublicationResult.INSERTED,
+        cloudSuppressed = false,
+        gemma3RepairPilot = true,
+        progressive = trace,
+    )
+
+    private fun gemma3FinalTrace(
+        outcome: ProgressiveCallOutcome,
+        resultsApplied: Int = 0,
+        resultsUnchanged: Int = 0,
+        resultsRejected: Int = 0,
+        resultsAbsent: Int = 0,
+        resultsNotReturned: Int = 0,
+        acceptedThenInvalidated: Int = 0,
+        stillDelivered: Int = 0,
+        finalDeadlineExceeded: Int = 0,
+    ) = ProgressiveFormattingDiagnosticSnapshot(
+        scheduledPartial = 0,
+        scheduledFinal = 1,
+        launchedPartial = 0,
+        launchedFinal = 1,
+        startedDuringDictation = 0,
+        nativeStartedDuringDictation = 0,
+        resultsApplied = resultsApplied,
+        resultsUnchanged = resultsUnchanged,
+        resultsRejected = resultsRejected,
+        resultsAbsent = resultsAbsent,
+        resultsNotReturned = resultsNotReturned,
+        acceptedThenInvalidated = acceptedThenInvalidated,
+        stillDelivered = stillDelivered,
+        finalDeadlineExceeded = finalDeadlineExceeded,
+        cancellations = emptyMap(),
+        calls = listOf(
+            ProgressiveCallTiming(
+                id = 1,
+                phase = GemmaFineTunedPrompt.Phase.FINAL,
+                startedDuringDictation = false,
+                nativeStarted = true,
+                nativeStartedDuringDictation = false,
+                dispatcherWaitMs = 0,
+                backendWaitMs = 0,
+                generationMs = 1_000,
+                firstFragmentMs = 500,
+                firstFragmentSeen = true,
+                validationMs = 0,
+                outcome = outcome,
+                cancellation = null,
+                acceptedThenInvalidated = acceptedThenInvalidated > 0,
+            ),
+        ),
+        configuredWaitLimitMs = 3_000,
+    )
 }

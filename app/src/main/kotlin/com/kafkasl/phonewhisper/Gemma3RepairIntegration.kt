@@ -33,7 +33,7 @@ internal fun gemma3FinalLocalFormatRequest(
         language = language.cleanupLanguageName,
         protectedTerms = protectedTerms,
         layoutKind = LocalLayoutKind.TEXT,
-        validation = LocalFormatValidation.GEMMA_EDITING,
+        validation = LocalFormatValidation.GEMMA3_CONTEXTUAL,
         simpleEmailLayout = false,
         phase = GemmaFineTunedPrompt.Phase.FINAL,
         contextBefore = contextBefore,

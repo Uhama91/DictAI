@@ -225,7 +225,7 @@ internal class LocalFormatBenchmarkDialog(
             append("Appareil : ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n")
             append("${examples.size} textes synthétiques × ${LocalLatencyBenchmarkCases.PASS_COUNT} passages, sans cloud ni score de qualité.\n")
             append("Le moteur est partagé avec l’overlay. Le chargement est mesuré séparément ; si le modèle est déjà chargé, le rapport le précise.\n")
-            append("Configuration : ${LocalFormatRuntimeLabels.configuration(pilot, gemma3RepairPilot)} · ${LocalFormatCpuEngine.CPU_THREADS} threads CPU · contexte ${LocalFormatCpuEngine.CPU_CONTEXT_SIZE}. Validation : GEMMA_EDITING · Texte · phase finale · e-mail simplifié désactivé.\n")
+            append("Configuration : ${LocalFormatRuntimeLabels.configuration(pilot, gemma3RepairPilot)} · ${LocalFormatCpuEngine.CPU_THREADS} threads CPU · contexte ${LocalFormatCpuEngine.CPU_CONTEXT_SIZE}. Validation : ${if (gemma3RepairPilot) "GEMMA3_CONTEXTUAL" else "GEMMA_EDITING"} · Texte · phase finale · e-mail simplifié désactivé.\n")
             append("Premier fragment = texte non blanc reçu ; fin = retour complet du moteur. Les temps de calcul et de validation sont séparés.\n")
             append(if (gemma3RepairPilot)
                 "Ce banc ne mesure ni l’ASR, ni l’affichage, ni l’insertion dans une autre application ; il ne qualifie pas la qualité sémantique générale. Les réponses brutes et finales restent copiables pour une revue humaine.\n\n"

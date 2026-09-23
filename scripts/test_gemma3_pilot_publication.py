@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 WORKFLOW = ROOT / ".github/workflows/build.yml"
+BUILD_GRADLE = ROOT / "app/build.gradle.kts"
 NOTICE = ROOT / "app/src/gemma3RepairPilot/assets/local-format/gemma3-repair-pilot-NOTICE.txt"
 MAIN_NOTICE = ROOT / "app/src/main/assets/local-format/gemma3-repair-pilot-NOTICE.txt"
 TEST_GUIDE = ROOT / "docs/gemma3-repair-pilot-test-guide.md"
@@ -28,6 +29,9 @@ class Gemma3PilotPublicationTest(unittest.TestCase):
         self.assertIn("args+=(-Pgemma3RepairPilot=true)", build_job)
         self.assertIn("variant=gemma3-pilot", build_job)
         self.assertIn("dictai-gemma3-test", build_job)
+        build_gradle = BUILD_GRADLE.read_text(encoding="utf-8")
+        self.assertIn("gemma3RepairPilot -> 41", build_gradle)
+        self.assertIn('gemma3RepairPilot -> "0.9.12-dictai-gemma3-test"', build_gradle)
 
         conflict = build_job.index("Reject conflicting Gemma pilot selections")
         compile_step = build_job.index("Run unit tests and build selected APK")
@@ -46,8 +50,8 @@ class Gemma3PilotPublicationTest(unittest.TestCase):
         identity_script = (ROOT / "scripts/check_gemma3_apk_identity.py").read_text(encoding="utf-8")
         for expected in (
             "com.uhama.whisperpin",
-            "0.9.11-dictai-gemma3-test",
-            "EXPECTED_VERSION_CODE = 40",
+            "0.9.12-dictai-gemma3-test",
+            "EXPECTED_VERSION_CODE = 41",
             "6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539",
         ):
             self.assertIn(expected, identity_script)
@@ -68,15 +72,17 @@ class Gemma3PilotPublicationTest(unittest.TestCase):
             "name: dictai-gemma3-test",
             'tag="gemma3-test-$GITHUB_RUN_ID"',
             "--prerelease --latest=false",
-            "DictAI 0.9.11",
+            "DictAI 0.9.12 — corrections Gemma 3",
+            "Cette version ajuste la validation des corrections proposées par Gemma 3 et corrige le libellé du diagnostic final.",
+            "Les poids V3 et la limite d’attente restent inchangés.",
+            "Les gains sur téléphone restent à vérifier.",
             "Gemma 3 270M V3",
             "291 545 280",
             "6c4b7b6654c9638287c31e50fd0bf849f33a2ff2dd93bee685bdd9632f20ecf5",
             "gemma270-v3-model",
             "poids Gemma 3 270M V3 existants, sans les modifier",
             "3 secondes",
-            "elle ne revendique pas d'amélioration de qualité ni de latence réelle sur téléphone",
-            "candidat MLP rejeté lors de l'évaluation du 23 septembre",
+            "candidat MLP rejeté lors de l’évaluation du 23 septembre",
             "même identifiant d'application com.uhama.whisperpin",
         ):
             self.assertIn(phrase, job)
@@ -99,6 +105,7 @@ class Gemma3PilotPublicationTest(unittest.TestCase):
             self.assertIn(phrase.lower(), notice.lower())
         for phrase in (
             "l'apk de test comme mise à jour",
+            "0.9.12-dictai-gemma3-test** (code 41)",
             "mise en forme",
             "texte corrigé",
             "ne désinstallez pas",
@@ -106,7 +113,8 @@ class Gemma3PilotPublicationTest(unittest.TestCase):
             "après la finalisation de la transcription asr",
             "le texte reconnu reste disponible",
             "les listes, les mails",
-            "latence réelle sur téléphone reste à mesurer",
+            "ne qualifie pas la qualité ou la latence générale du modèle",
+            "la version 0.9.12 corrige ce libellé",
             "mlp a été rejeté",
         ):
             self.assertIn(phrase, guide)
