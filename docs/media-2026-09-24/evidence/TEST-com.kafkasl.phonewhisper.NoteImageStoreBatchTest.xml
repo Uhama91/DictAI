@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NoteImageStoreBatchTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-24T11:00:46" hostname="MacBook-Pro-de-Ullie.local" time="0.264">
+  <properties/>
+  <testcase name="batchStoresSeveralIndividuallyAddressableImagesUntilExplicitAcceptance" classname="com.kafkasl.phonewhisper.NoteImageStoreBatchTest" time="0.172"/>
+  <testcase name="legacySingleCaptureStillCompletesWithItsHistoricalIdentifier" classname="com.kafkasl.phonewhisper.NoteImageStoreBatchTest" time="0.017"/>
+  <testcase name="removingAnImageFromUnacceptedBatchFreesItsSlotAndKeepsOtherFiles" classname="com.kafkasl.phonewhisper.NoteImageStoreBatchTest" time="0.022"/>
+  <testcase name="cancellationDeletesOnlyUnacceptedImagesOwnedByThatBatch" classname="com.kafkasl.phonewhisper.NoteImageStoreBatchTest" time="0.018"/>
+  <testcase name="acceptedBatchIsImmutableAndLateStoreAfterCancellationCannotResurrectItsFiles" classname="com.kafkasl.phonewhisper.NoteImageStoreBatchTest" time="0.02"/>
+  <testcase name="retryClearsOnlyTheFailureAndKeepsTheBatchSessionAndImages" classname="com.kafkasl.phonewhisper.NoteImageStoreBatchTest" time="0.015"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

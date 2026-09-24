@@ -1,0 +1,19 @@
+{
+  "build_command": "JAVA_HOME=/Applications/Android Studio.app/Contents/jbr/Contents/Home ./gradlew :app:assembleDebug",
+  "build_result": "BUILD SUCCESSFUL",
+  "source_apk": "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/apk/debug/app-debug.apk",
+  "copied_apk": "/Users/ulliemaillot/Downloads/dictai-0.9.6-captures-scanner.apk",
+  "application_id": "com.uhama.whisperpin",
+  "version_code": 35,
+  "version_name": "0.9.6-dictai",
+  "size_bytes": 88159728,
+  "sha256": "214bd25d4fabba066f38ff9e5daeac011192f21f826162d07b0b77866a4db442",
+  "source_copy_bytes_identical": true,
+  "aapt_badging": "package: name='com.uhama.whisperpin' versionCode='35' versionName='0.9.6-dictai' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'",
+  "unit_test_summary": "final-unit-tests-summary.xml",
+  "unit_test_log": "final-unit-tests.log",
+  "assemble_log": "final-assembleDebug.log",
+  "frozen_production_files_match": "17/17",
+  "android_manifest_matches_base_commit": true,
+  "base_commit": "26cb80d4e5d03b8bf344bc6ac470b39bc3139fa5"
+}

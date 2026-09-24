@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NoteCameraGeometryTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-24T10:25:45" hostname="MacBook-Pro-de-Ullie.local" time="0.002">
+  <properties/>
+  <testcase name="accessibleZoomControlMapsToTheCameraRangeAndStaysBounded" classname="com.kafkasl.phonewhisper.NoteCameraGeometryTest" time="0.0"/>
+  <testcase name="photoRotationHandlesRearFrontAndLandscape" classname="com.kafkasl.phonewhisper.NoteCameraGeometryTest" time="0.0"/>
+  <testcase name="cropFallbackKeepsTheZoomCenteredAndInsideTheSensorBounds" classname="com.kafkasl.phonewhisper.NoteCameraGeometryTest" time="0.0"/>
+  <testcase name="previewKeepsFrameAspectWithoutStretchOrClipping" classname="com.kafkasl.phonewhisper.NoteCameraGeometryTest" time="0.001"/>
+  <testcase name="compactExpandedAndLandscapeLayoutsRespectReducedScreens" classname="com.kafkasl.phonewhisper.NoteCameraGeometryTest" time="0.0"/>
+  <testcase name="cameraBuffersBoundSizeAndPreserveSupportedAspectRatio" classname="com.kafkasl.phonewhisper.NoteCameraGeometryTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

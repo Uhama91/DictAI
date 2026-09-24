@@ -1,0 +1,224 @@
+# 2026-09-24T10:12:10.090335Z:
+test_suite_meta_data {
+  scheduled_test_case_count: 4
+}
+test_status: PASSED
+test_result {
+  test_case {
+    test_class: "NoteExportFixtureAndroidTest"
+    test_package: "com.kafkasl.phonewhisper"
+    test_method: "mixedPhotoScreenshotAndScanExportToReadableAndroidPdf"
+    start_time {
+      seconds: 1790244727
+      nanos: 822000000
+    }
+    end_time {
+      seconds: 1790244728
+      nanos: 682000000
+    }
+  }
+  test_status: PASSED
+  output_artifact {
+    label {
+      label: "logcat"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/logcat-com.kafkasl.phonewhisper.NoteExportFixtureAndroidTest-mixedPhotoScreenshotAndScanExportToReadableAndroidPdf.txt"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/device-info.pb"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.meminfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/meminfo"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.cpuinfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/cpuinfo"
+    }
+  }
+}
+test_result {
+  test_case {
+    test_class: "NoteMediaAndroidTest"
+    test_package: "com.kafkasl.phonewhisper"
+    test_method: "galleryCopySurvivesTheDraftAndNoteWithTheSameJpegBytes"
+    start_time {
+      seconds: 1790244728
+      nanos: 692000000
+    }
+    end_time {
+      seconds: 1790244728
+      nanos: 811000000
+    }
+  }
+  test_status: PASSED
+  output_artifact {
+    label {
+      label: "logcat"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/logcat-com.kafkasl.phonewhisper.NoteMediaAndroidTest-galleryCopySurvivesTheDraftAndNoteWithTheSameJpegBytes.txt"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/device-info.pb"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.meminfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/meminfo"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.cpuinfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/cpuinfo"
+    }
+  }
+}
+test_result {
+  test_case {
+    test_class: "NoteMediaAndroidTest"
+    test_package: "com.kafkasl.phonewhisper"
+    test_method: "clipboardCaptureNeedsNoNoteAndKeepsASmallPreviewForOptionalNotes"
+    start_time {
+      seconds: 1790244728
+      nanos: 813000000
+    }
+    end_time {
+      seconds: 1790244728
+      nanos: 867000000
+    }
+  }
+  test_status: PASSED
+  output_artifact {
+    label {
+      label: "logcat"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/logcat-com.kafkasl.phonewhisper.NoteMediaAndroidTest-clipboardCaptureNeedsNoNoteAndKeepsASmallPreviewForOptionalNotes.txt"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/device-info.pb"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.meminfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/meminfo"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.cpuinfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/cpuinfo"
+    }
+  }
+}
+test_result {
+  test_case {
+    test_class: "NoteMediaAndroidTest"
+    test_package: "com.kafkasl.phonewhisper"
+    test_method: "captureStoragePdfAndHtmlPreserveImageAndTextOrder"
+    start_time {
+      seconds: 1790244728
+      nanos: 904000000
+    }
+    end_time {
+      seconds: 1790244729
+      nanos: 23000000
+    }
+  }
+  test_status: PASSED
+  output_artifact {
+    label {
+      label: "logcat"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/logcat-com.kafkasl.phonewhisper.NoteMediaAndroidTest-captureStoragePdfAndHtmlPreserveImageAndTextOrder.txt"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/device-info.pb"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.meminfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/meminfo"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.cpuinfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/cpuinfo"
+    }
+  }
+}
+output_artifact {
+  label {
+    label: "test-results.log"
+    namespace: "com.google.testing.platform.runtime.android.driver.AndroidInstrumentationDriver"
+  }
+  source_path {
+    path: "/Users/ulliemaillot/dev_project/phone-whisper/app/build/outputs/androidTest-results/connected/debug/Medium_Phone_API_36.0(AVD) - 16/testlog/test-results.log"
+  }
+  type: TEST_DATA
+  mime_type: "text/plain"
+}

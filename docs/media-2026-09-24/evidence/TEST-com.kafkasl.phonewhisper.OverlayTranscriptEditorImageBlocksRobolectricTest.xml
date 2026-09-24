@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayTranscriptEditorImageBlocksRobolectricTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-24T11:00:50" hostname="MacBook-Pro-de-Ullie.local" time="0.252">
+  <properties/>
+  <testcase name="selectedBlockCanMoveToASeparateCaretThroughItsAccessibilityAction" classname="com.kafkasl.phonewhisper.OverlayTranscriptEditorImageBlocksRobolectricTest" time="0.19"/>
+  <testcase name="verticalLongPressDragKeepsScrollViewFromTakingTheGesture" classname="com.kafkasl.phonewhisper.OverlayTranscriptEditorImageBlocksRobolectricTest" time="0.062"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

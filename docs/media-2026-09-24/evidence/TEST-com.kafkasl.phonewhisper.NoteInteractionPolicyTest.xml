@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-24T11:00:47" hostname="MacBook-Pro-de-Ullie.local" time="0.004">
+  <properties/>
+  <testcase name="ordinary message retains direct stop and publication" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.001"/>
+  <testcase name="deferred note completion cannot select the message destination" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.0"/>
+  <testcase name="a real single tap sequence pauses a note and resumes it without insertion" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.002"/>
+  <testcase name="image note confirmation compares the marker free text sent to insertion" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.001"/>
+  <testcase name="taps during note finalization neither publish nor cancel its saved result" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.0"/>
+  <testcase name="a note tap pauses and double tap saves instead of discarding" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.0"/>
+  <testcase name="restored note stays protected even when its stored note has disappeared" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.0"/>
+  <testcase name="cancel close or resume invalidates confirmation without affecting a newer request" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.0"/>
+  <testcase name="confirmation is single use and bound to the complete current note text" classname="com.kafkasl.phonewhisper.NoteInteractionPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

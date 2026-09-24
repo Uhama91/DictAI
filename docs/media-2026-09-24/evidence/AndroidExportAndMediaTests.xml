@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.kafkasl.phonewhisper.NoteExportFixtureAndroidTest" tests="4" failures="0" errors="0" skipped="0" time="2.209" timestamp="2026-09-24T10:12:10" hostname="localhost">
+  <properties>
+    <property name="device" value="Medium_Phone_API_36.0(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="mixedPhotoScreenshotAndScanExportToReadableAndroidPdf" classname="com.kafkasl.phonewhisper.NoteExportFixtureAndroidTest" time="0.828" />
+  <testcase name="galleryCopySurvivesTheDraftAndNoteWithTheSameJpegBytes" classname="com.kafkasl.phonewhisper.NoteMediaAndroidTest" time="0.112" />
+  <testcase name="clipboardCaptureNeedsNoNoteAndKeepsASmallPreviewForOptionalNotes" classname="com.kafkasl.phonewhisper.NoteMediaAndroidTest" time="0.055" />
+  <testcase name="captureStoragePdfAndHtmlPreserveImageAndTextOrder" classname="com.kafkasl.phonewhisper.NoteMediaAndroidTest" time="0.12" />
+</testsuite>

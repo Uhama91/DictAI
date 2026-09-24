@@ -1,0 +1,1 @@
+09-24 12:16:48.687  8092  8106 I NoteExportFixture: PDF_PATH=/storage/emulated/0/Android/data/com.uhama.whisperpin/files/media-export-fixtures/mixed-note-e591d4f3-6a40-438d-831f-48e00a1e0865/mixed-note.pdf

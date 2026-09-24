@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NoteImagesTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-24T11:00:46" hostname="MacBook-Pro-de-Ullie.local" time="0.04">
+  <properties/>
+  <testcase name="ten images are allowed but eleventh and duplicate metadata are rejected without writing" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.003"/>
+  <testcase name="context marker anchors at tap before continued ASR and survives revision" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.002"/>
+  <testcase name="camera cancellation removes only its marker and retains later words and other images" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.0"/>
+  <testcase name="HTML is self-contained escaped and preserves byte-identical JPEGs and context order" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.012"/>
+  <testcase name="image path identifiers cannot traverse private directories" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.001"/>
+  <testcase name="scannerImagesKeepAStableKindForNoteAndExportMetadata" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.0"/>
+  <testcase name="share text includes complete long note and image correspondence" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.011"/>
+  <testcase name="unknown and duplicate references remain visible without duplicating image bytes" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.0"/>
+  <testcase name="Gemma correction accepts faithful context markers in prose" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.01"/>
+  <testcase name="existing text-only notes migrate without attachments and save preserves images" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.0"/>
+  <testcase name="LLM cannot drop duplicate reorder or renumber context references" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.0"/>
+  <testcase name="parts preserve the exact reading order and put unanchored image at the end" classname="com.kafkasl.phonewhisper.NoteImagesTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

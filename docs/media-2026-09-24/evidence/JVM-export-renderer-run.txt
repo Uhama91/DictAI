@@ -1,0 +1,3 @@
+JDK 21 command:
+JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home' ./gradlew :app:testDebugUnitTest --tests com.kafkasl.phonewhisper.NoteExportSizingTest --tests com.kafkasl.phonewhisper.NoteExportFixtureTest --tests com.kafkasl.phonewhisper.TranscriptImageBlockRendererRobolectricTest
+Observed result: exit 0; :app:testDebugUnitTest; BUILD SUCCESSFUL in 6s.

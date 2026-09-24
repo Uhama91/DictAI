@@ -65,14 +65,13 @@ internal object NotePdfExport {
                             val image = part.image
                             val bitmap = NoteImageStore.decode(store.file(image.id), 1800)
                             try {
-                                val scale = minOf(511f / bitmap.width, 650f / bitmap.height)
-                                val height = bitmap.height * scale
-                                if (y + height + 52 > 796) nextPage()
+                                val fitted = NoteExportImageSizing.fit(image.kind, bitmap.width, bitmap.height)
+                                if (y + fitted.heightPt + 52 > 796 && y > 42f) nextPage()
                                 prose("Image ${image.number} · ${image.kind.label}" + if (part.missingMarker) " · repère retiré du texte" else "", 10f)
-                                val left = 42 + (511 - bitmap.width * scale) / 2
-                                page!!.canvas.drawBitmap(bitmap, null, RectF(left, y, left + bitmap.width * scale, y + height),
+                                val left = 42 + (511 - fitted.widthPt) / 2
+                                page!!.canvas.drawBitmap(bitmap, null, RectF(left, y, left + fitted.widthPt, y + fitted.heightPt),
                                     Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
-                                y += height + 8
+                                y += fitted.heightPt + 8
                                 prose(DateFormat.getDateTimeInstance().format(Date(image.capturedAt)), 9f)
                             } finally { bitmap.recycle() }
                         }

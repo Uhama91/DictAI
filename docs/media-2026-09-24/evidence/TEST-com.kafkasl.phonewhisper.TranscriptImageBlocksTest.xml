@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-09-24T11:00:51" hostname="MacBook-Pro-de-Ullie.local" time="0.005">
+  <properties/>
+  <testcase name="rawTextDropsBoundAndUnboundObjectReplacementCharacters" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="movingFirstOfThreeAdjacentBlocksIntoTheSecondThirdGapUsesPostRemovalCaret" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.001"/>
+  <testcase name="removingOneBatchObjectRemovesAllItsImagesAndKeepsTheText" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="groupedMarkersRetainEachOriginalWhitespaceSeparator" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="distinctBlocksAtOneTextOffsetKeepOrderAndCanMoveBetweenEachOther" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="editorCaretOffsetsMapAcrossOneObjectReplacementCharacter" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="savedMarkersBecomeOneEditableObjectAndRoundTripWithoutChangingSurroundingText" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="messageDraftKeepsAcceptedSeriesAtCaretAcrossAsrAndInjectsOnlyRawText" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.002"/>
+  <testcase name="movingAWholeBlockPreservesEveryPlainTextCharacterAndImageIdentity" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="removingOneImageFromAGroupedBlockKeepsTheOtherImageAndBlockIdentity" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="acceptedBatchRendersAsOneObjectAtTheReservedPlainTextOffset" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="consecutiveSavedImagesShareOneSpanAndKeepTheirOrderOnRoundTrip" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <testcase name="noteEditMoveSaveReopenAndPartialDeleteKeepTextAndImageOrder" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.001"/>
+  <testcase name="droppingFirstBlockInItsExistingGapIsAStableNoOp" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.001"/>
+  <testcase name="legacyNoteDraftMarkersRecoverAsOneNativeBlockAndNeverRemainRaw" classname="com.kafkasl.phonewhisper.TranscriptImageBlocksTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

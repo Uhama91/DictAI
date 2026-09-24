@@ -16,8 +16,8 @@ internal object NoteScreenshot {
         val delivered = AtomicBoolean(false)
         val timeout = Runnable {
             if (delivered.compareAndSet(false, true)) {
-                restoreWindows()
                 store.fail(id, "Capture d’écran indisponible. Réessayez.")
+                restoreWindows()
                 finished()
             }
         }
@@ -25,8 +25,8 @@ internal object NoteScreenshot {
         fun fail(message: String) {
             if (!delivered.compareAndSet(false, true)) return
             main.removeCallbacks(timeout)
-            restoreWindows()
             store.fail(id, message)
+            restoreWindows()
             finished()
         }
         try {
@@ -34,7 +34,6 @@ internal object NoteScreenshot {
                 override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
                     if (!delivered.compareAndSet(false, true)) { result.hardwareBuffer.close(); return }
                     main.removeCallbacks(timeout)
-                    restoreWindows()
                     thread(name = "dictai-screenshot-store") {
                         try {
                             val wrapped = Bitmap.wrapHardwareBuffer(result.hardwareBuffer, result.colorSpace)
@@ -44,7 +43,10 @@ internal object NoteScreenshot {
                                 try { store.store(id, bitmap) } finally { bitmap.recycle() }
                             } finally { wrapped.recycle() }
                         } catch (_: Throwable) { store.fail(id, "Capture non enregistrée : espace ou image indisponible.") }
-                        finally { result.hardwareBuffer.close(); main.post { finished() } }
+                        finally {
+                            result.hardwareBuffer.close()
+                            main.post { restoreWindows(); finished() }
+                        }
                     }
                 }
                 override fun onFailure(errorCode: Int) {

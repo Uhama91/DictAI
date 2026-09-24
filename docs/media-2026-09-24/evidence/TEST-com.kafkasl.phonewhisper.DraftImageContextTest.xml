@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.DraftImageContextTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-24T11:00:46" hostname="MacBook-Pro-de-Ullie.local" time="0.015">
+  <properties/>
+  <testcase name="movedNativeBlockSynchronizesItsPersistedAnchorForDraftRecovery" classname="com.kafkasl.phonewhisper.DraftImageContextTest" time="0.009"/>
+  <testcase name="laterSpeechDoesNotMoveCapturePastItsOriginalContext" classname="com.kafkasl.phonewhisper.DraftImageContextTest" time="0.004"/>
+  <testcase name="failedAndExcessCapturesDoNotIntroduceDanglingReferences" classname="com.kafkasl.phonewhisper.DraftImageContextTest" time="0.001"/>
+  <testcase name="repeatedCapturesKeepOrderAndExistingNotesKeepTheirImages" classname="com.kafkasl.phonewhisper.DraftImageContextTest" time="0.0"/>
+  <testcase name="typingBeforeTheAnchorMovesItAndDeletingAcrossItClampsIt" classname="com.kafkasl.phonewhisper.DraftImageContextTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

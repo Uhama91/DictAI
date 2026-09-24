@@ -1,0 +1,7 @@
+Command: JAVA_HOME=/Applications/Android Studio.app/Contents/jbr/Contents/Home ./gradlew :app:testDebugUnitTest
+Result: BUILD SUCCESSFUL
+JUnit suites: 92
+Tests: 593
+Failures: 0
+Errors: 0
+Skipped: 0
