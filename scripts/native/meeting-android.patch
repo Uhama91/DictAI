@@ -1,0 +1,27 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ee36485..c766234 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -397,6 +397,9 @@ endif()
+ if(NEMO_SPEECH_BUILD_ASR OR NEMO_SPEECH_BUILD_DIAR)
+     add_subdirectory(src/asr)
+ endif()
++if(NEMO_SPEECH_BUILD_ASR)
++    add_subdirectory(app/src/main/cpp/meeting)
++endif()
+ if(NEMO_SPEECH_BUILD_S2S)
+     add_subdirectory(src/s2s)
+ endif()
+diff --git a/src/asr/CMakeLists.txt b/src/asr/CMakeLists.txt
+index 5026575..d3fe473 100644
+--- a/src/asr/CMakeLists.txt
++++ b/src/asr/CMakeLists.txt
+@@ -18,7 +18,7 @@ file(GLOB ASR_SOURCES CONFIGURE_DEPENDS
+ # (nemo_speech_asr_c) below, not the default-visibility C++ lib.
+ list(REMOVE_ITEM ASR_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/c_api.cpp")
+ 
+-add_library(nemo_speech_asr SHARED ${ASR_SOURCES})
++add_library(nemo_speech_asr STATIC ${ASR_SOURCES})
+ 
+ if(NEMO_SPEECH_GGML_PATCHED)
+     target_compile_definitions(nemo_speech_asr PRIVATE NEMO_SPEECH_GGML_PATCHED=1)

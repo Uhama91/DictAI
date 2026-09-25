@@ -66,6 +66,19 @@ class NoteInteractionPolicyTest {
         assertNull(gate.consume(other, "note-b", "Texte"))
     }
 
+    @Test fun `image note confirmation compares the marker free text sent to insertion`() {
+        val image = NoteImage("00000000-0000-0000-0000-000000000001", 1,
+            NoteImageKind.SCREENSHOT, 1L, 100, 100)
+        val rawText = TranscriptImageBlocks.fromNote(
+            "Avant\n\n[[Image 1]]\n\nAprès", listOf(image),
+        ).rawText()
+        val gate = NoteInsertionGate()
+        val request = gate.request("note-image", rawText)!!
+
+        assertFalse(rawText.contains("[[Image"))
+        assertEquals(rawText, gate.consume(request, "note-image", rawText))
+    }
+
     @Test fun `cancel close or resume invalidates confirmation without affecting a newer request`() {
         val gate = NoteInsertionGate()
         val old = gate.request("a", "Texte")!!

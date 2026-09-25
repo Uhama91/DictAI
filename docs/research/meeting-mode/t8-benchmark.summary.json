@@ -1,0 +1,303 @@
+{
+  "protocol": "T8-6-pass-cpu",
+  "latency_definition": "first publication monotonic_ms minus final word end_ms; unique join by utterance, audio start/end, and Unicode casefolded word with leading/trailing Unicode punctuation trimmed; ambiguous joins excluded; nearest-rank percentiles",
+  "stable_definition": "positive speaker tag observed with stable_speaker_ms >= final word end_ms; EOF alone does not confirm stability",
+  "memory_sampling_note": "PSS and RSS are sampled separately every 250 ms from /proc; process scans and the adb sampling stream add measurement overhead",
+  "measurement_scope": "native probe process only; not APK/JNI/UI/Poco performance evidence",
+  "passes": [
+    {
+      "pass": 1,
+      "variant": "asr",
+      "final_words": 22,
+      "final_revisions": 4,
+      "final_refreshes": 0,
+      "first_appearance": {
+        "count": 22,
+        "p50_ms": 453,
+        "p95_ms": 1087
+      },
+      "first_positive_attribution": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null
+      },
+      "stable_attribution": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null
+      },
+      "final_positive_words": 0,
+      "stable_final_words": 0,
+      "positive_unconfirmed": 0,
+      "unassigned_at_end": 22,
+      "ambiguous_joins": 0,
+      "ambiguous_final_words": 0,
+      "unmatched_final_words": 0,
+      "memory_samples": {
+        "count": 76,
+        "duration_ms": 18750,
+        "pss_max_kb": 965846,
+        "pss_mean_kb": 861867.5,
+        "rss_max_kb": 991472,
+        "rss_mean_kb": 887876.1,
+        "rss_is_not_pss": true
+      }
+    },
+    {
+      "pass": 2,
+      "variant": "both",
+      "final_words": 22,
+      "final_revisions": 9,
+      "final_refreshes": 5,
+      "first_appearance": {
+        "count": 22,
+        "p50_ms": 492,
+        "p95_ms": 1303
+      },
+      "first_positive_attribution": {
+        "count": 22,
+        "p50_ms": 492,
+        "p95_ms": 1303
+      },
+      "stable_attribution": {
+        "count": 22,
+        "p50_ms": 1042,
+        "p95_ms": 1543
+      },
+      "final_positive_words": 22,
+      "stable_final_words": 22,
+      "positive_unconfirmed": 0,
+      "unassigned_at_end": 0,
+      "ambiguous_joins": 0,
+      "ambiguous_final_words": 0,
+      "unmatched_final_words": 0,
+      "memory_samples": {
+        "count": 100,
+        "duration_ms": 24770,
+        "pss_max_kb": 1106857,
+        "pss_mean_kb": 1052815.7,
+        "rss_max_kb": 1132616,
+        "rss_mean_kb": 1078022.5,
+        "rss_is_not_pss": true
+      }
+    },
+    {
+      "pass": 3,
+      "variant": "both",
+      "final_words": 22,
+      "final_revisions": 9,
+      "final_refreshes": 5,
+      "first_appearance": {
+        "count": 22,
+        "p50_ms": 488,
+        "p95_ms": 1307
+      },
+      "first_positive_attribution": {
+        "count": 22,
+        "p50_ms": 488,
+        "p95_ms": 1307
+      },
+      "stable_attribution": {
+        "count": 22,
+        "p50_ms": 981,
+        "p95_ms": 1547
+      },
+      "final_positive_words": 22,
+      "stable_final_words": 22,
+      "positive_unconfirmed": 0,
+      "unassigned_at_end": 0,
+      "ambiguous_joins": 0,
+      "ambiguous_final_words": 0,
+      "unmatched_final_words": 0,
+      "memory_samples": {
+        "count": 102,
+        "duration_ms": 25250,
+        "pss_max_kb": 1104840,
+        "pss_mean_kb": 1044735.9,
+        "rss_max_kb": 1130188,
+        "rss_mean_kb": 1071031.1,
+        "rss_is_not_pss": true
+      }
+    },
+    {
+      "pass": 4,
+      "variant": "asr",
+      "final_words": 22,
+      "final_revisions": 4,
+      "final_refreshes": 0,
+      "first_appearance": {
+        "count": 22,
+        "p50_ms": 449,
+        "p95_ms": 1089
+      },
+      "first_positive_attribution": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null
+      },
+      "stable_attribution": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null
+      },
+      "final_positive_words": 0,
+      "stable_final_words": 0,
+      "positive_unconfirmed": 0,
+      "unassigned_at_end": 22,
+      "ambiguous_joins": 0,
+      "ambiguous_final_words": 0,
+      "unmatched_final_words": 0,
+      "memory_samples": {
+        "count": 64,
+        "duration_ms": 15750,
+        "pss_max_kb": 965326,
+        "pss_mean_kb": 914365.5,
+        "rss_max_kb": 990652,
+        "rss_mean_kb": 939608.4,
+        "rss_is_not_pss": true
+      }
+    },
+    {
+      "pass": 5,
+      "variant": "asr",
+      "final_words": 22,
+      "final_revisions": 4,
+      "final_refreshes": 0,
+      "first_appearance": {
+        "count": 22,
+        "p50_ms": 455,
+        "p95_ms": 1085
+      },
+      "first_positive_attribution": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null
+      },
+      "stable_attribution": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null
+      },
+      "final_positive_words": 0,
+      "stable_final_words": 0,
+      "positive_unconfirmed": 0,
+      "unassigned_at_end": 22,
+      "ambiguous_joins": 0,
+      "ambiguous_final_words": 0,
+      "unmatched_final_words": 0,
+      "memory_samples": {
+        "count": 62,
+        "duration_ms": 15270,
+        "pss_max_kb": 965519,
+        "pss_mean_kb": 927516.0,
+        "rss_max_kb": 990672,
+        "rss_mean_kb": 953108.3,
+        "rss_is_not_pss": true
+      }
+    },
+    {
+      "pass": 6,
+      "variant": "both",
+      "final_words": 22,
+      "final_revisions": 9,
+      "final_refreshes": 5,
+      "first_appearance": {
+        "count": 22,
+        "p50_ms": 501,
+        "p95_ms": 1258
+      },
+      "first_positive_attribution": {
+        "count": 22,
+        "p50_ms": 501,
+        "p95_ms": 1258
+      },
+      "stable_attribution": {
+        "count": 22,
+        "p50_ms": 984,
+        "p95_ms": 1542
+      },
+      "final_positive_words": 22,
+      "stable_final_words": 22,
+      "positive_unconfirmed": 0,
+      "unassigned_at_end": 0,
+      "ambiguous_joins": 0,
+      "ambiguous_final_words": 0,
+      "unmatched_final_words": 0,
+      "memory_samples": {
+        "count": 96,
+        "duration_ms": 23760,
+        "pss_max_kb": 1104746,
+        "pss_mean_kb": 1062938.9,
+        "rss_max_kb": 1130056,
+        "rss_mean_kb": 1091718.0,
+        "rss_is_not_pss": true
+      }
+    }
+  ],
+  "variants": {
+    "asr": {
+      "passes": [
+        1,
+        4,
+        5
+      ],
+      "first_appearance": {
+        "count": 66,
+        "p50_ms": 455,
+        "p95_ms": 1088
+      },
+      "first_positive_attribution": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null
+      },
+      "stable_attribution": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null
+      },
+      "final_words": 66,
+      "final_revisions": 12,
+      "final_refreshes": 0,
+      "final_positive_words": 0,
+      "stable_final_words": 0,
+      "positive_unconfirmed": 0,
+      "unassigned_at_end": 66,
+      "ambiguous_joins": 0,
+      "ambiguous_final_words": 0,
+      "unmatched_final_words": 0
+    },
+    "both": {
+      "passes": [
+        2,
+        3,
+        6
+      ],
+      "first_appearance": {
+        "count": 66,
+        "p50_ms": 501,
+        "p95_ms": 1303
+      },
+      "first_positive_attribution": {
+        "count": 66,
+        "p50_ms": 501,
+        "p95_ms": 1303
+      },
+      "stable_attribution": {
+        "count": 66,
+        "p50_ms": 1018,
+        "p95_ms": 1547
+      },
+      "final_words": 66,
+      "final_revisions": 27,
+      "final_refreshes": 15,
+      "final_positive_words": 66,
+      "stable_final_words": 66,
+      "positive_unconfirmed": 0,
+      "unassigned_at_end": 0,
+      "ambiguous_joins": 0,
+      "ambiguous_final_words": 0,
+      "unmatched_final_words": 0
+    }
+  }
+}

@@ -38,7 +38,9 @@ import android.text.TextWatcher
 import android.text.InputType
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.BaseInputConnection
+import android.Manifest
 import android.app.AlertDialog
+import android.content.pm.PackageManager
 import android.widget.FrameLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -46,7 +48,50 @@ import android.widget.Toast
 import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.min
+import java.io.File
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
+import com.kafkasl.phonewhisper.meeting.MeetingAudioRecord
+import com.kafkasl.phonewhisper.meeting.MeetingDocumentRead
+import com.kafkasl.phonewhisper.meeting.MeetingDraftOwnership
+import com.kafkasl.phonewhisper.meeting.MeetingDraftOwnershipClaim
+import com.kafkasl.phonewhisper.meeting.MeetingDraftOwnershipRequest
+import com.kafkasl.phonewhisper.meeting.MeetingEngine
+import com.kafkasl.phonewhisper.meeting.MeetingImageAnchor
+import com.kafkasl.phonewhisper.meeting.MeetingImageBatch
+import com.kafkasl.phonewhisper.meeting.MeetingImageDelivery
+import com.kafkasl.phonewhisper.meeting.MeetingImageMutation
+import com.kafkasl.phonewhisper.meeting.MeetingImageRecovery
+import com.kafkasl.phonewhisper.meeting.MeetingImageSource
+import com.kafkasl.phonewhisper.meeting.MeetingImageSourceKind
+import com.kafkasl.phonewhisper.meeting.MeetingMainDispatcher
+import com.kafkasl.phonewhisper.meeting.MeetingMicrophoneFactoryPort
+import com.kafkasl.phonewhisper.meeting.MeetingModelAvailability
+import com.kafkasl.phonewhisper.meeting.MeetingModelAvailabilityPort
+import com.kafkasl.phonewhisper.meeting.MeetingModelCatalog
+import com.kafkasl.phonewhisper.meeting.MeetingModelStore
+import com.kafkasl.phonewhisper.meeting.MeetingModelStoreState
+import com.kafkasl.phonewhisper.meeting.MeetingNativeAdmission
+import com.kafkasl.phonewhisper.meeting.MeetingNativeReservationPort
+import com.kafkasl.phonewhisper.meeting.MeetingNotePublisherPort
+import com.kafkasl.phonewhisper.meeting.MeetingPanelActions
+import com.kafkasl.phonewhisper.meeting.MeetingPanelAnchor
+import com.kafkasl.phonewhisper.meeting.MeetingPanelChoicesRequest
+import com.kafkasl.phonewhisper.meeting.MeetingPanelController
+import com.kafkasl.phonewhisper.meeting.MeetingPanelDialogHost
+import com.kafkasl.phonewhisper.meeting.MeetingPanelDocumentAction
+import com.kafkasl.phonewhisper.meeting.MeetingPanelSessionCommand
+import com.kafkasl.phonewhisper.meeting.MeetingPanelStatus
+import com.kafkasl.phonewhisper.meeting.MeetingPanelTextInputRequest
+import com.kafkasl.phonewhisper.meeting.MeetingRecordingController
+import com.kafkasl.phonewhisper.meeting.MeetingRecordingPhase
+import com.kafkasl.phonewhisper.meeting.MeetingRecordingPorts
+import com.kafkasl.phonewhisper.meeting.MeetingRecordingState
+import com.kafkasl.phonewhisper.meeting.MeetingSessionFactoryPort
+import com.kafkasl.phonewhisper.meeting.MeetingDocument
+import com.kafkasl.phonewhisper.meeting.MeetingHypothesis
+import com.kafkasl.phonewhisper.meeting.MeetingProjection
 
 /** Ensures AudioRecord is never released or read buffers snapshotted while its reader is alive. */
 internal class RecordingStopCoordinator(
@@ -55,6 +100,10 @@ internal class RecordingStopCoordinator(
     private val releaseRecorder: () -> Unit,
     private val snapshot: () -> Unit,
 ) {
+    @Volatile
+    var recorderReleaseConfirmed: Boolean = false
+        private set
+
     sealed class Result {
         data object Stopped : Result()
         data object TimedOut : Result()
@@ -89,7 +138,12 @@ internal class RecordingStopCoordinator(
     }
 
     private fun releaseAndSnapshot() {
-        try { releaseRecorder() } catch (_: Throwable) {}
+        recorderReleaseConfirmed = try {
+            releaseRecorder()
+            true
+        } catch (_: Throwable) {
+            false
+        }
         try { snapshot() } catch (_: Throwable) {}
     }
 }
@@ -170,6 +224,17 @@ internal fun visualWaveLevelFromRms(rms: Double): Float {
 
 class OverlayService : Service() {
 
+    /** Native-only fixture seams. UI, draft-note publication and focus plumbing remain real. */
+    internal data class MeetingTestOverrides(
+        val draftOwnership: MeetingDraftOwnership,
+        val draftFile: File,
+        val modelStore: MeetingModelStore,
+        val modelAvailability: MeetingModelAvailabilityPort,
+        val reservation: MeetingNativeReservationPort,
+        val sessionFactory: MeetingSessionFactoryPort,
+        val microphoneFactory: MeetingMicrophoneFactoryPort,
+    )
+
     private val overlayPalette: ThemePalette
         get() = ThemeTokens.palette(this)
 
@@ -188,8 +253,30 @@ class OverlayService : Service() {
         const val ACTION_THEME_CHANGED = "com.uhama.whisperpin.THEME_CHANGED"
         private const val DOUBLE_TAP_MS = 280L
         private const val RECORD_STOP_TIMEOUT_MS = 1_000L
+        private const val MEETING_NOTE_PUBLICATION_MAX_FLUSH_ATTEMPTS = 3
+        private val meetingTestFactoryLock = Any()
+        private var pendingMeetingTestFactory: ((OverlayService) -> MeetingTestOverrides?)? = null
         @Volatile var micArmed = false
             private set
+
+        /** One-shot instrumentation hook; never exposed through an Intent or persistent setting. */
+        internal fun setMeetingTestOverridesFactoryForTest(
+            factory: (OverlayService) -> MeetingTestOverrides?,
+        ): Boolean =
+            synchronized(meetingTestFactoryLock) {
+                if (pendingMeetingTestFactory != null) false
+                else {
+                    pendingMeetingTestFactory = factory
+                    true
+                }
+            }
+
+        internal fun clearMeetingTestOverridesFactoryForTest(): Unit = synchronized(meetingTestFactoryLock) {
+            pendingMeetingTestFactory = null
+        }
+
+        private fun consumeMeetingTestOverridesFactory(): ((OverlayService) -> MeetingTestOverrides?)? =
+            synchronized(meetingTestFactoryLock) { pendingMeetingTestFactory.also { pendingMeetingTestFactory = null } }
     }
 
     private enum class State { IDLE, RECORDING, PAUSING, PAUSED, TRANSCRIBING, CANCELLING, MIC_UNARMED }
@@ -198,9 +285,12 @@ class OverlayService : Service() {
         val session: DictationAsrSession,
         val formatOptions: RecordingOptions,
         val purpose: DictationPurpose,
+        val lease: TranscriptionRunLease,
         val cancellation: DictationCancellationCoordinator = DictationCancellationCoordinator(),
     ) {
         val captureGate = RecordingCaptureGate()
+        val leaseReleased = java.util.concurrent.atomic.AtomicBoolean(false)
+        @Volatile var nativeCloseUncertain = false
         @Volatile var pauseWorker: Thread? = null
         var resumeAfterPause = false
         var archiveAsNote = false
@@ -227,6 +317,7 @@ class OverlayService : Service() {
 
     private val prefs by lazy { PersistencePrefs(this) }
     @Volatile private var state = State.MIC_UNARMED
+    private var lastNotifiedContent: String? = null
     private var recordThread: Thread? = null
     private var container: View? = null
     private var pill: FrameLayout? = null
@@ -238,6 +329,7 @@ class OverlayService : Service() {
     private var liveText: OverlayTranscriptEditor? = null
     private var updatingLiveText = false
     private var liveEditorChanging = false
+    private var imageIdsBeforeTextEdit: Set<String> = emptySet()
     private val vocabularyTracker = VocabularyCorrectionTracker()
     private var vocabularySuggestion: VocabularyCorrectionTracker.Suggestion? = null
     private var vocabularyBanner: LinearLayout? = null
@@ -246,7 +338,8 @@ class OverlayService : Service() {
     private var vocabularyDismiss: Runnable? = null
     private var mediaToolbar: LinearLayout? = null
     private val editableTranscript = EditableTranscript()
-    private val localFormatter by lazy { LocalFormatEngine(this) }
+    private val localFormatterLazy = lazy { LocalFormatEngine(this) }
+    private val localFormatter: LocalFormatEngine get() = localFormatterLazy.value
     private var formatDialog: AlertDialog? = null
     private var livePanel: FrameLayout? = null
     /** Transparent envelope for the panel window; the rounded body clips its own children. */
@@ -283,11 +376,21 @@ class OverlayService : Service() {
     private var noteInsertButton: TextView? = null
     private var noteDoneButton: TextView? = null
     private val imageStore by lazy { NoteImageStore(this) }
+    private val imageBlockRenderer by lazy { TranscriptImageBlockRenderer(this) }
     private var captureWindowsHidden = false
     private var preserveImageClipboard = false
     private var imageDeliveryBusy = false
+    private var screenshotBatchBar: ScreenshotBatchBar? = null
+    private var screenshotBatchBarAdded = false
+    private var screenshotBatchId: String? = null
+    private var acceptedBatchRetry: PendingNoteCapture? = null
+    private var meetingImageResumeContext: MeetingImageResumeContext? = null
+    @Volatile private var meetingImageRecoveryRequest: MeetingDraftOwnershipRequest? = null
+    private var screenshotBatchParams: WindowManager.LayoutParams? = null
+    private var screenshotCaptureBusy = false
     private var exportAfterImageDelivery: String? = null
     private var archiveAfterImageDelivery = false
+    private var messageAfterImageDelivery = false
     private var imageStrip: LinearLayout? = null
     private var imageStripScroll: android.widget.HorizontalScrollView? = null
     private var mediaButtons = mutableListOf<ImageButton>()
@@ -317,12 +420,14 @@ class OverlayService : Service() {
     private var floatingMenu: View? = null
     private var formatMenuRows = emptyList<TextView>()
     private var formatMenuFormats = emptyList<PostProcessingFormat>()
+    private var transcriptionModeRows = emptyList<TextView>()
     private var formatMenuSelected = -1
     private var formatMenuParams: WindowManager.LayoutParams? = null
     private var formatMenuSwipeMode = false
     private var params: WindowManager.LayoutParams? = null
     private var liveParams: WindowManager.LayoutParams? = null
     private var audioRecord: AudioRecord? = null
+    private var resumeAudioRecordFactory: ((Int) -> AudioRecord)? = null
     private var pcm: java.io.ByteArrayOutputStream? = null
     @Volatile private var asrEngine: DictationAsrEngine? = null
     @Volatile private var asrSession: DictationAsrSession? = null
@@ -356,7 +461,117 @@ class OverlayService : Service() {
     private var lastNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
     private val localLoading = java.util.concurrent.atomic.AtomicBoolean(false)
     private val localEngineLifecycle = LocalEngineLifecycle()
-    private val residentAsrEngine = ResidentEngine<DictationAsrEngine>()
+    private val transcriptionModes by lazy { TranscriptionModeCoordinator.process(applicationContext) }
+    private val residentAsrEngine by lazy { ResidentEngine<DictationAsrEngine>(transcriptionModes) }
+    private var transcriptionModeSubscription: AutoCloseable? = null
+    private var meetingTestOverrides: MeetingTestOverrides? = null
+    private var meetingDraftClaimRequest: MeetingDraftOwnershipRequest? = null
+    private var meetingDraftClaim: MeetingDraftOwnershipClaim? = null
+    private var meetingRecordingController: MeetingRecordingController? = null
+    private var meetingPanelController: MeetingPanelController? = null
+    private var meetingModelStore: MeetingModelStore? = null
+    private var meetingModelListener: ((MeetingModelStoreState) -> Unit)? = null
+    private var meetingDraftFile: File? = null
+    private var meetingOpenGeneration = 0L
+    private var meetingReplacementGeneration = 0L
+    private var meetingReplacementOperation: MeetingReplacementOperation? = null
+    private var meetingModeTransferInProgress = false
+    private var meetingNotePublicationGeneration = 0L
+    private var meetingNotePublicationOperation: MeetingNotePublicationOperation? = null
+    private var meetingNotePublicationError: MeetingNotePublicationError? = null
+    private var meetingDocumentActionGeneration = 0L
+    private var meetingDocumentActionOperation: MeetingDocumentActionOperation? = null
+    private var meetingDocumentActionError: MeetingDocumentActionError? = null
+    private var meetingImageMutationGeneration = 0L
+    private var meetingImageMutationOperation: MeetingImageMutationOperation? = null
+    private var meetingImageMutationError: MeetingImageMutationError? = null
+    private var meetingControllerState: MeetingRecordingState? = null
+    private var meetingOpaqueMessage: TextView? = null
+    private var meetingSurfaceOpen = false
+    private var dictationPanelVisibilityBeforeMeeting = emptyList<Pair<View, Int>>()
+    private var dictationPanelTitleBeforeMeeting: CharSequence? = null
+    private var dictationStateVisibilityBeforeMeeting: Int = View.VISIBLE
+    private var meetingDialogOpen = false
+    private var meetingFinishPromptPending = false
+    private var meetingDocumentRestored = false
+    private val meetingDialogs = linkedSetOf<AlertDialog>()
+    private var startMeetingAfterClaimLanguage: String? = null
+
+    private data class MeetingReplacementOperation(
+        val generation: Long,
+        val modeGeneration: Long,
+        val sessionId: String,
+        val runId: String,
+        val controller: MeetingRecordingController,
+        val panel: MeetingPanelController,
+        val claim: MeetingDraftOwnershipClaim,
+        val path: File,
+        val nextNote: TranscriptNote? = null,
+        var destinationChanged: Boolean = false,
+        var dictationSelectionGeneration: Long? = null,
+        var savedMeetingNote: TranscriptNote? = null,
+    )
+    private data class MeetingNotePublicationOperation(
+        val generation: Long,
+        val sessionId: String,
+        val runId: String,
+        val controller: MeetingRecordingController,
+    )
+    private data class MeetingNotePublicationError(
+        val sessionId: String,
+        val message: String,
+    )
+    private data class MeetingDocumentActionOperation(
+        val generation: Long,
+        val action: MeetingPanelDocumentAction,
+        val sessionId: String,
+        val runId: String,
+        val controller: MeetingRecordingController,
+        val panel: MeetingPanelController,
+        val initialPhase: MeetingRecordingPhase,
+        val mode: TranscriptionMode,
+        val modeGeneration: Long,
+        val poisonedDocumentOnly: Boolean,
+        val anchor: MeetingImageAnchor?,
+    )
+    private data class MeetingImageResumeContext(
+        val pendingId: String,
+        val sessionId: String,
+        val runId: String,
+        val controller: MeetingRecordingController,
+    )
+    private data class MeetingDocumentActionError(
+        val sessionId: String,
+        val runId: String,
+        val action: MeetingPanelDocumentAction,
+        val anchor: MeetingImageAnchor?,
+        val pendingId: String?,
+        val message: String,
+    )
+    private data class MeetingImageMenuContext(
+        val sessionId: String,
+        val runId: String,
+        val controller: MeetingRecordingController,
+        val panel: MeetingPanelController,
+        val mode: TranscriptionMode,
+        val modeGeneration: Long,
+        val poisonedDocumentOnly: Boolean,
+        val anchor: MeetingImageAnchor?,
+    )
+    private data class MeetingImageMutationOperation(
+        val generation: Long,
+        val context: MeetingImageMenuContext,
+        val imageId: String,
+        val previousRecyclerVisibility: Int,
+    )
+    private data class MeetingImageMutationError(
+        val sessionId: String,
+        val runId: String,
+        val imageId: String,
+        val mutation: ((MeetingDocument, List<NoteImage>) -> MeetingImageMutation)?,
+        val message: String,
+        val removedImageIds: Set<String> = emptySet(),
+    )
     private val main = Handler(Looper.getMainLooper())
     private val tapCoordinator = DictationTapGestureCoordinator(DOUBLE_TAP_MS)
 
@@ -364,27 +579,61 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        consumeMeetingTestOverridesFactory()?.let { factory ->
+            val overrides = factory(this)
+            if (overrides != null) check(installMeetingTestOverrides(overrides)) {
+                "Meeting test overrides must be installed before the service owns a meeting resource"
+            }
+        }
         lastNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         micArmed = false
         createChannel()
         if (!startForegroundSpecialUse()) return
+        transcriptionModeSubscription = transcriptionModes.subscribe { snapshot ->
+            main.post {
+                if (!localEngineLifecycle.isDestroyed()) {
+                    val current = transcriptionModes.snapshot()
+                    if (current.generation != snapshot.generation || current.mode != snapshot.mode) return@post
+                    if (current.mode == TranscriptionMode.DICTATION && meetingSurfaceOpen) {
+                        beginDictationModeTransfer(current)
+                    } else if (current.mode != TranscriptionMode.MEETING) {
+                        cancelMeetingNotePublication()
+                    }
+                    applyTranscriptionMode(current.mode)
+                }
+            }
+        }
         showButton()
         purpose = draftStore.purpose
         recoveredDraft = draftStore.load()
         activeNoteId = draftStore.noteId?.takeIf { notes.get(it) != null }
         recoveredDraft?.let { text ->
-            editableTranscript.edit(text)
-            updatingLiveText = true
-            liveText?.setText(text)
-            updatingLiveText = false
+            val projection = storedTranscriptProjection(text)
+            recoveredDraft = projection.rawText()
+            editableTranscript.edit(projection.rawText())
+            renderTranscriptProjection(projection, projection.rawText().length, projection.rawText().length)
             panelHidden = !prefs.showTranscript
             setState(State.PAUSED)
             setLivePreviewVisible(true)
         }
         recoverPendingImage()
         refreshNoteImages()
-        ensureLocalLoaded()
-        warmLocalFormatter()
+        if (transcriptionModes.snapshot().mode == TranscriptionMode.DICTATION) {
+            ensureLocalLoaded()
+            warmLocalFormatter()
+        }
+    }
+
+    /** Installs test-only native boundaries before this service owns any meeting resource. */
+    internal fun installMeetingTestOverrides(overrides: MeetingTestOverrides): Boolean {
+        if (Looper.myLooper() != Looper.getMainLooper()) return false
+        if (meetingTestOverrides != null || meetingSurfaceOpen || meetingDraftClaimRequest != null ||
+            meetingDraftClaim != null || meetingRecordingController != null || activeRun != null
+        ) return false
+        meetingTestOverrides = overrides
+        meetingModelStore = overrides.modelStore
+        meetingDraftFile = overrides.draftFile
+        return true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -404,12 +653,16 @@ class OverlayService : Service() {
         if (intent?.action == ACTION_ARM_MIC) {
             promoteMic()
             wake()
-            // Si le modèle local n'était pas dispo au démarrage (pas encore téléchargé),
-            // on retente de le charger (un seul chargement à la fois, cf. ensureLocalLoaded).
-            ensureLocalLoaded()
-            warmLocalFormatter()
+            if (transcriptionModes.snapshot().mode == TranscriptionMode.DICTATION) {
+                // ARM_MIC is sent by a visible Activity. Meeting still arms only the FGS; it
+                // does not warm Dictation ASR or its local formatter.
+                ensureLocalLoaded()
+                warmLocalFormatter()
+            }
         }
-        if (intent?.action == ACTION_PREPARE_LOCAL_FORMAT) warmLocalFormatter()
+        if (intent?.action == ACTION_PREPARE_LOCAL_FORMAT &&
+            transcriptionModes.snapshot().mode == TranscriptionMode.DICTATION
+        ) warmLocalFormatter()
         if (intent?.action == ACTION_OPEN_NOTES) {
             if (exportPanel != null) {
                 closeNoteExport()
@@ -422,12 +675,18 @@ class OverlayService : Service() {
     }
 
     private fun warmLocalFormatter() {
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE && prefs.formattingEngine == "local" &&
+        if (!meetingSurfaceOpen && !meetingModeTransferInProgress && meetingReplacementOperation == null &&
+            transcriptionModes.snapshot().mode == TranscriptionMode.DICTATION &&
+            BuildConfig.LOCAL_FORMAT_PROTOTYPE && prefs.formattingEngine == "local" &&
             GemmaModelStore(this).installedModel() != null) localFormatter.warm()
     }
 
     /** Charge le modèle local hors thread principal; l'ancien moteur est fermé avant toute nouvelle ouverture. */
     private fun ensureLocalLoaded() {
+        val requestedMode = transcriptionModes.snapshot()
+        if (requestedMode.mode != TranscriptionMode.DICTATION || meetingSurfaceOpen ||
+            meetingModeTransferInProgress || meetingReplacementOperation != null
+        ) return
         if (activeRun != null) return
         val selectedModel = TranscriptionEngine.selectedModelName(this)
         when (LocalLoadStartGate.acquire(
@@ -442,18 +701,66 @@ class OverlayService : Service() {
         }
         thread {
             try {
+                val beforeOpen = transcriptionModes.snapshot()
+                if (localEngineLifecycle.isDestroyed() ||
+                    beforeOpen.mode != TranscriptionMode.DICTATION ||
+                    beforeOpen.generation != requestedMode.generation
+                ) return@thread
                 asrSession?.cancelAndAwait()
                 asrSession = null
+                asrEngine = null
+                loadedModelName = null
                 val loaded = residentAsrEngine.replace(selectedModel) {
                     DictationAsrEngineFactory.create(this, selectedModel)
+                }
+                if (loaded == null) return@thread
+                val afterOpen = transcriptionModes.snapshot()
+                if (localEngineLifecycle.isDestroyed() ||
+                    afterOpen.mode != TranscriptionMode.DICTATION ||
+                    afterOpen.generation != requestedMode.generation
+                ) {
+                    closeResidentAfterRejectedLoad()
+                    return@thread
                 }
                 val published = localEngineLifecycle.publishIfAlive {
                     asrEngine = loaded
                     loadedModelName = selectedModel
                 }
-                if (!published) residentAsrEngine.close()
+                if (!published) closeResidentAfterRejectedLoad()
+            } catch (failure: Throwable) {
+                // A mode switch or an uncertain native close may reject a load. Never let that
+                // worker exception escape into Android's process uncaught-exception handler.
+                asrEngine = null
+                loadedModelName = null
+                val current = transcriptionModes.snapshot()
+                if (!localEngineLifecycle.isDestroyed() &&
+                    current.mode == TranscriptionMode.DICTATION &&
+                    current.generation == requestedMode.generation
+                ) {
+                    main.post {
+                        if (!localEngineLifecycle.isDestroyed() &&
+                            transcriptionModes.snapshot().let {
+                                it.mode == TranscriptionMode.DICTATION && it.generation == requestedMode.generation
+                            }
+                        ) toast("Modèle local indisponible.")
+                    }
+                }
+                Log.w(TAG, "Chargement local indisponible: ${failure.javaClass.simpleName}")
             }
             finally { localLoading.set(false) }
+        }
+    }
+
+    private fun closeResidentAfterRejectedLoad() {
+        try {
+            residentAsrEngine.close()
+        } catch (failure: Throwable) {
+            // ResidentEngine reports uncertain closure to the coordinator; keep the UI message
+            // generic and do not retain a reference to a possibly closed engine.
+            Log.w(TAG, "Fermeture du moteur local incertaine: ${failure.javaClass.simpleName}")
+        } finally {
+            asrEngine = null
+            loadedModelName = null
         }
     }
 
@@ -467,27 +774,57 @@ class OverlayService : Service() {
     private fun buildNotification(): Notification =
         Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("DictAI actif")
-            .setContentText(
-                when (state) {
-                    State.MIC_UNARMED -> "Ouvre l'app pour activer le micro"
-                    State.RECORDING -> "Enregistrement..."
-                    State.PAUSING -> "Mise en pause…"
-                    State.PAUSED -> "Dictée en pause — appuyez pour reprendre"
-                    State.TRANSCRIBING -> "Transcription..."
-                    State.CANCELLING -> "Annulation de la dictée…"
-                    else -> "Appuie sur le bouton pour dicter"
-                }
-            )
+            .setContentText(notificationContentText())
             .setSmallIcon(R.drawable.ic_mic)
             .setOngoing(true)
             .build()
 
+    private fun notificationContentText(): String {
+        val meetingState = if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+            meetingControllerState
+        } else null
+        if (meetingState != null && meetingState.phase in setOf(
+                MeetingRecordingPhase.FINISHED,
+                MeetingRecordingPhase.DOCUMENT,
+            ) && (meetingState.saveError != null || meetingNotePublicationErrorFor(meetingState.document) != null)
+        ) {
+            return "Transcription à enregistrer — ouvrez la réunion"
+        }
+        if (state == State.MIC_UNARMED) return "Ouvre l'app pour activer le micro"
+        if (meetingState != null || transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+            return when (meetingState?.phase) {
+                MeetingRecordingPhase.PREPARING -> "Préparation de la réunion…"
+                MeetingRecordingPhase.LISTENING -> "Réunion en cours"
+                MeetingRecordingPhase.PAUSING -> "Mise en pause de la réunion…"
+                MeetingRecordingPhase.PAUSED -> "Réunion en pause — appuyez pour reprendre"
+                MeetingRecordingPhase.FINALIZING -> "Enregistrement de la transcription…"
+                MeetingRecordingPhase.CLOSING -> "Fermeture de la réunion…"
+                MeetingRecordingPhase.FINISHED -> "Réunion terminée"
+                MeetingRecordingPhase.DOCUMENT,
+                MeetingRecordingPhase.MODEL_UNAVAILABLE,
+                MeetingRecordingPhase.ERROR,
+                null -> "Mode Réunion — ouvrez le panneau"
+            }
+        }
+        return when (state) {
+            State.MIC_UNARMED -> "Ouvre l'app pour activer le micro"
+            State.RECORDING -> "Enregistrement..."
+            State.PAUSING -> "Mise en pause…"
+            State.PAUSED -> "Dictée en pause — appuyez pour reprendre"
+            State.TRANSCRIBING -> "Transcription..."
+            State.CANCELLING -> "Annulation de la dictée…"
+            State.IDLE -> "Appuie sur le bouton pour dicter"
+        }
+    }
+
     private fun startForegroundSpecialUse(): Boolean {
         return try {
+            val notification = buildNotification()
             startForeground(
-                NOTIF_ID, buildNotification(),
+                NOTIF_ID, notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
+            lastNotifiedContent = notificationContentText()
             true
         } catch (e: Exception) {
             Log.e(TAG, "startForeground specialUse echec: ${e.javaClass.simpleName} -> stopSelf")
@@ -500,11 +837,13 @@ class OverlayService : Service() {
     private fun promoteMic() {
         if (micArmed) return
         try {
+            val notification = buildNotification()
             startForeground(
-                NOTIF_ID, buildNotification(),
+                NOTIF_ID, notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
             )
+            lastNotifiedContent = notificationContentText()
             micArmed = true
             setState(if (recoveredDraft != null) State.PAUSED else State.IDLE)
             Log.i(TAG, "Mic arme")
@@ -515,11 +854,181 @@ class OverlayService : Service() {
         }
     }
 
+    private fun applyTranscriptionMode(mode: TranscriptionMode) {
+        wave?.setMeetingMode(mode == TranscriptionMode.MEETING)
+        pill?.contentDescription = when (mode) {
+            TranscriptionMode.DICTATION -> "Pastille Dictée"
+            TranscriptionMode.MEETING -> "Pastille Réunion"
+        }
+        transcriptionModeRows.forEach { row ->
+            val rowMode = row.tag as? TranscriptionMode ?: return@forEach
+            val selected = rowMode == mode
+            row.text = (if (selected) "✓ " else "") + rowMode.label()
+            row.contentDescription = if (selected) "${rowMode.label()}, sélectionné" else rowMode.label()
+            row.stateDescription = if (selected) "Sélectionné" else "Non sélectionné"
+            row.isSelected = selected
+            row.setTextColor(if (selected) overlayPalette.green else overlayPalette.ink)
+            row.background = if (selected) overlayActionBackground(overlayPalette)
+            else overlayCardBackground(overlayPalette.raised, radiusDp = 16f)
+        }
+        updateNotif()
+    }
+
+    private fun beginDictationModeTransfer(snapshot: TranscriptionModeSnapshot) {
+        val latest = transcriptionModes.snapshot()
+        if (latest.mode != TranscriptionMode.DICTATION || latest.generation != snapshot.generation ||
+            latest.activeRunMode != null || latest.poisoned || !meetingSurfaceOpen
+        ) return
+
+        meetingModeTransferInProgress = true
+        cancelMeetingNotePublication()
+        invalidateMeetingExportReturn()
+
+        val replacement = meetingReplacementOperation
+        if (replacement != null) {
+            recordMeetingDestinationChange(replacement, latest)
+            return
+        }
+
+        val controller = meetingRecordingController
+        if (controller != null) {
+            startNewMeetingAfterSaving(controller, dictationSelectionGeneration = latest.generation)
+            if (meetingReplacementOperation == null) {
+                meetingModeTransferInProgress = false
+                rollbackDictationModeSelection(latest.generation)
+                toast("Impossible de transférer le brouillon de réunion.")
+            }
+            return
+        }
+
+        val noteToRestore = activeNoteId?.let(notes::get)
+        meetingOpenGeneration += 1
+        meetingDraftClaimRequest?.cancel()
+        meetingDraftClaimRequest = null
+        val claim = meetingDraftClaim
+        if (claim == null) {
+            finishMeetingModeTransfer(noteToRestore)
+            return
+        }
+        claim.relinquishLatest().whenComplete { _, failure ->
+            main.post {
+                if (!meetingModeTransferInProgress) return@post
+                if (failure != null) {
+                    meetingModeTransferInProgress = false
+                    rollbackDictationModeSelection(latest.generation)
+                    toast("Impossible de libérer le brouillon de réunion.")
+                    return@post
+                }
+                meetingDraftClaim = null
+                finishMeetingModeTransfer(noteToRestore)
+            }
+        }
+    }
+
+    private fun recordMeetingDestinationChange(
+        operation: MeetingReplacementOperation,
+        snapshot: TranscriptionModeSnapshot,
+    ) {
+        operation.destinationChanged = true
+        if (snapshot.mode == TranscriptionMode.DICTATION) {
+            operation.dictationSelectionGeneration = snapshot.generation
+            meetingModeTransferInProgress = true
+            cancelMeetingNotePublication()
+            invalidateMeetingExportReturn()
+        }
+    }
+
+    /** Invalidate export continuations without restoring their stale Meeting identity snapshot. */
+    private fun invalidateMeetingExportReturn() {
+        if (exportPanel != null || exportResume != null || exportBridgeHidden) exportController.invalidate()
+        exportPanel?.let { panel ->
+            panel.dispose()
+            panel.parent?.let { (it as? ViewGroup)?.removeView(panel) }
+        }
+        exportAccessibilityPrevious.forEach { (view, previous) -> view.importantForAccessibility = previous }
+        exportAccessibilityPrevious.clear()
+        exportPanel = null
+        exportNoteId = null
+        exportResume = null
+        if (exportBridgeHidden) restoreAfterExportBridge() else exportBridgeToken = null
+    }
+
+    private fun rollbackDictationModeSelection(generation: Long) {
+        val current = transcriptionModes.snapshot()
+        if (current.mode == TranscriptionMode.DICTATION && current.generation == generation &&
+            current.activeRunMode == null && !current.poisoned
+        ) {
+            transcriptionModes.changeMode(TranscriptionMode.MEETING)
+        }
+        val latest = transcriptionModes.snapshot()
+        if (latest.generation == current.generation || latest.mode == TranscriptionMode.MEETING) {
+            applyTranscriptionMode(latest.mode)
+        }
+    }
+
+    private fun finishMeetingModeTransfer(noteToRestore: TranscriptNote?) {
+        meetingOpenGeneration += 1
+        meetingReplacementGeneration += 1
+        meetingReplacementOperation = null
+        meetingRecordingController = null
+        meetingDraftClaim = null
+        meetingDraftFile = null
+        meetingControllerState = null
+        meetingDocumentRestored = false
+        restoreDictationPanelAfterMeeting()
+        meetingModeTransferInProgress = false
+        restoreDictationDraftContext()
+
+        // Restoration may synchronously trigger another coordinator choice (for example, an
+        // external screen reselecting Meeting while the Dictation draft identity is restored).
+        // The durable Meeting note is already safe, so settle according to the newest choice.
+        val current = transcriptionModes.snapshot()
+        applyTranscriptionMode(current.mode)
+        if (current.mode == TranscriptionMode.MEETING && current.activeRunMode == null) {
+            noteToRestore?.let(::openMeetingNote)
+        } else if (current.mode == TranscriptionMode.DICTATION && current.activeRunMode == null && micArmed) {
+            ensureLocalLoaded()
+            warmLocalFormatter()
+        }
+    }
+
+    private fun restoreDictationDraftContext() {
+        val storedNoteId = draftStore.noteId
+        val note = storedNoteId?.let(notes::get)?.takeIf { it.meeting == null && it.meetingRaw == null }
+        if (storedNoteId != null && note == null) draftStore.noteId = null
+        activeNoteId = note?.id
+        purpose = if (note != null) DictationPurpose.NOTE else DictationPurpose.MESSAGE
+        draftStore.purpose = purpose
+
+        val text = draftStore.load().orEmpty()
+        val projection = storedTranscriptProjection(text)
+        recoveredDraft = projection.rawText().takeIf { it.isNotEmpty() }
+        editableTranscript.clear()
+        editableTranscript.edit(projection.rawText())
+        renderTranscriptProjection(projection, projection.rawText().length, projection.rawText().length)
+        liveText?.isEnabled = true
+        liveText?.hint = "Écrivez ici, ou appuyez sur la pastille pour dicter"
+        panelHidden = false
+        setState(if (projection.rawText().isNotEmpty()) State.PAUSED else if (micArmed) State.IDLE else State.MIC_UNARMED)
+        setLivePreviewVisible(true)
+        refreshNoteImages()
+    }
+
     private fun updateNotif() {
+        val content = notificationContentText()
+        if (lastNotifiedContent == content) return
         getSystemService(NotificationManager::class.java).notify(NOTIF_ID, buildNotification())
+        lastNotifiedContent = content
     }
 
     private fun startRec() {
+        val modeSnapshot = transcriptionModes.snapshot()
+        if (modeSnapshot.mode != TranscriptionMode.DICTATION || meetingSurfaceOpen ||
+            meetingModeTransferInProgress || meetingReplacementOperation != null
+        ) {
+            toast("Terminez le transfert du document de réunion avant de dicter.")
+            return
+        }
         dismissFloatingMenu()
         val requestedAt = SystemClock.elapsedRealtime()
         val selectedFormat = PostProcessingFormats(this).selected()
@@ -529,6 +1038,20 @@ class OverlayService : Service() {
         }.getOrDefault(true)
         val cloudPolicy = CloudSensitiveTargetPolicy.snapshot(cloudRequested, targetSensitive)
         val selectedModel = TranscriptionEngine.selectedModelName(this)
+        val residentReady = try {
+            residentAsrEngine.isLoaded(selectedModel)
+        } catch (_: Throwable) {
+            false
+        }
+        if (!residentReady) {
+            // Service fields may outlive a resident close. They are not proof that the native
+            // engine is still usable; clear them and take the ordinary asynchronous reload path.
+            asrEngine = null
+            loadedModelName = null
+            ensureLocalLoaded()
+            toast("Chargement du modèle local…")
+            return
+        }
         when (RecordingStartGate.decide(
             localLoading = localLoading.get(),
             selectedModel = selectedModel,
@@ -550,21 +1073,73 @@ class OverlayService : Service() {
                 return
             }
         }
-        val engine = asrEngine ?: return
-        val options = RecordingOptions(
-            language = prefs.dictationLanguage,
-            asrMode = engine.mode,
-            cloudCleanupEnabled = cloudPolicy.cloudAllowed,
-            cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
-            cloudModel = prefs.cloudModel(),
-            format = selectedFormat,
-            localFormattingEnabled = prefs.formattingEngine == "local",
-            numberStyle = prefs.numberStyle,
-            lightTextCleanup = prefs.lightTextCleanup,
-        )
-        val bufSize = AudioRecord.getMinBufferSize(
-            SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
-        )
+        if (activeRun != null) {
+            toast("Dictée déjà en cours.")
+            return
+        }
+        val lease = transcriptionModes.reserveRun(TranscriptionMode.DICTATION)
+        if (lease == null) {
+            toast("Un autre enregistrement est en cours ou indisponible.")
+            return
+        }
+        val engine = try {
+            // A loaded resident is returned by replace. A missing resident must not be rebuilt
+            // from the legacy field, which may point at an already closed native object.
+            residentAsrEngine.replace(selectedModel, lease) { null }
+        } catch (t: Throwable) {
+            val poisoned = transcriptionModes.snapshot().poisoned
+            if (!poisoned) {
+                releaseUnstartedDictationLease(lease)
+                asrEngine = null
+                loadedModelName = null
+                ensureLocalLoaded()
+            }
+            toast("Transcription locale indisponible.")
+            Log.w(TAG, "event=audio_start outcome=resident_unavailable type=${t.javaClass.simpleName}")
+            return
+        }
+        if (engine == null) {
+            releaseUnstartedDictationLease(lease)
+            asrEngine = null
+            loadedModelName = null
+            if (!transcriptionModes.snapshot().poisoned) {
+                ensureLocalLoaded()
+                toast("Chargement du modèle local…")
+            } else {
+                toast("Modèle local indisponible.")
+            }
+            return
+        }
+        asrEngine = engine
+        loadedModelName = selectedModel
+        val options = try {
+            RecordingOptions(
+                language = prefs.dictationLanguage,
+                asrMode = engine.mode,
+                cloudCleanupEnabled = cloudPolicy.cloudAllowed,
+                cloudSuppressedForSensitiveTarget = cloudPolicy.suppressedForSensitiveTarget,
+                cloudModel = prefs.cloudModel(),
+                format = selectedFormat,
+                localFormattingEnabled = prefs.formattingEngine == "local",
+                numberStyle = prefs.numberStyle,
+                lightTextCleanup = prefs.lightTextCleanup,
+            )
+        } catch (t: Throwable) {
+            releaseUnstartedDictationLease(lease)
+            toast("Dictée indisponible.")
+            Log.w(TAG, "event=audio_start outcome=options_failure type=${t.javaClass.simpleName}")
+            return
+        }
+        val bufSize = try {
+            AudioRecord.getMinBufferSize(
+                SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
+            )
+        } catch (t: Throwable) {
+            releaseUnstartedDictationLease(lease)
+            toast("Mic indisponible.")
+            Log.w(TAG, "event=audio_start outcome=buffer_query_failure type=${t.javaClass.simpleName}")
+            return
+        }
         val transaction = RecordingStartupTransaction(
             bufferSize = bufSize,
             createRecorder = {
@@ -584,6 +1159,10 @@ class OverlayService : Service() {
         val started = when (val result = transaction.start()) {
             is RecordingStartupTransaction.Result.Started -> result
             is RecordingStartupTransaction.Result.Failed -> {
+                if (result.recorderReleaseConfirmed && result.reason != RecordingStartupTransaction.Failure.SESSION_FAILED) {
+                    releaseUnstartedDictationLease(lease)
+                }
+                else transcriptionModes.reportUncertainClose()
                 val message = when (result.reason) {
                     RecordingStartupTransaction.Failure.CONSTRUCTION_FAILED,
                     RecordingStartupTransaction.Failure.START_FAILED -> "Accès au micro refusé"
@@ -597,33 +1176,41 @@ class OverlayService : Service() {
         }
         val recorder = started.recorder as? AndroidRecordingRecorder
         if (recorder == null) {
-            started.session.cancel()
+            thread(name = "dictai-unexpected-recorder-cleanup") {
+                started.session.cancel()
+                var recorderSafe = true
+                try { started.recorder.stop() } catch (_: Throwable) {}
+                try { started.recorder.release() } catch (_: Throwable) { recorderSafe = false }
+                var sessionSafe = true
+                try {
+                    while (!started.session.cancelAndAwait()) Unit
+                } catch (_: Throwable) {
+                    sessionSafe = false
+                }
+                if (recorderSafe && sessionSafe) releaseUnstartedDictationLease(lease)
+                else transcriptionModes.reportUncertainClose()
+            }
             toast("Mic indisponible.")
             Log.w(TAG, "event=audio_start outcome=unexpected_recorder")
             return
         }
-        if (activeRun != null) {
-            started.session.cancel()
-            toast("Dictée déjà en cours.")
-            return
-        }
         invalidateNoteInsertion()
-        val run = ActiveDictationRun(started.session, options, purpose)
-        if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
-            localFormatter.warm()
-            run.localFormatting = LocalFormattingSession(localFormatter.backend())
-            run.cancellation.onCancel { run.localFormatting?.close() }
-        }
-        run.cancellation.onCancel { started.session.cancel() }
-        run.startRequestedAtMs = requestedAt
+        val run = ActiveDictationRun(started.session, options, purpose, lease)
+        activeRun = run
         val ar = recorder.audioRecord
         val recordingPcm = java.io.ByteArrayOutputStream()
         var readerThread: Thread? = null
         try {
+            run.cancellation.onCancel { started.session.cancel() }
+            if (options.localFormattingEnabled && options.format.localLayoutKind != null) {
+                localFormatter.warm()
+                run.localFormatting = LocalFormattingSession(localFormatter.backend())
+                run.cancellation.onCancel { run.localFormatting?.close() }
+            }
+            run.startRequestedAtMs = requestedAt
             audioRecord = ar
             pcm = recordingPcm
             asrSession = started.session
-            activeRun = run
             // Publish the recording state and start draining AudioRecord before
             // draft persistence and panel layout work.  The hardware buffer can
             // otherwise fill while the main thread prepares the overlay, which
@@ -639,14 +1226,13 @@ class OverlayService : Service() {
             tailFollower?.reset()
             editableTranscript.clear()
             if (restored != null) editableTranscript.edit(restored)
-            updatingLiveText = true
-            liveText?.setText(restored.orEmpty())
-            updatingLiveText = false
+            val restoredProjection = storedTranscriptProjection(restored.orEmpty())
+            renderTranscriptProjection(restoredProjection, restoredProjection.rawText().length, restoredProjection.rawText().length)
             liveText?.isEnabled = true
             liveText?.hint = "Écoute en cours…"
             if (restored == null) { panelHidden = !prefs.showTranscript; panelExpanded = false }
             recoveredDraft = null
-            persistDraft(liveText?.text?.toString().orEmpty())
+            persistDraft(rawTranscriptText())
             setLivePreviewVisible(true)
             vibrate(20)
             Log.i(TAG, "event=audio_start outcome=ready elapsed_ms=${SystemClock.elapsedRealtime() - requestedAt}")
@@ -666,16 +1252,23 @@ class OverlayService : Service() {
             // Keep the run busy until both AudioRecord and the native session
             // have exited; a second tap must not open another microphone first.
             setState(State.CANCELLING)
+            run.completion.markWorkerStarted()
             thread(name = "dictai-start-failure-stop") {
-                if (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS) == RecordingStopCoordinator.Result.TimedOut) {
-                    coordinator.awaitExitThenRelease()
-                }
-                awaitSessionExit(run)
-                main.post {
-                    if (localEngineLifecycle.isDestroyed() || activeRun !== run) return@post
-                    activeRun = null
-                    setLivePreviewVisible(false)
-                    setState(State.IDLE)
+                try {
+                    if (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS) == RecordingStopCoordinator.Result.TimedOut) {
+                        coordinator.awaitExitThenRelease()
+                    }
+                    val cleanupSafe = coordinator.recorderReleaseConfirmed && awaitSessionExit(run)
+                    if (!cleanupSafe) markDictationCloseUncertain(run)
+                    else if (!localEngineLifecycle.isDestroyed()) main.post {
+                        if (activeRun !== run) return@post
+                        activeRun = null
+                        setLivePreviewVisible(false)
+                        setState(State.IDLE)
+                        releaseDictationRunLease(run)
+                    }
+                } finally {
+                    run.completion.markWorkerDone()
                 }
             }
             Log.w(TAG, "event=audio_start outcome=publication_failure type=${t.javaClass.simpleName}")
@@ -741,7 +1334,7 @@ class OverlayService : Service() {
         val run = activeRun ?: return
         tapCoordinator.reset()
         run.captureGate.pause()
-        persistDraft(liveText?.text?.toString().orEmpty())
+        persistDraft(rawTranscriptText())
         setState(State.PAUSING)
         setLivePreviewVisible(true)
         val recorder = audioRecord
@@ -760,15 +1353,19 @@ class OverlayService : Service() {
                 Log.w(TAG, "event=audio_pause outcome=waiting_for_reader")
                 coordinator.awaitExitThenRelease()
             }
-            main.post {
-                if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed() || state != State.PAUSING) return@post
-                setState(State.PAUSED)
-                vibrate(20)
-                if (run.archiveAsNote || run.finishAfterPause || run.finishAfterCapture) {
-                    stopRec()
-                } else if (run.resumeAfterPause) {
-                    run.resumeAfterPause = false
-                    resumeRec()
+            if (!coordinator.recorderReleaseConfirmed) {
+                markDictationCloseUncertain(run)
+            } else {
+                main.post {
+                    if (!isCurrentRun(run) || localEngineLifecycle.isDestroyed() || state != State.PAUSING) return@post
+                    setState(State.PAUSED)
+                    vibrate(20)
+                    if (run.archiveAsNote || run.finishAfterPause || run.finishAfterCapture) {
+                        stopRec()
+                    } else if (run.resumeAfterPause) {
+                        run.resumeAfterPause = false
+                        resumeRec()
+                    }
                 }
             }
         }, "dictai-pause-rec")
@@ -785,6 +1382,10 @@ class OverlayService : Service() {
             return
         }
         val run = activeRun ?: return
+        if (!transcriptionModes.isCurrentRun(run.lease)) {
+            toast("Reprise indisponible : le moteur de transcription est indisponible.")
+            return
+        }
         if (state == State.PAUSING) {
             run.resumeAfterPause = true
             return
@@ -798,13 +1399,22 @@ class OverlayService : Service() {
                 SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
             )
             check(bufferSize > 0)
-            val resumed = AudioRecord(
+            check(transcriptionModes.isCurrentRun(run.lease)) {
+                "Dictation lease is no longer usable"
+            }
+            val resumed = resumeAudioRecordFactory?.invoke(bufferSize) ?: AudioRecord(
                 MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, bufferSize,
             )
             recorder = resumed
             check(resumed.state == AudioRecord.STATE_INITIALIZED)
+            check(transcriptionModes.isCurrentRun(run.lease)) {
+                "Dictation lease is no longer usable"
+            }
             resumed.startRecording()
+            check(transcriptionModes.isCurrentRun(run.lease)) {
+                "Dictation lease is no longer usable"
+            }
             check(resumed.recordingState == AudioRecord.RECORDSTATE_RECORDING)
             audioRecord = resumed
             tapCoordinator.reset()
@@ -823,15 +1433,22 @@ class OverlayService : Service() {
                     snapshot = {},
                 )
                 setState(State.PAUSING)
-                thread(name = "dictai-resume-failure-stop") {
+                val cleanupWorker = Thread({
                     if (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS) == RecordingStopCoordinator.Result.TimedOut) {
                         coordinator.awaitExitThenRelease()
                     }
-                    main.post {
-                        if (localEngineLifecycle.isDestroyed() || activeRun !== run || state != State.PAUSING) return@post
-                        setState(State.PAUSED)
+                    if (!coordinator.recorderReleaseConfirmed) {
+                        markDictationCloseUncertain(run)
+                    } else {
+                        main.post {
+                            if (localEngineLifecycle.isDestroyed() || activeRun !== run || state != State.PAUSING) return@post
+                            setState(State.PAUSED)
+                        }
                     }
-                }
+                }, "dictai-resume-failure-stop")
+                // onDestroy joins this worker before releasing the resident ASR or the run lease.
+                run.pauseWorker = cleanupWorker
+                cleanupWorker.start()
             }
             audioRecord = null
             recordThread = null
@@ -862,7 +1479,7 @@ class OverlayService : Service() {
     private fun stopRec() {
         if (state != State.RECORDING && state != State.PAUSED) return
         val run = activeRun ?: return
-        if (imageDeliveryBusy || imageStore.pending() != null) {
+        if (imageDeliveryBusy || hasImageCaptureInFlight()) {
             run.finishAfterCapture = true
             if (state == State.RECORDING) pauseRec()
             return
@@ -908,24 +1525,34 @@ class OverlayService : Service() {
             try {
                 when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
                     RecordingStopCoordinator.Result.Stopped -> {
-                        val stoppedCapture = capture ?: RecordingCapture(
-                            run,
-                            ByteArray(0), null,
-                            run.formatOptions,
-                        )
-                        processStoppedRecording(stoppedCapture)
+                        if (!coordinator.recorderReleaseConfirmed) {
+                            markDictationCloseUncertain(run)
+                            run.session.cancel()
+                            awaitSessionExit(run)
+                        } else {
+                            val stoppedCapture = capture ?: RecordingCapture(
+                                run,
+                                ByteArray(0), null,
+                                run.formatOptions,
+                            )
+                            processStoppedRecording(stoppedCapture)
+                        }
                     }
                     RecordingStopCoordinator.Result.TimedOut -> {
                         // The reader can no longer feed a result, but release/snapshot still wait for it safely.
                         run.session.cancel()
                         Log.w(TAG, "event=audio_stop outcome=timeout")
                         coordinator.awaitExitThenRelease()
-                        awaitSessionExit(run)
-                        main.post {
-                            if (isCurrentRun(run) && !run.cancellation.isCancelled) {
-                                toast("Transcription locale indisponible.")
+                        val cleanupSafe = coordinator.recorderReleaseConfirmed && awaitSessionExit(run)
+                        if (!cleanupSafe) {
+                            markDictationCloseUncertain(run)
+                        } else {
+                            main.post {
+                                if (isCurrentRun(run) && !run.cancellation.isCancelled) {
+                                    toast("Transcription locale indisponible.")
+                                }
+                                completeRunOnMain(run)
                             }
-                            completeRunOnMain(run)
                         }
                     }
                 }
@@ -967,7 +1594,7 @@ class OverlayService : Service() {
                 ?: TranscriptionEngine.Result(null, "Transcription locale indisponible.")
         }.getOrElse { TranscriptionEngine.Result(null, "Transcription locale indisponible.") }
         val transcribeMs = System.currentTimeMillis() - t0
-        awaitSessionExit(run)
+        if (!awaitSessionExit(run)) return
         if (run.cancellation.isCancelled) {
             return
         }
@@ -985,7 +1612,7 @@ class OverlayService : Service() {
         if (run.archiveAsNote) {
             main.post {
                 if (!isCurrentRun(run) || run.cancellation.isCancelled || localEngineLifecycle.isDestroyed()) return@post
-                val text = localText ?: liveText?.text?.toString().orEmpty()
+                val text = localText ?: rawTranscriptText()
                 val saved = saveNoteWithCaptures(text)
                 run.afterCompletion = {
                     toast("Note enregistrée : ${saved.title}")
@@ -1018,8 +1645,8 @@ class OverlayService : Service() {
                 val preview = request.previewOutput(chunk)
                 if (preview != null) main.post {
                     if (isCurrentRun(run) && state == State.TRANSCRIBING && !run.cancellation.isCancelled) {
-                        updatingLiveText = true
-                        try { liveText?.setText(preview) } finally { updatingLiveText = false }
+                        val projection = projectionForText(preview)
+                        renderTranscriptProjection(projection)
                         setLivePreviewVisible(true)
                         if (!run.firstFormatVisible && livePreviewVisible && liveText?.isShown == true) {
                             run.firstFormatVisible = true
@@ -1101,7 +1728,7 @@ class OverlayService : Service() {
                         archive = run.archiveAsNote, export = run.exportNote,
                     )
                     if (destination != NoteInteractionPolicy.Destination.MESSAGE) {
-                        val saved = saveNoteWithCaptures(outText ?: liveText?.text?.toString().orEmpty())
+                        val saved = saveNoteWithCaptures(outText ?: rawTranscriptText())
                         run.afterCompletion = {
                             if (destination == NoteInteractionPolicy.Destination.NOTE_LIST) showNotesOverlay()
                             else {
@@ -1196,14 +1823,12 @@ class OverlayService : Service() {
         )
         thread(name = "dictai-cancel-rec") {
             try {
-                when (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS)) {
-                    RecordingStopCoordinator.Result.Stopped -> awaitSessionExit(run)
-                    RecordingStopCoordinator.Result.TimedOut -> {
-                        Log.w(TAG, "event=audio_cancel outcome=timeout")
-                        coordinator.awaitExitThenRelease()
-                        awaitSessionExit(run)
-                    }
+                if (coordinator.stopJoinRelease(RECORD_STOP_TIMEOUT_MS) == RecordingStopCoordinator.Result.TimedOut) {
+                    Log.w(TAG, "event=audio_cancel outcome=timeout")
+                    coordinator.awaitExitThenRelease()
                 }
+                if (!coordinator.recorderReleaseConfirmed) markDictationCloseUncertain(run)
+                awaitSessionExit(run)
             } finally {
                 run.completion.markWorkerDone()
             }
@@ -1268,9 +1893,38 @@ class OverlayService : Service() {
         return true
     }
 
-    private fun awaitSessionExit(run: ActiveDictationRun) {
-        while (!localEngineLifecycle.isDestroyed() && !run.session.cancelAndAwait()) {
-            // A cancellation timeout keeps the run busy; retry until the native worker exits.
+    private fun awaitSessionExit(run: ActiveDictationRun): Boolean {
+        return try {
+            while (!run.session.cancelAndAwait()) {
+                // A cancellation timeout keeps the run busy; retry until the native worker exits.
+            }
+            true
+        } catch (_: Throwable) {
+            markDictationCloseUncertain(run)
+            false
+        }
+    }
+
+    private fun markDictationCloseUncertain(run: ActiveDictationRun?) {
+        run?.nativeCloseUncertain = true
+        transcriptionModes.reportUncertainClose()
+        Log.w(TAG, "event=dictation_close outcome=uncertain")
+    }
+
+    private fun releaseUnstartedDictationLease(lease: TranscriptionRunLease) {
+        try {
+            lease.close()
+        } catch (_: Throwable) {
+            transcriptionModes.reportUncertainClose()
+        }
+    }
+
+    private fun releaseDictationRunLease(run: ActiveDictationRun) {
+        if (run.nativeCloseUncertain || !run.leaseReleased.compareAndSet(false, true)) return
+        try {
+            run.lease.close()
+        } catch (_: Throwable) {
+            markDictationCloseUncertain(run)
         }
     }
 
@@ -1279,22 +1933,28 @@ class OverlayService : Service() {
         thread(name = "dictai-await-cancel") {
             joinUninterruptibly(run.pauseWorker)
             run.completion.awaitWorkerIfStarted()
-            awaitSessionExit(run)
-            if (!localEngineLifecycle.isDestroyed()) main.post { completeRunOnMain(run) }
+            if (awaitSessionExit(run) && !localEngineLifecycle.isDestroyed()) {
+                main.post { completeRunOnMain(run) }
+            }
         }
     }
 
     /** Only the current run may release the busy state; an old worker cannot reset a newer run. */
     private fun completeRunOnMain(run: ActiveDictationRun) {
-        if (localEngineLifecycle.isDestroyed() || activeRun !== run) return
-        if (imageDeliveryBusy || imageStore.pending() != null) {
+        if (localEngineLifecycle.isDestroyed() || activeRun !== run || run.nativeCloseUncertain) return
+        if (imageDeliveryBusy || hasImageCaptureInFlight()) {
             main.postDelayed({ completeRunOnMain(run) }, 60)
             return
         }
         run.formatOffer?.let(main::removeCallbacks)
         run.formatOffer = null
         run.formatOfferRequest = null
-        run.localFormatting?.close()
+        try {
+            run.localFormatting?.close()
+        } catch (_: Throwable) {
+            markDictationCloseUncertain(run)
+            return
+        }
         activeRun = null
         archiveAfterImageDelivery = false
         recoveredDraft = null
@@ -1306,7 +1966,11 @@ class OverlayService : Service() {
         tapCoordinator.reset()
         setLivePreviewVisible(false)
         setState(State.IDLE)
-        run.afterCompletion?.also { run.afterCompletion = null }?.invoke()
+        try {
+            run.afterCompletion?.also { run.afterCompletion = null }?.invoke()
+        } finally {
+            releaseDictationRunLease(run)
+        }
     }
 
     private fun isCurrentRun(run: ActiveDictationRun): Boolean = activeRun === run
@@ -1462,6 +2126,7 @@ class OverlayService : Service() {
                 }
             }
             refreshImageStripTheme(colors)
+            meetingPanelController?.refreshTheme()
             refreshOverlayMenu(floatingMenu, colors, root = true)
             updateFormatMenuHighlight(formatMenuSelected, haptic = false)
             refreshOverlayDialog(formatDialog, colors)
@@ -1557,29 +2222,38 @@ class OverlayService : Service() {
         ) {
             val display = editableTranscript.update(text) { normalizeRecognizedText(it, run.formatOptions) }
             scheduleLocalFormatting(run, display)
-            persistDraft(display)
             val editor = liveText ?: return@publishIfAllowed
             if (display.isNotEmpty()) editor.hint = "Touchez pour corriger pendant la dictée"
-            val old = editor.text.toString()
+            val oldProjection = imageBlockRenderer.read(editor)
+            val old = oldProjection.rawText()
             if (old != display) {
                 updatingLiveText = true
                 try {
-                    // Preserve unchanged spans; automatic transcription always follows the new tail.
                     val prefix = old.commonPrefixWith(display).length
                     val suffix = old.drop(prefix).commonSuffixWith(display.drop(prefix)).length
-                    val selectionStart = editor.selectionStart
-                    val selectionEnd = editor.selectionEnd
-                    editor.text.replace(prefix, old.length - suffix, display.substring(prefix, display.length - suffix))
-                    preserveEditorSelection(
-                        editor,
-                        oldStart = prefix,
-                        oldEnd = old.length - suffix,
-                        newEnd = display.length - suffix,
-                        selectionStart = selectionStart,
-                        selectionEnd = selectionEnd,
+                    val selectionStart = oldProjection.rawOffsetForEditor(editor.selectionStart.coerceAtLeast(0))
+                    val selectionEnd = oldProjection.rawOffsetForEditor(editor.selectionEnd.coerceAtLeast(0))
+                    val blocks = oldProjection.blocks.map { block ->
+                        val moved = DraftImageContext.move(
+                            listOf(DraftImageCapture(block.id, block.rawOffset)),
+                            old,
+                            display,
+                        ).single()
+                        block.copy(rawOffset = moved.offset)
+                    }
+                    val nextProjection = TranscriptImageBlocks.fromBlocks(display, blocks)
+                    val mappedSelection = TranscriptSelectionMapping.afterReplacement(
+                        selectionStart, selectionEnd, prefix, old.length - suffix,
+                        display.length - suffix, display.length,
+                    )
+                    renderTranscriptProjection(
+                        nextProjection,
+                        mappedSelection?.start,
+                        mappedSelection?.end,
                     )
                 } finally { updatingLiveText = false }
             }
+            persistDraft(display)
             setLivePreviewVisible(true)
             scrollTranscriptToEnd(run)
         }
@@ -1642,9 +2316,13 @@ class OverlayService : Service() {
             val editor = liveText ?: return@Runnable
             if (!isTranscriptEditable()) return@Runnable
             val composing = BaseInputConnection.getComposingSpanStart(editor.text) >= 0
+            val projection = imageBlockRenderer.read(editor)
             val suggestion = vocabularyTracker.suggestion(
-                editor.text.toString(), editor.selectionStart, editor.selectionEnd,
-                composing, SystemClock.elapsedRealtime(),
+                projection.rawText(),
+                projection.rawOffsetForEditor(editor.selectionStart.coerceAtLeast(0)),
+                projection.rawOffsetForEditor(editor.selectionEnd.coerceAtLeast(0)),
+                composing,
+                SystemClock.elapsedRealtime(),
             )
             val previous = vocabularySuggestion
             vocabularySuggestion = suggestion
@@ -1680,9 +2358,13 @@ class OverlayService : Service() {
     private fun saveVocabularySuggestion() {
         val suggestion = vocabularySuggestion ?: return
         val editor = liveText ?: return
-        val current = vocabularyTracker.suggestion(editor.text.toString(), editor.selectionStart, editor.selectionEnd,
+        val projection = imageBlockRenderer.read(editor)
+        val raw = projection.rawText()
+        val start = projection.rawOffsetForEditor(editor.selectionStart.coerceAtLeast(0))
+        val end = projection.rawOffsetForEditor(editor.selectionEnd.coerceAtLeast(0))
+        val current = vocabularyTracker.suggestion(raw, start, end,
             BaseInputConnection.getComposingSpanStart(editor.text) >= 0, SystemClock.elapsedRealtime())
-        if (current != suggestion || !vocabularyTracker.consume(suggestion, editor.text.toString())) {
+        if (current != suggestion || !vocabularyTracker.consume(suggestion, raw)) {
             resetVocabularyLearning()
             return
         }
@@ -1801,6 +2483,10 @@ class OverlayService : Service() {
     /** Keep the transcript area usable when the IME leaves only a short panel. */
     private fun layoutTranscriptRows(panelHeight: Int, dp: Float) {
         val toolbarHeight = (48 * dp).toInt()
+        if (meetingSurfaceOpen) {
+            layoutMeetingPanelRows(panelHeight, dp, toolbarHeight)
+            return
+        }
         // The selected format belongs in the toolbar. Keeping a second status row
         // made the compact overlay feel like two headers and pushed the editor down.
         val formatHeight = 0
@@ -1873,6 +2559,35 @@ class OverlayService : Service() {
                 val topHandle = handle == PanelResizeHandle.TOP_LEFT || handle == PanelResizeHandle.TOP_RIGHT
                 topMargin = if (topHandle) topGutter else 0
                 bottomMargin = if (topHandle) 0 else bottomGutter
+                height = handleHeight
+                view.layoutParams = this
+                view.visibility = if (handlesVisible) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
+    private fun layoutMeetingPanelRows(panelHeight: Int, dp: Float, hostToolbarHeight: Int) {
+        val meetingPanel = meetingPanelController?.view
+        val sideGutter = ((if (panelExpanded) 12 else 36) * dp).toInt()
+        meetingPanel?.recyclerView?.let { rows ->
+            if (rows.paddingLeft != sideGutter || rows.paddingRight != sideGutter) {
+                rows.setPadding(sideGutter, rows.paddingTop, sideGutter, rows.paddingBottom)
+            }
+        }
+
+        // The MeetingPanelView has its own 48 dp command row. Keep resize targets in
+        // the recycler's side gutters and leave the editor's vertical measure untouched.
+        val topGutter = hostToolbarHeight + (48 * dp).toInt()
+        val handleHeight = min(
+            (36 * dp).toInt(),
+            ((panelHeight - topGutter).coerceAtLeast(0) / 2),
+        )
+        val handlesVisible = handleHeight > 0 && livePreviewVisible && !panelExpanded && exportPanel == null
+        panelResizeHandles.forEach { (handle, view) ->
+            (view.layoutParams as? FrameLayout.LayoutParams)?.apply {
+                val topHandle = handle == PanelResizeHandle.TOP_LEFT || handle == PanelResizeHandle.TOP_RIGHT
+                topMargin = if (topHandle) topGutter else 0
+                bottomMargin = 0
                 height = handleHeight
                 view.layoutParams = this
                 view.visibility = if (handlesVisible) View.VISIBLE else View.GONE
@@ -2099,11 +2814,13 @@ class OverlayService : Service() {
         val screenChanged = screen != lastPanelScreen
         lastPanelScreen = screen
         val inNote = purpose == DictationPurpose.NOTE
-        val format = activeRun?.formatOptions?.format ?: PostProcessingFormats(this).selected()
-        val formatLabel = if (format.id == "cleanup") "Texte sans LLM" else format.name
-        panelTitle?.apply {
-            text = formatLabel
-            contentDescription = "Format choisi : $formatLabel"
+        if (!meetingSurfaceOpen) {
+            val format = activeRun?.formatOptions?.format ?: PostProcessingFormats(this).selected()
+            val formatLabel = if (format.id == "cleanup") "Texte sans LLM" else format.name
+            panelTitle?.apply {
+                text = formatLabel
+                contentDescription = "Format choisi : $formatLabel"
+            }
         }
         noteInsertButton?.visibility = if (inNote) View.VISIBLE else View.GONE
         noteDoneButton?.visibility = if (inNote) View.VISIBLE else View.GONE
@@ -2365,6 +3082,7 @@ class OverlayService : Service() {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, (32 * dp).toInt(), Gravity.CENTER
             )
+            setMeetingMode(transcriptionModes.snapshot().mode == TranscriptionMode.MEETING)
         }
         // Bordure lumineuse de chargement (cachée au repos).
         val loaderView = LoadingBorderView(this).apply {
@@ -2410,12 +3128,17 @@ class OverlayService : Service() {
         this.gestureHint = gestureHint
         pillView.addView(gestureHint, FrameLayout.LayoutParams(-1, -1))
 
-        val liveView = object : OverlayTranscriptEditor(this) {
+        val liveView = object : OverlayTranscriptEditor(this@OverlayService) {
             override fun onSelectionChanged(start: Int, end: Int) {
                 super.onSelectionChanged(start, end)
                 if (liveText === this && !updatingLiveText && !liveEditorChanging && isTranscriptEditable()) {
                     tailFollower?.userInteraction()
-                    vocabularyTracker.onSelectionChanged(text.toString(), start, end)
+                    val projection = imageBlockRenderer.read(this)
+                    vocabularyTracker.onSelectionChanged(
+                        projection.rawText(),
+                        projection.rawOffsetForEditor(start),
+                        projection.rawOffsetForEditor(end),
+                    )
                     scheduleVocabularySuggestion(resetTimer = false)
                 }
             }
@@ -2427,6 +3150,28 @@ class OverlayService : Service() {
             hint = "Touchez pour corriger pendant la dictée"
             setHintTextColor(overlayPalette.inkMuted)
             canEdit = { isTranscriptEditable() }
+            imageBlockAtEditorOffset = { offset -> imageBlockRenderer.blockAtEditorOffset(this, offset)?.id }
+            imageBlockRange = { blockId -> imageBlockRenderer.blockRange(this, blockId) }
+            moveImageBlockToEditorOffset = { blockId, editorOffset ->
+                val projection = imageBlockRenderer.read(this)
+                val caret = projection.caretForEditor(editorOffset)
+                val moved = TranscriptImageBlocks.moveToCaret(projection, blockId, caret)
+                if (moved == projection) false else {
+                    val movedBlock = moved.blocks.firstOrNull { it.id == blockId }
+                    val afterBlock = movedBlock?.let {
+                        TranscriptImageCaret(
+                            it.rawOffset,
+                            moved.blocks.takeWhile { candidate -> candidate.id != it.id }
+                                .count { candidate -> candidate.rawOffset == it.rawOffset } + 1,
+                        )
+                    }
+                    renderTranscriptProjection(moved, caret = afterBlock)
+                    persistDraft(moved.rawText())
+                    tailFollower?.changed()
+                    true
+                }
+            }
+            onProtectedImageClipboard = { toast("Pour déplacer une image, faites un appui long puis glissez-la au curseur.") }
             acquireWindow = {
                 liveParams?.let { layout ->
                     if (layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0) {
@@ -2441,7 +3186,14 @@ class OverlayService : Service() {
                     liveEditorChanging = true
                     if (!updatingLiveText && isTranscriptEditable()) {
                         tailFollower?.userInteraction()
-                        vocabularyTracker.beforeChange(s.toString(), start, count, after, selectionStart, selectionEnd)
+                        val oldProjection = imageBlockRenderer.read(this@apply)
+                        imageIdsBeforeTextEdit = oldProjection.blocks.flatMap { it.images }.map { it.id }.toSet()
+                        val raw = oldProjection.rawText()
+                        val rawStart = TranscriptImageBlocks.rawText(s?.subSequence(0, start.coerceIn(0, s.length)) ?: "").length
+                        val rawCount = TranscriptImageBlocks.rawText(s?.subSequence(start.coerceIn(0, s.length),
+                            (start + count).coerceIn(0, s.length)) ?: "").length
+                        vocabularyTracker.beforeChange(raw, rawStart, rawCount, after,
+                            oldProjection.rawOffsetForEditor(selectionStart), oldProjection.rawOffsetForEditor(selectionEnd))
                         vocabularySuggestion = null
                         vocabularyDismiss?.let(main::removeCallbacks)
                         vocabularyDismiss = null
@@ -2451,16 +3203,26 @@ class OverlayService : Service() {
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     if (!updatingLiveText && isTranscriptEditable()) {
                         invalidateNoteInsertion()
-                        editableTranscript.edit(s.toString())
-                        activeRun?.let { scheduleLocalFormatting(it, s.toString()) }
-                        if (recoveredDraft != null) recoveredDraft = s.toString()
-                        persistDraft(s.toString())
+                        val projection = imageBlockRenderer.read(this@apply)
+                        val raw = projection.rawText()
+                        editableTranscript.edit(raw)
+                        activeRun?.let { scheduleLocalFormatting(it, raw) }
+                        if (recoveredDraft != null) recoveredDraft = raw
+                        persistDraft(raw)
+                        val visibleImageIds = projection.blocks.flatMap { it.images }.map { it.id }.toSet()
+                        if (visibleImageIds != imageIdsBeforeTextEdit) refreshNoteImages()
+                        imageIdsBeforeTextEdit = visibleImageIds
+                        if (s?.contains(TranscriptImageBlocks.OBJECT_REPLACEMENT) == true &&
+                            projection.editorText != s.toString()) {
+                            val selection = projection.caretForEditor(selectionEnd.coerceAtLeast(0))
+                            post { if (!updatingLiveText) renderTranscriptProjection(projection, selection.rawOffset, selection.rawOffset) }
+                        }
                     }
                 }
                 override fun afterTextChanged(s: Editable?) {
                     if (!updatingLiveText && isTranscriptEditable()) {
-                        vocabularyTracker.afterChange(s.toString(), SystemClock.elapsedRealtime())
-                    } else vocabularyTracker.onProgrammaticTextChanged(s.toString())
+                        vocabularyTracker.afterChange(TranscriptImageBlocks.rawText(s ?: ""), SystemClock.elapsedRealtime())
+                    } else vocabularyTracker.onProgrammaticTextChanged(TranscriptImageBlocks.rawText(s ?: ""))
                     liveEditorChanging = false
                     scheduleVocabularySuggestion(resetTimer = !updatingLiveText)
                 }
@@ -2631,10 +3393,14 @@ class OverlayService : Service() {
         }
         panelExpandButton = expand
         val hide = panelIcon(R.drawable.ic_panel_hide, "Masquer le panneau sans arrêter la dictée") {
+            if (meetingSurfaceOpen) {
+                meetingPanelController?.endEditing()
+                meetingRecordingController?.flushDraft()
+            }
             panelHidden = true
             setLivePreviewVisible(false)
-            toast("Glissez la pastille vers le haut pour revoir le texte.")
-        }
+            toast(if (meetingSurfaceOpen) "Glissez la pastille vers le haut pour revoir la réunion." else "Glissez la pastille vers le haut pour revoir le texte.")
+        }.apply { tag = "overlay-hide-panel" }
         toolbar.addView(expand, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         toolbar.addView(hide, LinearLayout.LayoutParams((48 * dp).toInt(), -1))
         panelBody.addView(toolbar, FrameLayout.LayoutParams(-1, (48 * dp).toInt(), Gravity.TOP))
@@ -2660,8 +3426,8 @@ class OverlayService : Service() {
         val mediaRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         mediaToolbar = mediaRow
         listOf(
-            Triple(R.drawable.ic_note_screenshot, "Capturer l’écran, enregistrer dans Photos et copier", { captureNoteImage(NoteImageKind.SCREENSHOT) }),
-            Triple(R.drawable.ic_note_camera, "Prendre une photo, enregistrer dans Photos et copier", { captureNoteImage(NoteImageKind.CAMERA) }),
+            Triple(R.drawable.ic_note_screenshot, "Capturer une série d’images de l’écran", { captureNoteImage(NoteImageKind.SCREENSHOT) }),
+            Triple(R.drawable.ic_note_camera, "Prendre plusieurs photos ou scanner des documents", { captureNoteImage(NoteImageKind.CAMERA) }),
             Triple(R.drawable.ic_note_share, "Partager ou exporter la note avec ses images", { exportNoteWithImages(automatic = false) }),
         ).forEach { (icon, label, action) ->
             val button = panelIcon(icon, label, action)
@@ -2797,6 +3563,12 @@ class OverlayService : Service() {
                     isTranscriptEditable() -> "↑ Texte"
                     else -> "↑ Format"
                 }
+            } else if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+                when (meetingPillPhase()) {
+                    MeetingPillInteraction.Phase.PAUSED -> "↓ Enregistrer"
+                    MeetingPillInteraction.Phase.LISTENING -> "Mettre en pause pour enregistrer"
+                    else -> "↓ Réunion"
+                }
             } else "↓ Pause"
             gestureHint.alpha = 0.35f + 0.65f * progress
             val ready = progress >= 1f
@@ -2926,11 +3698,18 @@ class OverlayService : Service() {
                     val selectedFormatIndex = formatItems.indexOfFirst { it.id == formatStore.selected().id }
                         .coerceAtLeast(0)
                     formatSwipe.begin(
-                        enabled = state == State.IDLE || state == State.MIC_UNARMED,
+                        enabled = (state == State.IDLE || state == State.MIC_UNARMED) &&
+                            transcriptionModes.snapshot().mode == TranscriptionMode.DICTATION,
                         initialIndex = selectedFormatIndex,
                         itemCount = formatItems.size,
                     )
-                    pauseGesture.begin(state == State.RECORDING)
+                    val meetingPhase = if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+                        meetingPillPhase()
+                    } else null
+                    pauseGesture.begin(
+                        state == State.RECORDING || meetingPhase == MeetingPillInteraction.Phase.LISTENING ||
+                            meetingPhase == MeetingPillInteraction.Phase.PAUSED,
+                    )
                     wake()
                     main.removeCallbacks(longPress)
                     main.postDelayed(longPress, 400)
@@ -2960,7 +3739,9 @@ class OverlayService : Service() {
                         main.removeCallbacks(longPress)
                         tapCoordinator.reset()
                         val formatUpdate = if (state == State.IDLE || state == State.MIC_UNARMED) {
-                            formatSwipe.move(dx, dy)
+                            if (transcriptionModes.snapshot().mode == TranscriptionMode.DICTATION) {
+                                formatSwipe.move(dx, dy)
+                            } else null
                         } else null
                         if (formatUpdate?.opened != true) previewGesture(dx, dy)
                         if (formatUpdate != null) {
@@ -2983,6 +3764,9 @@ class OverlayService : Service() {
                     if (gestureMode.mode == PillGestureMode.Mode.DRAG) {
                         updateDrag(ev.rawX, ev.rawY)
                         if (moved) finishDrag()
+                    } else if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+                        meetingGestureForRelease(dx, dy, gestureMode.mode == PillGestureMode.Mode.WAITING)
+                            ?.let(::dispatchMeetingPillGesture)
                     } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         tapCoordinator.reset()
                         val formatResult = formatSwipe.release(dx, dy)
@@ -3055,6 +3839,7 @@ class OverlayService : Service() {
             return
         }
         container = pillView; pill = pillView; wave = waveView; loader = loaderView
+        applyTranscriptionMode(transcriptionModes.snapshot().mode)
         liveText = liveView
         liveScroll = scroll
         this.livePanel = livePanel
@@ -3115,8 +3900,80 @@ class OverlayService : Service() {
         if (themeChanged) refreshOverlayTheme()
     }
 
+    /** Canonical projection source for draft recovery when the editor view is not yet attached. */
+    private fun storedTranscriptProjection(textOverride: String? = null): TranscriptImageProjection {
+        val supplied = textOverride ?: draftStore.load().orEmpty()
+        val note = activeNoteId?.let(notes::get)
+        val legacy = if (note != null)
+            TranscriptImageBlocks.fromLegacyNoteDraft(supplied, note.images)
+        else null
+        val raw = TranscriptImageBlocks.rawText(legacy?.rawText() ?: supplied)
+        val base = if (note != null) {
+            val saved = legacy ?: TranscriptImageBlocks.fromNote(note.text, note.images)
+            val mapped = if (saved.rawText() == raw) saved else {
+                val offsets = mutableMapOf<Int, Int>()
+                val shifted = saved.blocks.map { block ->
+                    val anchor = DraftImageContext.move(
+                        listOf(DraftImageCapture(block.id, block.rawOffset)),
+                        saved.rawText(),
+                        raw,
+                    ).single().offset
+                    val order = offsets.getOrDefault(anchor, 0)
+                    offsets[anchor] = order + 1
+                    block.copy(rawOffset = anchor, orderAtOffset = order)
+                }
+                TranscriptImageBlocks.fromBlocks(raw, shifted)
+            }
+            mapped
+        } else TranscriptImageBlocks.fromBlocks(raw, emptyList())
+        return TranscriptImageBlocks.combine(base, draftStore.captures())
+    }
+
+    private fun currentTranscriptProjection(): TranscriptImageProjection =
+        liveText?.let(imageBlockRenderer::read) ?: storedTranscriptProjection()
+
+    private fun projectionForText(text: String): TranscriptImageProjection {
+        val raw = TranscriptImageBlocks.rawText(text)
+        val current = liveText?.let(imageBlockRenderer::read)
+        if (current != null && current.rawText() == raw) return current
+        val stored = storedTranscriptProjection()
+        val source = current ?: stored
+        val before = current?.rawText() ?: draftStore.load().orEmpty()
+        val shifted = source.blocks.map { block ->
+            val anchor = DraftImageContext.move(
+                listOf(DraftImageCapture(block.id, block.rawOffset)),
+                before,
+                raw,
+            ).single().offset
+            block.copy(rawOffset = anchor)
+        }
+        return TranscriptImageBlocks.combine(TranscriptImageBlocks.fromBlocks(raw, shifted), draftStore.captures())
+    }
+
+    private fun renderTranscriptProjection(
+        projection: TranscriptImageProjection,
+        selectionStartRaw: Int? = null,
+        selectionEndRaw: Int? = selectionStartRaw,
+        caret: TranscriptImageCaret? = null,
+    ) {
+        val editor = liveText ?: return
+        val start = caret?.let(projection::editorOffsetForCaret)
+            ?: selectionStartRaw?.let(projection::editorOffsetForRaw)
+        val end = caret?.let(projection::editorOffsetForCaret)
+            ?: selectionEndRaw?.let(projection::editorOffsetForRaw)
+        updatingLiveText = true
+        try { imageBlockRenderer.render(editor, projection, start, end) }
+        finally { updatingLiveText = false }
+    }
+
+    private fun rawTranscriptText(): String =
+        liveText?.let { imageBlockRenderer.read(it).rawText() } ?: TranscriptImageBlocks.rawText(draftStore.load().orEmpty())
+
+    private fun noteImagesIn(projection: TranscriptImageProjection): List<NoteImage> =
+        projection.blocks.flatMap { it.images }.distinctBy { it.id }
+
     private fun captureNoteImage(kind: NoteImageKind) {
-        if (!isTranscriptEditable() || imageStore.pending() != null || imageDeliveryBusy) return
+        if (!isTranscriptEditable() || hasImageCaptureInFlight() || imageDeliveryBusy) return
         if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) {
             toast("Déverrouillez le téléphone pour capturer une image.")
             return
@@ -3125,12 +3982,34 @@ class OverlayService : Service() {
             toast("Activez le service d’accessibilité DictAI pour capturer l’écran.")
             return
         }
-        val pending = runCatching { imageStore.beginClipboard(kind, state == State.RECORDING, NoteImage.nextNumber(
-            notes.get(activeNoteId)?.images.orEmpty() + draftStore.captures().mapNotNull { it.image }, liveText?.text?.toString().orEmpty())) }.getOrElse {
+        val projection = currentTranscriptProjection()
+        val rawText = projection.rawText()
+        val visibleImages = projection.blocks.flatMap { it.images }.distinctBy { it.id }
+        val remaining = (NoteImage.MAX_IMAGES - visibleImages.size).coerceAtLeast(0)
+        if (remaining == 0) { toast("La note est limitée à ${NoteImage.MAX_IMAGES} images."); return }
+        val editor = liveText
+        val selection = editor?.selectionEnd?.takeIf { it >= 0 } ?: (editor?.length() ?: 0)
+        val caret = projection.caretForEditor(selection)
+        val pending = runCatching { imageStore.beginBatch(
+            kind,
+            resume = state == State.RECORDING,
+            number = NoteImage.nextNumber(visibleImages, rawText),
+            maxImages = remaining,
+        ) }.getOrElse {
             toast("Capture indisponible : vérifiez l’espace de stockage."); return
         }
-        draftStore.save(liveText?.text?.toString().orEmpty())
-        draftStore.reserveCapture(pending.id, notes.get(activeNoteId)?.images?.size ?: 0)
+        draftStore.save(rawText)
+        val existingNoteImages = notes.get(activeNoteId)?.images?.size ?: 0
+        if (!draftStore.reserveCapture(pending.id, existingNoteImages, caret.rawOffset, caret.orderAtOffset)) {
+            runCatching { imageStore.cancelBatch(pending.id) }
+            if (!clearPendingSafely(pending.id)) {
+                toast("La session de capture reste récupérable; réessayez après redémarrage du service.")
+                return
+            }
+            toast("La note est limitée à ${NoteImage.MAX_IMAGES} images.")
+            return
+        }
+        screenshotBatchId = if (kind == NoteImageKind.SCREENSHOT) pending.id else null
         refreshNoteImages()
         releaseTranscriptFocus()
         dismissFloatingMenu()
@@ -3139,25 +4018,224 @@ class OverlayService : Service() {
             if (state == State.RECORDING) pauseRec()
             launchCameraWhenPaused(pending)
         } else {
-            captureWindowsHidden = true
-            container?.visibility = View.INVISIBLE
-            setLivePreviewVisible(false)
-            // Let compositor and IME consume the hide before taking the display snapshot.
-            main.postDelayed({
-                if (imageStore.pending()?.let { it.id == pending.id && !it.complete } != true) return@postDelayed
-                val accessibility = WhisperAccessibilityService.connected
-                if (localEngineLifecycle.isDestroyed()) {
-                    imageStore.fail(pending.id, "Capture interrompue.")
-                    return@postDelayed
-                }
-                if (accessibility == null) {
-                    restoreCaptureWindows()
-                    imageStore.fail(pending.id, "Service de capture indisponible.")
-                    finishPendingImage()
-                } else NoteScreenshot.capture(accessibility, imageStore, pending.id,
-                    { if (imageStore.pending()?.id == pending.id) restoreCaptureWindows() }, ::finishPendingImage)
-            }, 250)
+            if (state == State.RECORDING) pauseRec()
+            showScreenshotBatchWhenPaused(pending)
         }
+    }
+
+    private fun showScreenshotBatchWhenPaused(pending: PendingNoteCapture) {
+        if (localEngineLifecycle.isDestroyed() || imageStore.pending()?.id != pending.id) return
+        if (state == State.PAUSING) { main.postDelayed({ showScreenshotBatchWhenPaused(pending) }, 60); return }
+        if (state != State.PAUSED) {
+            imageStore.fail(pending.id, "Capture interrompue : texte conservé.")
+            cancelScreenshotBatch(pending.id, showMessage = true)
+            return
+        }
+        captureWindowsHidden = true
+        container?.visibility = View.GONE
+        setLivePreviewVisible(false)
+        showScreenshotBatchBar(pending)
+    }
+
+    private fun showScreenshotBatchBar(pending: PendingNoteCapture) {
+        if (localEngineLifecycle.isDestroyed() || pending.id != screenshotBatchId) return
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val bar = screenshotBatchBar ?: ScreenshotBatchBar(this).also { screenshotBatchBar = it }
+        bar.bind(pending)
+        bar.contentDescription = null
+        bar.cancelButton.contentDescription = "Annuler la série et supprimer ses images"
+        val invalidMeetingReservation = pending.meetingCapture &&
+            (pending.meetingAnchorInvalid || pending.meetingAnchor == null)
+        if (invalidMeetingReservation) {
+            if (pending.accepted) bar.showDeliveryRetry()
+            bar.contentDescription = "Impossible de rattacher les images à la réunion. Annulez la réservation ou gardez-la en attente."
+            bar.captureButton.isEnabled = false
+            bar.acceptButton.isEnabled = false
+            bar.cancelButton.visibility = View.VISIBLE
+            bar.cancelButton.isEnabled = true
+            bar.cancelButton.contentDescription = if (pending.accepted) {
+                "Annuler la réservation Réunion. Les images acceptées seront conservées."
+            } else {
+                "Annuler la réservation de réunion."
+            }
+            bar.onCapture = null
+            bar.onAccept = null
+            bar.onCancel = { cancelScreenshotBatch(pending.id) }
+            bar.onRemoveImage = null
+        } else if (pending.accepted) {
+            bar.showDeliveryRetry()
+            bar.onCapture = { retryAcceptedBatchDelivery(pending) }
+            bar.onAccept = null
+            bar.onCancel = null
+            bar.onRemoveImage = null
+        } else {
+            bar.onCapture = { captureScreenshotInBatch(pending.id) }
+            bar.onAccept = { acceptScreenshotBatch(pending.id) }
+            bar.onCancel = { cancelScreenshotBatch(pending.id) }
+            bar.onRemoveImage = { imageId ->
+                runCatching { imageStore.removeBatchImage(pending.id, imageId) }
+                imageStore.pending()?.takeIf { it.id == pending.id }?.let(::showScreenshotBatchBar)
+            }
+        }
+        val bounds = screenRect()
+        val lp = screenshotBatchParams ?: WindowManager.LayoutParams(
+            min((360 * resources.displayMetrics.density).toInt(), (bounds.width - 16).coerceAtLeast(1)),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = (24 * resources.displayMetrics.density).toInt()
+            windowAnimations = 0
+        }.also { screenshotBatchParams = it }
+        if (!screenshotBatchBarAdded) runCatching { wm.addView(bar, lp); screenshotBatchBarAdded = true }
+        else runCatching { wm.updateViewLayout(bar, lp) }
+    }
+
+    private fun hideScreenshotBatchBar() {
+        val bar = screenshotBatchBar ?: return
+        if (!screenshotBatchBarAdded) return
+        runCatching { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(bar) }
+        screenshotBatchBarAdded = false
+    }
+
+    private fun clearPendingSafely(sessionId: String): Boolean = runCatching {
+        imageStore.clearPending(sessionId)
+        true
+    }.onFailure { error ->
+        Log.w(TAG, "event=image_batch_clear outcome=retry type=${error.javaClass.simpleName}")
+    }.getOrDefault(false)
+
+    private fun rememberMeetingImageResumeContext(
+        pending: PendingNoteCapture,
+        operation: MeetingDocumentActionOperation,
+    ) {
+        val anchor = pending.meetingAnchor ?: return
+        if (anchor.sessionId != operation.sessionId || operation.runId != operation.controller.state.document.runId) return
+        meetingImageResumeContext = MeetingImageResumeContext(
+            pendingId = pending.id,
+            sessionId = operation.sessionId,
+            runId = operation.runId,
+            controller = operation.controller,
+        )
+    }
+
+    private fun clearMeetingImageResumeContext(pendingId: String) {
+        if (meetingImageResumeContext?.pendingId == pendingId) meetingImageResumeContext = null
+    }
+
+    private fun hasImageCaptureInFlight(): Boolean = imageStore.pending() != null || acceptedBatchRetry != null
+
+    private fun captureScreenshotInBatch(sessionId: String) {
+        if (screenshotCaptureBusy) return
+        val pending = imageStore.retryBatch(sessionId)?.takeIf { it.id == sessionId && !it.accepted } ?: return
+        if (pending.allImages.size >= pending.maxImages) { showScreenshotBatchBar(pending); return }
+        val accessibility = WhisperAccessibilityService.connected
+        if (accessibility == null) { toast("Service de capture indisponible."); return }
+        screenshotCaptureBusy = true
+        hideScreenshotBatchBar()
+        container?.visibility = View.GONE
+        setLivePreviewVisible(false)
+        main.postDelayed({
+            if (imageStore.pending()?.let { it.id == sessionId && !it.accepted } != true || localEngineLifecycle.isDestroyed()) {
+                screenshotCaptureBusy = false
+                return@postDelayed
+            }
+            val currentAccessibility = WhisperAccessibilityService.connected
+            if (currentAccessibility == null) {
+                imageStore.fail(sessionId, "Service de capture indisponible. Réessayez.")
+                screenshotCaptureBusy = false
+                imageStore.pending()?.let(::showScreenshotBatchBar)
+            } else NoteScreenshot.capture(currentAccessibility, imageStore, sessionId,
+                restoreWindows = {
+                    main.post {
+                        screenshotCaptureBusy = false
+                        imageStore.pending()?.takeIf { it.id == sessionId && !it.accepted }?.let(::showScreenshotBatchBar)
+                    }
+                },
+                finished = {
+                    screenshotCaptureBusy = false
+                    if (imageStore.pending()?.id == sessionId) imageStore.pending()?.let(::showScreenshotBatchBar)
+                })
+        }, 250)
+    }
+
+    private fun acceptScreenshotBatch(sessionId: String) {
+        if (screenshotBatchId != sessionId || screenshotCaptureBusy) return
+        val pending = imageStore.pending()?.takeIf { it.id == sessionId && it.batch } ?: return
+        if (pending.allImages.isEmpty()) { toast("Prenez au moins une capture avant de valider."); return }
+        runCatching { imageStore.acceptBatch(sessionId) }
+            .onFailure { toast(it.message ?: "Impossible de valider cette série."); return }
+        hideScreenshotBatchBar()
+        finishPendingImage()
+    }
+
+    private fun cancelScreenshotBatch(sessionId: String, showMessage: Boolean = false) {
+        if (screenshotBatchId != sessionId) return
+        val pending = imageStore.pending()?.takeIf { it.id == sessionId } ?: return
+        val invalidAcceptedMeetingReservation = pending.accepted && pending.meetingCapture &&
+            (pending.meetingAnchorInvalid || pending.meetingAnchor == null)
+        if (pending.accepted && !invalidAcceptedMeetingReservation) return
+        if (pending.meetingCapture) {
+            cancelMeetingImageBatch(pending, showMessage)
+            return
+        }
+        if (runCatching { imageStore.cancelBatch(sessionId) }.isFailure) {
+            restoreAfterImageBatch(null)
+            val retry = imageStore.pending()?.takeIf { it.id == sessionId }
+            screenshotBatchId = retry?.id
+            retry?.let(::showScreenshotBatchBar)
+            toast("Impossible de terminer l’annulation. La série reste récupérable.")
+            return
+        }
+        if (!clearPendingSafely(sessionId)) {
+            restoreAfterImageBatch(null)
+            val retry = imageStore.pending()?.takeIf { it.id == sessionId }
+            screenshotBatchId = retry?.id
+            retry?.let(::showScreenshotBatchBar)
+            toast("Annulation enregistrée; réessayez pour terminer le nettoyage de la série.")
+            return
+        }
+        draftStore.forgetCaptures(setOf(sessionId))
+        hideScreenshotBatchBar()
+        screenshotBatchId = null
+        restoreAfterImageBatch(null)
+        refreshNoteImages()
+        if (pending.resumeListening && activeRun != null && state == State.PAUSED && !archiveAfterImageDelivery)
+            resumeRec()
+        if (showMessage) toast("Capture annulée. Le texte est conservé.")
+    }
+
+    private fun cancelMeetingImageBatch(pending: PendingNoteCapture, showMessage: Boolean) {
+        val sessionId = pending.meetingAnchor?.sessionId.orEmpty()
+        if (runCatching { imageStore.cancelBatch(pending.id) }.isFailure) {
+            retainMeetingImageBatch(pending, "Impossible de terminer l’annulation. La série reste récupérable.")
+            return
+        }
+        if (!clearPendingSafely(pending.id)) {
+            val retry = imageStore.pending()?.takeIf { it.id == pending.id } ?: pending
+            retainMeetingImageBatch(retry, "Annulation enregistrée; réessayez pour terminer le nettoyage de la série.")
+            return
+        }
+        acceptedBatchRetry = null
+        screenshotBatchId = null
+        hideScreenshotBatchBar()
+        restoreAfterMeetingImageBatch(sessionId)
+        resumeMeetingImageIfStillOwned(pending)
+        if (showMessage) toast("Capture annulée. La réunion est conservée.")
+    }
+
+    private fun restoreAfterImageBatch(caret: TranscriptImageCaret?) {
+        captureWindowsHidden = false
+        container?.visibility = View.VISIBLE
+        val projection = storedTranscriptProjection()
+        renderTranscriptProjection(projection, caret = caret)
+        persistDraft(projection.rawText())
+        setLivePreviewVisible(isTranscriptEditable())
+        screenshotBatchId = null
+        refreshNoteImages()
     }
 
     private fun launchCameraWhenPaused(pending: PendingNoteCapture) {
@@ -3191,6 +4269,33 @@ class OverlayService : Service() {
 
     private fun recoverPendingImage() {
         val pending = imageStore.pending() ?: return
+        if (pending.meetingCapture) {
+            if (pending.complete) {
+                finishPendingImage()
+            } else if (pending.kind == NoteImageKind.CAMERA && NoteCameraActivity.handles(pending.id)) {
+                // A surviving meeting viewfinder may finish its reservation. Never route it
+                // through Dictation's pause/camera-recovery path after a service recreation.
+                return
+            } else {
+                screenshotBatchId = pending.takeIf { it.batch }?.id
+                if (pending.batch) showScreenshotBatchBar(pending)
+                else retainMeetingImageBatch(pending, "La capture Réunion reste à vérifier. Les données sont conservées.")
+            }
+            return
+        }
+        if (pending.batch) {
+            if (pending.accepted) { finishPendingImage(); return }
+            if (pending.error != null) { finishPendingImage(); return }
+            if (pending.kind == NoteImageKind.SCREENSHOT) {
+                screenshotBatchId = pending.id
+                if (state != State.PAUSED) setState(State.PAUSED)
+                showScreenshotBatchWhenPaused(pending)
+            } else if (!NoteCameraActivity.handles(pending.id)) {
+                if (state != State.PAUSED) setState(State.PAUSED)
+                launchCameraWhenPaused(pending)
+            }
+            return
+        }
         if (!pending.complete && pending.kind == NoteImageKind.SCREENSHOT)
             imageStore.fail(pending.id, "Capture interrompue : texte conservé.")
         if (!pending.complete && pending.kind == NoteImageKind.CAMERA && !NoteCameraActivity.handles(pending.id))
@@ -3202,6 +4307,55 @@ class OverlayService : Service() {
     private fun finishPendingImage() {
         if (localEngineLifecycle.isDestroyed() || imageDeliveryBusy) return
         val pending = imageStore.pending()?.takeIf { it.complete } ?: return
+        if (pending.meetingCapture && !pending.batch) {
+            retainMeetingImageBatch(pending, "La capture Réunion doit être vérifiée. Les données restent conservées.")
+            return
+        }
+        if (pending.batch) {
+            if (pending.meetingCapture) {
+                if (pending.meetingAnchorInvalid || pending.meetingAnchor == null) {
+                    retainMeetingImageBatch(pending, "L’emplacement de la capture Réunion doit être vérifié. La série reste conservée.")
+                    return
+                }
+                if (!pending.accepted) {
+                    if (!clearPendingSafely(pending.id)) {
+                        retainMeetingImageBatch(pending, "Le nettoyage de la capture a échoué. La session reste récupérable.")
+                        return
+                    }
+                    hideScreenshotBatchBar()
+                    screenshotBatchId = null
+                    restoreAfterMeetingImageBatch(pending.meetingAnchor.sessionId)
+                    resumeMeetingImageIfStillOwned(pending)
+                    pending.error?.let(::toast)
+                    finishImageDelivery()
+                    return
+                }
+                deliverAcceptedBatch(pending)
+                return
+            }
+            if (!pending.accepted) {
+                // An explicit cancel/failure has no accepted media. Remove only its reservation.
+                if (!clearPendingSafely(pending.id)) {
+                    restoreAfterImageBatch(null)
+                    val retry = imageStore.pending()?.takeIf { it.id == pending.id }
+                    screenshotBatchId = retry?.id
+                    retry?.let(::showScreenshotBatchBar)
+                    toast("Le nettoyage de la capture a échoué. La session reste récupérable.")
+                    return
+                }
+                draftStore.forgetCaptures(setOf(pending.id))
+                hideScreenshotBatchBar()
+                screenshotBatchId = null
+                restoreAfterImageBatch(null)
+                pending.error?.let(::toast)
+                if (pending.resumeListening && activeRun != null && state == State.PAUSED && !archiveAfterImageDelivery)
+                    resumeRec()
+                finishImageDelivery()
+                return
+            }
+            deliverAcceptedBatch(pending)
+            return
+        }
         restoreCaptureWindows()
         // Complete an old in-flight contextual capture after an update without losing its image.
         if (!pending.clipboardOnly) {
@@ -3215,12 +4369,13 @@ class OverlayService : Service() {
                 if (activeNoteId == note.id) replaceNoteText(text)
             }
         }
-        imageStore.clearPending(pending.id)
+        if (!clearPendingSafely(pending.id))
+            toast("La capture est conservée; le nettoyage sera réessayé au prochain démarrage.")
         refreshNoteImages()
         if (pending.image != null) {
             draftStore.completeCapture(pending.image)
             if (activeNoteId != null && pending.clipboardOnly) {
-                val saved = saveNoteWithCaptures(liveText?.text?.toString().orEmpty())
+                val saved = saveNoteWithCaptures(rawTranscriptText())
                 replaceNoteText(saved.text)
             }
             val retained = draftStore.captures().any { it.id == pending.id } ||
@@ -3234,6 +4389,435 @@ class OverlayService : Service() {
         else if (pending.kind == NoteImageKind.CAMERA && pending.resumeListening && !archiveAfterImageDelivery && activeRun != null && state == State.PAUSED)
             resumeRec()
         if (pending.image == null) finishImageDelivery()
+    }
+
+    private fun retryAcceptedBatchDelivery(fallback: PendingNoteCapture) {
+        if (imageDeliveryBusy || localEngineLifecycle.isDestroyed()) return
+        val persistent = imageStore.pending()
+        val pending = if (persistent != null) {
+            persistent.takeIf { it.id == fallback.id && it.accepted }
+        } else {
+            acceptedBatchRetry?.takeIf { it.id == fallback.id && it.accepted }
+        } ?: return
+        deliverAcceptedBatch(pending)
+    }
+
+    private fun deliverAcceptedBatch(pending: PendingNoteCapture) {
+        if (pending.meetingCapture) {
+            deliverAcceptedMeetingBatch(pending)
+            return
+        }
+        val captures = draftStore.captures()
+        val anchor = captures.firstOrNull { it.id == pending.id }
+            ?: captures.firstOrNull { it.groupId == pending.id }
+        val anchorAfter = anchor?.let { TranscriptImageCaret(it.offset, it.orderAtOffset + 1) }
+        val existingNoteImages = notes.get(activeNoteId)?.images?.size ?: 0
+        val committed = runCatching {
+            draftStore.completeBatch(pending.id, pending.allImages, existingNoteImages)
+        }.getOrDefault(false)
+        if (!committed) {
+            acceptedBatchRetry = pending
+            restoreAfterImageBatch(anchorAfter)
+            screenshotBatchId = pending.id
+            showScreenshotBatchBar(pending)
+            toast("La série n’a pas pu être enregistrée durablement. Réessayez l’ajout au texte.")
+            return
+        }
+        // Keep the accepted session until the full image batch is durable in the draft.
+        if (!clearPendingSafely(pending.id)) {
+            acceptedBatchRetry = pending
+            restoreAfterImageBatch(anchorAfter)
+            screenshotBatchId = pending.id
+            val retry = imageStore.pending()?.takeIf { it.id == pending.id && it.accepted } ?: pending
+            showScreenshotBatchBar(retry)
+            toast("Images conservées dans le brouillon. Réessayez l’ajout des images pour terminer.")
+            return
+        }
+        acceptedBatchRetry = null
+        hideScreenshotBatchBar()
+        screenshotBatchId = null
+        restoreAfterImageBatch(anchorAfter)
+        val count = pending.allImages.size
+        toast(if (count == 1) "1 image ajoutée au texte." else "$count images ajoutées au texte.")
+        saveAcceptedBatchToGallery(pending)
+    }
+
+    private fun deliverAcceptedMeetingBatch(pending: PendingNoteCapture) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            main.post { deliverAcceptedMeetingBatch(pending) }
+            return
+        }
+        val anchor = pending.meetingAnchor
+        if (!pending.accepted || pending.meetingAnchorInvalid || anchor == null) {
+            retainMeetingImageBatch(pending, "L’emplacement de la capture Réunion doit être vérifié. La série reste conservée.")
+            return
+        }
+        val currentController = meetingRecordingController
+        if (currentController != null || meetingDraftClaim != null || meetingDraftClaimRequest != null || meetingSurfaceOpen) {
+            val controller = currentController?.takeIf {
+                meetingSurfaceOpen && it.state.document.sessionId == anchor.sessionId
+            }
+            if (controller == null) {
+                retainMeetingImageBatch(pending, "Une autre réunion est ouverte. La série reste conservée.")
+                return
+            }
+            val savedNote = runCatching { notes.get(anchor.sessionId) }.getOrElse {
+                retainMeetingImageBatch(pending, "Le document Réunion ne peut pas être vérifié. La série reste conservée.")
+                return
+            }
+            val source = MeetingImageRecovery.select(
+                anchor.sessionId,
+                controller.state.document,
+                MeetingDocumentRead.Absent,
+                savedNote,
+            )?.takeIf { it.kind == MeetingImageSourceKind.LIVE }
+            if (source == null) {
+                retainMeetingImageBatch(pending, "Le document Réunion n’est pas disponible. La série reste conservée.")
+                return
+            }
+            deliverMeetingImageSource(pending, source, controller = controller)
+            return
+        }
+
+        startTemporaryMeetingImageDelivery(pending, anchor.sessionId)
+    }
+
+    private fun startTemporaryMeetingImageDelivery(pending: PendingNoteCapture, sessionId: String) {
+        imageDeliveryBusy = true
+        val owner = meetingTestOverrides?.draftOwnership ?: MeetingDraftOwnership.processWide
+        val path = meetingTestOverrides?.draftFile ?: File(filesDir, "meeting/meeting-draft.json")
+        val request = try {
+            owner.claim(path)
+        } catch (_: Throwable) {
+            imageDeliveryBusy = false
+            retainMeetingImageBatch(pending, "Le brouillon Réunion ne peut pas être vérifié. La série reste conservée.")
+            return
+        }
+        meetingImageRecoveryRequest = request
+        val deliveryMain = Handler(Looper.getMainLooper())
+        request.future.whenComplete { claim, claimFailure ->
+            if (claimFailure != null || claim == null) {
+                deliveryMain.post {
+                    if (meetingImageRecoveryRequest === request) meetingImageRecoveryRequest = null
+                    if (localEngineLifecycle.isDestroyed()) return@post
+                    imageDeliveryBusy = false
+                    retainMeetingImageBatch(pending, "Le brouillon Réunion ne peut pas être ouvert. La série reste conservée.")
+                }
+                return@whenComplete
+            }
+            deliveryMain.post {
+                if (meetingImageRecoveryRequest === request) meetingImageRecoveryRequest = null
+                if (localEngineLifecycle.isDestroyed()) {
+                    runCatching { claim.relinquishLatest() }
+                    return@post
+                }
+                if (!isPendingAcceptedMeetingBatch(pending)) {
+                    imageDeliveryBusy = false
+                    claim.relinquishLatest()
+                    return@post
+                }
+                beginTemporaryMeetingImageDelivery(pending, sessionId, claim)
+            }
+        }
+    }
+
+    private fun beginTemporaryMeetingImageDelivery(
+        pending: PendingNoteCapture,
+        sessionId: String,
+        claim: MeetingDraftOwnershipClaim,
+    ) {
+        val draftRead = claim.snapshot?.let(MeetingDocumentRead::Ready) ?: claim.recoveredDocument
+        if (draftRead is MeetingDocumentRead.Ready && draftRead.document.sessionId != sessionId) {
+            releaseTemporaryMeetingClaim(claim) {
+                if (localEngineLifecycle.isDestroyed()) return@releaseTemporaryMeetingClaim
+                imageDeliveryBusy = false
+                retainMeetingImageBatch(pending, "Le brouillon appartient à une autre réunion. La série reste conservée.")
+            }
+            return
+        }
+        if (draftRead is MeetingDocumentRead.Invalid || draftRead is MeetingDocumentRead.Unsupported) {
+            releaseTemporaryMeetingClaim(claim) {
+                if (localEngineLifecycle.isDestroyed()) return@releaseTemporaryMeetingClaim
+                imageDeliveryBusy = false
+                retainMeetingImageBatch(pending, "Le brouillon Réunion reste protégé. La série est conservée.")
+            }
+            return
+        }
+        val savedNote = try {
+            notes.get(sessionId)
+        } catch (_: Throwable) {
+            releaseTemporaryMeetingClaim(claim) {
+                if (localEngineLifecycle.isDestroyed()) return@releaseTemporaryMeetingClaim
+                imageDeliveryBusy = false
+                retainMeetingImageBatch(pending, "Le document Réunion ne peut pas être vérifié. La série reste conservée.")
+            }
+            return
+        }
+        val source = MeetingImageRecovery.select(sessionId, null, draftRead, savedNote)
+        if (source == null) {
+            releaseTemporaryMeetingClaim(claim) {
+                if (localEngineLifecycle.isDestroyed()) return@releaseTemporaryMeetingClaim
+                imageDeliveryBusy = false
+                retainMeetingImageBatch(pending, "La réunion d’origine n’est pas disponible. La série reste conservée.")
+            }
+            return
+        }
+        deliverMeetingImageSource(pending, source, temporaryClaim = claim)
+    }
+
+    private fun deliverMeetingImageSource(
+        pending: PendingNoteCapture,
+        source: MeetingImageSource,
+        controller: MeetingRecordingController? = null,
+        temporaryClaim: MeetingDraftOwnershipClaim? = null,
+    ) {
+        val anchor = pending.meetingAnchor
+        if (!pending.accepted || pending.meetingAnchorInvalid || anchor == null) {
+            temporaryClaim?.let { releaseTemporaryMeetingClaim(it) }
+            imageDeliveryBusy = false
+            retainMeetingImageBatch(pending, "L’emplacement de la capture Réunion doit être vérifié. La série reste conservée.")
+            return
+        }
+        if ((controller == null) == (temporaryClaim == null)) {
+            temporaryClaim?.let { releaseTemporaryMeetingClaim(it) }
+            imageDeliveryBusy = false
+            retainMeetingImageBatch(pending, "La livraison Réunion ne peut pas confirmer son propriétaire. La série reste conservée.")
+            return
+        }
+        if (controller == null && source.kind == MeetingImageSourceKind.LIVE) {
+            temporaryClaim?.let { releaseTemporaryMeetingClaim(it) }
+            imageDeliveryBusy = false
+            retainMeetingImageBatch(pending, "Une session Réunion vivante doit rester propriétaire de son document.")
+            return
+        }
+
+        imageDeliveryBusy = true
+        val deliveryMain = Handler(Looper.getMainLooper())
+        var temporaryDocument = source.document
+        val delivery = MeetingImageDelivery(
+            applyDocument = { sessionId, document ->
+                check(!localEngineLifecycle.isDestroyed()) { "Le service est fermé" }
+                check(isPendingAcceptedMeetingBatch(pending)) { "La réservation de capture a changé" }
+                if (controller != null) {
+                    check(isLiveMeetingImageController(controller, sessionId)) { "La réunion n’est plus ouverte" }
+                    applyMeetingImageDocument(controller, document)
+                } else {
+                    val claim = requireNotNull(temporaryClaim)
+                    check(document.sessionId == sessionId)
+                    claim.writer.updateSnapshot(document)
+                    claim.rememberSnapshot(document)
+                    temporaryDocument = document
+                }
+            },
+            flushDraft = { sessionId, document ->
+                check(!localEngineLifecycle.isDestroyed()) { "Le service est fermé" }
+                check(isPendingAcceptedMeetingBatch(pending)) { "La réservation de capture a changé" }
+                if (controller != null) {
+                    check(isLiveMeetingImageController(controller, sessionId)) { "La réunion n’est plus ouverte" }
+                    controller.flushDraft()
+                } else {
+                    val claim = requireNotNull(temporaryClaim)
+                    check(document.sessionId == sessionId)
+                    claim.writer.updateSnapshot(document)
+                    claim.rememberSnapshot(document)
+                    temporaryDocument = document
+                    claim.writer.flush()
+                }
+            },
+            saveMeeting = { sessionId, document, images ->
+                check(!localEngineLifecycle.isDestroyed()) { "Le service est fermé" }
+                check(isPendingAcceptedMeetingBatch(pending)) { "La réservation de capture a changé" }
+                check(Looper.myLooper() == Looper.getMainLooper()) { "Les notes Réunion appartiennent au thread principal" }
+                if (controller != null) check(isLiveMeetingImageController(controller, sessionId)) { "La réunion n’est plus ouverte" }
+                else check(document.sessionId == sessionId && temporaryClaim != null)
+                notes.saveMeeting(sessionId, document, images)
+            },
+            clearPending = { id ->
+                check(!localEngineLifecycle.isDestroyed()) { "Le service est fermé" }
+                check(id == pending.id && isPendingAcceptedMeetingBatch(pending)) { "La réservation de capture a changé" }
+                imageStore.clearPending(id)
+            },
+            resolveMeetingBatchImages = { id, images ->
+                check(id == pending.id && isPendingAcceptedMeetingBatch(pending)) { "La réservation de capture a changé" }
+                imageStore.resolveMeetingBatchImages(id, images)
+            },
+            mainExecutor = Executor { runnable ->
+                if (Looper.myLooper() == Looper.getMainLooper()) runnable.run()
+                else check(deliveryMain.post(runnable)) { "La livraison Réunion ne peut plus rejoindre le thread principal" }
+            },
+            currentDocument = { sessionId ->
+                when {
+                    controller != null && isLiveMeetingImageController(controller, sessionId) -> controller.state.document
+                    controller == null && temporaryDocument.sessionId == sessionId -> temporaryDocument
+                    else -> null
+                }
+            },
+            currentImages = { sessionId ->
+                notes.get(sessionId)?.takeIf { it.meetingRaw == null && it.meeting?.sessionId == sessionId }?.images
+            },
+            onAnchorRestored = { sessionId ->
+                if (controller != null && isLiveMeetingImageController(controller, sessionId)) {
+                    renderMeetingState(controller.state)
+                }
+            },
+        )
+        val completion = try {
+            delivery.deliver(pending, source)
+        } catch (failure: Throwable) {
+            CompletableFuture<MeetingImageMutation>().also { it.completeExceptionally(failure) }
+        }
+        completion.whenComplete { _, failure ->
+            val finish: (Throwable?) -> Unit = { releaseFailure ->
+                deliveryMain.post {
+                    if (localEngineLifecycle.isDestroyed()) return@post
+                    if (failure != null || releaseFailure != null) {
+                        imageDeliveryBusy = false
+                        retainMeetingImageBatch(pending, "L’ajout des images à la réunion a échoué. Réessayez.")
+                        return@post
+                    }
+                    completeMeetingImageDelivery(pending, anchor.sessionId, controller != null)
+                }
+            }
+            if (temporaryClaim != null) releaseTemporaryMeetingClaim(temporaryClaim, finish)
+            else finish(null)
+        }
+    }
+
+    private fun releaseTemporaryMeetingClaim(
+        claim: MeetingDraftOwnershipClaim,
+        afterRelease: ((Throwable?) -> Unit)? = null,
+    ) {
+        val release = runCatching { claim.relinquishLatest() }.getOrElse { failure ->
+            CompletableFuture<Unit>().also { it.completeExceptionally(failure) }
+        }
+        if (afterRelease != null) {
+            release.whenComplete { _, failure ->
+                Handler(Looper.getMainLooper()).post { afterRelease(failure) }
+            }
+        }
+    }
+
+    private fun isPendingAcceptedMeetingBatch(pending: PendingNoteCapture): Boolean {
+        val expectedAnchor = pending.meetingAnchor
+        if (!pending.batch || !pending.accepted || pending.meetingAnchorInvalid || expectedAnchor == null ||
+            pending.noteId != expectedAnchor.sessionId
+        ) return false
+        fun matches(candidate: PendingNoteCapture): Boolean =
+            candidate.id == pending.id && candidate.batch && candidate.accepted &&
+                !candidate.meetingAnchorInvalid && candidate.noteId == pending.noteId &&
+                candidate.meetingAnchor == expectedAnchor && candidate.meetingAnchor?.sessionId == candidate.noteId
+
+        val persistent = imageStore.pending()
+        return if (persistent != null) matches(persistent) else acceptedBatchRetry?.let(::matches) == true
+    }
+
+    private fun completeMeetingImageDelivery(pending: PendingNoteCapture, sessionId: String, live: Boolean) {
+        acceptedBatchRetry = null
+        hideScreenshotBatchBar()
+        screenshotBatchId = null
+        if (live) restoreAfterMeetingImageBatch(sessionId) else restoreAfterMeetingImageBatch("")
+        resumeMeetingImageIfStillOwned(pending)
+        val count = pending.allImages.size
+        toast(if (count == 1) "1 image ajoutée à la réunion." else "$count images ajoutées à la réunion.")
+        saveAcceptedBatchToGallery(pending)
+    }
+
+    private fun resumeMeetingImageIfStillOwned(pending: PendingNoteCapture) {
+        val context = meetingImageResumeContext?.takeIf { it.pendingId == pending.id }
+        clearMeetingImageResumeContext(pending.id)
+        if (!pending.resumeListening || context == null) return
+        val controller = context.controller
+        val document = controller.state.document
+        val mode = transcriptionModes.snapshot()
+        if (!isLiveMeetingImageController(controller, context.sessionId) ||
+            document.runId != context.runId || controller.state.phase != MeetingRecordingPhase.PAUSED ||
+            mode.mode != TranscriptionMode.MEETING || mode.poisoned || mode.activeRunMode != TranscriptionMode.MEETING
+        ) return
+        controller.resume().whenComplete { _, failure ->
+            Handler(Looper.getMainLooper()).post {
+                if (localEngineLifecycle.isDestroyed() ||
+                    !isLiveMeetingImageController(controller, context.sessionId) ||
+                    controller.state.document.runId != context.runId
+                ) return@post
+                if (failure != null) toast("La réunion reste en pause. Reprenez-la depuis le panneau.")
+                else renderMeetingState(controller.state)
+            }
+        }
+    }
+
+    private fun isLiveMeetingImageController(controller: MeetingRecordingController, sessionId: String): Boolean =
+        meetingSurfaceOpen && meetingRecordingController === controller &&
+            controller.state.document.sessionId == sessionId
+
+    private fun applyMeetingImageDocument(controller: MeetingRecordingController, document: MeetingDocument) {
+        check(controller.state.document.sessionId == document.sessionId) { "La réunion a changé pendant la livraison" }
+        var current = controller.state.document
+        val requestedDocumentTurn = document.turns.firstOrNull { it.utteranceId == 0L }
+        if (requestedDocumentTurn != null && current.turns.none { it.id == requestedDocumentTurn.id }) {
+            val created = controller.ensureDocumentTurn()
+            check(created.id == requestedDocumentTurn.id) { "Le tour documentaire a changé" }
+            current = controller.state.document
+        }
+        document.turns.forEach { requested ->
+            val live = current.turns.firstOrNull { it.id == requested.id } ?: return@forEach
+            val desiredBody = requested.editedText ?: requested.recognizedText
+            val liveBody = live.editedText ?: live.recognizedText
+            if (desiredBody != liveBody) controller.editTurn(requested.id, desiredBody)
+        }
+    }
+
+    private fun retainMeetingImageBatch(pending: PendingNoteCapture, message: String) {
+        acceptedBatchRetry = pending.takeIf { it.accepted } ?: acceptedBatchRetry
+        screenshotBatchId = pending.id
+        val invalidMeetingReservation = pending.batch && pending.meetingCapture &&
+            (pending.meetingAnchorInvalid || pending.meetingAnchor == null)
+        if (pending.allImages.isNotEmpty() || invalidMeetingReservation) showScreenshotBatchBar(pending)
+        toast(message)
+    }
+
+    private fun restoreAfterMeetingImageBatch(sessionId: String) {
+        captureWindowsHidden = false
+        hideScreenshotBatchBar()
+        screenshotBatchId = null
+        container?.visibility = View.VISIBLE
+        val controller = meetingRecordingController?.takeIf { isLiveMeetingImageController(it, sessionId) }
+        if (controller != null) {
+            setLivePreviewVisible(true)
+            renderMeetingState(controller.state)
+        } else setLivePreviewVisible(isTranscriptEditable())
+        refreshNoteImages()
+    }
+
+    private fun acceptedBatchImageIds(): Set<String> = buildSet {
+        imageStore.pending()?.takeIf { it.batch && it.accepted }?.allImages?.forEach { add(it.id) }
+        acceptedBatchRetry?.allImages?.forEach { add(it.id) }
+    }
+
+    private fun saveAcceptedBatchToGallery(pending: PendingNoteCapture) {
+        imageDeliveryBusy = true
+        refreshNoteImages()
+        thread(name = "dictai-batch-gallery") {
+            val failed = pending.allImages.filter { image ->
+                runCatching { CapturedImageGallery.save(this, image) }.isFailure
+            }
+            main.post {
+                if (localEngineLifecycle.isDestroyed()) return@post
+                if (failed.isNotEmpty() && !pending.meetingCapture && purpose == DictationPurpose.MESSAGE) {
+                    val originalPurpose = purpose
+                    val note = saveNoteWithCaptures(rawTranscriptText())
+                    purpose = originalPurpose
+                    draftStore.purpose = originalPurpose
+                    draftStore.noteId = note.id
+                    toast("Une partie des images n’a pas pu être copiée dans Photos. La série reste conservée dans la note « " + note.title + " ».")
+                } else if (failed.isNotEmpty()) {
+                    toast("Certaines images n’ont pas pu être copiées dans Photos; elles restent dans la note.")
+                }
+                if (activeRun?.finishAfterCapture == true && state == State.PAUSED) stopRec()
+                else if (pending.resumeListening && activeRun != null && state == State.PAUSED && !archiveAfterImageDelivery)
+                    resumeRec()
+                finishImageDelivery()
+            }
+        }
     }
 
     private fun copyCapturedImage(image: NoteImage, discardSource: Boolean = false, saveInGallery: Boolean = false) {
@@ -3276,15 +4860,22 @@ class OverlayService : Service() {
         val queuedNote = exportAfterImageDelivery
         exportAfterImageDelivery = null
         if (queuedNote != null && activeRun == null && activeNoteId == queuedNote && state == State.PAUSED) insertPausedMessage()
+        if (messageAfterImageDelivery) {
+            messageAfterImageDelivery = false
+            insertPausedMessage()
+        }
     }
 
     private fun replaceNoteText(text: String) {
         resetVocabularyLearning()
-        editableTranscript.anchor(text)
-        updatingLiveText = true
-        try { liveText?.setText(text) } finally { updatingLiveText = false }
-        if (recoveredDraft != null || activeRun == null) recoveredDraft = text
-        persistDraft(text)
+        val images = notes.get(activeNoteId)?.images.orEmpty() + draftStore.captures().mapNotNull { it.image }
+        val projection = if (NoteImageMarkers.numbers(text).isNotEmpty()) {
+            TranscriptImageBlocks.combine(TranscriptImageBlocks.fromNote(text, images), draftStore.captures())
+        } else projectionForText(text)
+        editableTranscript.anchor(projection.rawText())
+        renderTranscriptProjection(projection, projection.rawText().length, projection.rawText().length)
+        if (recoveredDraft != null || activeRun == null) recoveredDraft = projection.rawText()
+        persistDraft(projection.rawText())
         tailFollower?.changed()
     }
 
@@ -3297,10 +4888,12 @@ class OverlayService : Service() {
                 ordered + it.images.filter { image -> image.number !in orderedNumbers }
             }
         }.orEmpty()
-        val images = noteImages + draftStore.captures().mapNotNull { it.image }
+        val images = (noteImages + draftStore.captures().mapNotNull { it.image }).distinctBy { it.id }
         val pending = imageStore.pending()
+        val acceptedRetry = pending?.takeIf { it.batch && it.accepted } ?: acceptedBatchRetry
+        val stripPending = pending ?: acceptedBatchRetry
         val editable = isTranscriptEditable() && !imageDeliveryBusy
-        val showStrip = images.isNotEmpty() || pending != null
+        val showStrip = images.isNotEmpty() || stripPending != null
         imageStripScroll?.visibility = if (showStrip) View.VISIBLE else View.GONE
         mediaButtons.forEach { button ->
             val current = button.layoutParams as? LinearLayout.LayoutParams ?: return@forEach
@@ -3309,20 +4902,32 @@ class OverlayService : Service() {
             button.layoutParams = current
         }
         mediaButtons.forEach { button ->
-            button.isEnabled = editable && pending == null
+            button.isEnabled = editable && pending == null && acceptedBatchRetry == null
             button.alpha = if (button.isEnabled) 1f else .4f
         }
         val strip = imageStrip ?: return
-        val ids = images.map { "${it.id}:${it.number}" } + listOfNotNull(pending?.id)
+        val pendingKey = stripPending?.let {
+            "${it.id}:accepted=${it.accepted}:message=${it.message.orEmpty()}:error=${it.error.orEmpty()}"
+        }
+        val ids = images.map { "${it.id}:${it.number}" } + listOfNotNull(pendingKey)
         if (shownImageIds == ids && strip.childCount > 0) return
         shownImageIds = ids
         strip.removeAllViews()
         val dp = resources.displayMetrics.density
-        if (images.isEmpty() || pending != null) strip.addView(TextView(this).apply {
-            text = if (pending != null) "Capture… ×" else ""; textSize = 11f; setTextColor(overlayPalette.inkMuted)
+        if (images.isEmpty() || stripPending != null) strip.addView(TextView(this).apply {
+            text = when {
+                acceptedRetry != null -> "Ajout… ↻"
+                stripPending != null -> "Capture… ×"
+                else -> ""
+            }; textSize = 11f; setTextColor(overlayPalette.inkMuted)
             minWidth = (48 * dp).toInt(); minHeight = (40 * dp).toInt()
-            contentDescription = if (pending != null) "Annuler la capture en attente" else ""
-            if (pending != null) setOnClickListener {
+            contentDescription = when {
+                acceptedRetry != null -> "Réessayer l’ajout des images au texte"
+                stripPending != null -> "Annuler la capture en attente"
+                else -> ""
+            }
+            if (acceptedRetry != null) setOnClickListener { retryAcceptedBatchDelivery(acceptedRetry) }
+            else if (pending != null) setOnClickListener {
                 imageStore.fail(pending.id, "Capture annulée.")
                 finishPendingImage()
             }
@@ -3334,13 +4939,14 @@ class OverlayService : Service() {
                 contentDescription = "Image ${image.number}, ${image.kind.label}. Appuyer pour voir, maintenir pour les actions, dont Monter et Descendre."
                 setOnClickListener { previewNoteImage(image) }
                 setOnLongClickListener {
-                    if (imageStore.pending() == null && !imageDeliveryBusy && isTranscriptEditable()) showFloatingMenu("Image ${image.number}", listOf(
+                    if (!hasImageCaptureInFlight() && !imageDeliveryBusy && isTranscriptEditable()) showFloatingMenu("Image ${image.number}", listOf(
                         MenuEntry("Copier l’image", {
                             dismissFloatingMenu()
                             copyCapturedImage(image)
                         }),
                         MenuEntry("Monter l’image", { moveNoteImage(image, NoteImageMove.UP) }),
                         MenuEntry("Descendre l’image", { moveNoteImage(image, NoteImageMove.DOWN) }),
+                        MenuEntry("Déplacer au curseur", { moveImageBlockToCurrentCaret(image) }),
                         MenuEntry("Retirer cette image de la note", { removeNoteImage(image) }),
                         MenuEntry("Retour", ::dismissFloatingMenu),
                     ))
@@ -3381,10 +4987,10 @@ class OverlayService : Service() {
     }
 
     private fun moveNoteImage(image: NoteImage, direction: NoteImageMove) {
-        if (!isTranscriptEditable() || imageDeliveryBusy || imageStore.pending() != null) return
+        if (!isTranscriptEditable() || imageDeliveryBusy || hasImageCaptureInFlight()) return
         // Flush the editor before reordering. The persisted note can lag behind liveText while
         // an edit callback is queued; moving from that stale value would silently overwrite it.
-        val currentText = liveText?.text?.toString() ?: notes.get(activeNoteId)?.text.orEmpty()
+        val currentText = rawTranscriptText().ifEmpty { notes.get(activeNoteId)?.text.orEmpty() }
         val note = saveNoteWithCaptures(currentText)
         val currentImage = note.images.firstOrNull { it.id == image.id }
             ?: note.images.firstOrNull { it.number == image.number }
@@ -3400,25 +5006,45 @@ class OverlayService : Service() {
         refreshNoteImages()
     }
 
-    private fun removeNoteImage(image: NoteImage) {
-        if (!isTranscriptEditable() || imageDeliveryBusy || imageStore.pending() != null) return
-        val note = notes.get(activeNoteId)
-        if (note == null || note.images.none { it.id == image.id }) {
-            draftStore.removeCapture(image.id)
-            dismissFloatingMenu()
-            refreshNoteImages()
+    private fun moveImageBlockToCurrentCaret(image: NoteImage) {
+        if (!isTranscriptEditable() || imageDeliveryBusy || hasImageCaptureInFlight()) return
+        val projection = currentTranscriptProjection()
+        val block = projection.blocks.firstOrNull { candidate -> candidate.images.any { it.id == image.id } } ?: return
+        val editor = liveText ?: return
+        val caret = projection.caretForEditor(editor.selectionEnd.coerceAtLeast(0))
+        val moved = TranscriptImageBlocks.moveToCaret(projection, block.id, caret)
+        dismissFloatingMenu()
+        if (moved == projection) {
+            toast("L’image est déjà à cet emplacement.")
             return
         }
+        val movedBlock = moved.blocks.firstOrNull { it.id == block.id }
+        val caretAfter = movedBlock?.let { target ->
+            TranscriptImageCaret(target.rawOffset,
+                moved.blocks.takeWhile { it.id != target.id }.count { it.rawOffset == target.rawOffset } + 1)
+        }
+        renderTranscriptProjection(moved, caret = caretAfter)
+        persistDraft(moved.rawText())
+        refreshNoteImages()
+    }
+
+    private fun removeNoteImage(image: NoteImage) {
+        if (!isTranscriptEditable() || imageDeliveryBusy || hasImageCaptureInFlight()) return
+        val note = notes.get(activeNoteId)
+        val projection = currentTranscriptProjection()
+        val block = projection.blocks.firstOrNull { candidate -> candidate.images.any { it.id == image.id } }
+            ?: return
+        val updated = TranscriptImageBlocks.removeImage(projection, block.id, image.id)
         dismissFloatingMenu()
-        val text = NoteImageMarkers.remove(liveText?.text?.toString().orEmpty(), image.number)
-        notes.save(note.id, text, note.images.filter { it.id != image.id })
-        replaceNoteText(text)
-        imageStore.delete(image.id)
+        draftStore.forgetCaptures(setOf(image.id))
+        if (note != null) notes.save(note.id, updated.serializedNoteText(), note.images.filterNot { it.id == image.id })
+        renderTranscriptProjection(updated)
+        persistDraft(updated.rawText())
         refreshNoteImages()
     }
 
     private fun exportNoteWithImages(automatic: Boolean = true) {
-        if (!isTranscriptEditable() || imageStore.pending() != null) return
+        if (!isTranscriptEditable() || hasImageCaptureInFlight()) return
         val run = activeRun
         if (run != null) {
             run.exportNote = true
@@ -3426,7 +5052,7 @@ class OverlayService : Service() {
             run.finishAfterPause = true
             if (state != State.PAUSING) stopRec()
         } else {
-            val note = saveNoteWithCaptures(liveText?.text?.toString().orEmpty())
+            val note = saveNoteWithCaptures(rawTranscriptText())
             replaceNoteText(note.text)
             activeNoteId = note.id
             draftStore.noteId = note.id
@@ -3599,13 +5225,18 @@ class OverlayService : Service() {
     private fun saveNoteWithCaptures(text: String): TranscriptNote {
         purpose = DictationPurpose.NOTE
         draftStore.purpose = purpose
-        draftStore.save(text)
-        val content = DraftImageContext.materialize(text, notes.get(activeNoteId)?.images.orEmpty(), draftStore.captures())
-        val note = notes.save(activeNoteId, content.text, content.images)
-        draftStore.detachCaptures(content.attachedIds)
+        val raw = TranscriptImageBlocks.rawText(text)
+        draftStore.save(raw)
+        val projection = projectionForText(raw)
+        val attachedIds = noteImagesIn(projection).map { it.id }.toSet()
+        draftStore.syncVisibleCaptures(attachedIds)
+        val note = notes.save(activeNoteId, projection.serializedNoteText(), noteImagesIn(projection))
+        draftStore.detachCaptures(draftStore.captures().mapNotNull { it.image?.id }
+            .toSet() - acceptedBatchImageIds())
         activeNoteId = note.id
         draftStore.noteId = note.id
-        draftStore.save(note.text)
+        draftStore.save(raw)
+        recoveredDraft = raw
         // A location is requested once after an explicit archive. Autosaves of
         // this note never set the pending flag again, and an export can finish
         // before the list is shown without losing the note.
@@ -3616,14 +5247,27 @@ class OverlayService : Service() {
     }
 
     private fun persistDraft(text: String) {
+        val raw = TranscriptImageBlocks.rawText(text)
         draftStore.purpose = purpose
-        draftStore.save(text)
+        draftStore.save(raw)
+        val projection = projectionForText(raw)
+        draftStore.syncProjection(projection.blocks)
         activeNoteId?.let { id ->
-            if (notes.get(id)?.text != text) notes.save(id, text)
+            val images = noteImagesIn(projection)
+            notes.save(id, projection.serializedNoteText(), images)
+            if (purpose == DictationPurpose.NOTE) {
+                draftStore.detachCaptures(draftStore.captures().mapNotNull { it.image?.id }
+                    .toSet() - acceptedBatchImageIds())
+            }
         }
+        if (recoveredDraft != null || activeRun == null) recoveredDraft = raw
     }
 
     private fun clearOpenDraft() {
+        if (hasImageCaptureInFlight()) {
+            toast("Terminez l’ajout des images en attente avant de fermer le brouillon.")
+            return
+        }
         invalidateNoteInsertion()
         exportAfterImageDelivery = null
         archiveAfterImageDelivery = false
@@ -3640,6 +5284,10 @@ class OverlayService : Service() {
     private fun cancelPausedNote() {
         if (localEngineLifecycle.isDestroyed()) return
         if (imageDeliveryBusy) { main.postDelayed({ cancelPausedNote() }, 60); return }
+        if (hasImageCaptureInFlight()) {
+            toast("Terminez l’ajout des images en attente avant de fermer le brouillon.")
+            return
+        }
         tapCoordinator.reset()
         val run = activeRun
         if (run != null) {
@@ -3660,7 +5308,7 @@ class OverlayService : Service() {
             draftStore.purpose = purpose
             activeRun?.let { it.archiveAsNote = true; it.reviewNoteInsertionAfterFinish = false }
         }
-        if (imageStore.pending() != null || imageDeliveryBusy) { archiveAfterImageDelivery = true; return }
+        if (hasImageCaptureInFlight() || imageDeliveryBusy) { archiveAfterImageDelivery = true; return }
         if (state == State.TRANSCRIBING || state == State.CANCELLING) {
             toast("Patientez jusqu’à la fin du traitement.")
             return
@@ -3671,14 +5319,26 @@ class OverlayService : Service() {
             run.resumeAfterPause = false
             if (state != State.PAUSING) stopRec()
         } else if (recoveredDraft != null) {
-            saveNoteWithCaptures(liveText?.text?.toString().orEmpty())
+            saveNoteWithCaptures(rawTranscriptText())
             clearOpenDraft()
             showNotesOverlay()
         } else showNotesOverlay()
     }
 
     private fun openNote(note: TranscriptNote) {
-        if (activeRun != null) return
+        val modeState = transcriptionModes.snapshot()
+        if (activeRun != null || modeState.activeRunMode != null || hasImageCaptureInFlight() || imageDeliveryBusy) return
+        if (meetingReplacementOperation != null) return
+        if (note.meeting != null || note.meetingRaw != null) {
+            openMeetingNote(note)
+            return
+        }
+        // A flat note must never evict a live structured document. The user can first finish or
+        // explicitly detach that document from the Meeting panel.
+        if (meetingSurfaceOpen && meetingRecordingController != null) {
+            toast("Terminez ou enregistrez la réunion avant d’ouvrir une autre note.")
+            return
+        }
         invalidateNoteInsertion()
         releaseTranscriptFocus()
         resetVocabularyLearning()
@@ -3687,28 +5347,162 @@ class OverlayService : Service() {
         draftStore.purpose = purpose
         activeNoteId = note.id
         draftStore.noteId = note.id
-        recoveredDraft = note.text
+        val projection = TranscriptImageBlocks.combine(
+            TranscriptImageBlocks.fromNote(note.text, note.images),
+            draftStore.captures(),
+        )
+        recoveredDraft = projection.rawText()
         editableTranscript.clear()
-        editableTranscript.edit(note.text)
-        updatingLiveText = true
-        liveText?.setText(note.text)
-        updatingLiveText = false
+        editableTranscript.edit(projection.rawText())
+        renderTranscriptProjection(projection, projection.rawText().length, projection.rawText().length)
         liveText?.isEnabled = true
         liveText?.hint = "Écrivez ici, ou appuyez sur la pastille pour dicter"
         refreshNoteImages()
-        draftStore.save(note.text)
+        persistDraft(projection.rawText())
         panelHidden = false
         setState(State.PAUSED)
         setLivePreviewVisible(true)
     }
 
+    private fun openMeetingNote(note: TranscriptNote) {
+        val latestModeState = transcriptionModes.snapshot()
+        val editableDocument = editableMeetingDocument(note)
+        if (activeRun != null || latestModeState.activeRunMode != null || hasImageCaptureInFlight() || imageDeliveryBusy) return
+        if (meetingSurfaceOpen && meetingRecordingController?.state?.document?.sessionId != null) {
+            val current = meetingRecordingController
+            if (editableDocument?.sessionId == current?.state?.document?.sessionId) {
+                panelHidden = false
+                setLivePreviewVisible(true)
+                return
+            }
+            if (current != null && (note.meeting != null || note.meetingRaw != null)) {
+                startNewMeetingAfterSaving(current, note)
+                return
+            }
+            toast("Terminez ou enregistrez la réunion avant d’ouvrir une autre note.")
+            return
+        }
+        if (meetingDraftClaim != null || meetingDraftClaimRequest != null) {
+            toast("Le brouillon de réunion est déjà ouvert.")
+            return
+        }
+
+        invalidateNoteInsertion()
+        dismissFloatingMenu()
+        releaseTranscriptFocus()
+        resetVocabularyLearning()
+
+        val canSelectMeeting = when {
+            latestModeState.mode == TranscriptionMode.MEETING -> true
+            latestModeState.poisoned -> false
+            else -> transcriptionModes.changeMode(TranscriptionMode.MEETING)
+        }
+        if (canSelectMeeting) applyTranscriptionMode(TranscriptionMode.MEETING)
+        val afterSelection = transcriptionModes.snapshot()
+        if (afterSelection.activeRunMode != null || activeRun != null) return
+        val blockedOnlyByPoison = !canSelectMeeting && afterSelection.poisoned
+
+        activeNoteId = note.id
+        purpose = DictationPurpose.NOTE
+        panelHidden = false
+        setLivePreviewVisible(true)
+
+        val document = editableDocument
+        if (document == null) {
+            meetingSurfaceOpen = true
+            ensureMeetingPanelView(createEditor = false)
+            showOpaqueMeetingNote(note, meetingNoteReadOnlyReason(note))
+            return
+        }
+        if (!canSelectMeeting && !blockedOnlyByPoison) {
+            meetingSurfaceOpen = true
+            ensureMeetingPanelView(createEditor = false)
+            showOpaqueMeetingNote(note, TRANSCRIPTION_MODE_UNAVAILABLE_MESSAGE)
+            return
+        }
+
+        meetingSurfaceOpen = true
+        ensureMeetingPanelView()
+        val store = meetingModelStoreForPanel()
+        attachMeetingModelListener(store)
+        store.refresh()
+        startMeetingAfterClaimLanguage = null
+        claimMeetingDraft(note)
+    }
+
+    private fun editableMeetingDocument(note: TranscriptNote): MeetingDocument? =
+        note.meeting?.takeIf { note.meetingRaw == null && note.id == it.sessionId }
+
+    private fun meetingNoteReadOnlyReason(note: TranscriptNote): String? = when {
+        note.meetingRaw != null -> null
+        note.meeting != null && note.id != note.meeting.sessionId ->
+            "L’identifiant de cette réunion ne correspond pas à sa session."
+        else -> null
+    }
+
+    private fun showOpaqueMeetingNote(note: TranscriptNote, reason: String? = null) {
+        val fallback = note.meeting?.takeIf { note.meetingRaw == null }?.let { document ->
+            val imageNumbers = note.images.mapTo(mutableSetOf()) { it.number }
+            MeetingProjection.text(document, imageNumbers)
+        } ?: note.text
+        val explanation = reason ?: when (com.kafkasl.phonewhisper.meeting.MeetingDocumentJson.decode(note.meetingRaw)) {
+            is MeetingDocumentRead.Unsupported -> "Cette réunion utilise une version plus récente."
+            is MeetingDocumentRead.Invalid -> "Le contenu structuré de cette réunion est invalide."
+            else -> "Cette réunion n’est pas disponible en édition structurée."
+        }
+        ensureMeetingPanelView(createEditor = false)
+        val body = livePanelBody ?: return
+        showOpaqueText(body, "$explanation\nCette note reste en lecture seule.\n\n$fallback")
+    }
+
+    private fun showOpaqueText(body: FrameLayout, text: String) {
+        removeOpaquePresentation()
+        val message = TextView(this).apply {
+            this.text = text
+            textSize = 15f
+            setTextColor(overlayPalette.ink)
+            setPadding(meetingDp(16), meetingDp(12), meetingDp(16), meetingDp(12))
+            background = overlayCardBackground(overlayPalette.surface, overlayPalette.stroke, 16f)
+            isFocusable = false
+            isFocusableInTouchMode = false
+            isClickable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            setLineSpacing(meetingDp(3).toFloat(), 1f)
+        }
+        meetingOpaqueMessage = message
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            isFocusable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            addView(message, FrameLayout.LayoutParams(-1, -2))
+        }
+        body.addView(scroll, FrameLayout.LayoutParams(-1, -1).apply {
+            topMargin = meetingDp(48)
+        })
+        panelResizeHandles.values.forEach(View::bringToFront)
+    }
+
+    private fun removeOpaquePresentation() {
+        val message = meetingOpaqueMessage ?: return
+        val parent = message.parent as? ViewGroup ?: run {
+            meetingOpaqueMessage = null
+            return
+        }
+        if (parent is ScrollView) {
+            (parent.parent as? ViewGroup)?.removeView(parent)
+        } else {
+            parent.removeView(message)
+        }
+        meetingOpaqueMessage = null
+    }
+
     private fun insertPausedMessage() {
         if (purpose == DictationPurpose.NOTE) { requestNoteInsertion(); return }
         if (!isTranscriptEditable()) return
-        if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
-        if (imageDeliveryBusy) { exportAfterImageDelivery = activeNoteId; return }
+        if (hasImageCaptureInFlight()) { toast("Terminez l’ajout des images en attente."); return }
+        if (imageDeliveryBusy) { messageAfterImageDelivery = true; return }
         tapCoordinator.reset()
-        val text = liveText?.text?.toString().orEmpty()
+        val text = rawTranscriptText()
         val run = activeRun
         if (run != null) {
             run.finishAfterPause = true
@@ -3746,7 +5540,7 @@ class OverlayService : Service() {
 
     private fun requestNoteInsertion() {
         if (purpose != DictationPurpose.NOTE || !isTranscriptEditable()) return
-        if (imageDeliveryBusy || imageStore.pending() != null) { toast("Terminez la capture avant d’insérer le texte."); return }
+        if (imageDeliveryBusy || hasImageCaptureInFlight()) { toast("Terminez l’ajout des images avant d’insérer le texte."); return }
         invalidateNoteInsertion()
         tapCoordinator.reset()
         activeRun?.let { run ->
@@ -3757,7 +5551,7 @@ class OverlayService : Service() {
             if (state != State.PAUSING) stopRec()
             return
         }
-        val note = saveNoteWithCaptures(liveText?.text?.toString().orEmpty())
+        val note = saveNoteWithCaptures(rawTranscriptText())
         replaceNoteText(note.text)
         confirmNoteInsertion(note)
     }
@@ -3765,12 +5559,14 @@ class OverlayService : Service() {
     private fun confirmNoteInsertion(note: TranscriptNote) {
         if (purpose != DictationPurpose.NOTE || activeRun != null || state != State.PAUSED) return
         invalidateNoteInsertion()
-        val request = noteInsertionGate.request(note.id, note.text) ?: run { toast("La note ne contient pas de texte à insérer."); return }
+        val rawNoteText = TranscriptImageBlocks.fromNote(note.text, note.images).rawText()
+        val request = noteInsertionGate.request(note.id, rawNoteText)
+            ?: run { toast("La note ne contient pas de texte à insérer."); return }
         releaseTranscriptFocus()
         var approved = false
         val dialog = AlertDialog.Builder(overlayDialogContext())
             .setTitle("Insérer le texte ?")
-            .setMessage("Le texte ci-dessous sera déposé dans le champ de l’application ouverte. Votre note restera enregistrée. Pour transmettre les images, utilisez l’export.\n\n${note.text}")
+            .setMessage("Le texte ci-dessous sera déposé dans le champ de l’application ouverte. Votre note restera enregistrée. Pour transmettre les images, utilisez l’export.\n\n$rawNoteText")
             .setNegativeButton("Rester dans la note", null)
             .setPositiveButton("Insérer le texte") { _, _ ->
                 approved = true
@@ -3781,7 +5577,7 @@ class OverlayService : Service() {
                 main.post {
                     if (localEngineLifecycle.isDestroyed() || purpose != DictationPurpose.NOTE ||
                         activeRun != null || state != State.TRANSCRIBING) { noteInsertionGate.invalidate(); return@post }
-                    val text = noteInsertionGate.consume(request, activeNoteId, liveText?.text?.toString().orEmpty())
+                    val text = noteInsertionGate.consume(request, activeNoteId, rawTranscriptText())
                     if (text != null) {
                         val result = runCatching {
                             injectOrCopy(InjectionGateway.current(), text, { DictationClipboard.copy(this, it) },
@@ -3816,6 +5612,7 @@ class OverlayService : Service() {
         floatingMenu = null
         formatMenuRows = emptyList()
         formatMenuFormats = emptyList()
+        transcriptionModeRows = emptyList()
         formatMenuSelected = -1
         formatMenuParams = null
         formatMenuSwipeMode = false
@@ -3895,7 +5692,7 @@ class OverlayService : Service() {
     }
 
     private fun showNotesOverlay(view: NotesView = NotesView.Root) {
-        if (imageStore.pending() != null) { toast("Terminez la capture en cours."); return }
+        if (hasImageCaptureInFlight()) { toast("Terminez l’ajout des images en attente."); return }
         val actualView = when (view) {
             is NotesView.Folder -> if (notes.getFolder(view.id) == null) NotesView.Root else view
             else -> view
@@ -4151,7 +5948,7 @@ class OverlayService : Service() {
         val screen = screenRect()
         val selected = formats.indexOfFirst { it.id == store.selected().id }.coerceAtLeast(0)
         val width = minOf((320 * dp).toInt(), screen.width)
-        val height = minOf(((formats.size * 64 + 56) * dp).toInt(), (screen.height * .65f).toInt())
+        val height = minOf(((formats.size * 64 + 112) * dp).toInt(), (screen.height * .65f).toInt())
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -4162,14 +5959,39 @@ class OverlayService : Service() {
             setPadding((6 * dp).toInt(), 0, (6 * dp).toInt(), (6 * dp).toInt())
         }
         root.addView(TextView(this).apply {
-            text = "Format de la dictée   ×"
-            textSize = 21f
+            text = "Mode de transcription   ×"
+            textSize = 19f
             setTextColor(overlayPalette.ink)
             gravity = Gravity.CENTER
             runCatching { typeface = resources.getFont(R.font.caveat) }
-            contentDescription = "Format de la dictée. Fermer le menu"
+            contentDescription = "Mode de transcription. Fermer le menu"
             setOnClickListener { dismissFloatingMenu() }
         }, LinearLayout.LayoutParams(-1, (50 * dp).toInt()))
+        val selectedMode = transcriptionModes.snapshot().mode
+        val modeRows = TranscriptionMode.entries.map { mode ->
+            TextView(this).apply {
+                text = mode.label()
+                textSize = 16f
+                gravity = Gravity.CENTER
+                minHeight = (48 * dp).toInt()
+                isFocusable = true
+                isClickable = true
+                tag = mode
+                setOnClickListener { selectTranscriptionMode(mode) }
+            }
+        }
+        val modeSelector = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(modeRows[0], LinearLayout.LayoutParams(0, (48 * dp).toInt(), 1f).apply {
+                rightMargin = (4 * dp).toInt()
+            })
+            addView(modeRows[1], LinearLayout.LayoutParams(0, (48 * dp).toInt(), 1f).apply {
+                leftMargin = (4 * dp).toInt()
+            })
+        }
+        root.addView(modeSelector, LinearLayout.LayoutParams(-1, (52 * dp).toInt()))
+        transcriptionModeRows = modeRows
+        applyTranscriptionMode(selectedMode)
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val displayIndices = if (swipeMode) formats.indices.reversed() else formats.indices
         val rows = mutableListOf<TextView>()
@@ -4193,7 +6015,33 @@ class OverlayService : Service() {
                 bottomMargin = (6 * dp).toInt()
             })
         }
-        root.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        if (selectedMode == TranscriptionMode.DICTATION) {
+            root.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        } else {
+            val meetingPanelAccess = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                addView(TextView(this@OverlayService).apply {
+                    text = "Réunion sélectionnée. Le micro ne démarre qu’après votre action."
+                    textSize = 15f
+                    setTextColor(overlayPalette.inkMuted)
+                    gravity = Gravity.CENTER
+                }, LinearLayout.LayoutParams(-1, 0, 1f))
+                addView(TextView(this@OverlayService).apply {
+                    text = "Ouvrir la réunion"
+                    textSize = 16f
+                    gravity = Gravity.CENTER
+                    minHeight = (48 * dp).toInt()
+                    isFocusable = true
+                    isClickable = true
+                    contentDescription = "Ouvrir le panneau de réunion"
+                    background = overlayActionBackground(overlayPalette)
+                    setTextColor(overlayPalette.green)
+                    setOnClickListener { openMeetingPanel() }
+                }, LinearLayout.LayoutParams(-1, (52 * dp).toInt()))
+            }
+            root.addView(meetingPanelAccess, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
         val bounds = FloatingMenuPlacement.bounds(
             pillRect(params ?: return), screen, width, height, (6 * dp).toInt(), above = true,
         )
@@ -4220,6 +6068,7 @@ class OverlayService : Service() {
             floatingMenu = root
             formatMenuRows = rows
             formatMenuFormats = formats
+            transcriptionModeRows = modeRows
             formatMenuSelected = selected
             formatMenuParams = layout
             formatMenuSwipeMode = swipeMode
@@ -4237,6 +6086,7 @@ class OverlayService : Service() {
     }
 
     private fun selectFormat(index: Int) {
+        if (transcriptionModes.snapshot().mode != TranscriptionMode.DICTATION) return
         val format = formatMenuFormats.getOrNull(index)
             ?: PostProcessingFormats(this).all().getOrNull(index)
             ?: return
@@ -4251,6 +6101,31 @@ class OverlayService : Service() {
             prefs.formattingEngine != "off" -> "Format sélectionné : ${format.name}"
             else -> "Activez un moteur de post-traitement dans les réglages pour appliquer ce format."
         })
+    }
+
+    private fun selectTranscriptionMode(mode: TranscriptionMode) {
+        val before = transcriptionModes.snapshot()
+        if (meetingReplacementOperation != null) {
+            toast("Patientez pendant le transfert du brouillon de réunion.")
+            return
+        }
+        if (before.mode == mode) return
+        if (!transcriptionModes.changeMode(mode)) {
+            val message = if (before.poisoned) TRANSCRIPTION_MODE_UNAVAILABLE_MESSAGE
+            else "Terminez la session en cours avant de changer de mode."
+            toast(message)
+            return
+        }
+        dismissFloatingMenu()
+        if (mode == TranscriptionMode.DICTATION && micArmed) {
+            ensureLocalLoaded()
+            warmLocalFormatter()
+        }
+    }
+
+    private fun TranscriptionMode.label(): String = when (this) {
+        TranscriptionMode.DICTATION -> "Dictée"
+        TranscriptionMode.MEETING -> "Réunion"
     }
 
     private fun updateFormatMenuHighlight(index: Int, haptic: Boolean = true) {
@@ -4292,6 +6167,1843 @@ class OverlayService : Service() {
         Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     )
 
+    private fun openMeetingPanel() {
+        dismissFloatingMenu()
+        if (transcriptionModes.snapshot().mode != TranscriptionMode.MEETING) {
+            toast("Choisissez d’abord le mode Réunion.")
+            return
+        }
+        meetingSurfaceOpen = true
+        ensureMeetingPanelView()
+        panelHidden = false
+        setLivePreviewVisible(true)
+        if (meetingDraftClaim == null && meetingDraftClaimRequest == null) claimMeetingDraft()
+        meetingModelStoreForPanel().let { store ->
+            attachMeetingModelListener(store)
+            store.refresh()
+        }
+    }
+
+    private fun ensureMeetingPanelView(createEditor: Boolean = true) {
+        val body = livePanelBody ?: return
+        if (createEditor) removeOpaquePresentation()
+        meetingPanelController?.let { controller ->
+            if (createEditor) {
+                controller.view.visibility = View.VISIBLE
+                controller.view.bringToFront()
+                panelMoveHandle?.bringToFront()
+                panelResizeHandles.values.forEach(View::bringToFront)
+            }
+            return
+        }
+        if (meetingOpaqueMessage != null && !createEditor) return
+        if (createEditor) removeOpaquePresentation()
+        if (dictationPanelVisibilityBeforeMeeting.isEmpty()) {
+            dictationPanelVisibilityBeforeMeeting = listOfNotNull(
+                liveScroll,
+                editorActionsRow,
+                mediaToolbar,
+                vocabularyBanner,
+            ).map { it to it.visibility }
+            dictationPanelTitleBeforeMeeting = panelTitle?.text
+            dictationStateVisibilityBeforeMeeting = stateIndicator?.visibility ?: View.VISIBLE
+        }
+        liveScroll?.visibility = View.GONE
+        editorActionsRow?.visibility = View.GONE
+        mediaToolbar?.visibility = View.GONE
+        vocabularyBanner?.visibility = View.GONE
+        panelTitle?.apply {
+            text = "Réunion"
+            contentDescription = "Mode Réunion"
+        }
+        stateIndicator?.visibility = View.GONE
+        livePanelBody?.findViewWithTag<View>("overlay-hide-panel")?.contentDescription = "Masquer le panneau de réunion sans arrêter l’écoute"
+
+        if (!createEditor) return
+        val controller = MeetingPanelController(
+            context = this,
+            dialogHost = meetingDialogHost(),
+            actions = meetingPanelActions(),
+            onAcquireWindow = ::acquireMeetingWindow,
+            onReleaseWindow = ::releaseMeetingWindow,
+        )
+        meetingPanelController = controller
+        body.addView(
+            controller.view,
+            FrameLayout.LayoutParams(-1, -1).apply {
+                topMargin = meetingDp(48)
+            },
+        )
+        controller.view.bringToFront()
+        panelMoveHandle?.bringToFront()
+        panelResizeHandles.values.forEach(View::bringToFront)
+        renderOpaqueMessage()
+    }
+
+    private fun restoreDictationPanelAfterMeeting() {
+        cancelMeetingNotePublication()
+        meetingPanelController?.let { controller ->
+            (controller.view.parent as? ViewGroup)?.removeView(controller.view)
+            controller.dispose()
+        }
+        meetingPanelController = null
+        removeOpaquePresentation()
+        dictationPanelVisibilityBeforeMeeting.forEach { (view, visibility) -> view.visibility = visibility }
+        dictationPanelVisibilityBeforeMeeting = emptyList()
+        dictationPanelTitleBeforeMeeting?.let { panelTitle?.text = it }
+        dictationPanelTitleBeforeMeeting = null
+        stateIndicator?.visibility = dictationStateVisibilityBeforeMeeting
+        livePanelBody?.findViewWithTag<View>("overlay-hide-panel")?.contentDescription = "Masquer le panneau sans arrêter la dictée"
+        meetingSurfaceOpen = false
+    }
+
+    private fun claimMeetingDraft(restoredNote: TranscriptNote? = null) {
+        val owner = meetingTestOverrides?.draftOwnership ?: MeetingDraftOwnership.processWide
+        val file = meetingTestOverrides?.draftFile ?: File(filesDir, "meeting/meeting-draft.json")
+        file.parentFile?.let { if (!it.exists()) it.mkdirs() }
+        meetingDraftFile = file
+        val generation = ++meetingOpenGeneration
+        val request = owner.claim(file)
+        meetingDraftClaimRequest = request
+        request.future.whenComplete { claim, failure ->
+            main.post {
+                if (generation != meetingOpenGeneration || !meetingSurfaceOpen || meetingDraftClaimRequest !== request) {
+                    if (claim != null) runCatching { claim.relinquishLatest() }
+                    return@post
+                }
+                meetingDraftClaimRequest = null
+                if (failure != null || claim == null) {
+                    showMeetingClaimError()
+                    return@post
+                }
+                meetingDraftClaim = claim
+                when (val recovered = claim.snapshot?.let { MeetingDocumentRead.Ready(it) } ?: claim.recoveredDocument) {
+                    MeetingDocumentRead.Absent -> createMeetingController(claim, restoredNote?.meeting)
+                    is MeetingDocumentRead.Ready -> {
+                        val requested = restoredNote?.meeting
+                        if (requested == null || requested.sessionId == recovered.document.sessionId) {
+                            // A matching durable draft is newer than the note projection and
+                            // remains the source of truth after an interrupted session.
+                            createMeetingController(claim, recovered.document)
+                        } else {
+                            meetingDraftClaim = null
+                            claim.relinquishLatest().whenComplete { _, _ ->
+                                main.post {
+                                    if (generation == meetingOpenGeneration && meetingSurfaceOpen) {
+                                        showMeetingClaimError()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    is MeetingDocumentRead.Unsupported,
+                    is MeetingDocumentRead.Invalid -> {
+                        if (restoredNote == null) showOpaqueMeetingDraft(claim)
+                        else {
+                            meetingDraftClaim = null
+                            claim.relinquishLatest().whenComplete { _, _ ->
+                                main.post {
+                                    if (generation == meetingOpenGeneration && meetingSurfaceOpen) {
+                                        showOpaqueMeetingNote(restoredNote)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun createMeetingController(claim: MeetingDraftOwnershipClaim, restored: MeetingDocument? = null) {
+        if (!meetingSurfaceOpen || meetingPanelController == null) return
+        val ports = meetingRecordingPorts()
+        lateinit var created: MeetingRecordingController
+        var callbackAttached = false
+        val onStateChanged: (MeetingRecordingState) -> Unit = { next ->
+            val update = Runnable {
+                if (callbackAttached && meetingRecordingController === created && meetingSurfaceOpen) {
+                    meetingControllerState = next
+                    renderMeetingState(next)
+                }
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) update.run() else main.post(update)
+        }
+        created = if (restored == null) {
+            MeetingRecordingController.createNew(
+                sessionId = UUID.randomUUID().toString(),
+                runId = UUID.randomUUID().toString(),
+                draftClaim = claim,
+                ports = ports,
+                onStateChanged = onStateChanged,
+            )
+        } else {
+            MeetingRecordingController.restored(
+                document = restored,
+                draftClaim = claim,
+                ports = ports,
+                onStateChanged = onStateChanged,
+            )
+        }
+        meetingRecordingController = created
+        meetingPanelController?.view?.recyclerView?.visibility = View.VISIBLE
+        callbackAttached = true
+        meetingDocumentRestored = restored != null
+        meetingControllerState = created.state
+        renderMeetingState(created.state)
+        if (restored == null) {
+            startMeetingAfterClaimLanguage?.let { language ->
+                startMeetingAfterClaimLanguage = null
+                created.start(language)
+            }
+        }
+    }
+
+    private fun meetingRecordingPorts(): MeetingRecordingPorts {
+        val overrides = meetingTestOverrides
+        val modelStore = meetingModelStoreForPanel()
+        val availability = overrides?.modelAvailability ?: MeetingModelAvailabilityPort {
+            when (modelStore.currentState) {
+                is MeetingModelStoreState.Ready -> MeetingModelAvailability.READY
+                is MeetingModelStoreState.Downloading,
+                MeetingModelStoreState.Checking -> MeetingModelAvailability.DOWNLOADING
+                MeetingModelStoreState.Missing,
+                is MeetingModelStoreState.Error -> MeetingModelAvailability.MISSING
+            }
+        }
+        val reservation = overrides?.reservation ?: MeetingNativeAdmission(
+            coordinator = transcriptionModes,
+            closeResidentDictation = ::closeResidentDictationForMeeting,
+            reserveFormatter = if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
+                { LocalFormatEngine.reserveForMeeting(applicationContext) }
+            } else null,
+        )
+        val sessions = overrides?.sessionFactory ?: object : MeetingSessionFactoryPort {
+            override fun start(
+                runId: String,
+                language: String,
+                onReady: () -> Unit,
+                onUpdate: (MeetingHypothesis) -> Unit,
+                onFailure: (String) -> Unit,
+            ): com.kafkasl.phonewhisper.meeting.MeetingSession {
+                val paths = (modelStore.currentState as? MeetingModelStoreState.Ready)?.paths
+                    ?: throw IllegalStateException("Modèles Réunion indisponibles")
+                return MeetingEngine(paths.asrPath, paths.diarizationPath)
+                    .start(runId, language, onReady, onUpdate, onFailure)
+            }
+        }
+        val microphone = overrides?.microphoneFactory ?: MeetingAudioRecord(readinessCheck = {
+            !localEngineLifecycle.isDestroyed() && micArmed &&
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        })
+        return MeetingRecordingPorts(
+            modelAvailability = availability,
+            reservation = reservation,
+            sessionFactory = sessions,
+            microphoneFactory = microphone,
+            notePublisher = object : MeetingNotePublisherPort {
+                override fun save(document: MeetingDocument): CompletableFuture<Unit> = try {
+                    notes.saveMeeting(document.sessionId, document, notes.get(document.sessionId)?.images)
+                    CompletableFuture.completedFuture(Unit)
+                } catch (_: Throwable) {
+                    CompletableFuture<Unit>().also {
+                        it.completeExceptionally(IllegalStateException("La note de réunion n’a pas pu être enregistrée."))
+                    }
+                }
+
+                override fun hasAttachments(sessionId: String): Boolean =
+                    notes.get(sessionId)?.images?.isNotEmpty() == true
+
+                override fun hasSavedNote(sessionId: String): Boolean =
+                    notes.get(sessionId)?.meeting?.sessionId == sessionId
+            },
+            mainDispatcher = MeetingMainDispatcher { task -> main.post(task) },
+            focusedEdit = com.kafkasl.phonewhisper.meeting.MeetingFocusedEditPort {
+                meetingPanelController?.flushFocusedEdit() ?: false
+            },
+        )
+    }
+
+    private fun closeResidentDictationForMeeting(): CompletableFuture<Unit> {
+        val completion = CompletableFuture<Unit>()
+        thread(name = "dictai-close-resident-for-meeting") {
+            try {
+                check(activeRun == null) { "Terminez la dictée avant de changer de mode." }
+                residentAsrEngine.close()
+                asrEngine = null
+                loadedModelName = null
+                completion.complete(Unit)
+            } catch (_: Throwable) {
+                transcriptionModes.reportUncertainClose()
+                completion.completeExceptionally(IllegalStateException(TRANSCRIPTION_MODE_UNAVAILABLE_MESSAGE))
+            }
+        }
+        return completion
+    }
+
+    private fun meetingModelStoreForPanel(): MeetingModelStore = meetingModelStore ?: run {
+        val store = MeetingModelStore.shared(applicationContext)
+        meetingModelStore = store
+        store
+    }
+
+    private fun attachMeetingModelListener(store: MeetingModelStore) {
+        if (meetingModelListener != null) return
+        val listener: (MeetingModelStoreState) -> Unit = { next ->
+            main.post {
+                if (meetingSurfaceOpen && meetingModelStore === store) {
+                    renderMeetingState(meetingControllerState, next)
+                }
+            }
+        }
+        meetingModelListener = listener
+        store.addListener(listener)
+    }
+
+    private fun meetingDialogHost() = object : MeetingPanelDialogHost {
+        override fun showChoices(request: MeetingPanelChoicesRequest, onChoice: (String?) -> Unit) {
+            var completed = false
+            var selectedId: String? = null
+            fun completeAfterDismiss() {
+                if (completed) return
+                completed = true
+                onChoice(selectedId)
+            }
+            lateinit var dialog: AlertDialog
+            dialog = AlertDialog.Builder(overlayDialogContext())
+                .setTitle(request.title)
+                .setItems(request.choices.map { it.label }.toTypedArray()) { _, index ->
+                    selectedId = request.choices.getOrNull(index)?.id
+                    // Deliver only from the dismiss callback, after the tracked-dialog guard has
+                    // been cleared. Commands such as FINISH may synchronously open another dialog.
+                    dialog.dismiss()
+                }
+                .create()
+            if (!showMeetingOverlayDialog(dialog, onDismiss = ::completeAfterDismiss)) completeAfterDismiss()
+        }
+
+        override fun showTextInput(request: MeetingPanelTextInputRequest, onSubmit: (String?) -> Unit) {
+            val input = EditText(overlayDialogContext()).apply {
+                setText(request.initialText)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                setSelection(text.length)
+            }
+            var completed = false
+            fun complete(value: String?) {
+                if (completed) return
+                completed = true
+                onSubmit(value)
+            }
+            val dialog = AlertDialog.Builder(overlayDialogContext())
+                .setTitle(request.title)
+                .setView(input)
+                .setPositiveButton("Valider") { _, _ -> complete(input.text?.toString()) }
+                .setNegativeButton("Annuler") { _, _ -> complete(null) }
+                .setOnCancelListener { complete(null) }
+                .create()
+            if (!showMeetingOverlayDialog(dialog)) complete(null)
+        }
+    }
+
+    private fun showMeetingOverlayDialog(dialog: AlertDialog): Boolean = showMeetingOverlayDialog(dialog, null)
+
+    private fun showMeetingOverlayDialog(dialog: AlertDialog, onDismiss: (() -> Unit)?): Boolean {
+        if (localEngineLifecycle.isDestroyed()) return false
+        return try {
+            dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+            meetingDialogs += dialog
+            meetingDialogOpen = true
+            dialog.setOnDismissListener {
+                meetingDialogs -= dialog
+                meetingDialogOpen = meetingDialogs.isNotEmpty()
+                onDismiss?.invoke()
+            }
+            dialog.show()
+            true
+        } catch (failure: RuntimeException) {
+            dialog.setOnDismissListener(null)
+            dialog.setOnCancelListener(null)
+            meetingDialogs -= dialog
+            meetingDialogOpen = meetingDialogs.isNotEmpty()
+            when (failure) {
+                is android.view.WindowManager.BadTokenException,
+                is SecurityException,
+                is WindowManager.InvalidDisplayException -> false
+                else -> throw failure
+            }
+        }
+    }
+
+    private fun meetingPanelActions() = MeetingPanelActions(
+        edit = { turnId, text ->
+            if (meetingReplacementOperation == null && meetingImageMutationOperation == null)
+                meetingRecordingController?.editTurn(turnId, text)
+        },
+        assign = { turnId, participantId ->
+            if (meetingReplacementOperation == null && meetingImageMutationOperation == null)
+                meetingRecordingController?.assignTurn(turnId, participantId)
+        },
+        rename = { participantId, name ->
+            if (meetingReplacementOperation == null && meetingImageMutationOperation == null)
+                meetingRecordingController?.renameParticipant(participantId, name)
+        },
+        setIgnored = { participantId, ignored ->
+            if (meetingReplacementOperation == null && meetingImageMutationOperation == null)
+                meetingRecordingController?.setParticipantIgnored(participantId, ignored)
+        },
+        download = {
+            if (meetingReplacementOperation == null && meetingImageMutationOperation == null)
+                meetingModelStoreForPanel().download()
+        },
+        retrySave = {
+            if (meetingReplacementOperation == null && meetingImageMutationOperation == null) {
+                val controller = meetingRecordingController
+                val document = controller?.state?.document
+                val documentActionError = document?.let(::meetingDocumentActionErrorFor)
+                val imageMutationError = document?.let(::meetingImageMutationErrorFor)
+                if (document != null && documentActionError != null) {
+                    retryMeetingDocumentAction(documentActionError)
+                } else if (imageMutationError != null) {
+                    retryMeetingImageMutation(imageMutationError)
+                } else if (controller != null && meetingNotePublicationErrorFor(controller.state.document) != null) {
+                    saveOpenMeetingNote(controller)
+                } else {
+                    controller?.retrySave()
+                }
+            }
+        },
+        sessionCommand = { command ->
+            if (meetingReplacementOperation == null && meetingImageMutationOperation == null)
+                handleMeetingPanelCommand(command)
+        },
+        imageAction = { anchor, image ->
+            if (meetingReplacementOperation == null && meetingImageMutationOperation == null)
+                showMeetingImageActions(image, anchor)
+        },
+        reviewPassages = {
+            if (meetingImageMutationOperation == null) reviewMeetingPassages()
+        },
+        documentAction = ::handleMeetingDocumentAction,
+    )
+
+    private fun handleMeetingDocumentAction(
+        action: MeetingPanelDocumentAction,
+        requestedAnchor: MeetingPanelAnchor?,
+    ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            main.post { handleMeetingDocumentAction(action, requestedAnchor) }
+            return
+        }
+        if (action !in setOf(
+                MeetingPanelDocumentAction.COPY,
+                MeetingPanelDocumentAction.EXPORT,
+                MeetingPanelDocumentAction.PHOTO,
+                MeetingPanelDocumentAction.SCREENSHOT,
+            )
+        ) return
+        if (action == MeetingPanelDocumentAction.SCREENSHOT && WhisperAccessibilityService.connected == null) {
+            toast("Activez le service d’accessibilité DictAI pour capturer l’écran.")
+            return
+        }
+        val controller = meetingRecordingController ?: return
+        val panel = meetingPanelController ?: return
+        val initial = controller.state
+        val modeSnapshot = transcriptionModes.snapshot()
+        val poisonedDocumentOnly = action in setOf(
+            MeetingPanelDocumentAction.COPY,
+            MeetingPanelDocumentAction.EXPORT,
+        ) && modeSnapshot.mode == TranscriptionMode.DICTATION &&
+            modeSnapshot.poisoned && modeSnapshot.activeRunMode == null &&
+            meetingDocumentRestored && initial.phase == MeetingRecordingPhase.DOCUMENT
+        val modeAllowsDocumentAction = modeSnapshot.mode == TranscriptionMode.MEETING &&
+            !modeSnapshot.poisoned || poisonedDocumentOnly
+        if (!meetingSurfaceOpen || meetingReplacementOperation != null ||
+            meetingDocumentActionOperation != null || meetingImageMutationOperation != null ||
+            hasImageCaptureInFlight() || imageDeliveryBusy ||
+            !isStableMeetingDocumentActionPhase(initial.phase) || !modeAllowsDocumentAction
+        ) return
+        panel.flushFocusedEdit()
+        val selectedPanelAnchor = requestedAnchor ?: panel.captureAnchor()
+        val isImageCapture = action == MeetingPanelDocumentAction.PHOTO ||
+            action == MeetingPanelDocumentAction.SCREENSHOT
+        if (isImageCapture) panel.endEditing()
+        var document = controller.state.document
+        val imageAnchor = if (isImageCapture) {
+            val captured = selectedPanelAnchor?.let { selected ->
+                val turn = document.turns.firstOrNull { it.id == selected.turnId }
+                val body = turn?.let { it.editedText ?: it.recognizedText }
+                if (turn != null && body != null && selected.serializedOffset in 0..body.length) {
+                    MeetingImageAnchor(document.sessionId, turn.id, selected.serializedOffset)
+                } else null
+            }
+            captured ?: run {
+                val documentTurn = document.turns.firstOrNull { it.utteranceId == 0L }
+                    ?: controller.ensureDocumentTurn()
+                document = controller.state.document
+                MeetingImageAnchor.capture(document, documentTurn.id, 0)
+            }
+        } else null
+        if (isImageCapture && imageAnchor != null) {
+            val target = document.turns.firstOrNull { it.id == imageAnchor.turnId } ?: return
+            // Freeze the exact body that the serialized offset refers to before a live run is
+            // paused; later ASR revisions must not move that anchor to different text.
+            controller.editTurn(target.id, target.editedText ?: target.recognizedText)
+            document = controller.state.document
+        }
+        val operation = MeetingDocumentActionOperation(
+            generation = ++meetingDocumentActionGeneration,
+            action = action,
+            sessionId = document.sessionId,
+            runId = document.runId,
+            controller = controller,
+            panel = panel,
+            initialPhase = initial.phase,
+            mode = modeSnapshot.mode,
+            modeGeneration = modeSnapshot.generation,
+            poisonedDocumentOnly = poisonedDocumentOnly,
+            anchor = imageAnchor,
+        )
+        meetingDocumentActionOperation = operation
+        if (isImageCapture && initial.phase == MeetingRecordingPhase.LISTENING) {
+            controller.pause().whenComplete { _, failure ->
+                main.post {
+                    if (meetingDocumentActionOperation !== operation) return@post
+                    if (failure != null) {
+                        failMeetingDocumentAction(operation, "Impossible de mettre la réunion en pause.")
+                    } else if (!ownsMeetingDocumentAction(operation)) {
+                        abandonMeetingDocumentAction(operation)
+                    } else {
+                        flushMeetingDocumentAction(operation)
+                    }
+                }
+            }
+            return
+        }
+        flushMeetingDocumentAction(operation)
+    }
+
+    private fun flushMeetingDocumentAction(operation: MeetingDocumentActionOperation) {
+        if (!ownsMeetingDocumentAction(operation)) {
+            abandonMeetingDocumentAction(operation)
+            return
+        }
+        val flush = try {
+            operation.controller.flushDraft()
+        } catch (_: Throwable) {
+            failMeetingDocumentAction(operation, "Échec de sauvegarde")
+            return
+        }
+        // flushDraft synchronously submits this exact immutable state before returning its barrier.
+        val snapshot = operation.controller.state.document
+        if (snapshot.sessionId != operation.sessionId || snapshot.runId != operation.runId) {
+            abandonMeetingDocumentAction(operation)
+            return
+        }
+        flush.whenComplete { _, failure ->
+            main.post {
+                if (!ownsMeetingDocumentAction(operation)) {
+                    abandonMeetingDocumentAction(operation)
+                } else if (failure != null) {
+                    failMeetingDocumentAction(operation, "Échec de sauvegarde")
+                } else {
+                    performMeetingDocumentAction(operation, snapshot)
+                }
+            }
+        }
+    }
+
+    private fun performMeetingDocumentAction(operation: MeetingDocumentActionOperation, snapshot: MeetingDocument) {
+        if (!ownsMeetingDocumentAction(operation)) {
+            abandonMeetingDocumentAction(operation)
+            return
+        }
+        val images = try {
+            notes.get(operation.sessionId)?.images.orEmpty()
+        } catch (_: Throwable) {
+            failMeetingDocumentAction(operation, "Échec de sauvegarde")
+            return
+        }
+        val imageNumbers = images.mapTo(mutableSetOf()) { it.number }
+        val projectedText = MeetingProjection.text(snapshot, imageNumbers)
+        when (operation.action) {
+            MeetingPanelDocumentAction.COPY -> {
+                if (projectedText.isBlank()) {
+                    completeMeetingDocumentAction(operation)
+                    toast("Aucune transcription à copier.")
+                    return
+                }
+                val copied = DictationClipboard.copy(this, projectedText)
+                completeMeetingDocumentAction(operation)
+                if (copied) toast("Réunion copiée.") else toast("Impossible de copier la réunion.")
+            }
+            MeetingPanelDocumentAction.EXPORT -> {
+                val existingMeeting = try {
+                    notes.get(operation.sessionId)?.meeting?.sessionId == operation.sessionId
+                } catch (_: Throwable) {
+                    failMeetingDocumentAction(operation, "Échec de sauvegarde")
+                    return
+                }
+                if (projectedText.isBlank() && images.isEmpty()) {
+                    if (!existingMeeting) {
+                        completeMeetingDocumentAction(operation)
+                        toast("Aucune transcription à exporter.")
+                        return
+                    }
+                    try {
+                        notes.saveMeeting(operation.sessionId, snapshot, images)
+                    } catch (_: Throwable) {
+                        failMeetingDocumentAction(operation, "Échec de sauvegarde")
+                        return
+                    }
+                    completeMeetingDocumentAction(operation)
+                    toast("Réunion vide enregistrée.")
+                    return
+                }
+                val note = try {
+                    notes.saveMeeting(operation.sessionId, snapshot, images)
+                } catch (_: Throwable) {
+                    failMeetingDocumentAction(operation, "Échec de sauvegarde")
+                    return
+                }
+                completeMeetingDocumentAction(operation)
+                launchNoteExport(note)
+            }
+            MeetingPanelDocumentAction.PHOTO -> {
+                val anchor = operation.anchor
+                if (anchor == null) {
+                    failMeetingDocumentAction(operation, "Impossible de préparer l’emplacement de la photo.")
+                    return
+                }
+                if (images.size >= NoteImage.MAX_IMAGES) {
+                    failMeetingDocumentAction(operation, "La réunion contient déjà dix images.")
+                    return
+                }
+                try {
+                    notes.saveMeeting(operation.sessionId, snapshot, images)
+                } catch (_: Throwable) {
+                    failMeetingDocumentAction(operation, "Échec de sauvegarde")
+                    return
+                }
+                if (!ownsMeetingDocumentAction(operation)) {
+                    abandonMeetingDocumentAction(operation)
+                    return
+                }
+                val pending = try {
+                    imageStore.beginMeetingBatch(
+                        anchor = anchor,
+                        kind = NoteImageKind.CAMERA,
+                        resume = operation.initialPhase == MeetingRecordingPhase.LISTENING,
+                        number = (images.maxOfOrNull { it.number } ?: 0) + 1,
+                    )
+                } catch (_: Throwable) {
+                    failMeetingDocumentAction(operation, "Impossible de préparer la photo.")
+                    return
+                }
+                rememberMeetingImageResumeContext(pending, operation)
+                try {
+                    captureWindowsHidden = true
+                    container?.visibility = View.VISIBLE
+                    setLivePreviewVisible(false)
+                    startActivity(
+                        Intent(this, NoteCameraActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            .putExtra("captureId", pending.id),
+                    )
+                    completeMeetingDocumentAction(operation)
+                } catch (_: Throwable) {
+                    clearMeetingImageResumeContext(pending.id)
+                    restoreCaptureWindows()
+                    runCatching { imageStore.cancelBatch(pending.id) }
+                    clearPendingSafely(pending.id)
+                    failMeetingDocumentAction(operation, "Impossible d’ouvrir l’appareil photo.")
+                }
+            }
+            MeetingPanelDocumentAction.SCREENSHOT -> {
+                val anchor = operation.anchor
+                if (anchor == null) {
+                    failMeetingDocumentAction(operation, "Impossible de préparer l’emplacement de la capture.")
+                    return
+                }
+                if (images.size >= NoteImage.MAX_IMAGES) {
+                    failMeetingDocumentAction(operation, "La réunion contient déjà dix images.")
+                    return
+                }
+                try {
+                    notes.saveMeeting(operation.sessionId, snapshot, images)
+                } catch (_: Throwable) {
+                    failMeetingDocumentAction(operation, "Échec de sauvegarde")
+                    return
+                }
+                if (!ownsMeetingDocumentAction(operation)) {
+                    abandonMeetingDocumentAction(operation)
+                    return
+                }
+                val pending = try {
+                    imageStore.beginMeetingBatch(
+                        anchor = anchor,
+                        kind = NoteImageKind.SCREENSHOT,
+                        resume = operation.initialPhase == MeetingRecordingPhase.LISTENING,
+                        number = (images.maxOfOrNull { it.number } ?: 0) + 1,
+                    )
+                } catch (_: Throwable) {
+                    failMeetingDocumentAction(operation, "Impossible de préparer la série de captures.")
+                    return
+                }
+                rememberMeetingImageResumeContext(pending, operation)
+                screenshotBatchId = pending.id
+                completeMeetingDocumentAction(operation)
+                captureWindowsHidden = true
+                container?.visibility = View.GONE
+                setLivePreviewVisible(false)
+                showScreenshotBatchBar(pending)
+            }
+        }
+    }
+
+    private fun ownsMeetingDocumentAction(operation: MeetingDocumentActionOperation): Boolean {
+        val modeSnapshot = transcriptionModes.snapshot()
+        val sameModeContext = modeSnapshot.mode == operation.mode &&
+            modeSnapshot.generation == operation.modeGeneration && when {
+                operation.poisonedDocumentOnly -> modeSnapshot.poisoned &&
+                    modeSnapshot.activeRunMode == null && meetingDocumentRestored &&
+                    operation.action in setOf(MeetingPanelDocumentAction.COPY, MeetingPanelDocumentAction.EXPORT)
+                else -> !modeSnapshot.poisoned && modeSnapshot.mode == TranscriptionMode.MEETING
+            }
+        return meetingDocumentActionOperation === operation &&
+            meetingDocumentActionGeneration == operation.generation &&
+            !localEngineLifecycle.isDestroyed() && meetingSurfaceOpen &&
+            meetingPanelController === operation.panel && meetingRecordingController === operation.controller &&
+            meetingReplacementOperation == null &&
+            sameModeContext &&
+            operation.controller.state.let { state ->
+                isStableMeetingDocumentActionPhase(state.phase) &&
+                    state.document.let { it.sessionId == operation.sessionId && it.runId == operation.runId }
+            }
+    }
+
+    private fun isStableMeetingDocumentActionPhase(phase: MeetingRecordingPhase): Boolean =
+        phase !in setOf(
+            MeetingRecordingPhase.PREPARING,
+            MeetingRecordingPhase.PAUSING,
+            MeetingRecordingPhase.FINALIZING,
+            MeetingRecordingPhase.CLOSING,
+        )
+
+    private fun completeMeetingDocumentAction(operation: MeetingDocumentActionOperation) {
+        if (meetingDocumentActionOperation !== operation) return
+        meetingDocumentActionOperation = null
+        meetingDocumentActionError = null
+        if (meetingRecordingController === operation.controller) renderMeetingState(operation.controller.state)
+    }
+
+    private fun failMeetingDocumentAction(operation: MeetingDocumentActionOperation, message: String) {
+        if (meetingDocumentActionOperation !== operation) return
+        meetingDocumentActionOperation = null
+        meetingDocumentActionError = MeetingDocumentActionError(
+            operation.sessionId,
+            operation.runId,
+            operation.action,
+            operation.anchor,
+            pendingId = null,
+            message = message,
+        )
+        if (meetingRecordingController === operation.controller) renderMeetingState(operation.controller.state)
+        toast(message)
+    }
+
+    private fun abandonMeetingDocumentAction(operation: MeetingDocumentActionOperation) {
+        if (meetingDocumentActionOperation === operation) meetingDocumentActionOperation = null
+    }
+
+    private fun meetingDocumentActionErrorFor(document: MeetingDocument): MeetingDocumentActionError? =
+        meetingDocumentActionError?.takeIf { it.sessionId == document.sessionId && it.runId == document.runId }
+
+    private fun retryMeetingDocumentAction(error: MeetingDocumentActionError) {
+        if (meetingDocumentActionOperation != null || meetingReplacementOperation != null) return
+        meetingDocumentActionError = null
+        handleMeetingDocumentAction(error.action, error.anchor?.let { MeetingPanelAnchor(it.turnId, it.offsetUtf16) })
+    }
+
+    private fun reviewMeetingPassages() {
+        if (meetingReplacementOperation != null) return
+        val document = meetingRecordingController?.state?.document ?: return
+        val passages = document.turns
+            .filter { it.utteranceId > 0L && !it.attributionStable }
+            .mapNotNull { turn ->
+                val recognized = turn.recognizedText.takeIf(String::isNotBlank) ?: "(Aucun texte reconnu)"
+                val preserved = when (val edited = turn.editedText) {
+                    null -> turn.recognizedText.takeIf(String::isNotBlank) ?: "(Aucun texte reconnu)"
+                    "" -> "(Texte supprimé)"
+                    else -> edited
+                }
+                "Texte reconnu : $recognized\nTexte conservé : $preserved"
+            }
+        val message = passages.takeIf { it.isNotEmpty() }?.joinToString("\n\n")
+            ?: "Aucun passage signalé pour le moment."
+        val dialog = AlertDialog.Builder(overlayDialogContext())
+            .setTitle("Passages à vérifier")
+            .setMessage(message)
+            .setPositiveButton("Fermer", null)
+            .create()
+        showMeetingOverlayDialog(dialog)
+    }
+
+    private fun meetingGestureForRelease(
+        dx: Float,
+        dy: Float,
+        isTap: Boolean,
+    ): MeetingPillInteraction.Gesture? {
+        if (isTap) return MeetingPillInteraction.Gesture.TAP
+        val threshold = maxOf(meetingDp(56), 3 * android.view.ViewConfiguration.get(this).scaledTouchSlop)
+        return when {
+            dy <= -threshold && -dy > kotlin.math.abs(dx) -> MeetingPillInteraction.Gesture.SWIPE_UP
+            dy >= threshold && dy > kotlin.math.abs(dx) -> MeetingPillInteraction.Gesture.SWIPE_DOWN
+            else -> null
+        }
+    }
+
+    private fun meetingPillPhase(): MeetingPillInteraction.Phase {
+        if (meetingReplacementOperation != null) return MeetingPillInteraction.Phase.CLOSING
+        val state = meetingRecordingController?.state ?: meetingControllerState
+        if (state == null) {
+            return when (meetingModelStoreForPanel().currentState) {
+                is MeetingModelStoreState.Ready -> MeetingPillInteraction.Phase.READY
+                is MeetingModelStoreState.Downloading,
+                MeetingModelStoreState.Checking -> MeetingPillInteraction.Phase.PREPARING
+                MeetingModelStoreState.Missing,
+                is MeetingModelStoreState.Error -> MeetingPillInteraction.Phase.MODEL_UNAVAILABLE
+            }
+        }
+        return when (state.phase) {
+            MeetingRecordingPhase.DOCUMENT -> if (meetingDocumentRestored) {
+                MeetingPillInteraction.Phase.RESTORED
+            } else when (meetingModelStoreForPanel().currentState) {
+                is MeetingModelStoreState.Ready -> MeetingPillInteraction.Phase.READY
+                is MeetingModelStoreState.Downloading,
+                MeetingModelStoreState.Checking -> MeetingPillInteraction.Phase.PREPARING
+                MeetingModelStoreState.Missing,
+                is MeetingModelStoreState.Error -> MeetingPillInteraction.Phase.MODEL_UNAVAILABLE
+            }
+            MeetingRecordingPhase.PREPARING -> MeetingPillInteraction.Phase.PREPARING
+            MeetingRecordingPhase.LISTENING -> MeetingPillInteraction.Phase.LISTENING
+            MeetingRecordingPhase.PAUSING -> MeetingPillInteraction.Phase.PAUSING
+            MeetingRecordingPhase.PAUSED -> MeetingPillInteraction.Phase.PAUSED
+            MeetingRecordingPhase.FINALIZING -> MeetingPillInteraction.Phase.FINALIZING
+            MeetingRecordingPhase.CLOSING -> MeetingPillInteraction.Phase.CLOSING
+            MeetingRecordingPhase.FINISHED -> MeetingPillInteraction.Phase.FINISHED
+            MeetingRecordingPhase.MODEL_UNAVAILABLE -> MeetingPillInteraction.Phase.MODEL_UNAVAILABLE
+            MeetingRecordingPhase.ERROR -> MeetingPillInteraction.Phase.ERROR
+        }
+    }
+
+    private fun meetingPillHasDocumentContent(controller: MeetingRecordingController?): Boolean {
+        controller ?: return false
+        val document = controller.state.document
+        val note = try {
+            notes.get(document.sessionId)
+        } catch (_: Throwable) {
+            // Keep the save/open action reachable; its writer will report a recoverable failure.
+            return true
+        }
+        return note?.meeting?.sessionId == document.sessionId ||
+            hasMeetingContent(document, note?.images.orEmpty())
+    }
+
+    private fun dispatchMeetingPillGesture(gesture: MeetingPillInteraction.Gesture) {
+        val snapshot = transcriptionModes.snapshot()
+        if (snapshot.mode != TranscriptionMode.MEETING || meetingReplacementOperation != null) return
+        tapCoordinator.reset()
+        val controller = meetingRecordingController
+        val intent = MeetingPillInteraction.resolve(
+            phase = meetingPillPhase(),
+            gesture = gesture,
+            context = MeetingPillInteraction.Context(
+                hasDocumentContent = meetingPillHasDocumentContent(controller),
+                dialogOpen = meetingDialogOpen || meetingFinishPromptPending,
+            ),
+        )
+        when (intent) {
+            MeetingPillInteraction.Intent.NONE -> Unit
+            MeetingPillInteraction.Intent.START_NEW -> {
+                if (controller != null) {
+                    handleMeetingPanelCommand(MeetingPanelSessionCommand.START)
+                } else {
+                    startMeetingAfterClaimLanguage = prefs.dictationLanguage.nemotronLanguage
+                    openMeetingPanel()
+                }
+            }
+            MeetingPillInteraction.Intent.PAUSE -> controller?.pause()
+            MeetingPillInteraction.Intent.RESUME -> controller?.resume()
+            MeetingPillInteraction.Intent.PROMPT_FINISH -> controller?.let(::confirmMeetingFinish)
+            MeetingPillInteraction.Intent.SAVE_OPEN_NOTE -> controller?.let(::saveOpenMeetingNote)
+            MeetingPillInteraction.Intent.SHOW_PAUSE_HINT -> toast("Mettre en pause pour enregistrer")
+            MeetingPillInteraction.Intent.OPEN_MODE_MENU -> showFormatPicker(swipeMode = false, touchable = true)
+            MeetingPillInteraction.Intent.SHOW_MEETING_PANEL -> openMeetingPanel()
+        }
+    }
+
+    private fun saveOpenMeetingNote(controller: MeetingRecordingController) {
+        if (meetingReplacementOperation != null || meetingNotePublicationOperation != null ||
+            meetingRecordingController !== controller
+        ) return
+        val initial = controller.state
+        if (initial.phase !in setOf(MeetingRecordingPhase.FINISHED, MeetingRecordingPhase.DOCUMENT)) return
+        meetingPanelController?.flushFocusedEdit()
+        val operation = MeetingNotePublicationOperation(
+            generation = ++meetingNotePublicationGeneration,
+            sessionId = initial.document.sessionId,
+            runId = initial.document.runId,
+            controller = controller,
+        )
+        meetingNotePublicationOperation = operation
+        flushMeetingNoteBeforePublication(operation, attempt = 0)
+    }
+
+    private fun flushMeetingNoteBeforePublication(
+        operation: MeetingNotePublicationOperation,
+        attempt: Int,
+    ) {
+        if (!ownsMeetingNotePublication(operation)) {
+            abandonMeetingNotePublication(operation)
+            return
+        }
+        val controller = operation.controller
+        if (controller.state.phase !in setOf(MeetingRecordingPhase.FINISHED, MeetingRecordingPhase.DOCUMENT)) {
+            abandonMeetingNotePublication(operation)
+            return
+        }
+        meetingPanelController?.flushFocusedEdit()
+        val flush = try {
+            controller.flushDraft()
+        } catch (_: Throwable) {
+            failMeetingNotePublication(operation)
+            return
+        }
+        // flushDraft publishes its focused editor value to the writer synchronously before
+        // returning. This immutable document is the exact generation the returned future fences.
+        val barrierSnapshot = controller.state.document
+        if (barrierSnapshot.sessionId != operation.sessionId || barrierSnapshot.runId != operation.runId) {
+            abandonMeetingNotePublication(operation)
+            return
+        }
+        flush.whenComplete { _, failure ->
+            main.post {
+                if (!ownsMeetingNotePublication(operation)) {
+                    abandonMeetingNotePublication(operation)
+                    return@post
+                }
+                if (failure != null) {
+                    failMeetingNotePublication(operation)
+                    return@post
+                }
+                val latest = controller.state.document
+                if (latest != barrierSnapshot) {
+                    if (attempt + 1 < MEETING_NOTE_PUBLICATION_MAX_FLUSH_ATTEMPTS) {
+                        flushMeetingNoteBeforePublication(operation, attempt + 1)
+                    } else {
+                        failMeetingNotePublication(operation, "Des modifications sont encore en cours.")
+                    }
+                    return@post
+                }
+                publishOpenMeetingSnapshot(operation, barrierSnapshot)
+            }
+        }
+    }
+
+    private fun ownsMeetingNotePublication(operation: MeetingNotePublicationOperation): Boolean =
+        meetingNotePublicationOperation === operation &&
+        meetingNotePublicationGeneration == operation.generation &&
+            meetingSurfaceOpen && meetingRecordingController === operation.controller &&
+            isSameMeetingRun(operation.controller, operation.sessionId, operation.runId) &&
+            transcriptionModes.snapshot().let {
+                it.mode == TranscriptionMode.MEETING && it.activeRunMode == null
+            }
+
+    private fun publishOpenMeetingSnapshot(
+        operation: MeetingNotePublicationOperation,
+        document: MeetingDocument,
+    ) {
+        if (!ownsMeetingNotePublication(operation) ||
+            operation.controller.state.phase !in setOf(MeetingRecordingPhase.FINISHED, MeetingRecordingPhase.DOCUMENT)
+        ) {
+            abandonMeetingNotePublication(operation)
+            return
+        }
+        try {
+            val previous = notes.get(operation.sessionId)
+            if (previous == null && !hasMeetingContent(document, emptyList())) {
+                completeMeetingNotePublication(operation)
+                return
+            }
+            notes.saveMeeting(operation.sessionId, document, previous?.images.orEmpty())
+            completeMeetingNotePublication(operation)
+            toast("Réunion enregistrée.")
+        } catch (_: Throwable) {
+            failMeetingNotePublication(operation)
+        }
+    }
+
+    private fun completeMeetingNotePublication(operation: MeetingNotePublicationOperation) {
+        if (meetingNotePublicationOperation !== operation) return
+        meetingNotePublicationOperation = null
+        if (meetingNotePublicationError?.sessionId == operation.sessionId) meetingNotePublicationError = null
+        if (meetingRecordingController === operation.controller) renderMeetingState(operation.controller.state)
+    }
+
+    private fun failMeetingNotePublication(
+        operation: MeetingNotePublicationOperation,
+        detail: String? = null,
+    ) {
+        if (!ownsMeetingNotePublication(operation)) {
+            abandonMeetingNotePublication(operation)
+            return
+        }
+        meetingNotePublicationOperation = null
+        meetingNotePublicationError = MeetingNotePublicationError(
+            operation.sessionId,
+            detail ?: "Échec de sauvegarde",
+        )
+        renderMeetingState(operation.controller.state)
+        toast("Échec de sauvegarde. Réessayez depuis le panneau de réunion.")
+    }
+
+    private fun meetingNotePublicationErrorFor(document: MeetingDocument): String? =
+        meetingNotePublicationError?.takeIf { it.sessionId == document.sessionId }?.message
+
+    private fun cancelMeetingNotePublication() {
+        meetingNotePublicationGeneration += 1
+        meetingNotePublicationOperation = null
+    }
+
+    private fun abandonMeetingNotePublication(operation: MeetingNotePublicationOperation) {
+        if (meetingNotePublicationOperation !== operation) return
+        meetingNotePublicationGeneration += 1
+        meetingNotePublicationOperation = null
+    }
+
+    private fun handleMeetingPanelCommand(command: MeetingPanelSessionCommand) {
+        if (meetingReplacementOperation != null) return
+        val controller = meetingRecordingController ?: return
+        when (command) {
+            MeetingPanelSessionCommand.START -> {
+                if (!meetingSurfaceOpen || meetingRecordingController !== controller) return
+                if (transcriptionModes.snapshot().activeRunMode != null) return
+                when (controller.state.phase) {
+                    MeetingRecordingPhase.FINISHED -> startNewMeetingAfterSaving(controller)
+                    MeetingRecordingPhase.DOCUMENT,
+                    MeetingRecordingPhase.MODEL_UNAVAILABLE,
+                    MeetingRecordingPhase.ERROR -> {
+                        if (meetingDocumentRestored) startNewMeetingAfterSaving(controller)
+                        else controller.start(prefs.dictationLanguage.nemotronLanguage)
+                    }
+                    MeetingRecordingPhase.PREPARING,
+                    MeetingRecordingPhase.LISTENING,
+                    MeetingRecordingPhase.PAUSING,
+                    MeetingRecordingPhase.PAUSED,
+                    MeetingRecordingPhase.FINALIZING,
+                    MeetingRecordingPhase.CLOSING -> Unit
+                }
+            }
+            MeetingPanelSessionCommand.PAUSE -> controller.pause()
+            MeetingPanelSessionCommand.RESUME -> controller.resume()
+            MeetingPanelSessionCommand.FINISH -> confirmMeetingFinish(controller)
+            MeetingPanelSessionCommand.CANCEL -> controller.cancel()
+            MeetingPanelSessionCommand.CANCEL_DOWNLOAD -> meetingModelStoreForPanel().cancelDownload()
+        }
+    }
+
+    private fun confirmMeetingFinish(controller: MeetingRecordingController) {
+        if (meetingDialogOpen || meetingFinishPromptPending) return
+        val initial = controller.state
+        if (initial.phase != MeetingRecordingPhase.LISTENING && initial.phase != MeetingRecordingPhase.PAUSED) return
+        val sessionId = initial.document.sessionId
+        val runId = initial.document.runId
+        meetingFinishPromptPending = true
+        controller.flushDraft().whenComplete { _, failure ->
+            main.post {
+                meetingFinishPromptPending = false
+                if (failure != null) {
+                    toast("Échec de sauvegarde. Réessayez avant de terminer la réunion.")
+                    return@post
+                }
+                if (!isSameMeetingRun(controller, sessionId, runId) ||
+                    controller.state.phase !in setOf(MeetingRecordingPhase.LISTENING, MeetingRecordingPhase.PAUSED)
+                ) return@post
+
+                val dialog = AlertDialog.Builder(overlayDialogContext())
+                    .setTitle("Enregistrer la transcription ?")
+                    .setMessage("La transcription sera enregistrée dans une note.")
+                    .setNegativeButton("Continuer la réunion") { _, _ -> }
+                    .setPositiveButton("Enregistrer et terminer") { _, _ ->
+                        if (isSameMeetingRun(controller, sessionId, runId) &&
+                            controller.state.phase in setOf(MeetingRecordingPhase.LISTENING, MeetingRecordingPhase.PAUSED)
+                        ) controller.finish()
+                    }
+                    .create()
+                showMeetingOverlayDialog(dialog)
+            }
+        }
+    }
+
+    private fun isSameMeetingRun(
+        controller: MeetingRecordingController,
+        sessionId: String,
+        runId: String,
+    ): Boolean = meetingSurfaceOpen && meetingRecordingController === controller &&
+        controller.state.document.sessionId == sessionId && controller.state.document.runId == runId
+
+    private fun isRecordableMeetingController(controller: MeetingRecordingController): Boolean =
+        controller.state.phase == MeetingRecordingPhase.DOCUMENT ||
+            controller.state.phase == MeetingRecordingPhase.MODEL_UNAVAILABLE ||
+            controller.state.phase == MeetingRecordingPhase.ERROR
+
+    private fun startNewMeetingAfterSaving(
+        previous: MeetingRecordingController,
+        nextNote: TranscriptNote? = null,
+        dictationSelectionGeneration: Long? = null,
+    ) {
+        if (!meetingSurfaceOpen || meetingRecordingController !== previous || meetingReplacementOperation != null) return
+        if (hasImageCaptureInFlight() || imageDeliveryBusy) {
+            toast("Terminez l’ajout des images en attente avant de commencer une nouvelle réunion.")
+            return
+        }
+        val initial = previous.state
+        val modeState = transcriptionModes.snapshot()
+        val canReplace = initial.phase == MeetingRecordingPhase.FINISHED || initial.phase in setOf(
+            MeetingRecordingPhase.DOCUMENT,
+            MeetingRecordingPhase.MODEL_UNAVAILABLE,
+            MeetingRecordingPhase.ERROR,
+        )
+        val modeAllowsTransfer = modeState.mode == TranscriptionMode.MEETING ||
+            (dictationSelectionGeneration != null && modeState.mode == TranscriptionMode.DICTATION &&
+                modeState.generation == dictationSelectionGeneration)
+        if (!canReplace || !modeAllowsTransfer || modeState.activeRunMode != null) return
+        val claim = meetingDraftClaim ?: return
+        val path = meetingDraftFile ?: return
+        val panel = meetingPanelController ?: return
+        val document = initial.document
+        val operation = MeetingReplacementOperation(
+            generation = ++meetingReplacementGeneration,
+            modeGeneration = modeState.generation,
+            sessionId = document.sessionId,
+            runId = document.runId,
+            controller = previous,
+            panel = panel,
+            claim = claim,
+            path = path,
+            nextNote = nextNote,
+            destinationChanged = dictationSelectionGeneration != null,
+            dictationSelectionGeneration = dictationSelectionGeneration,
+        )
+        cancelMeetingNotePublication()
+        panel.flushFocusedEdit()
+        panel.endEditing()
+        meetingReplacementOperation = operation
+        panel.view.recyclerView.visibility = View.GONE
+        renderMeetingState(previous.state)
+
+        fun recover(message: String, reclaimReleasedOwnership: Boolean = false) {
+            if (meetingReplacementOperation !== operation) return
+            meetingReplacementOperation = null
+            meetingModeTransferInProgress = false
+            if (!meetingSurfaceOpen) return
+            operation.dictationSelectionGeneration?.let(::rollbackDictationModeSelection)
+            if (reclaimReleasedOwnership) {
+                meetingRecordingController = null
+                meetingDraftClaim = null
+                meetingControllerState = null
+                meetingDocumentRestored = true
+                claimMeetingDraft()
+            } else {
+                panel.view.recyclerView.visibility = View.VISIBLE
+                if (meetingRecordingController === previous) renderMeetingState(previous.state)
+            }
+            applyTranscriptionMode(transcriptionModes.snapshot().mode)
+            toast(message)
+        }
+
+        fun ownsOperation(): Boolean {
+            if (meetingReplacementOperation !== operation ||
+                meetingReplacementGeneration != operation.generation ||
+                !meetingSurfaceOpen || meetingRecordingController !== previous ||
+                previous.state.document.sessionId != operation.sessionId ||
+                previous.state.document.runId != operation.runId
+            ) return false
+            val current = transcriptionModes.snapshot()
+            if (current.generation != operation.modeGeneration) recordMeetingDestinationChange(operation, current)
+            return current.activeRunMode == null
+        }
+
+        previous.flushDraft().whenComplete { _, flushFailure ->
+            main.post {
+                if (!ownsOperation()) return@post
+                if (flushFailure != null) {
+                    recover("Échec de sauvegarde. Réessayez avant de commencer une nouvelle réunion.")
+                    return@post
+                }
+                if (hasImageCaptureInFlight() || imageDeliveryBusy) {
+                    recover("Terminez l’ajout des images en attente avant de commencer une nouvelle réunion.")
+                    return@post
+                }
+                val latestDocument = previous.state.document
+                if (latestDocument.sessionId != operation.sessionId || latestDocument.runId != operation.runId) {
+                    recover("La réunion a changé. Rouvrez-la avant de continuer.")
+                    return@post
+                }
+                try {
+                    val existingNote = notes.get(operation.sessionId)
+                    val images = existingNote?.images.orEmpty()
+                    val existingMeeting = existingNote?.meeting?.sessionId == operation.sessionId
+                    operation.savedMeetingNote = if (existingMeeting || hasMeetingContent(latestDocument, images)) {
+                        notes.saveMeeting(operation.sessionId, latestDocument, images)
+                    } else existingNote
+                } catch (_: Throwable) {
+                    recover("Échec de sauvegarde. Réessayez avant de commencer une nouvelle réunion.")
+                    return@post
+                }
+                val afterSaveMode = transcriptionModes.snapshot()
+                if (operation.destinationChanged && afterSaveMode.mode == TranscriptionMode.MEETING) {
+                    meetingReplacementOperation = null
+                    meetingReplacementGeneration += 1
+                    meetingModeTransferInProgress = false
+                    panel.view.recyclerView.visibility = View.VISIBLE
+                    if (meetingRecordingController === previous) renderMeetingState(previous.state)
+                    applyTranscriptionMode(afterSaveMode.mode)
+                    return@post
+                }
+                previous.destroy().whenComplete { _, closeFailure ->
+                    main.post {
+                        if (!ownsOperation()) return@post
+                        if (closeFailure != null) {
+                            recover("Impossible de fermer le brouillon de réunion.", reclaimReleasedOwnership = true)
+                            return@post
+                        }
+                        claim.relinquish(previous.state.document).whenComplete { _, relinquishFailure ->
+                            main.post {
+                                if (!ownsOperation()) return@post
+                                if (relinquishFailure != null) {
+                                    recover("Impossible de libérer le brouillon de réunion.", reclaimReleasedOwnership = true)
+                                    return@post
+                                }
+                                val owner = meetingTestOverrides?.draftOwnership ?: MeetingDraftOwnership.processWide
+                                owner.clear(path, operation.sessionId).whenComplete { _, clearFailure ->
+                                    main.post {
+                                        if (!ownsOperation()) return@post
+                                        if (clearFailure != null) {
+                                            recover("Impossible d’effacer le brouillon de la réunion précédente.", reclaimReleasedOwnership = true)
+                                            return@post
+                                        }
+                                        if (operation.destinationChanged) {
+                                            finishMeetingModeTransfer(
+                                                operation.savedMeetingNote ?: notes.get(operation.sessionId),
+                                            )
+                                            return@post
+                                        }
+                                        meetingReplacementOperation = null
+                                        if (!meetingSurfaceOpen) return@post
+                                        if (meetingRecordingController !== previous) return@post
+                                        meetingRecordingController = null
+                                        meetingDraftClaim = null
+                                        meetingControllerState = null
+                                        val targetNote = operation.nextNote
+                                        if (targetNote != null) {
+                                            activeNoteId = targetNote.id
+                                            purpose = DictationPurpose.NOTE
+                                            meetingDocumentRestored = editableMeetingDocument(targetNote) != null
+                                            startMeetingAfterClaimLanguage = null
+                                            if (editableMeetingDocument(targetNote) != null) {
+                                                claimMeetingDraft(targetNote)
+                                            } else {
+                                                showOpaqueMeetingNote(targetNote, meetingNoteReadOnlyReason(targetNote))
+                                            }
+                                        } else {
+                                            activeNoteId = null
+                                            meetingDocumentRestored = false
+                                            startMeetingAfterClaimLanguage = prefs.dictationLanguage.nemotronLanguage
+                                            claimMeetingDraft()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun hasMeetingContent(document: MeetingDocument, images: List<NoteImage>): Boolean =
+        images.isNotEmpty() || document.turns.any { turn ->
+            (turn.editedText ?: turn.recognizedText).isNotBlank()
+        }
+
+    private fun renderMeetingState(
+        state: MeetingRecordingState?,
+        modelState: MeetingModelStoreState = meetingModelStoreForPanel().currentState,
+    ) {
+        val panel = meetingPanelController ?: return
+        if (state == null) return
+        val status = when (state.phase) {
+            MeetingRecordingPhase.PREPARING -> MeetingPanelStatus(MeetingPanelStatus.Phase.LOADING)
+            MeetingRecordingPhase.LISTENING -> MeetingPanelStatus(MeetingPanelStatus.Phase.LISTENING)
+            MeetingRecordingPhase.PAUSING -> MeetingPanelStatus(MeetingPanelStatus.Phase.PAUSING)
+            MeetingRecordingPhase.PAUSED -> MeetingPanelStatus(MeetingPanelStatus.Phase.PAUSED)
+            MeetingRecordingPhase.FINALIZING -> MeetingPanelStatus(MeetingPanelStatus.Phase.FINALIZING)
+            MeetingRecordingPhase.CLOSING -> MeetingPanelStatus(MeetingPanelStatus.Phase.CLOSING)
+            MeetingRecordingPhase.FINISHED -> MeetingPanelStatus(
+                phase = MeetingPanelStatus.Phase.FINISHED,
+                detail = state.recordingError,
+                saveError = state.saveError,
+            )
+            MeetingRecordingPhase.MODEL_UNAVAILABLE -> MeetingPanelStatus(
+                phase = MeetingPanelStatus.Phase.MODEL_UNAVAILABLE,
+                detail = state.recordingError,
+                saveError = state.saveError,
+            )
+            MeetingRecordingPhase.ERROR -> MeetingPanelStatus(
+                phase = MeetingPanelStatus.Phase.ERROR,
+                detail = state.recordingError,
+                saveError = state.saveError,
+            )
+            MeetingRecordingPhase.DOCUMENT -> when (modelState) {
+                is MeetingModelStoreState.Ready -> MeetingPanelStatus(MeetingPanelStatus.Phase.READY, saveError = state.saveError)
+                is MeetingModelStoreState.Downloading -> MeetingPanelStatus(
+                    phase = MeetingPanelStatus.Phase.DOWNLOADING,
+                    progressPercent = if (modelState.totalBytes > 0L) {
+                        (modelState.bytesDownloaded * 100L / modelState.totalBytes).toInt().coerceIn(0, 100)
+                    } else 0,
+                    modelSize = meetingModelSizeLabel(),
+                    saveError = state.saveError,
+                )
+                MeetingModelStoreState.Checking -> MeetingPanelStatus(MeetingPanelStatus.Phase.LOADING, saveError = state.saveError)
+                MeetingModelStoreState.Missing,
+                is MeetingModelStoreState.Error -> MeetingPanelStatus(
+                    phase = MeetingPanelStatus.Phase.MODEL_UNAVAILABLE,
+                    detail = (modelState as? MeetingModelStoreState.Error)?.message,
+                    modelSize = meetingModelSizeLabel(),
+                    saveError = state.saveError,
+                )
+            }
+        }
+        val availabilityOverride = meetingTestOverrides?.modelAvailability?.currentAvailability()
+        val effectiveStatus = if (state.phase == MeetingRecordingPhase.DOCUMENT) {
+            when (availabilityOverride) {
+                MeetingModelAvailability.READY -> status.copy(phase = MeetingPanelStatus.Phase.READY)
+                MeetingModelAvailability.MISSING -> status.copy(
+                    phase = MeetingPanelStatus.Phase.MODEL_UNAVAILABLE,
+                    modelSize = meetingModelSizeLabel(),
+                )
+                MeetingModelAvailability.DOWNLOADING -> status.copy(phase = MeetingPanelStatus.Phase.DOWNLOADING)
+                null -> status
+            }.copy(saveError = state.saveError)
+        } else {
+            status.copy(saveError = state.saveError)
+        }
+        val displayedStatus = if (meetingReplacementOperation?.controller === meetingRecordingController) {
+            effectiveStatus.copy(phase = MeetingPanelStatus.Phase.CLOSING)
+        } else effectiveStatus
+        val finalStatus = displayedStatus.copy(
+            saveError = meetingDocumentActionErrorFor(state.document)?.message
+                ?: meetingImageMutationErrorFor(state.document)?.message
+                ?: meetingNotePublicationErrorFor(state.document)
+                ?: displayedStatus.saveError,
+        )
+        panel.render(state.document, notes.get(state.document.sessionId)?.images.orEmpty(), finalStatus)
+        if (meetingReplacementOperation?.controller === meetingRecordingController) {
+            panel.view.recyclerView.visibility = View.GONE
+        }
+        wave?.setMeetingCaptureActive(state.captureActive)
+        updateNotif()
+    }
+
+    private fun meetingModelSizeLabel(): String =
+        "environ ${(MeetingModelCatalog.production.totalBytes + 999_999L) / 1_000_000L} Mo"
+
+    private fun meetingDp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun showOpaqueMeetingDraft(claim: MeetingDraftOwnershipClaim) {
+        val rawFallback = activeNoteId?.let(notes::get)?.text.orEmpty()
+        val text = when (val read = claim.recoveredDocument) {
+            is MeetingDocumentRead.Unsupported -> "Cette réunion utilise une version plus récente et reste en lecture seule.\n\n$rawFallback"
+            is MeetingDocumentRead.Invalid -> "Le brouillon de réunion est illisible et reste protégé.\n\n$rawFallback"
+            else -> return
+        }
+        val body = livePanelBody ?: return
+        showOpaqueText(body, text)
+    }
+
+    private fun renderOpaqueMessage() {
+        meetingOpaqueMessage?.let { message ->
+            message.setTextColor(overlayPalette.ink)
+            message.background = overlayCardBackground(overlayPalette.surface, overlayPalette.stroke, 16f)
+        }
+    }
+
+    private fun showMeetingClaimError() {
+        val body = livePanelBody ?: return
+        val message = TextView(this).apply {
+            text = "Impossible de lire le brouillon de réunion. Masquez puis rouvrez le panneau pour réessayer."
+            setTextColor(overlayPalette.ink)
+            setPadding(meetingDp(16), meetingDp(12), meetingDp(16), meetingDp(12))
+        }
+        meetingOpaqueMessage = message
+        body.addView(message, FrameLayout.LayoutParams(-1, -1).apply { topMargin = meetingDp(48) })
+    }
+
+    private fun acquireMeetingWindow() {
+        val panel = livePanel ?: return
+        val layout = liveParams ?: return
+        layout.flags = layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        if (livePanelAdded) runCatching {
+            (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, layout)
+        }
+    }
+
+    private fun releaseMeetingWindow() {
+        val panel = livePanel ?: return
+        val layout = liveParams ?: return
+        runCatching { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(panel.windowToken, 0) }
+        layout.flags = layout.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        if (livePanelAdded) runCatching {
+            (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(panel, layout)
+        }
+    }
+
+    private fun destroyMeetingResources() {
+        meetingOpenGeneration += 1
+        meetingReplacementGeneration += 1
+        meetingImageRecoveryRequest?.cancel()
+        meetingImageRecoveryRequest = null
+        cancelMeetingNotePublication()
+        meetingNotePublicationError = null
+        meetingReplacementOperation = null
+        meetingDialogs.toList().forEach { dialog ->
+            dialog.setOnCancelListener(null)
+            dialog.setOnDismissListener(null)
+            runCatching { dialog.dismiss() }
+        }
+        meetingDialogs.clear()
+        meetingDialogOpen = false
+        meetingFinishPromptPending = false
+        startMeetingAfterClaimLanguage = null
+        meetingDraftClaimRequest?.cancel()
+        meetingDraftClaimRequest = null
+        meetingModelListener?.let { listener -> meetingModelStore?.removeListener(listener) }
+        meetingModelListener = null
+        meetingPanelController?.let { controller ->
+            (controller.view.parent as? ViewGroup)?.removeView(controller.view)
+            controller.dispose()
+        }
+        meetingPanelController = null
+        meetingOpaqueMessage?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        meetingOpaqueMessage = null
+        val hadController = meetingRecordingController != null
+        meetingRecordingController?.destroy()
+        meetingRecordingController = null
+        if (!hadController) {
+            meetingDraftClaim?.let { claim ->
+                runCatching { claim.relinquishLatest() }
+            }
+        }
+        meetingDraftClaim = null
+        meetingControllerState = null
+        meetingSurfaceOpen = false
+    }
+
+    private fun showMeetingImageActions(image: NoteImage, capturedAnchor: MeetingPanelAnchor?) {
+        val controller = meetingRecordingController ?: return
+        val panel = meetingPanelController ?: return
+        val state = controller.state
+        val mode = transcriptionModes.snapshot()
+        val poisonedDocumentOnly = mode.mode == TranscriptionMode.DICTATION && mode.poisoned &&
+            mode.activeRunMode == null && meetingDocumentRestored && state.phase == MeetingRecordingPhase.DOCUMENT
+        if (!meetingSurfaceOpen || meetingReplacementOperation != null || meetingDocumentActionOperation != null ||
+            meetingImageMutationOperation != null || hasImageCaptureInFlight() || imageDeliveryBusy ||
+            !isStableMeetingDocumentActionPhase(state.phase) ||
+            (mode.mode != TranscriptionMode.MEETING || mode.poisoned) && !poisonedDocumentOnly
+        ) return
+        val note = runCatching { notes.get(state.document.sessionId) }.getOrNull() ?: return
+        if (note.meeting?.sessionId != state.document.sessionId || note.images.none { it.id == image.id }) return
+        val context = MeetingImageMenuContext(
+            sessionId = state.document.sessionId,
+            runId = state.document.runId,
+            controller = controller,
+            panel = panel,
+            mode = mode.mode,
+            modeGeneration = mode.generation,
+            poisonedDocumentOnly = poisonedDocumentOnly,
+            anchor = capturedAnchor?.let { selected ->
+                val row = MeetingProjection.rows(state.document, note.images.mapTo(mutableSetOf()) { it.number })
+                    .firstOrNull { it.turnId == selected.turnId && it.editableSpeech }
+                val turn = state.document.turns.firstOrNull { it.id == selected.turnId }
+                val body = turn?.let { it.editedText ?: it.recognizedText }
+                if (row != null && body != null && selected.serializedOffset in 0..body.length) {
+                    MeetingImageAnchor(state.document.sessionId, turn.id, selected.serializedOffset)
+                } else null
+            },
+        )
+        val choices = buildList {
+            add("Ouvrir")
+            if (context.anchor != null) add("Déplacer au curseur")
+            add("Déplacer après un passage…")
+            add("Retirer cette image")
+            add("Annuler")
+        }
+        var selected: String? = null
+        val dialog = AlertDialog.Builder(overlayDialogContext())
+            .setTitle("Image ${image.number} · ${image.kind.label}")
+            .setItems(choices.toTypedArray()) { _, index -> selected = choices.getOrNull(index) }
+            .create()
+        showMeetingOverlayDialog(dialog) {
+            val choice = selected ?: return@showMeetingOverlayDialog
+            if (!ownsMeetingImageMenuContext(context, image.id)) return@showMeetingOverlayDialog
+            when (choice) {
+                "Ouvrir" -> previewNoteImage(image)
+                "Déplacer au curseur" -> context.anchor?.let { anchor ->
+                    moveMeetingImage(context, image.id, anchor.turnId, anchor.offsetUtf16)
+                }
+                "Déplacer après un passage…" -> showMeetingImageDestinations(context, image)
+                "Retirer cette image" -> removeMeetingImage(context, image.id)
+            }
+        }
+    }
+
+    private fun ownsMeetingImageMenuContext(
+        context: MeetingImageMenuContext,
+        imageId: String,
+        allowMissingImage: Boolean = false,
+    ): Boolean {
+        if (!meetingSurfaceOpen || localEngineLifecycle.isDestroyed() ||
+            meetingPanelController !== context.panel || meetingRecordingController !== context.controller ||
+            meetingReplacementOperation != null || meetingDocumentActionOperation != null ||
+            meetingImageMutationOperation != null || hasImageCaptureInFlight() || imageDeliveryBusy
+        ) return false
+        val state = context.controller.state
+        if (state.document.sessionId != context.sessionId || state.document.runId != context.runId ||
+            !isStableMeetingDocumentActionPhase(state.phase)
+        ) return false
+        val mode = transcriptionModes.snapshot()
+        val modeStillOwned = mode.mode == context.mode && mode.generation == context.modeGeneration && when {
+            context.poisonedDocumentOnly -> mode.poisoned && mode.activeRunMode == null &&
+                meetingDocumentRestored && state.phase == MeetingRecordingPhase.DOCUMENT
+            else -> mode.mode == TranscriptionMode.MEETING && !mode.poisoned
+        }
+        if (!modeStillOwned) return false
+        return runCatching {
+            notes.get(context.sessionId)?.let { note ->
+                note.meeting?.sessionId == context.sessionId &&
+                    (allowMissingImage || note.images.any { it.id == imageId })
+            } == true
+        }.getOrDefault(false)
+    }
+
+    private fun ownsMeetingImageMutation(operation: MeetingImageMutationOperation): Boolean {
+        val context = operation.context
+        if (meetingImageMutationOperation !== operation ||
+            meetingImageMutationGeneration != operation.generation ||
+            !meetingSurfaceOpen || localEngineLifecycle.isDestroyed() ||
+            meetingPanelController !== context.panel || meetingRecordingController !== context.controller ||
+            meetingReplacementOperation != null || meetingDocumentActionOperation != null ||
+            hasImageCaptureInFlight() || imageDeliveryBusy
+        ) return false
+        val state = context.controller.state
+        if (state.document.sessionId != context.sessionId || state.document.runId != context.runId ||
+            !isStableMeetingDocumentActionPhase(state.phase)
+        ) return false
+        val mode = transcriptionModes.snapshot()
+        return mode.mode == context.mode && mode.generation == context.modeGeneration && when {
+            context.poisonedDocumentOnly -> mode.poisoned && mode.activeRunMode == null &&
+                meetingDocumentRestored && state.phase == MeetingRecordingPhase.DOCUMENT
+            else -> mode.mode == TranscriptionMode.MEETING && !mode.poisoned
+        }
+    }
+
+    private fun abandonMeetingImageMutation(operation: MeetingImageMutationOperation) {
+        if (meetingImageMutationOperation !== operation) return
+        meetingImageMutationOperation = null
+        val context = operation.context
+        val mode = transcriptionModes.snapshot()
+        if (meetingSurfaceOpen && meetingPanelController === context.panel &&
+            meetingRecordingController === context.controller && mode.mode == context.mode &&
+            mode.generation == context.modeGeneration
+        ) {
+            context.panel.view.recyclerView.visibility = operation.previousRecyclerVisibility
+        }
+    }
+
+    private fun showMeetingImageDestinations(context: MeetingImageMenuContext, image: NoteImage) {
+        if (!ownsMeetingImageMenuContext(context, image.id)) return
+        val document = context.controller.state.document
+        val images = runCatching { notes.get(context.sessionId)?.images.orEmpty() }.getOrDefault(emptyList())
+        val destinations = MeetingProjection.rows(document, images.mapTo(mutableSetOf()) { it.number })
+            .filter { row ->
+                row.editableSpeech && document.turns.firstOrNull { it.id == row.turnId }?.let { turn ->
+                    val body = turn.editedText ?: turn.recognizedText
+                    images.fold(body) { value, known -> value.replace(known.marker, "") }.isNotBlank()
+                } == true
+            }
+        if (destinations.isEmpty()) {
+            toast("Aucun passage visible où déplacer l’image.")
+            return
+        }
+        val labels = destinations.map { row ->
+            val turn = document.turns.first { it.id == row.turnId }
+            val body = images.fold(turn.editedText ?: turn.recognizedText) { value, known ->
+                value.replace(known.marker, "")
+            }.trim().replace('\n', ' ')
+            "${row.label} · ${body.take(48)}"
+        }
+        var selectedIndex: Int? = null
+        val dialog = AlertDialog.Builder(overlayDialogContext())
+            .setTitle("Déplacer après un passage")
+            .setItems(labels.toTypedArray()) { _, index -> selectedIndex = index }
+            .create()
+        showMeetingOverlayDialog(dialog) {
+            val index = selectedIndex ?: return@showMeetingOverlayDialog
+            val destination = destinations.getOrNull(index) ?: return@showMeetingOverlayDialog
+            if (!ownsMeetingImageMenuContext(context, image.id)) return@showMeetingOverlayDialog
+            val currentDocument = context.controller.state.document
+            val currentRow = MeetingProjection.rows(
+                currentDocument,
+                runCatching { notes.get(context.sessionId)?.images.orEmpty() }
+                    .getOrDefault(emptyList()).mapTo(mutableSetOf()) { it.number },
+            ).firstOrNull { it.turnId == destination.turnId && it.editableSpeech } ?: return@showMeetingOverlayDialog
+            val currentTurn = currentDocument.turns.firstOrNull { it.id == currentRow.turnId }
+                ?: return@showMeetingOverlayDialog
+            val body = currentTurn.editedText ?: currentTurn.recognizedText
+            val insertAt = if (body.isEmpty()) 0 else body.length
+            moveMeetingImage(context, image.id, currentTurn.id, insertAt)
+        }
+    }
+
+    private fun moveMeetingImage(
+        context: MeetingImageMenuContext,
+        imageId: String,
+        targetTurnId: String,
+        offsetUtf16: Int,
+    ) {
+        applyMeetingImageMutation(context, imageId) { document, images ->
+            MeetingImageBatch.move(document, images, imageId, targetTurnId, offsetUtf16)
+        }
+    }
+
+    private fun removeMeetingImage(context: MeetingImageMenuContext, imageId: String) {
+        applyMeetingImageMutation(context, imageId) { document, images ->
+            MeetingImageBatch.remove(document, images, imageId)
+        }
+    }
+
+    private fun applyMeetingImageMutation(
+        context: MeetingImageMenuContext,
+        imageId: String,
+        mutation: (MeetingDocument, List<NoteImage>) -> MeetingImageMutation,
+    ) {
+        if (!ownsMeetingImageMenuContext(context, imageId)) return
+        context.panel.flushFocusedEdit()
+        context.panel.endEditing()
+        val document = context.controller.state.document
+        val note = try {
+            notes.get(context.sessionId)
+        } catch (_: Throwable) {
+            null
+        } ?: run {
+            recordMeetingImageMutationFailure(context, imageId, mutation, "Échec de sauvegarde")
+            return
+        }
+        if (note.images.none { it.id == imageId }) return
+        val changed = try {
+            mutation(document, note.images)
+        } catch (_: Throwable) {
+            recordMeetingImageMutationFailure(context, imageId, mutation, "Impossible de modifier cette image.")
+            return
+        }
+        if (changed.document == document && changed.images == note.images) return
+        persistMeetingImageMutation(
+            context = context,
+            imageId = imageId,
+            targetImages = changed.images,
+            removedImageIds = changed.removedImageIds,
+        ) {
+            changed.document.turns.forEach { turn ->
+                val before = document.turns.firstOrNull { it.id == turn.id } ?: return@forEach
+                val beforeBody = before.editedText ?: before.recognizedText
+                val afterBody = turn.editedText ?: turn.recognizedText
+                if (beforeBody != afterBody) context.controller.editTurn(turn.id, afterBody)
+            }
+        }
+    }
+
+    private fun persistMeetingImageMutation(
+        context: MeetingImageMenuContext,
+        imageId: String,
+        targetImages: List<NoteImage>,
+        removedImageIds: Set<String>,
+        prepareDocument: () -> Unit = {},
+    ) {
+        if (!ownsMeetingImageMenuContext(context, imageId, allowMissingImage = removedImageIds.isNotEmpty())) return
+        context.panel.flushFocusedEdit()
+        context.panel.endEditing()
+        val operation = MeetingImageMutationOperation(
+            generation = ++meetingImageMutationGeneration,
+            context = context,
+            imageId = imageId,
+            previousRecyclerVisibility = context.panel.view.recyclerView.visibility,
+        )
+        meetingImageMutationOperation = operation
+        context.panel.view.recyclerView.visibility = View.GONE
+        try {
+            prepareDocument()
+        } catch (_: Throwable) {
+            finishMeetingImageMutationFailure(operation, null, "Impossible de modifier cette image.", removedImageIds)
+            return
+        }
+        val flush = try {
+            context.controller.flushDraft()
+        } catch (_: Throwable) {
+            finishMeetingImageMutationFailure(operation, null, "Échec de sauvegarde", removedImageIds)
+            return
+        }
+        flush.whenComplete { _, failure ->
+            main.post {
+                if (!ownsMeetingImageMutation(operation)) {
+                    abandonMeetingImageMutation(operation)
+                    return@post
+                }
+                if (failure != null || localEngineLifecycle.isDestroyed()) {
+                    finishMeetingImageMutationFailure(operation, null, "Échec de sauvegarde", removedImageIds)
+                    return@post
+                }
+                val latest = context.controller.state.document
+                if (latest.sessionId != context.sessionId || latest.runId != context.runId) {
+                    abandonMeetingImageMutation(operation)
+                    return@post
+                }
+                try {
+                    notes.get(context.sessionId)
+                        ?: throw IllegalStateException("Meeting note disappeared before image save")
+                    if (!ownsMeetingImageMutation(operation)) {
+                        abandonMeetingImageMutation(operation)
+                        return@post
+                    }
+                    notes.saveMeeting(context.sessionId, latest, targetImages)
+                    if (!ownsMeetingImageMutation(operation)) {
+                        abandonMeetingImageMutation(operation)
+                        return@post
+                    }
+                    removedImageIds.forEach { removedId -> imageStore.delete(removedId) }
+                    meetingImageMutationError = null
+                    finishMeetingImageMutationSuccess(operation)
+                } catch (_: Throwable) {
+                    finishMeetingImageMutationFailure(operation, null, "Échec de sauvegarde", removedImageIds)
+                }
+            }
+        }
+    }
+
+    private fun recordMeetingImageMutationFailure(
+        context: MeetingImageMenuContext,
+        imageId: String,
+        mutation: (MeetingDocument, List<NoteImage>) -> MeetingImageMutation,
+        message: String,
+    ) {
+        meetingImageMutationError = MeetingImageMutationError(
+            context.sessionId, context.runId, imageId, mutation, message,
+        )
+        if (meetingPanelController === context.panel && meetingSurfaceOpen) {
+            renderMeetingState(context.controller.state)
+        }
+        toast(message)
+    }
+
+    private fun finishMeetingImageMutationFailure(
+        operation: MeetingImageMutationOperation,
+        mutation: ((MeetingDocument, List<NoteImage>) -> MeetingImageMutation)?,
+        message: String,
+        removedImageIds: Set<String> = emptySet(),
+    ) {
+        if (!ownsMeetingImageMutation(operation)) {
+            abandonMeetingImageMutation(operation)
+            return
+        }
+        val context = operation.context
+        meetingImageMutationOperation = null
+        if (meetingPanelController === context.panel && meetingSurfaceOpen) {
+            context.panel.view.recyclerView.visibility = operation.previousRecyclerVisibility
+            meetingImageMutationError = MeetingImageMutationError(
+                sessionId = context.sessionId,
+                runId = context.runId,
+                imageId = operation.imageId,
+                mutation = mutation,
+                message = message,
+                removedImageIds = removedImageIds,
+            )
+            renderMeetingState(context.controller.state)
+        }
+        toast(message)
+    }
+
+    private fun finishMeetingImageMutationSuccess(operation: MeetingImageMutationOperation) {
+        if (!ownsMeetingImageMutation(operation)) {
+            abandonMeetingImageMutation(operation)
+            return
+        }
+        meetingImageMutationOperation = null
+        val context = operation.context
+        if (meetingPanelController === context.panel && meetingSurfaceOpen) {
+            context.panel.view.recyclerView.visibility = operation.previousRecyclerVisibility
+            meetingImageMutationError = null
+            renderMeetingState(context.controller.state)
+        }
+        toast("Image mise à jour.")
+    }
+
+    private fun meetingImageMutationErrorFor(document: MeetingDocument): MeetingImageMutationError? =
+        meetingImageMutationError?.takeIf {
+            it.sessionId == document.sessionId &&
+                meetingRecordingController?.state?.document?.runId == it.runId
+        }
+
+    private fun retryMeetingImageMutation(error: MeetingImageMutationError) {
+        val controller = meetingRecordingController ?: return
+        val panel = meetingPanelController ?: return
+        val state = controller.state
+        if (state.document.sessionId != error.sessionId || state.document.runId != error.runId) return
+        val mode = transcriptionModes.snapshot()
+        val context = MeetingImageMenuContext(
+            sessionId = error.sessionId,
+            runId = error.runId,
+            controller = controller,
+            panel = panel,
+            mode = mode.mode,
+            modeGeneration = mode.generation,
+            poisonedDocumentOnly = mode.mode == TranscriptionMode.DICTATION && mode.poisoned &&
+                mode.activeRunMode == null && meetingDocumentRestored && state.phase == MeetingRecordingPhase.DOCUMENT,
+            anchor = null,
+        )
+        if (error.mutation != null) {
+            if (!ownsMeetingImageMenuContext(context, error.imageId, allowMissingImage = true)) return
+            applyMeetingImageMutation(context, error.imageId, error.mutation)
+            return
+        }
+        if (!ownsMeetingImageMenuContext(context, error.imageId, allowMissingImage = true)) return
+        val currentImages = try {
+            notes.get(error.sessionId)?.images
+                ?: throw IllegalStateException("Meeting note disappeared before image retry")
+        } catch (_: Throwable) {
+            meetingImageMutationError = error
+            renderMeetingState(state)
+            toast(error.message)
+            return
+        }
+        val retryImages = currentImages.filterNot { it.id in error.removedImageIds }
+        persistMeetingImageMutation(
+            context = context,
+            imageId = error.imageId,
+            targetImages = retryImages,
+            removedImageIds = error.removedImageIds,
+        )
+    }
+
     private fun toast(s: String) { main.post { Toast.makeText(this, s, Toast.LENGTH_SHORT).show() } }
 
     private class AndroidRecordingRecorder(
@@ -4309,6 +8021,9 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        transcriptionModeSubscription?.close()
+        transcriptionModeSubscription = null
+        destroyMeetingResources()
         invalidateNoteInsertion()
         resetVocabularyLearning()
         cancelPanelTransition()
@@ -4325,7 +8040,7 @@ class OverlayService : Service() {
         imageStrip = null
         imageStripScroll = null
         mediaToolbar = null
-        localFormatter.close()
+        if (localFormatterLazy.isInitialized()) localFormatter.close()
         dismissFloatingMenu()
         formatDialog?.dismiss()
         micArmed = false
@@ -4351,17 +8066,34 @@ class OverlayService : Service() {
                 joinUninterruptibly(recordingThreadToJoin)
                 joinUninterruptibly(runToCancel?.pauseWorker)
                 runToCancel?.completion?.awaitWorkerIfStarted()
-                try { recorderToRelease?.release() } catch (_: Throwable) {}
-                while (sessionToCancel != null && !sessionToCancel.cancelAndAwait()) {
-                    // Keep the resident engine alive until the cancelled native session really exits.
+                var recorderSafe = true
+                try { recorderToRelease?.release() } catch (_: Throwable) { recorderSafe = false }
+                var sessionSafe = true
+                try {
+                    while (sessionToCancel != null && !sessionToCancel.cancelAndAwait()) {
+                        // Keep the resident engine alive until the cancelled native session really exits.
+                    }
+                } catch (_: Throwable) {
+                    sessionSafe = false
                 }
-                residentAsrEngine.close()
+                var residentSafe = false
+                if (sessionSafe) {
+                    residentSafe = try {
+                        residentAsrEngine.close()
+                        true
+                    } catch (_: Throwable) {
+                        false
+                    }
+                }
+                if (recorderSafe && sessionSafe && residentSafe) {
+                    runToCancel?.let(::releaseDictationRunLease)
+                } else {
+                    markDictationCloseUncertain(runToCancel)
+                }
             })
-        } else {
-            sessionToCancel?.cancel()
-            try { recorderToRelease?.release() } catch (_: Throwable) {}
         }
         main.removeCallbacksAndMessages(null)
+        try { hideScreenshotBatchBar() } catch (_: Exception) {}
         try { wave?.stop() } catch (_: Exception) {}
         try { loader?.stop() } catch (_: Exception) {}
         try { if (livePanelAdded) livePanel?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } } catch (_: Exception) {}

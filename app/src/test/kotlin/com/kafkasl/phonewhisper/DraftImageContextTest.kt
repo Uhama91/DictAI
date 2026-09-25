@@ -40,4 +40,26 @@ class DraftImageContextTest {
         assertEquals(existing, result.images)
         assertTrue(result.attachedIds.isEmpty())
     }
+
+    @Test fun movedNativeBlockSynchronizesItsPersistedAnchorForDraftRecovery() {
+        val first = image(1)
+        val second = image(2)
+        val captures = listOf(
+            DraftImageCapture(first.id, 1, first, groupId = "group-a", orderAtOffset = 0),
+            DraftImageCapture(second.id, 1, second, groupId = "group-b", orderAtOffset = 1),
+        )
+        val projection = TranscriptImageBlocks.fromDraft("AB", captures)
+        val moved = TranscriptImageBlocks.moveToCaret(
+            projection,
+            "group-a",
+            projection.caretForEditor(projection.editorText.length),
+        )
+
+        val persisted = DraftImageContext.synchronize(captures, moved.blocks)
+        val restored = TranscriptImageBlocks.fromDraft("AB", persisted)
+
+        assertEquals(1, restored.blocks.single { it.id == "group-b" }.rawOffset)
+        assertEquals(2, restored.blocks.single { it.id == "group-a" }.rawOffset)
+        assertEquals(listOf("group-b", "group-a"), restored.blocks.map { it.id })
+    }
 }

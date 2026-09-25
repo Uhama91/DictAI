@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -76,9 +77,46 @@ class OverlayRecordingStopCoordinatorTest {
             snapshot = { events += "snapshot" },
         )
 
+        assertFalse(recorderReleaseConfirmed(coordinator))
         val result = coordinator.stopJoinRelease(timeoutMs = 1)
 
         assertEquals(RecordingStopCoordinator.Result.Stopped, result)
+        assertTrue(recorderReleaseConfirmed(coordinator))
+        assertEquals(listOf("stop", "release", "snapshot"), events)
+    }
+
+    @Test
+    fun failed_stop_still_confirms_a_successful_release() {
+        val events = mutableListOf<String>()
+        val coordinator = RecordingStopCoordinator(
+            recordThread = null,
+            stopRecorder = { events += "stop"; error("synthetic stop failure") },
+            releaseRecorder = { events += "release" },
+            snapshot = { events += "snapshot" },
+        )
+
+        assertFalse(recorderReleaseConfirmed(coordinator))
+        val result = coordinator.stopJoinRelease(timeoutMs = 1)
+
+        assertEquals(RecordingStopCoordinator.Result.Stopped, result)
+        assertTrue(recorderReleaseConfirmed(coordinator))
+        assertEquals(listOf("stop", "release", "snapshot"), events)
+    }
+
+    @Test
+    fun failed_release_never_confirms_release_but_keeps_snapshot_order() {
+        val events = mutableListOf<String>()
+        val coordinator = RecordingStopCoordinator(
+            recordThread = null,
+            stopRecorder = { events += "stop" },
+            releaseRecorder = { events += "release"; error("synthetic release failure") },
+            snapshot = { events += "snapshot" },
+        )
+
+        val result = coordinator.stopJoinRelease(timeoutMs = 1)
+
+        assertEquals(RecordingStopCoordinator.Result.Stopped, result)
+        assertFalse(recorderReleaseConfirmed(coordinator))
         assertEquals(listOf("stop", "release", "snapshot"), events)
     }
 
@@ -86,7 +124,10 @@ class OverlayRecordingStopCoordinatorTest {
     fun timed_out_join_defers_release_and_snapshot_until_the_blocked_reader_exits() {
         val unblock = CountDownLatch(1)
         val started = CountDownLatch(1)
-        val events = mutableListOf<String>()
+        val releaseEntered = CountDownLatch(1)
+        val allowReleaseReturn = CountDownLatch(1)
+        val events = java.util.Collections.synchronizedList(mutableListOf<String>())
+        var cleanupThread: Thread? = null
         val recordThread = Thread {
             started.countDown()
             unblock.await()
@@ -95,24 +136,51 @@ class OverlayRecordingStopCoordinatorTest {
         val coordinator = RecordingStopCoordinator(
             recordThread = recordThread,
             stopRecorder = { events += "stop" },
-            releaseRecorder = { events += "release" },
+            releaseRecorder = {
+                events += "release"
+                releaseEntered.countDown()
+                check(allowReleaseReturn.await(1, TimeUnit.SECONDS))
+            },
             snapshot = { events += "snapshot" },
         )
 
-        val result = coordinator.stopJoinRelease(timeoutMs = 1)
+        try {
+            assertFalse(recorderReleaseConfirmed(coordinator))
+            val result = coordinator.stopJoinRelease(timeoutMs = 1)
 
-        assertEquals(RecordingStopCoordinator.Result.TimedOut, result)
-        assertEquals(listOf("stop"), events)
-        val cleanupResult = AtomicReference<RecordingStopCoordinator.Result>()
-        val cleanupDone = CountDownLatch(1)
-        Thread {
-            cleanupResult.set(coordinator.awaitExitThenRelease())
-            cleanupDone.countDown()
-        }.start()
-        assertEquals(listOf("stop"), events)
-        unblock.countDown()
-        assertTrue(cleanupDone.await(1, TimeUnit.SECONDS))
-        assertEquals(RecordingStopCoordinator.Result.Stopped, cleanupResult.get())
-        assertEquals(listOf("stop", "release", "snapshot"), events)
+            assertEquals(RecordingStopCoordinator.Result.TimedOut, result)
+            assertFalse(recorderReleaseConfirmed(coordinator))
+            assertEquals(listOf("stop"), events.toList())
+            val cleanupResult = AtomicReference<RecordingStopCoordinator.Result>()
+            val cleanupDone = CountDownLatch(1)
+            cleanupThread = Thread {
+                cleanupResult.set(coordinator.awaitExitThenRelease())
+                cleanupDone.countDown()
+            }.apply { start() }
+            assertEquals(listOf("stop"), events.toList())
+            unblock.countDown()
+            assertTrue(releaseEntered.await(1, TimeUnit.SECONDS))
+            assertFalse("release is not confirmed until releaseRecorder returns", recorderReleaseConfirmed(coordinator))
+            assertEquals(listOf("stop", "release"), events.toList())
+
+            allowReleaseReturn.countDown()
+            assertTrue(cleanupDone.await(1, TimeUnit.SECONDS))
+            assertEquals(RecordingStopCoordinator.Result.Stopped, cleanupResult.get())
+            assertTrue(recorderReleaseConfirmed(coordinator))
+            assertEquals(listOf("stop", "release", "snapshot"), events.toList())
+        } finally {
+            unblock.countDown()
+            allowReleaseReturn.countDown()
+            cleanupThread?.join(1_000)
+            recordThread.join(1_000)
+        }
+    }
+
+    private fun recorderReleaseConfirmed(coordinator: RecordingStopCoordinator): Boolean {
+        val getter = coordinator.javaClass.declaredMethods.firstOrNull {
+            it.parameterCount == 0 && it.name.substringBefore('$') == "getRecorderReleaseConfirmed"
+        } ?: return false
+        getter.isAccessible = true
+        return getter.invoke(coordinator) as? Boolean ?: false
     }
 }

@@ -9,6 +9,10 @@ on:
         description: Build the Gemma GPU text/list/email prototype
         type: boolean
         default: false
+      meeting_prototype:
+        description: Build the isolated DictAI Meeting prototype APK
+        type: boolean
+        default: false
       publish_prerelease:
         description: Publish the prototype APK as a downloadable prerelease
         type: boolean
@@ -19,6 +23,7 @@ permissions:
 
 env:
   PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_format_prototype) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[local-layout-test]') || contains(github.event.head_commit.message, '[local-layout-artifact]'))) }}
+  MEETING_PROTOTYPE: ${{ (github.event_name == 'workflow_dispatch' && inputs.meeting_prototype) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[meeting-test]')) }}
 
 jobs:
   build:
@@ -26,6 +31,14 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Reject conflicting prototype selections
+        shell: bash
+        run: |
+          if [[ "$PROTOTYPE" == true && "$MEETING_PROTOTYPE" == true ]]; then
+            echo "Gemma and Meeting prototypes cannot be selected in the same build." >&2
+            exit 1
+          fi
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -47,6 +60,9 @@ jobs:
       - name: Run native alignment controller tests
         run: python3 -m unittest scripts/test_check_apk_native_alignment.py -v
 
+      - name: Test Meeting APK verifier without Android SDK
+        run: python3 -m unittest scripts/test_prepare_meeting_ci_apk.py -v
+
       - name: Run transcribe.cpp native bundle contract
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358" bash scripts/test_transcribe_cpp_bundle.sh
 
@@ -58,7 +74,11 @@ jobs:
         shell: bash
         run: |
           args=(testDebugUnitTest assembleDebug assembleDebugAndroidTest --stacktrace)
-          if [[ "$PROTOTYPE" == true ]]; then args+=(-PlocalFormatPrototype=true); fi
+          if [[ "$MEETING_PROTOTYPE" == true ]]; then
+            args+=(-PmeetingPrototype=true)
+          elif [[ "$PROTOTYPE" == true ]]; then
+            args+=(-PlocalFormatPrototype=true)
+          fi
           ./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' "${args[@]}"
 
       - name: Check native library alignment and denylist
@@ -70,13 +90,28 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
 
       - name: Verify packaged model and prepare download
+        if: env.MEETING_PROTOTYPE != 'true'
         run: python3 scripts/prepare_ci_apk.py
+
+      - name: Verify and stage Meeting APK
+        if: env.MEETING_PROTOTYPE == 'true'
+        run: python3 scripts/prepare_meeting_ci_apk.py
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
+        if: env.MEETING_PROTOTYPE != 'true'
         with:
           name: ${{ env.PROTOTYPE == 'true' && 'dictai-local-layout-test' || 'dictai-debug-apk' }}
           path: dist/*
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload Meeting APK artifact
+        uses: actions/upload-artifact@v4
+        if: env.MEETING_PROTOTYPE == 'true'
+        with:
+          name: dictai-meeting-test
+          path: dist/meeting-test/*
           compression-level: 0
           if-no-files-found: error
 

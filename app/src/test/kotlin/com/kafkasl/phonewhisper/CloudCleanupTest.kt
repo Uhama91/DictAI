@@ -6,6 +6,7 @@ import java.security.Key
 import java.security.Provider
 import java.security.SecureRandom
 import java.security.spec.AlgorithmParameterSpec
+import java.util.Base64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -191,7 +192,17 @@ class CloudCleanupTest {
 
         assertNotEquals(first, second)
         assertEquals("dummy-secret", AesGcmCodec.decrypt(key, first))
-        assertNull(AesGcmCodec.decrypt(key, first.dropLast(2) + "xx"))
+
+        val separator = first.indexOf(':')
+        val iv = first.substring(0, separator)
+        val ciphertext = Base64.getDecoder().decode(first.substring(separator + 1))
+        val tamperedCiphertext = ciphertext.copyOf().apply {
+            this[lastIndex] = (this[lastIndex].toInt() xor 0x01).toByte()
+        }
+        assertFalse(ciphertext.contentEquals(tamperedCiphertext))
+        val tampered = "$iv:${Base64.getEncoder().withoutPadding().encodeToString(tamperedCiphertext)}"
+
+        assertNull(AesGcmCodec.decrypt(key, tampered))
     }
 
     @Test fun `AES GCM encryption lets the cipher generate the IV required by AndroidKeyStore`() {

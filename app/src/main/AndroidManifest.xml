@@ -18,7 +18,7 @@
     <application
         android:name=".DictAIApp"
         android:allowBackup="false"
-        android:label="@string/app_name"
+        android:label="${meetingApplicationLabel}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"

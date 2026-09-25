@@ -1,0 +1,144 @@
+{
+  "status": "pass",
+  "headless": true,
+  "browser": "Chromium via installed Playwright",
+  "chromiumVersion": "153.0.8010.53",
+  "isolatedFreshContexts": true,
+  "networkOffline": true,
+  "httpHttpsRequestsBlocked": true,
+  "deviceScaleFactor": 2,
+  "source": "meeting-note.html",
+  "sourceSha256": "1e5be59b2a1344083de682e9a1ce9756c7eb16faa3a179d4332008abf72a5104",
+  "sourceExternalHttpReferences": 0,
+  "externalHttpRequests": [],
+  "observedResourceSchemeCounts": {
+    "file:": 2
+  },
+  "consoleMessages": [],
+  "uncaughtPageErrors": [],
+  "viewports": {
+    "mobile390": {
+      "initial": {
+        "viewportWidth": 390,
+        "navigatorOnline": false,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "imageStates": [
+          {
+            "complete": true,
+            "naturalWidth": 1200,
+            "naturalHeight": 800,
+            "renderedWidth": 360
+          },
+          {
+            "complete": true,
+            "naturalWidth": 1200,
+            "naturalHeight": 800,
+            "renderedWidth": 360
+          }
+        ],
+        "toggles": [
+          false,
+          false
+        ]
+      },
+      "screenshot": "meeting-note-390-fullpage.png",
+      "screenshotPixels": {
+        "width": 780,
+        "height": 2186
+      },
+      "expandedImage1": {
+        "viewportWidth": 390,
+        "navigatorOnline": false,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "imageStates": [
+          {
+            "complete": true,
+            "naturalWidth": 1200,
+            "naturalHeight": 800,
+            "renderedWidth": 360
+          },
+          {
+            "complete": true,
+            "naturalWidth": 1200,
+            "naturalHeight": 800,
+            "renderedWidth": 360
+          }
+        ],
+        "toggles": [
+          true,
+          false
+        ]
+      },
+      "expandedScreenshot": "meeting-note-390-image-1-expanded.png",
+      "expandedScreenshotPixels": {
+        "width": 780,
+        "height": 2186
+      },
+      "restoredToggleState": [
+        false,
+        false
+      ]
+    },
+    "desktop1280": {
+      "metrics": {
+        "viewportWidth": 1280,
+        "navigatorOnline": false,
+        "documentWidth": 1280,
+        "bodyWidth": 800,
+        "imageStates": [
+          {
+            "complete": true,
+            "naturalWidth": 1200,
+            "naturalHeight": 800,
+            "renderedWidth": 575
+          },
+          {
+            "complete": true,
+            "naturalWidth": 1200,
+            "naturalHeight": 800,
+            "renderedWidth": 575
+          }
+        ],
+        "toggles": [
+          false,
+          false
+        ]
+      },
+      "screenshot": "meeting-note-1280-fullpage.png",
+      "screenshotPixels": {
+        "width": 2560,
+        "height": 2758
+      },
+      "expandedImage1": {
+        "viewportWidth": 1280,
+        "navigatorOnline": false,
+        "documentWidth": 1280,
+        "bodyWidth": 800,
+        "imageStates": [
+          {
+            "complete": true,
+            "naturalWidth": 1200,
+            "naturalHeight": 800,
+            "renderedWidth": 770
+          },
+          {
+            "complete": true,
+            "naturalWidth": 1200,
+            "naturalHeight": 800,
+            "renderedWidth": 575
+          }
+        ],
+        "toggles": [
+          true,
+          false
+        ]
+      },
+      "restoredToggleState": [
+        false,
+        false
+      ]
+    }
+  }
+}

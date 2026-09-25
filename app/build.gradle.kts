@@ -6,6 +6,7 @@ plugins {
 }
 
 val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true"
+val meetingPrototype = providers.gradleProperty("meetingPrototype").orNull == "true"
 
 android {
     namespace = "com.kafkasl.phonewhisper"
@@ -20,13 +21,20 @@ android {
     if (localFormatPrototype) packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
 
     defaultConfig {
-        applicationId = "com.uhama.whisperpin"
+        applicationId = if (meetingPrototype) "com.uhama.whisperpin.meetingtest" else "com.uhama.whisperpin"
         minSdk = 30
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
         versionCode = 35
-        versionName = if (localFormatPrototype) "0.9.6-dictai-gemma-test" else "0.9.6-dictai"
+        versionName = when {
+            meetingPrototype -> "0.9.6-dictai-meeting-test"
+            localFormatPrototype -> "0.9.6-dictai-gemma-test"
+            else -> "0.9.6-dictai"
+        }
+        manifestPlaceholders["meetingApplicationLabel"] =
+            if (meetingPrototype) "DictAI Réunion — test" else "@string/app_name"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "MEETING_PROTOTYPE", meetingPrototype.toString())
 
         ndk { abiFilters += "arm64-v8a" }
 
@@ -60,7 +68,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
     implementation("org.apache.commons:commons-compress:1.27.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")

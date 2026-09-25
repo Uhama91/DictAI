@@ -75,9 +75,13 @@ internal class LocalFormatEngine(context: Context) : AutoCloseable {
             requireWorkerThread()
             if (closed.get()) return null
             val epoch = cancellationEpoch.get()
-            val call = GemmaCall(request, onChunk, onNativeStart) {
-                closed.get() || cancellationEpoch.get() != epoch
-            }
+            val call = GemmaCall(
+                request,
+                onChunk,
+                onNativeStart,
+                closeConversationSafely = core::closeConversationSafely,
+                stale = { closed.get() || cancellationEpoch.get() != epoch },
+            )
             // Reject unsupported/oversized layouts before queueing any load or native work.
             val policy = call.policy ?: return null
             // No engine load or GPU work for an acknowledgment.
@@ -124,6 +128,13 @@ internal class LocalFormatEngine(context: Context) : AutoCloseable {
         const val MODEL_FILE = "gemma-4-E2B-it.litertlm"
         const val GENERATION_DEADLINE_MS = 20_000L
 
+        fun reserveForMeeting(context: Context): LocalFormatMeetingReservationRequest {
+            val core = synchronized(sharedLock) {
+                (shared ?: GemmaEngineCore(context.applicationContext).also { shared = it })
+            }
+            return core.reserveForMeeting()
+        }
+
         private fun requireWorkerThread() {
             check(Looper.myLooper() != Looper.getMainLooper()) { "Local formatter requires a worker thread" }
         }
@@ -143,6 +154,19 @@ private class GemmaEngineCore(context: Context) {
     private val loadWatchdog = Executors.newSingleThreadScheduledExecutor { task ->
         Thread(task, "dictai-gemma-load-deadline").apply { isDaemon = true }
     }
+    private val modeCoordinator = TranscriptionModeCoordinator.process(context.applicationContext)
+    private val reservationCoordinator = LocalFormatReservationCoordinator(
+        worker = worker,
+        closeEngineOnWorker = { closeEngine(preserveFailure = true) },
+        processPoisoned = { modeCoordinator.snapshot().poisoned },
+    )
+    private val nativeCloseGuard = LocalFormatNativeCloseGuard(
+        onUncertainClose = {
+            reservationCoordinator.markUncertainClose()
+            modeCoordinator.reportUncertainClose()
+        },
+        processPoisoned = { modeCoordinator.snapshot().poisoned },
+    )
     private val owners = AtomicInteger()
     private val warming = AtomicBoolean()
     private val admission = GemmaRuntimeAdmission()
@@ -159,6 +183,11 @@ private class GemmaEngineCore(context: Context) {
 
     fun retain() { owners.incrementAndGet() }
 
+    fun reserveForMeeting(): LocalFormatMeetingReservationRequest = reservationCoordinator.reserveForMeeting()
+
+    fun closeConversationSafely(conversation: Conversation): Boolean =
+        nativeCloseGuard.closeConversation { conversation.close() }
+
     fun release() {
         check(owners.decrementAndGet() >= 0)
         worker.execute {
@@ -169,9 +198,11 @@ private class GemmaEngineCore(context: Context) {
 
     fun warm() {
         // Resident state is checked on worker: a final owner may currently be closing it.
+        val permit = reservationCoordinator.admitWork() ?: return
         if (admission.isBlocked || !warming.compareAndSet(false, true)) return
         worker.execute {
             try {
+                if (!reservationCoordinator.beginWork(permit)) return@execute
                 if (!admission.isBlocked && owners.get() > 0) runCatching { load() }
             } finally {
                 warming.set(false)
@@ -182,13 +213,23 @@ private class GemmaEngineCore(context: Context) {
     fun prepare(isOwnerClosed: () -> Boolean): LocalFormatPreparation {
         val started = SystemClock.elapsedRealtime()
         val result = CompletableFuture<LocalFormatPreparation>()
+        val permit = reservationCoordinator.admitWork()
+            ?: throw IllegalStateException(LOCAL_FORMAT_MEETING_UNAVAILABLE_MESSAGE)
         if (!admission.admit(result)) throw IllegalStateException("Local GPU runtime is waiting for native completion")
         worker.execute {
             if (result.isDone) return@execute
             try {
+                if (!reservationCoordinator.beginWork(permit)) {
+                    result.completeExceptionally(IllegalStateException(LOCAL_FORMAT_MEETING_UNAVAILABLE_MESSAGE))
+                    return@execute
+                }
                 check(!isOwnerClosed()) { "Formatter closed" }
                 val alreadyLoaded = engine != null
                 val loadMs = load()
+                if (!reservationCoordinator.beginWork(permit)) {
+                    result.completeExceptionally(IllegalStateException(LOCAL_FORMAT_MEETING_UNAVAILABLE_MESSAGE))
+                    return@execute
+                }
                 check(!isOwnerClosed()) { "Formatter closed" }
                 result.complete(LocalFormatPreparation(loadMs, alreadyLoaded, SystemClock.elapsedRealtime() - started))
             } catch (_: Throwable) {
@@ -200,8 +241,20 @@ private class GemmaEngineCore(context: Context) {
 
     fun enqueue(call: GemmaCall) {
         if (call.policy == null) { call.result.complete(null); return }
+        val permit = reservationCoordinator.admitWork()
+        if (permit == null) {
+            call.result.completeExceptionally(IllegalStateException(LOCAL_FORMAT_MEETING_UNAVAILABLE_MESSAGE))
+            return
+        }
         if (!admission.admit(call.result)) return
-        worker.execute { if (!call.result.isDone) run(call) }
+        worker.execute {
+            if (call.result.isDone) return@execute
+            if (!reservationCoordinator.beginWork(permit)) {
+                call.result.completeExceptionally(IllegalStateException(LOCAL_FORMAT_MEETING_UNAVAILABLE_MESSAGE))
+                return@execute
+            }
+            run(call, permit)
+        }
     }
 
     /** Never invoke JNI or wait on a conversation lock from a lifecycle/UI caller. */
@@ -213,7 +266,7 @@ private class GemmaEngineCore(context: Context) {
         }
     }
 
-    private fun run(call: GemmaCall) {
+    private fun run(call: GemmaCall, permit: LocalFormatWorkPermit) {
         if (call.isCancelled() || call.expired()) {
             call.cancel()
             return
@@ -224,6 +277,10 @@ private class GemmaEngineCore(context: Context) {
             load()
             if (call.isCancelled() || call.expired()) {
                 cancel(call)
+                return
+            }
+            if (!reservationCoordinator.beginConversation(permit)) {
+                call.result.completeExceptionally(IllegalStateException(LOCAL_FORMAT_MEETING_UNAVAILABLE_MESSAGE))
                 return
             }
             failureCode = null
@@ -239,6 +296,8 @@ private class GemmaEngineCore(context: Context) {
             )
             val conversation = checkNotNull(engine).createConversation(config)
             call.bind(conversation)
+            var outputReady = false
+            var completedOutput: String? = null
             try {
                 val startedGeneration = call.start {
                     call.onNativeStart()
@@ -282,12 +341,19 @@ private class GemmaEngineCore(context: Context) {
                     invalidateEngine = true
                     if (!call.isCancelled()) call.result.completeExceptionally(IllegalStateException(failureCode))
                 } else if (!call.isCancelled() && !call.expired()) {
-                    call.result.complete(call.output())
+                    completedOutput = call.output()
+                    outputReady = true
                 } else call.cancel()
             } finally {
                 // Native terminal callback has arrived, or sendMessageAsync did not begin.
-                call.closeConversation()
+                if (!call.closeConversation()) {
+                    failureCode = "native_close_failed"
+                    call.result.completeExceptionally(IllegalStateException(LOCAL_FORMAT_MEETING_UNAVAILABLE_MESSAGE))
+                    outputReady = false
+                    invalidateEngine = true
+                }
             }
+            if (outputReady) call.result.complete(completedOutput)
         } catch (_: Throwable) {
             if (!call.isCancelled()) {
                 if (failureCode == null) failureCode = "generation_error"
@@ -354,7 +420,10 @@ private class GemmaEngineCore(context: Context) {
             return elapsed
         } catch (_: Throwable) {
             deadline.returned()
-            if (opening?.isInitialized() == true) runCatching { opening.close() }
+            val failedOpening = opening
+            if (failedOpening?.isInitialized() == true) {
+                nativeCloseGuard.closeInitializedFailedEngine(isInitialized = true) { failedOpening.close() }
+            }
             runtimeName = "gpu-error"
             failureCode = "gpu_initialization_failed"
             isLoaded = false
@@ -365,16 +434,23 @@ private class GemmaEngineCore(context: Context) {
         }
     }
 
-    private fun closeEngine(preserveFailure: Boolean = false) {
+    private fun closeEngine(preserveFailure: Boolean = false): Boolean {
         val closing = engine
-        engine = null
         isLoaded = false
-        if (closing != null) runCatching { closing.close() }
+        val closed = closing == null || nativeCloseGuard.closeEngine { closing.close() }
+        if (!closed) {
+            if (!preserveFailure || failureCode == null) failureCode = "native_close_failed"
+            runtimeName = "gpu-error"
+            admission.resume()
+            return false
+        }
+        if (closing != null) engine = null
         if (!preserveFailure) {
             runtimeName = "not-loaded"
             failureCode = null
         } else if (failureCode != "model_missing") runtimeName = "gpu-error"
         admission.resume()
+        return true
     }
 }
 
@@ -384,6 +460,14 @@ internal class GemmaCall(
     private val onChunk: (String) -> Unit,
     val onNativeStart: () -> Unit,
     private val now: () -> Long = SystemClock::elapsedRealtime,
+    private val closeConversationSafely: (Conversation) -> Boolean = { conversation ->
+        try {
+            conversation.close()
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    },
     private val stale: () -> Boolean,
 ) {
     val policy = request.layoutPolicy()
@@ -411,11 +495,10 @@ internal class GemmaCall(
     fun cancelNative() {
         synchronized(nativeLock) { conversation?.let { runCatching { it.cancelProcess() } } }
     }
-    fun closeConversation() {
-        synchronized(nativeLock) {
-            conversation?.let { runCatching { it.close() } }
-            conversation = null
-        }
+    fun closeConversation(): Boolean = synchronized(nativeLock) {
+        val closing = conversation ?: return@synchronized true
+        conversation = null
+        closeConversationSafely(closing)
     }
     fun output(): String = synchronized(textLock) { text.toString() }
 

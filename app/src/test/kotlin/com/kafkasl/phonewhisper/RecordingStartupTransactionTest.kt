@@ -1,12 +1,13 @@
 package com.kafkasl.phonewhisper
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 
 class RecordingStartupTransactionTest {
     @Test
-    fun `construction failure does not create a session`() {
+    fun `construction failure does not create a session and confirms no recorder release was needed`() {
         var sessionAttempts = 0
         val result = RecordingStartupTransaction(
             bufferSize = 1,
@@ -17,16 +18,31 @@ class RecordingStartupTransactionTest {
             },
         ).start()
 
-        assertEquals(
-            RecordingStartupTransaction.Failure.CONSTRUCTION_FAILED,
-            (result as RecordingStartupTransaction.Result.Failed).reason,
-        )
+        assertFailed(result, RecordingStartupTransaction.Failure.CONSTRUCTION_FAILED)
+        assertReleaseConfirmed(result, expected = true)
         assertEquals(0, sessionAttempts)
     }
 
     @Test
+    fun `invalid buffer confirms no recorder release was needed`() {
+        var recorderAttempts = 0
+        val result = RecordingStartupTransaction(
+            bufferSize = 0,
+            createRecorder = {
+                recorderAttempts++
+                FakeRecorder()
+            },
+            openSession = { FakeSession() },
+        ).start()
+
+        assertFailed(result, RecordingStartupTransaction.Failure.INVALID_BUFFER)
+        assertReleaseConfirmed(result, expected = true)
+        assertEquals(0, recorderAttempts)
+    }
+
+    @Test
     fun `uninitialized recorder is released without creating a session`() {
-        val recorder = FakeRecorder(isInitialized = false)
+        val recorder = FakeRecorder(initialized = false)
         var sessionAttempts = 0
 
         val result = transaction(
@@ -37,11 +53,30 @@ class RecordingStartupTransactionTest {
             },
         ).start()
 
-        assertEquals(
-            RecordingStartupTransaction.Failure.UNINITIALIZED,
-            (result as RecordingStartupTransaction.Result.Failed).reason,
-        )
+        assertFailed(result, RecordingStartupTransaction.Failure.UNINITIALIZED)
+        assertReleaseConfirmed(result, expected = true)
         assertEquals(0, recorder.startCalls)
+        assertEquals(1, recorder.releaseCalls)
+        assertEquals(0, sessionAttempts)
+    }
+
+    @Test
+    fun `initialized getter failure rolls back the constructed recorder`() {
+        val recorder = FakeRecorder(initializedFailure = IllegalStateException("initialized"))
+        var sessionAttempts = 0
+
+        val result = transaction(
+            recorder = recorder,
+            openSession = {
+                sessionAttempts++
+                FakeSession()
+            },
+        ).start()
+
+        assertFailed(result, RecordingStartupTransaction.Failure.UNINITIALIZED)
+        assertReleaseConfirmed(result, expected = true)
+        assertEquals(0, recorder.startCalls)
+        assertEquals(1, recorder.stopCalls)
         assertEquals(1, recorder.releaseCalls)
         assertEquals(0, sessionAttempts)
     }
@@ -59,13 +94,26 @@ class RecordingStartupTransactionTest {
             },
         ).start()
 
-        assertEquals(
-            RecordingStartupTransaction.Failure.START_FAILED,
-            (result as RecordingStartupTransaction.Result.Failed).reason,
-        )
+        assertFailed(result, RecordingStartupTransaction.Failure.START_FAILED)
+        assertReleaseConfirmed(result, expected = true)
         assertEquals(1, recorder.stopCalls)
         assertEquals(1, recorder.releaseCalls)
         assertEquals(0, sessionAttempts)
+    }
+
+    @Test
+    fun `start failure still reports unconfirmed release when release throws`() {
+        val recorder = FakeRecorder(
+            startFailure = IllegalStateException("start"),
+            releaseFailure = IllegalStateException("release"),
+        )
+
+        val result = transaction(recorder = recorder, openSession = { FakeSession() }).start()
+
+        assertFailed(result, RecordingStartupTransaction.Failure.START_FAILED)
+        assertReleaseConfirmed(result, expected = false)
+        assertEquals(1, recorder.stopCalls)
+        assertEquals(1, recorder.releaseCalls)
     }
 
     @Test
@@ -81,10 +129,44 @@ class RecordingStartupTransactionTest {
             },
         ).start()
 
-        assertEquals(
-            RecordingStartupTransaction.Failure.NOT_RECORDING,
-            (result as RecordingStartupTransaction.Result.Failed).reason,
+        assertFailed(result, RecordingStartupTransaction.Failure.NOT_RECORDING)
+        assertReleaseConfirmed(result, expected = true)
+        assertEquals(1, recorder.stopCalls)
+        assertEquals(1, recorder.releaseCalls)
+        assertEquals(0, sessionAttempts)
+    }
+
+    @Test
+    fun `stop failure still attempts release and confirms successful release`() {
+        val recorder = FakeRecorder(
+            recordingAfterStart = false,
+            stopFailure = IllegalStateException("stop"),
         )
+
+        val result = transaction(recorder = recorder, openSession = { FakeSession() }).start()
+
+        assertFailed(result, RecordingStartupTransaction.Failure.NOT_RECORDING)
+        assertReleaseConfirmed(result, expected = true)
+        assertEquals(1, recorder.stopCalls)
+        assertEquals(1, recorder.releaseCalls)
+    }
+
+    @Test
+    fun `recording getter failure rolls back instead of escaping startup`() {
+        val recorder = FakeRecorder(recordingFailure = IllegalStateException("recording"))
+        var sessionAttempts = 0
+
+        val result = transaction(
+            recorder = recorder,
+            openSession = {
+                sessionAttempts++
+                FakeSession()
+            },
+        ).start()
+
+        assertFailed(result, RecordingStartupTransaction.Failure.NOT_RECORDING)
+        assertReleaseConfirmed(result, expected = true)
+        assertEquals(1, recorder.startCalls)
         assertEquals(1, recorder.stopCalls)
         assertEquals(1, recorder.releaseCalls)
         assertEquals(0, sessionAttempts)
@@ -99,10 +181,23 @@ class RecordingStartupTransactionTest {
             openSession = { throw IllegalStateException("session") },
         ).start()
 
-        assertEquals(
-            RecordingStartupTransaction.Failure.SESSION_FAILED,
-            (result as RecordingStartupTransaction.Result.Failed).reason,
-        )
+        assertFailed(result, RecordingStartupTransaction.Failure.SESSION_FAILED)
+        assertReleaseConfirmed(result, expected = true)
+        assertEquals(1, recorder.stopCalls)
+        assertEquals(1, recorder.releaseCalls)
+    }
+
+    @Test
+    fun `session failure still reports unconfirmed release when release throws`() {
+        val recorder = FakeRecorder(releaseFailure = IllegalStateException("release"))
+
+        val result = transaction(
+            recorder = recorder,
+            openSession = { throw IllegalStateException("session") },
+        ).start()
+
+        assertFailed(result, RecordingStartupTransaction.Failure.SESSION_FAILED)
+        assertReleaseConfirmed(result, expected = false)
         assertEquals(1, recorder.stopCalls)
         assertEquals(1, recorder.releaseCalls)
     }
@@ -121,6 +216,25 @@ class RecordingStartupTransactionTest {
         assertEquals(0, recorder.releaseCalls)
     }
 
+    private fun assertFailed(
+        result: RecordingStartupTransaction.Result,
+        expectedReason: RecordingStartupTransaction.Failure,
+    ) {
+        assertEquals(expectedReason, (result as RecordingStartupTransaction.Result.Failed).reason)
+    }
+
+    private fun assertReleaseConfirmed(
+        result: RecordingStartupTransaction.Result,
+        expected: Boolean,
+    ) {
+        val failed = result as RecordingStartupTransaction.Result.Failed
+        val getter = failed.javaClass.methods.firstOrNull {
+            it.name == "getRecorderReleaseConfirmed" && it.parameterCount == 0
+        }
+        assertNotNull("Failed result must expose recorderReleaseConfirmed", getter)
+        assertEquals(expected, getter!!.invoke(failed))
+    }
+
     private fun transaction(
         recorder: FakeRecorder,
         openSession: () -> DictationAsrSession,
@@ -131,28 +245,46 @@ class RecordingStartupTransactionTest {
     )
 
     private class FakeRecorder(
-        override val isInitialized: Boolean = true,
+        private val initialized: Boolean = true,
+        private val initializedFailure: Throwable? = null,
         private val recordingAfterStart: Boolean = true,
+        private val recordingFailure: Throwable? = null,
         private val startFailure: Throwable? = null,
+        private val stopFailure: Throwable? = null,
+        private val releaseFailure: Throwable? = null,
     ) : RecordingRecorder {
         var startCalls = 0
         var stopCalls = 0
         var releaseCalls = 0
-        override var isRecording: Boolean = false
+        private var recording = false
+
+        override val isInitialized: Boolean
+            get() {
+                initializedFailure?.let { throw it }
+                return initialized
+            }
+
+        override val isRecording: Boolean
+            get() {
+                recordingFailure?.let { throw it }
+                return recording
+            }
 
         override fun startRecording() {
             startCalls++
             startFailure?.let { throw it }
-            isRecording = recordingAfterStart
+            recording = recordingAfterStart
         }
 
         override fun stop() {
             stopCalls++
-            isRecording = false
+            recording = false
+            stopFailure?.let { throw it }
         }
 
         override fun release() {
             releaseCalls++
+            releaseFailure?.let { throw it }
         }
     }
 

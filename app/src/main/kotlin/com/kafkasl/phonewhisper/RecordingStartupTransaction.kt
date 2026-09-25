@@ -29,57 +29,82 @@ internal class RecordingStartupTransaction(
             val session: DictationAsrSession,
         ) : Result()
 
-        data class Failed(val reason: Failure) : Result()
+        data class Failed(
+            val reason: Failure,
+            val recorderReleaseConfirmed: Boolean,
+        ) : Result()
     }
 
     fun start(): Result {
-        if (bufferSize <= 0) return Result.Failed(Failure.INVALID_BUFFER)
+        if (bufferSize <= 0) {
+            return Result.Failed(Failure.INVALID_BUFFER, recorderReleaseConfirmed = true)
+        }
 
         val recorder = try {
             createRecorder()
         } catch (_: Throwable) {
-            return Result.Failed(Failure.CONSTRUCTION_FAILED)
+            return Result.Failed(Failure.CONSTRUCTION_FAILED, recorderReleaseConfirmed = true)
         }
 
-        if (!recorder.isInitialized) {
-            cleanup(recorder)
-            return Result.Failed(Failure.UNINITIALIZED)
+        val initiallyInitialized = try {
+            recorder.isInitialized
+        } catch (_: Throwable) {
+            return failedAfterCleanup(Failure.UNINITIALIZED, recorder)
         }
+        if (!initiallyInitialized) return failedAfterCleanup(Failure.UNINITIALIZED, recorder)
 
         try {
             recorder.startRecording()
         } catch (_: Throwable) {
-            cleanup(recorder)
-            return Result.Failed(Failure.START_FAILED)
+            return failedAfterCleanup(Failure.START_FAILED, recorder)
         }
 
-        when (AudioRecordStartPolicy.decide(bufferSize, recorder.isInitialized, recorder.isRecording)) {
+        val initializedAfterStart = try {
+            recorder.isInitialized
+        } catch (_: Throwable) {
+            return failedAfterCleanup(Failure.UNINITIALIZED, recorder)
+        }
+        if (!initializedAfterStart) return failedAfterCleanup(Failure.UNINITIALIZED, recorder)
+
+        val recordingAfterStart = try {
+            recorder.isRecording
+        } catch (_: Throwable) {
+            return failedAfterCleanup(Failure.NOT_RECORDING, recorder)
+        }
+
+        when (AudioRecordStartPolicy.decide(bufferSize, initializedAfterStart, recordingAfterStart)) {
             AudioRecordStartPolicy.Decision.START -> Unit
             AudioRecordStartPolicy.Decision.INVALID_BUFFER -> {
-                cleanup(recorder)
-                return Result.Failed(Failure.INVALID_BUFFER)
+                return failedAfterCleanup(Failure.INVALID_BUFFER, recorder)
             }
             AudioRecordStartPolicy.Decision.UNINITIALIZED -> {
-                cleanup(recorder)
-                return Result.Failed(Failure.UNINITIALIZED)
+                return failedAfterCleanup(Failure.UNINITIALIZED, recorder)
             }
             AudioRecordStartPolicy.Decision.NOT_RECORDING -> {
-                cleanup(recorder)
-                return Result.Failed(Failure.NOT_RECORDING)
+                return failedAfterCleanup(Failure.NOT_RECORDING, recorder)
             }
         }
 
         val session = try {
             openSession()
         } catch (_: Throwable) {
-            cleanup(recorder)
-            return Result.Failed(Failure.SESSION_FAILED)
+            return failedAfterCleanup(Failure.SESSION_FAILED, recorder)
         }
         return Result.Started(recorder, session)
     }
 
-    private fun cleanup(recorder: RecordingRecorder) {
+    private fun failedAfterCleanup(
+        reason: Failure,
+        recorder: RecordingRecorder,
+    ): Result.Failed = Result.Failed(reason, recorderReleaseConfirmed = cleanup(recorder))
+
+    private fun cleanup(recorder: RecordingRecorder): Boolean {
         try { recorder.stop() } catch (_: Throwable) {}
-        try { recorder.release() } catch (_: Throwable) {}
+        return try {
+            recorder.release()
+            true
+        } catch (_: Throwable) {
+            false
+        }
     }
 }

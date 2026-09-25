@@ -6,6 +6,12 @@ import java.io.ByteArrayOutputStream
 import java.util.Base64
 
 class NoteImagesTest {
+    @Test fun scannerImagesKeepAStableKindForNoteAndExportMetadata() {
+        val scanned = NoteImageKind.values().firstOrNull { it.name == "SCAN" }
+
+        assertEquals("Document scanné", scanned?.label)
+    }
+
     private fun image(number: Int) = NoteImage("00000000-0000-0000-0000-${number.toString().padStart(12, '0')}",
         number, NoteImageKind.SCREENSHOT, 0L, 1080, 2400)
     private class Storage : TranscriptNoteStorage {

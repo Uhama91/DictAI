@@ -1,10 +1,12 @@
 package com.kafkasl.phonewhisper
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PointF
 import android.graphics.Shader
 import android.view.View
 import android.os.SystemClock
@@ -54,6 +56,13 @@ class CursiveWaveView(context: Context) : View(context) {
         private const val WAVE_SPEED_RAD_PER_SECOND = 6f
         private const val MAX_FRAME_DT_SECONDS = 0.12f
         private const val TWO_PI = 6.2831855f
+        private const val MEETING_LOOP_COUNT = 6
+        private const val MEETING_PATH_SEGMENTS = 144
+        private const val MEETING_TURN_SECONDS = 3.2f
+        private const val MEETING_DEGREES_PER_SECOND = 360f / MEETING_TURN_SECONDS
+        private const val MEETING_SIDE_MARGIN_DP = 2f
+        private const val MEETING_BASE_RADIUS_RATIO = 0.57f
+        private const val MEETING_LOBE_RADIUS_RATIO = 0.26f
     }
 
     private data class LoopVar(val widthMod: Float, val ampMod: Float)
@@ -82,6 +91,26 @@ class CursiveWaveView(context: Context) : View(context) {
         val baselineY: Float,
         /** The same loop's right junction, shared with the next loop. */
         val endBaselineY: Float,
+    )
+
+    /** Geometry cache shared by the real draw path and the internal test inspector. */
+    internal data class MeetingSpiralGeometry(
+        val loopCount: Int,
+        val loopCenters: List<PointF>,
+        val isClosed: Boolean,
+        val centerX: Float,
+        val centerY: Float,
+        val outerRadiusPx: Float,
+        val innerRadiusPx: Float,
+        val strokeWidthPx: Float,
+        val horizontalTranslationPx: Float,
+        val loopCenterRadiusPx: Float,
+    )
+
+    /** Read-only frame state exposed to deterministic JVM tests. */
+    internal data class MeetingSpiralSnapshot(
+        val rotationDegrees: Float,
+        val frameScheduled: Boolean,
     )
 
     // Fixed variations make a spatial wrap exact: every cycle has the same handwriting and
@@ -156,11 +185,32 @@ class CursiveWaveView(context: Context) : View(context) {
     private var running = false
     private var lastFrameNanos = 0L
     private var brandMode = false
+    private var meetingMode = false
+    private var meetingCaptureActive = false
+    private var meetingRotationDegrees = 0f
+    private var meetingWindowVisible = false
+    private var frameScheduled = false
     private var edgeShader: LinearGradient? = null
     private var edgeShaderColor = 0
     private var edgeShaderWidth = 0f
 
     private val path = Path()
+    private val meetingPath = Path()
+    private var meetingPathWidth = -1f
+    private var meetingPathHeight = -1f
+    private var meetingPathDensity = -1f
+    private var meetingGeometry = MeetingSpiralGeometry(
+        loopCount = 0,
+        loopCenters = emptyList(),
+        isClosed = false,
+        centerX = 0f,
+        centerY = 0f,
+        outerRadiusPx = 0f,
+        innerRadiusPx = 0f,
+        strokeWidthPx = 0f,
+        horizontalTranslationPx = 0f,
+        loopCenterRadiusPx = 0f,
+    )
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = ThemeTokens.palette(context).ink
@@ -194,14 +244,12 @@ class CursiveWaveView(context: Context) : View(context) {
     fun start() {
         if (running) return
         running = true
-        lastFrameNanos = SystemClock.elapsedRealtimeNanos()
-        postOnAnimation(tick)
+        updateFrameScheduler(resetClock = true)
     }
 
     fun stop() {
         running = false
-        lastFrameNanos = 0L
-        removeCallbacks(tick)
+        updateFrameScheduler()
     }
 
     /** Repos : onde calme (amplitude minimale) dessinée une seule fois, sans animer. */
@@ -230,21 +278,233 @@ class CursiveWaveView(context: Context) : View(context) {
         return result
     }
 
-    override fun onDetachedFromWindow() { stop(); super.onDetachedFromWindow() }
+    /** Select the meeting crown without changing the Dictée or brand path parameters. */
+    fun setMeetingMode(enabled: Boolean) {
+        if (meetingMode == enabled) return
+        meetingMode = enabled
+        if (!enabled) meetingCaptureActive = false
+        updateFrameScheduler(resetClock = true)
+        invalidate()
+    }
+
+    /** The crown rotates only while native capture is actually active. */
+    fun setMeetingCaptureActive(active: Boolean) {
+        if (meetingCaptureActive == active) return
+        meetingCaptureActive = active
+        updateFrameScheduler(resetClock = true)
+        invalidate()
+    }
+
+    internal fun meetingSpiralGeometryForTest(widthPx: Float, heightPx: Float): MeetingSpiralGeometry =
+        ensureMeetingPath(widthPx, heightPx)
+
+    /** Approximation of the exact path drawn by [onDraw], exposed only for geometry tests. */
+    internal fun meetingSpiralPathPointsForTest(widthPx: Float, heightPx: Float): FloatArray {
+        ensureMeetingPath(widthPx, heightPx)
+        return meetingPath.approximate(0.25f)
+    }
+
+    internal fun meetingSpiralSnapshotForTest() =
+        MeetingSpiralSnapshot(meetingRotationDegrees, frameScheduled)
+
+    internal fun advanceMeetingForTest(dtSeconds: Float) {
+        advanceMeetingRotation(dtSeconds)
+        invalidate()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        meetingWindowVisible = windowVisibility == View.VISIBLE
+        updateFrameScheduler(resetClock = true)
+    }
+
+    override fun onDetachedFromWindow() {
+        running = false
+        removeCallbacks(tick)
+        frameScheduled = false
+        lastFrameNanos = 0L
+        meetingWindowVisible = false
+        super.onDetachedFromWindow()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (meetingMode) updateFrameScheduler(resetClock = visibility == View.VISIBLE)
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        meetingWindowVisible = visibility == View.VISIBLE
+        if (meetingMode) updateFrameScheduler(resetClock = visibility == View.VISIBLE)
+    }
+
+    private fun updateFrameScheduler(resetClock: Boolean = false) {
+        if (!shouldScheduleFrame()) {
+            if (frameScheduled) removeCallbacks(tick)
+            frameScheduled = false
+            lastFrameNanos = 0L
+            return
+        }
+        if (resetClock || lastFrameNanos <= 0L) {
+            lastFrameNanos = SystemClock.elapsedRealtimeNanos()
+        }
+        if (!frameScheduled) {
+            frameScheduled = true
+            postOnAnimation(tick)
+        }
+    }
+
+    private fun shouldScheduleFrame(): Boolean = if (meetingMode) {
+        meetingCaptureActive && isAttachedToWindow && isShown && meetingWindowVisible &&
+            windowVisibility == View.VISIBLE && ValueAnimator.areAnimatorsEnabled()
+    } else {
+        running
+    }
 
     private val tick = object : Runnable {
         override fun run() {
-            if (!running) return
+            frameScheduled = false
+            if (!shouldScheduleFrame()) {
+                lastFrameNanos = 0L
+                return
+            }
             val now = SystemClock.elapsedRealtimeNanos()
             val previous = lastFrameNanos
             val dt = if (previous <= 0L) 1f / 60f
             else ((now - previous).coerceAtLeast(0L) / 1_000_000_000f)
                 .coerceAtMost(MAX_FRAME_DT_SECONDS)
             lastFrameNanos = now
-            advanceAnimation(dt)
+            if (meetingMode) advanceMeetingRotation(dt) else advanceAnimation(dt)
             invalidate()
-            postOnAnimation(this)
+            updateFrameScheduler()
         }
+    }
+
+    private fun advanceMeetingRotation(dtSeconds: Float) {
+        if (!meetingMode || !meetingCaptureActive || !ValueAnimator.areAnimatorsEnabled()) return
+        val dt = dtSeconds.coerceAtLeast(0f)
+        meetingRotationDegrees = (meetingRotationDegrees + MEETING_DEGREES_PER_SECOND * dt) % 360f
+    }
+
+    /** Builds the cached path that is both drawn on-device and inspected by geometry tests. */
+    private fun ensureMeetingPath(widthPx: Float, heightPx: Float): MeetingSpiralGeometry {
+        val density = resources.displayMetrics.density
+        if (meetingPathWidth == widthPx && meetingPathHeight == heightPx && meetingPathDensity == density) {
+            return meetingGeometry
+        }
+        meetingPathWidth = widthPx
+        meetingPathHeight = heightPx
+        meetingPathDensity = density
+        meetingPath.reset()
+        if (widthPx <= 0f || heightPx <= 0f) {
+            meetingGeometry = MeetingSpiralGeometry(
+                loopCount = 0,
+                loopCenters = emptyList(),
+                isClosed = false,
+                centerX = widthPx / 2f,
+                centerY = heightPx / 2f,
+                outerRadiusPx = 0f,
+                innerRadiusPx = 0f,
+                strokeWidthPx = 0f,
+                horizontalTranslationPx = 0f,
+                loopCenterRadiusPx = 0f,
+            )
+            return meetingGeometry
+        }
+
+        val strokeWidth = 2.3f * density
+        val margin = MEETING_SIDE_MARGIN_DP * density
+        val availableRadius = ((min(widthPx, heightPx) - strokeWidth - 2f * margin) / 2f)
+            .coerceAtLeast(strokeWidth)
+        val baseRadius = availableRadius * MEETING_BASE_RADIUS_RATIO
+        val lobeRadius = availableRadius * MEETING_LOBE_RADIUS_RATIO
+        val centerX = widthPx / 2f
+        val centerY = heightPx / 2f
+        val step = TWO_PI / MEETING_PATH_SEGMENTS
+
+        var previousX = meetingX(0f, centerX, baseRadius, lobeRadius)
+        var previousY = meetingY(0f, centerY, baseRadius, lobeRadius)
+        meetingPath.moveTo(previousX, previousY)
+        for (segment in 0 until MEETING_PATH_SEGMENTS) {
+            val startT = segment * step
+            val endT = (segment + 1) * step
+            val nextX = meetingX(endT, centerX, baseRadius, lobeRadius)
+            val nextY = meetingY(endT, centerY, baseRadius, lobeRadius)
+            val startDx = meetingDx(startT, baseRadius, lobeRadius)
+            val startDy = meetingDy(startT, baseRadius, lobeRadius)
+            val endDx = meetingDx(endT, baseRadius, lobeRadius)
+            val endDy = meetingDy(endT, baseRadius, lobeRadius)
+            val handle = step / 3f
+            meetingPath.cubicTo(
+                previousX + startDx * handle,
+                previousY + startDy * handle,
+                nextX - endDx * handle,
+                nextY - endDy * handle,
+                nextX,
+                nextY,
+            )
+            previousX = nextX
+            previousY = nextY
+        }
+        meetingPath.close()
+
+        val centers = ArrayList<PointF>(MEETING_LOOP_COUNT)
+        for (index in 0 until MEETING_LOOP_COUNT) {
+            var t = index * TWO_PI / MEETING_LOOP_COUNT
+            val targetPhase = index * TWO_PI
+            repeat(5) {
+                val phaseError = MEETING_LOOP_COUNT * t + meetingPhaseOffset(t) - targetPhase
+                val phaseSlope = MEETING_LOOP_COUNT + meetingPhaseDerivative(t)
+                t -= phaseError / phaseSlope
+            }
+            centers += PointF(
+                centerX + (baseRadius + lobeRadius) * kotlin.math.cos(t),
+                centerY + (baseRadius + lobeRadius) * kotlin.math.sin(t),
+            )
+        }
+        val innerRadius = baseRadius - lobeRadius
+        val loopCenterRadius = baseRadius + lobeRadius
+        meetingGeometry = MeetingSpiralGeometry(
+            loopCount = MEETING_LOOP_COUNT,
+            loopCenters = centers,
+            isClosed = true,
+            centerX = centerX,
+            centerY = centerY,
+            outerRadiusPx = loopCenterRadius + strokeWidth / 2f,
+            innerRadiusPx = innerRadius,
+            strokeWidthPx = strokeWidth,
+            horizontalTranslationPx = 0f,
+            loopCenterRadiusPx = loopCenterRadius,
+        )
+        return meetingGeometry
+    }
+
+    private fun meetingPhaseOffset(t: Float): Float =
+        0.055f * sin(t) + 0.025f * sin(2f * t + 0.4f)
+
+    private fun meetingPhaseDerivative(t: Float): Float =
+        0.055f * kotlin.math.cos(t) + 0.05f * kotlin.math.cos(2f * t + 0.4f)
+
+    private fun meetingX(t: Float, centerX: Float, baseRadius: Float, lobeRadius: Float): Float {
+        val lobePhase = 7f * t + meetingPhaseOffset(t)
+        return centerX + baseRadius * kotlin.math.cos(t) + lobeRadius * kotlin.math.cos(lobePhase)
+    }
+
+    private fun meetingY(t: Float, centerY: Float, baseRadius: Float, lobeRadius: Float): Float {
+        val lobePhase = 7f * t + meetingPhaseOffset(t)
+        return centerY + baseRadius * kotlin.math.sin(t) + lobeRadius * kotlin.math.sin(lobePhase)
+    }
+
+    private fun meetingDx(t: Float, baseRadius: Float, lobeRadius: Float): Float {
+        val lobePhase = 7f * t + meetingPhaseOffset(t)
+        val phaseSpeed = 7f + meetingPhaseDerivative(t)
+        return -baseRadius * kotlin.math.sin(t) - lobeRadius * phaseSpeed * kotlin.math.sin(lobePhase)
+    }
+
+    private fun meetingDy(t: Float, baseRadius: Float, lobeRadius: Float): Float {
+        val lobePhase = 7f * t + meetingPhaseOffset(t)
+        val phaseSpeed = 7f + meetingPhaseDerivative(t)
+        return baseRadius * kotlin.math.cos(t) + lobeRadius * phaseSpeed * kotlin.math.cos(lobePhase)
     }
 
     private fun advanceAnimation(dtSeconds: Float) {
@@ -283,11 +543,26 @@ class CursiveWaveView(context: Context) : View(context) {
         smoothAmp = nextVoice * BRAND_MAX_AMP
     }
 
+    override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight)
+        if (meetingMode && width > 0 && height > 0) ensureMeetingPath(width.toFloat(), height.toFloat())
+    }
+
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
         val strokeColor = strokeColorOverride ?: ThemeTokens.palette(context).ink
         paint.color = strokeColor
+        if (meetingMode) {
+            val geometry = ensureMeetingPath(w, h)
+            paint.strokeWidth = geometry.strokeWidthPx
+            paint.shader = null
+            canvas.save()
+            canvas.rotate(meetingRotationDegrees, geometry.centerX, geometry.centerY)
+            canvas.drawPath(meetingPath, paint)
+            canvas.restore()
+            return
+        }
         val logicalW = if (brandMode) BRAND_W else COMPACT_W
         val logicalH = if (brandMode) BRAND_H else COMPACT_H
         // Keep a roughly 2.3dp stroke after the logical canvas is scaled at any density.

@@ -86,6 +86,25 @@ https://openmdw.ai/license/
 The OpenMDW-1.1 license text is not reproduced in this notice. Refer to the
 official license URL above.
 
+Meeting ASR and speaker diarization
+----------------------------------
+libdictai_meeting.so uses NVIDIA NeMo-Speech.cpp at source revision
+97a15afa5caa9bce5baaa86c1184103877af4101. It statically links its own pinned
+GGML and SentencePiece runtimes. Source revisions and license-file paths
+are listed in assets/licenses/meeting/SOURCES.md.
+
+The NeMo-Speech.cpp license, NOTICE, and complete upstream third-party
+notice are included in assets/licenses/meeting/. The third-party notice
+includes attribution for code derived from parakeet.cpp. It also documents
+optional upstream components; it is not a list of everything linked into
+this Android binary.
+
+The two NVIDIA model files used for meeting transcription and diarization
+are downloaded separately and are not bundled in the APK. Their exact
+revisions, sizes, SHA-256 values, and OpenMDW-1.1 license reference are
+recorded in assets/licenses/meeting/SOURCES.md; the license text is included
+as assets/licenses/meeting/OpenMDW-1.1.txt.
+
 Scope
 -----
 This file records the bundled native components and downloaded models known to

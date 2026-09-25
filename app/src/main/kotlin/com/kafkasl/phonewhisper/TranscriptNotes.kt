@@ -1,5 +1,9 @@
 package com.kafkasl.phonewhisper
 
+import com.kafkasl.phonewhisper.meeting.MeetingDocument
+import com.kafkasl.phonewhisper.meeting.MeetingDocumentJson
+import com.kafkasl.phonewhisper.meeting.MeetingProjection
+
 /** A user-created collection. Notes may deliberately keep a null folderId. */
 internal data class NoteFolder(
     val id: String,
@@ -18,11 +22,17 @@ internal data class TranscriptNote(
     val folderId: String? = null,
     /** Legacy notes are treated as already classified; newly saved notes set this false. */
     val folderChoicePrompted: Boolean = true,
-)
+    val meeting: MeetingDocument? = null,
+    val meetingRaw: String? = null,
+) {
+    init { require(meeting == null || meetingRaw == null) { "A note cannot hold a parsed and opaque meeting payload together" } }
+}
 
 internal interface TranscriptNoteStorage {
     fun all(): List<TranscriptNote>
     fun put(note: TranscriptNote)
+    /** Implementations with durable storage should verify this write before returning. */
+    fun putMeeting(note: TranscriptNote) = put(note)
     fun remove(id: String)
 
     /** Folder methods have defaults so existing storage implementations remain compatible. */
@@ -62,6 +72,9 @@ internal class TranscriptNotes(
 
     fun save(id: String?, text: String, images: List<NoteImage>? = null, folderId: String? = null): TranscriptNote {
         val old = get(id)
+        require(old?.meeting == null && old?.meetingRaw == null) {
+            "Une note Réunion ne peut pas être modifiée par une sauvegarde de texte plate"
+        }
         val attachments = (images ?: old?.images.orEmpty()).toList()
         require(attachments.size <= NoteImage.MAX_IMAGES)
         require(attachments.distinctBy { it.id }.size == attachments.size && attachments.distinctBy { it.number }.size == attachments.size)
@@ -79,6 +92,36 @@ internal class TranscriptNotes(
             attachments,
             targetFolder,
             old?.folderChoicePrompted ?: (folderId != null),
+        )
+        put(note)
+        return note
+    }
+
+    fun saveMeeting(id: String?, meeting: MeetingDocument, images: List<NoteImage>? = null): TranscriptNote {
+        MeetingDocumentJson.encode(meeting) // Validate the full structure before any storage write.
+        val noteId = meeting.sessionId
+        require(id == null || id == noteId) { "L’identifiant d’une note Réunion est sa session" }
+        val old = get(noteId)
+        require(old == null || (old.meeting?.sessionId == meeting.sessionId && old.meetingRaw == null)) {
+            "Cette note appartient à une autre session ou contient un payload opaque"
+        }
+
+        val attachments = (images ?: old?.images.orEmpty()).toList()
+        require(attachments.size <= NoteImage.MAX_IMAGES)
+        require(attachments.distinctBy { it.id }.size == attachments.size && attachments.distinctBy { it.number }.size == attachments.size)
+        val imageNumbers = attachments.mapTo(mutableSetOf()) { it.number }
+        val projection = MeetingProjection.text(meeting, imageNumbers)
+        val title = if (old?.renamed == true) old.title else titleFromMeeting(meeting, imageNumbers)
+        val note = TranscriptNote(
+            id = noteId,
+            title = title,
+            text = projection,
+            updatedAt = now(),
+            renamed = old?.renamed ?: false,
+            images = attachments,
+            folderId = old?.folderId?.takeIf(cachedFolders::containsKey),
+            folderChoicePrompted = old?.folderChoicePrompted ?: false,
+            meeting = meeting,
         )
         put(note)
         return note
@@ -112,11 +155,12 @@ internal class TranscriptNotes(
 
     /** Deleting a folder is an unfiling operation and therefore cannot delete note content. */
     fun deleteFolder(id: String): Boolean {
-        if (cachedFolders.remove(id) == null) return false
+        if (cachedFolders[id] == null) return false
         cached.values.filter { it.folderId == id }.forEach { note ->
             put(note.copy(folderId = null, updatedAt = now(), folderChoicePrompted = true))
         }
         storage.removeFolder(id)
+        cachedFolders.remove(id)
         return true
     }
 
@@ -145,7 +189,7 @@ internal class TranscriptNotes(
     fun delete(id: String) { storage.remove(id); cached.remove(id) }
 
     private fun put(note: TranscriptNote) {
-        storage.put(note)
+        if (note.meeting != null || note.meetingRaw != null) storage.putMeeting(note) else storage.put(note)
         cached[note.id] = note
     }
 
@@ -159,8 +203,19 @@ internal class TranscriptNotes(
 
     private fun normalizeName(name: String): String? = name.trim().take(MAX_NAME_LENGTH).takeIf { it.isNotEmpty() }
 
+    private fun titleFromMeeting(meeting: MeetingDocument, imageNumbers: Set<Int>): String {
+        val speech = MeetingProjection.rows(meeting, imageNumbers)
+            .asSequence()
+            .filter { it.editableSpeech }
+            .map { imageMarker.replace(it.body, " ").trim() }
+            .firstOrNull { it.isNotBlank() }
+            ?: return "Nouvelle réunion"
+        return titleFrom(speech).takeUnless { it == "Nouvelle note" } ?: "Nouvelle réunion"
+    }
+
     companion object {
         const val MAX_NAME_LENGTH = 80
+        private val imageMarker = Regex("\\[\\[Image [1-9][0-9]{0,5}]]")
 
         fun titleFrom(text: String): String {
             val line = text.lineSequence().map { it.trim() }.filter { !it.startsWith("[[Image ") }.firstOrNull { it.isNotEmpty() } ?: return "Nouvelle note"
@@ -168,4 +223,10 @@ internal class TranscriptNotes(
             return words.take(60).trimEnd().ifBlank { "Nouvelle note" }.replaceFirstChar { it.titlecase() }
         }
     }
+}
+
+internal fun TranscriptNote.withMeetingProjection(): TranscriptNote {
+    val document = meeting ?: return this
+    val imageNumbers = images.mapTo(mutableSetOf()) { it.number }
+    return copy(text = MeetingProjection.text(document, imageNumbers))
 }

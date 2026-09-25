@@ -4,6 +4,7 @@ package com.kafkasl.phonewhisper
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -25,14 +26,20 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.radiobutton.MaterialRadioButton
+import com.kafkasl.phonewhisper.meeting.MeetingModelStore
 class MainActivity : AppCompatActivity() {
-    private enum class Screen { HOME, DICTATION, FORMATTING, PREFERENCES }
+    private enum class Screen { HOME, DICTATION, MEETING, FORMATTING, PREFERENCES }
 
     private var localFormatBenchmark: LocalFormatBenchmarkDialog? = null
     private var gemmaDownload: GemmaModelDownloadDialog? = null
     private var gemmaSubtitle: TextView? = null
     private var screen = Screen.HOME
     private var contentScroll: ScrollView? = null
+    private var meetingModelSettingsPanel: MeetingModelSettingsPanel? = null
+    private var modeSubscription: AutoCloseable? = null
+    private var lastObservedTranscriptionMode: TranscriptionMode? = null
+
+    internal var meetingModelStoreProvider: (Context) -> MeetingModelStore = { MeetingModelStore.shared(it) }
 
     private val palette: ThemePalette
         get() = ThemeTokens.palette(this)
@@ -49,6 +56,10 @@ class MainActivity : AppCompatActivity() {
         gemmaDownload = null
         localFormatBenchmark?.close()
         localFormatBenchmark = null
+        meetingModelSettingsPanel?.close()
+        meetingModelSettingsPanel = null
+        modeSubscription?.close()
+        modeSubscription = null
         super.onDestroy()
     }
 
@@ -164,6 +175,7 @@ class MainActivity : AppCompatActivity() {
             runCatching { Screen.valueOf(value) }.getOrNull()
         } ?: Screen.HOME
         renderScreen(savedInstanceState?.getInt(KEY_SCROLL_Y, 0) ?: 0)
+        observeTranscriptionMode()
 
         // Nouveaux utilisateurs : si la configuration de base manque et que l'assistant n'a
         // jamais été terminé, on lance directement l'onboarding d'installation.
@@ -186,6 +198,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderScreen(scrollY: Int = 0) {
+        meetingModelSettingsPanel?.close()
+        meetingModelSettingsPanel = null
         audioRowSub = null
         accRowSub = null
         overlayRowSub = null
@@ -197,6 +211,7 @@ class MainActivity : AppCompatActivity() {
         val root = when (screen) {
             Screen.HOME -> buildHomePage()
             Screen.DICTATION -> buildDictationPage()
+            Screen.MEETING -> buildMeetingPage()
             Screen.FORMATTING -> buildFormattingPage()
             Screen.PREFERENCES -> buildPreferencesPage()
         }.apply {
@@ -299,13 +314,85 @@ class MainActivity : AppCompatActivity() {
                 typeface = Typeface.create(it, 600, false)
             }
         })
+        root.addView(buildTranscriptionModeChoices())
         root.addView(homeAccessRow("Dictée", dictationSummary(), R.drawable.ic_mic, minHeightDp = 94) { navigateTo(Screen.DICTATION) })
+        root.addView(homeAccessRow("Réglages Réunion", "Langue, intervenants et modèles", android.R.drawable.ic_menu_info_details, minHeightDp = 94) {
+            navigateTo(Screen.MEETING)
+        })
         root.addView(homeAccessRow("Mise en forme", formattingSummary(), android.R.drawable.ic_menu_edit, minHeightDp = 94) { navigateTo(Screen.FORMATTING) })
         root.addView(homeAccessRow("Préférences", "", android.R.drawable.ic_menu_preferences, minHeightDp = 94) {
             navigateTo(Screen.PREFERENCES)
         })
         root.addView(homeSpacer(weight = 1f, minDp = 24))
         return root
+    }
+
+    private fun buildTranscriptionModeChoices(): LinearLayout {
+        val selected = TranscriptionModeCoordinator.process(applicationContext).snapshot().mode
+        val card = cardContainer()
+        card.addView(TextView(this).apply {
+            text = "Mode de transcription"
+            textSize = 18f
+            setTextColor(palette.ink)
+        })
+        val choices = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(8), 0, 0)
+        }
+        listOf(TranscriptionMode.DICTATION, TranscriptionMode.MEETING).forEach { mode ->
+            val label = mode.displayLabel()
+            val choiceSelected = mode == selected
+            choices.addView(MaterialButton(this).apply {
+                text = label
+                isAllCaps = false
+                minimumHeight = dp(48)
+                minHeight = dp(48)
+                contentDescription = "Mode $label${if (choiceSelected) ", sélectionné" else ""}"
+                this.isSelected = choiceSelected
+                cornerRadius = dp(16)
+                strokeWidth = dp(1)
+                strokeColor = ColorStateList.valueOf(if (choiceSelected) palette.green else palette.stroke)
+                setBackgroundColor(if (choiceSelected) palette.green else palette.surface)
+                setTextColor(if (choiceSelected) palette.onGreen else palette.ink)
+                layoutParams = LinearLayout.LayoutParams(0, LP_WRAP, 1f).apply {
+                    rightMargin = dp(6)
+                }
+                setOnClickListener { chooseTranscriptionMode(mode) }
+            })
+        }
+        card.addView(choices)
+        return card
+    }
+
+    private fun chooseTranscriptionMode(mode: TranscriptionMode) {
+        val coordinator = TranscriptionModeCoordinator.process(applicationContext)
+        if (coordinator.snapshot().mode == mode) return
+        if (!coordinator.changeMode(mode)) {
+            val snapshot = coordinator.snapshot()
+            val message = if (snapshot.poisoned) {
+                TRANSCRIPTION_MODE_UNAVAILABLE_MESSAGE
+            } else if (snapshot.activeRunMode != null) {
+                "Terminer l’enregistrement avant de changer de mode"
+            } else {
+                TRANSCRIPTION_MODE_UNAVAILABLE_MESSAGE
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            return
+        }
+        applyTranscriptionMode(mode)
+    }
+
+    private fun observeTranscriptionMode() {
+        val coordinator = TranscriptionModeCoordinator.process(applicationContext)
+        lastObservedTranscriptionMode = coordinator.snapshot().mode
+        modeSubscription?.close()
+        modeSubscription = coordinator.subscribe { snapshot -> applyTranscriptionMode(snapshot.mode) }
+    }
+
+    private fun applyTranscriptionMode(mode: TranscriptionMode) {
+        if (isFinishing || isDestroyed || lastObservedTranscriptionMode == mode) return
+        lastObservedTranscriptionMode = mode
+        if (screen == Screen.HOME) renderScreen(contentScroll?.scrollY ?: 0)
     }
 
     private fun homeAccessRow(
@@ -409,6 +496,31 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("Copier") { _, _ -> DictationClipboard.copy(this, report) }
                 .setNegativeButton("Fermer", null).show()
         })
+        return root
+    }
+
+    private fun buildMeetingPage(): LinearLayout {
+        val root = vertical(0, 0)
+        root.addView(navigationHeader("Réunion"))
+        root.addView(sectionHeader("Préparer une réunion"))
+        val globalLanguage = PersistencePrefs(this).dictationLanguage
+        root.addView(settingsRow("Langue globale", languageLabel(globalLanguage)) {
+            showLanguageDialog("Langue globale")
+        })
+        root.addView(settingsRow(
+            "Suivi des intervenants",
+            "Jusqu’à huit voix par réunion, voix ignorées comprises",
+        ))
+        root.addView(TextView(this).apply {
+            text = "Télécharge les modèles pour transcrire tes réunions hors ligne."
+            textSize = 14f
+            setTextColor(palette.inkMuted)
+            setPadding(dp(14), dp(4), dp(14), dp(8))
+        })
+        val panel = MeetingModelSettingsPanel(this, meetingModelStoreProvider(applicationContext))
+        meetingModelSettingsPanel = panel
+        root.addView(panel)
+        panel.start()
         return root
     }
 
@@ -1009,12 +1121,12 @@ class MainActivity : AppCompatActivity() {
         thumbTintList = thumb
     }
 
-    private fun showLanguageDialog() {
+    private fun showLanguageDialog(title: String = "Langue de dictée") {
         val prefs = PersistencePrefs(this)
         val choices = arrayOf("Français", "English")
         val checked = DictationLanguage.entries.indexOf(prefs.dictationLanguage)
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Langue de dictée")
+            .setTitle(title)
             .setSingleChoiceItems(choices, checked) { dialog, which ->
                 prefs.dictationLanguage = DictationLanguage.entries[which]
                 dialog.dismiss()

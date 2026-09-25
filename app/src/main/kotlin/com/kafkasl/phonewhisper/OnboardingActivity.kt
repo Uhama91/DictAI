@@ -2,6 +2,7 @@ package com.kafkasl.phonewhisper
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Typeface
@@ -23,6 +24,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.kafkasl.phonewhisper.meeting.MeetingModelStore
+import com.kafkasl.phonewhisper.meeting.MeetingModelStoreState
 
 /**
  * Assistant d'installation : checklist guidée des permissions/réglages nécessaires.
@@ -45,7 +48,20 @@ class OnboardingActivity : AppCompatActivity() {
 
     private val prefs by lazy { getSharedPreferences("whisperpin", MODE_PRIVATE) }
     private lateinit var stepsContainer: LinearLayout
+    private lateinit var modeChoicesContainer: LinearLayout
+    private lateinit var meetingModelContainer: LinearLayout
+    private lateinit var meetingAccessibilityInfo: TextView
     private lateinit var startBtn: MaterialButton
+    private var onboardingScroll: ScrollView? = null
+    private var meetingModelSettingsPanel: MeetingModelSettingsPanel? = null
+    private var meetingModelStore: MeetingModelStore? = null
+    private var requiredStepsComplete = false
+    private var modeSubscription: AutoCloseable? = null
+    private var lastObservedMode: TranscriptionMode? = null
+
+    internal var manufacturerForTests: String? = null
+
+    internal var meetingModelStoreProvider: (Context) -> MeetingModelStore = { MeetingModelStore.shared(it) }
 
     @Volatile private var modelDownloading = false
     private var modelMsg: String? = null
@@ -80,6 +96,22 @@ class OnboardingActivity : AppCompatActivity() {
             setPadding(0, 0, 0, dp(12))
         })
 
+        modeChoicesContainer = vertical(0)
+        root.addView(modeChoicesContainer)
+
+        meetingModelContainer = vertical(0)
+        meetingModelContainer.visibility = View.GONE
+        root.addView(meetingModelContainer)
+
+        meetingAccessibilityInfo = TextView(this).apply {
+            text = "Facultatif : l’accessibilité permet les captures d’écran pendant une réunion."
+            textSize = 14f
+            setTextColor(palette.inkMuted)
+            setPadding(0, dp(4), 0, dp(8))
+            visibility = View.GONE
+        }
+        root.addView(meetingAccessibilityInfo)
+
         stepsContainer = vertical(0)
         root.addView(stepsContainer)
 
@@ -97,7 +129,9 @@ class OnboardingActivity : AppCompatActivity() {
         root.addView(startBtn)
 
         scroll.addView(root)
+        onboardingScroll = scroll
         setContentView(scroll)
+        observeTranscriptionMode()
     }
 
     override fun onResume() { super.onResume(); build() }
@@ -105,57 +139,146 @@ class OnboardingActivity : AppCompatActivity() {
     // ---- étapes ----
 
     private fun isXiaomi(): Boolean {
-        val m = (Build.MANUFACTURER + " " + Build.BRAND).lowercase()
+        val m = (manufacturerForTests ?: (Build.MANUFACTURER + " " + Build.BRAND)).lowercase()
         return m.contains("xiaomi") || m.contains("redmi") || m.contains("poco")
     }
 
     private fun steps(): List<Step> {
         val onboardingModel = recommendedModel()
-        return listOf(
-        Step("mic", "Microphone", "Pour enregistrer et transcrire ta voix.",
+        val mic = Step("mic", "Microphone", "Pour enregistrer et transcrire ta voix.",
             { hasPerm(Manifest.permission.RECORD_AUDIO) }, "Autoriser",
-            { ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1) }),
+            { ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1) })
 
-        Step("model", "Modèle de transcription (FR/EN)",
+        val model = Step("model", "Modèle de transcription (FR/EN)",
             "Télécharge ${onboardingModel.name} (~${onboardingModel.sizeMb} Mo, WiFi conseillé) pour dicter hors-ligne en français ou en anglais. Le téléchargement continue pendant que tu fais les autres étapes.",
             { ModelDownloader.isInstalled(this, onboardingModel) }, "Télécharger (~${onboardingModel.sizeMb} Mo)",
-            { startModelDownload() }),
+            { startModelDownload() })
 
-        Step("overlay", "Afficher par-dessus les apps", "Pour la pastille flottante au-dessus de toutes les apps.",
+        val overlay = Step("overlay", "Afficher par-dessus les apps", "Pour la pastille flottante au-dessus de toutes les apps.",
             { Settings.canDrawOverlays(this) }, "Ouvrir",
-            { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }),
+            { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) })
 
-        Step("restricted", "Autoriser les paramètres restreints",
+        val restricted = Step("restricted", "Autoriser les paramètres restreints",
             "Xiaomi bloque l'accessibilité des apps installées hors Play Store. Dans la fiche de l'app : descends tout en bas → active « Autoriser les paramètres restreints ».",
-            { null }, "Ouvrir la fiche", { openAppDetails() }, visible = { isXiaomi() }),
+            { null }, "Ouvrir la fiche", { openAppDetails() }, visible = { isXiaomi() })
 
-        Step("accessibility", "Service d'accessibilité", "Pour insérer le texte transcrit dans n'importe quel champ.",
+        val accessibility = Step("accessibility", "Service d'accessibilité", "Pour insérer le texte transcrit dans n'importe quel champ.",
             { InjectionGateway.current() != null }, "Ouvrir",
-            { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }),
+            { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
 
-        Step("interrupt", "Désactiver « Interrompre si non utilisée »",
+        val interrupt = Step("interrupt", "Désactiver « Interrompre si non utilisée »",
             "En haut de la fiche de l'app, désactive « Interrompre l'activité si l'app n'est pas utilisée » (sinon HyperOS retire les permissions).",
-            { null }, "Ouvrir la fiche", { openAppDetails() }, visible = { isXiaomi() }),
+            { null }, "Ouvrir la fiche", { openAppDetails() }, visible = { isXiaomi() })
 
-        Step("battery", "Batterie sans restriction", "Pour que le système ne tue pas la pastille en arrière-plan.",
+        val battery = Step("battery", "Batterie sans restriction", "Pour que le système ne tue pas la pastille en arrière-plan.",
             { isIgnoringBattery() }, "Autoriser",
             { runCatching { startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))) }
-                .onFailure { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }),
+                .onFailure { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } })
 
-        Step("autostart", "Démarrage automatique (autostart)",
+        val autostart = Step("autostart", "Démarrage automatique (autostart)",
             "Active DictAI dans la liste de démarrage automatique pour qu'il survive aux nettoyages de RAM.",
-            { null }, "Ouvrir", { openAutostart() }, visible = { isXiaomi() }),
+            { null }, "Ouvrir", { openAutostart() }, visible = { isXiaomi() })
 
-        Step("notif", "Notifications", "Pour la notification persistante qui garde la pastille active.",
+        val notifications = Step("notif", "Notifications", "Pour la notification persistante qui garde la pastille active.",
             { hasPerm(Manifest.permission.POST_NOTIFICATIONS) }, "Autoriser",
             { if (Build.VERSION.SDK_INT >= 33) ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2) },
             visible = { Build.VERSION.SDK_INT >= 33 })
-        )
+
+        return if (selectedMode() == TranscriptionMode.MEETING) {
+            listOf(mic, overlay, interrupt, battery, autostart, notifications)
+        } else {
+            listOf(mic, model, overlay, restricted, accessibility, interrupt, battery, autostart, notifications)
+        }
     }
 
     private fun stepDone(s: Step): Boolean = s.detect() ?: prefs.getBoolean("onb_${s.id}", false)
 
+    private fun renderModeChoices() {
+        val selectedMode = selectedMode()
+        modeChoicesContainer.removeAllViews()
+        modeChoicesContainer.addView(TextView(this).apply {
+            text = "Mode de transcription"
+            textSize = 18f
+            setTextColor(palette.ink)
+            setPadding(0, dp(4), 0, dp(4))
+        })
+        val choices = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        listOf(TranscriptionMode.DICTATION, TranscriptionMode.MEETING).forEach { mode ->
+            val label = mode.displayLabel()
+            val choiceSelected = mode == selectedMode
+            choices.addView(MaterialButton(this).apply {
+                text = label
+                isAllCaps = false
+                minimumHeight = dp(48)
+                minHeight = dp(48)
+                cornerRadius = dp(16)
+                contentDescription = "Mode $label${if (choiceSelected) ", sélectionné" else ""}"
+                setBackgroundColor(if (choiceSelected) palette.green else palette.surface)
+                setTextColor(if (choiceSelected) palette.onGreen else palette.ink)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    rightMargin = dp(6)
+                }
+                setOnClickListener { chooseMode(mode) }
+            })
+        }
+        modeChoicesContainer.addView(choices)
+    }
+
+    private fun chooseMode(mode: TranscriptionMode) {
+        val coordinator = TranscriptionModeCoordinator.process(applicationContext)
+        if (coordinator.snapshot().mode == mode) return
+        if (!coordinator.changeMode(mode)) {
+            val snapshot = coordinator.snapshot()
+            val message = if (snapshot.poisoned) {
+                TRANSCRIPTION_MODE_UNAVAILABLE_MESSAGE
+            } else if (snapshot.activeRunMode != null) {
+                "Terminer l’enregistrement avant de changer de mode"
+            } else {
+                TRANSCRIPTION_MODE_UNAVAILABLE_MESSAGE
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            return
+        }
+        applyModeChange(mode)
+    }
+
+    private fun selectedMode(): TranscriptionMode = TranscriptionModeCoordinator.process(applicationContext).snapshot().mode
+
+    private fun observeTranscriptionMode() {
+        val coordinator = TranscriptionModeCoordinator.process(applicationContext)
+        lastObservedMode = coordinator.snapshot().mode
+        modeSubscription?.close()
+        modeSubscription = coordinator.subscribe { snapshot -> applyModeChange(snapshot.mode) }
+    }
+
+    private fun applyModeChange(mode: TranscriptionMode) {
+        if (isFinishing || isDestroyed || lastObservedMode == mode) return
+        val scrollY = onboardingScroll?.scrollY ?: 0
+        lastObservedMode = mode
+        build()
+        onboardingScroll?.post { onboardingScroll?.scrollTo(0, scrollY) }
+    }
+
     private fun build() {
+        renderModeChoices()
+        val meetingMode = selectedMode() == TranscriptionMode.MEETING
+        meetingModelContainer.visibility = if (meetingMode) View.VISIBLE else View.GONE
+        meetingAccessibilityInfo.visibility = if (meetingMode) View.VISIBLE else View.GONE
+        if (meetingMode) {
+            val store = meetingModelStore ?: meetingModelStoreProvider(applicationContext).also {
+                meetingModelStore = it
+            }
+            val panel = meetingModelSettingsPanel ?: MeetingModelSettingsPanel(this, store).also { created ->
+                meetingModelSettingsPanel = created
+                created.onStateChanged = { updateFinishButton() }
+                meetingModelContainer.addView(created)
+            }
+            panel.visibility = View.VISIBLE
+            panel.start()
+        } else {
+            meetingModelSettingsPanel?.stop()
+            meetingModelSettingsPanel?.visibility = View.GONE
+        }
         stepsContainer.removeAllViews()
         val visible = steps().filter { it.visible() }
         var n = 1
@@ -165,8 +288,22 @@ class OnboardingActivity : AppCompatActivity() {
             if (!done) allDone = false
             stepsContainer.addView(stepCard(n++, s, done))
         }
-        startBtn.isEnabled = allDone
-        startBtn.alpha = if (allDone) 1f else 0.45f
+        requiredStepsComplete = allDone
+        updateFinishButton()
+    }
+
+    private fun updateFinishButton() {
+        if (!::startBtn.isInitialized) return
+        val meetingReady = selectedMode() != TranscriptionMode.MEETING ||
+            meetingModelStore?.currentState is MeetingModelStoreState.Ready
+        val enabled = requiredStepsComplete && meetingReady
+        startBtn.isEnabled = enabled
+        startBtn.alpha = if (enabled) 1f else 0.45f
+        startBtn.text = if (selectedMode() == TranscriptionMode.MEETING) {
+            "Terminer l’installation Réunion"
+        } else {
+            "DictAI est prêt — démarrer"
+        }
     }
 
     private fun stepCard(index: Int, s: Step, done: Boolean): View {
@@ -264,6 +401,12 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        modeSubscription?.close()
+        modeSubscription = null
+        meetingModelSettingsPanel?.close()
+        meetingModelSettingsPanel = null
+        meetingModelStore = null
+        onboardingScroll = null
         modelStatusView = null // éviter d'écrire sur une vue détachée depuis un callback de download
         modelProgressView = null
         super.onDestroy()

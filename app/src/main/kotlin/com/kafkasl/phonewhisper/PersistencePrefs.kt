@@ -72,6 +72,11 @@ class PersistencePrefs internal constructor(private val p: SharedPreferences) {
         get() = DictationLanguage.fromPreference(p.getString("dictation_language", null))
         set(v) { p.edit().putString("dictation_language", v.preferenceValue).apply() }
 
+    /** The selected recording mode is shared by the home screen, onboarding and overlay service. */
+    internal var transcriptionMode: TranscriptionMode
+        get() = TranscriptionMode.fromPreference(p.getString(KEY_TRANSCRIPTION_MODE, null))
+        set(value) { p.edit().putString(KEY_TRANSCRIPTION_MODE, value.preferenceValue).apply() }
+
     internal var numberStyle: NumberStyle
         get() = NumberStyle.entries.firstOrNull { it.name == p.getString("number_style", null) } ?: NumberStyle.DIGITS
         set(value) { p.edit().putString("number_style", value.name).apply() }
@@ -127,6 +132,7 @@ class PersistencePrefs internal constructor(private val p: SharedPreferences) {
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_ANCHOR_EDGE = "btn_anchor_edge"
         private const val KEY_ANCHOR_OFFSET = "btn_anchor_offset"
+        private const val KEY_TRANSCRIPTION_MODE = "transcription_mode"
         private const val LEGACY_OPENROUTER_MODEL_KEY = "cloud_cleanup_model_openrouter"
 
         fun clampX(x: Int, w: Int, screenW: Int) = x.coerceIn(0, (screenW - w).coerceAtLeast(0))

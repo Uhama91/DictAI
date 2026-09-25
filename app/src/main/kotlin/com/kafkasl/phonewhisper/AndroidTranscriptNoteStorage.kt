@@ -1,7 +1,11 @@
 package com.kafkasl.phonewhisper
 
 import android.content.Context
+import com.kafkasl.phonewhisper.meeting.MeetingDocumentJson
+import com.kafkasl.phonewhisper.meeting.MeetingDocumentRead
+import com.kafkasl.phonewhisper.meeting.MeetingProjection
 import org.json.JSONObject
+import java.io.IOException
 
 internal class AndroidTranscriptNoteStorage(context: Context) : TranscriptNoteStorage {
     private val imageStore = NoteImageStore(context)
@@ -10,10 +14,27 @@ internal class AndroidTranscriptNoteStorage(context: Context) : TranscriptNoteSt
     override fun all(): List<TranscriptNote> = prefs.all.values.mapNotNull { value ->
         runCatching {
             val item = JSONObject(value as String)
+            val images = NoteImageJson.readList(item.optJSONArray("images"))
+            val rawMeeting = item.meetingPayload()
+            val meetingRead = MeetingDocumentJson.decode(rawMeeting)
+            val meeting = (meetingRead as? MeetingDocumentRead.Ready)?.document
+            val opaqueMeeting = when (meetingRead) {
+                is MeetingDocumentRead.Invalid, is MeetingDocumentRead.Unsupported -> rawMeeting
+                else -> null
+            }
             TranscriptNote(
-                item.getString("id"), item.getString("title"), item.getString("text"), item.getLong("updated"),
-                item.optBoolean("renamed"), NoteImageJson.readList(item.optJSONArray("images")),
-                item.optString("folderId").takeIf { it.isNotBlank() }, item.optBoolean("folderChoicePrompted", true),
+                id = item.getString("id"),
+                title = item.getString("title"),
+                text = meeting?.let { document ->
+                    MeetingProjection.text(document, images.mapTo(mutableSetOf()) { it.number })
+                } ?: item.getString("text"),
+                updatedAt = item.getLong("updated"),
+                renamed = item.optBoolean("renamed"),
+                images = images,
+                folderId = item.optString("folderId").takeIf { it.isNotBlank() },
+                folderChoicePrompted = item.optBoolean("folderChoicePrompted", true),
+                meeting = meeting,
+                meetingRaw = opaqueMeeting,
             )
         }.getOrNull()
     }
@@ -23,8 +44,25 @@ internal class AndroidTranscriptNoteStorage(context: Context) : TranscriptNoteSt
             .apply {
                 note.folderId?.let { put("folderId", it) }
                 put("folderChoicePrompted", note.folderChoicePrompted)
+                when {
+                    note.meeting != null -> put("meeting", MeetingDocumentJson.encode(note.meeting))
+                    note.meetingRaw != null -> put("meeting", note.meetingRaw)
+                }
             }
-        prefs.edit().putString(note.id, item.toString()).apply()
+        val serialized = item.toString()
+        val editor = prefs.edit().putString(note.id, serialized)
+        if (note.meeting != null || note.meetingRaw != null) {
+            val previous = prefs.all[note.id] as? String
+            if (!editor.commit()) {
+                val rollback = prefs.edit()
+                if (previous == null) rollback.remove(note.id) else rollback.putString(note.id, previous)
+                val failure = IOException("Échec de publication de la note Réunion")
+                if (!rollback.commit()) failure.addSuppressed(IOException("Restauration de l’ancienne note impossible"))
+                throw failure
+            }
+        } else {
+            editor.apply()
+        }
     }
 
     override fun allFolders(): List<NoteFolder> = folderPrefs.all.values.mapNotNull { value ->
@@ -49,5 +87,14 @@ internal class AndroidTranscriptNoteStorage(context: Context) : TranscriptNoteSt
         val old = all().firstOrNull { it.id == id }
         prefs.edit().remove(id).apply()
         old?.images?.forEach { imageStore.delete(it.id) }
+    }
+
+    private fun JSONObject.meetingPayload(): String? {
+        if (!has("meeting")) return null
+        return when (val value = opt("meeting")) {
+            null, JSONObject.NULL -> null
+            is String -> value
+            else -> value.toString()
+        }
     }
 }

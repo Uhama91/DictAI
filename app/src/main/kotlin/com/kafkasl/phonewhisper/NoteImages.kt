@@ -1,6 +1,8 @@
 package com.kafkasl.phonewhisper
 
-internal enum class NoteImageKind(val label: String) { SCREENSHOT("Capture d’écran"), CAMERA("Photo") }
+internal enum class NoteImageKind(val label: String) {
+    SCREENSHOT("Capture d’écran"), CAMERA("Photo"), SCAN("Document scanné")
+}
 
 /** One-step movement commands exposed by the note editor. */
 internal enum class NoteImageMove(val delta: Int) { UP(-1), DOWN(1) }

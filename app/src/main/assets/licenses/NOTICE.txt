@@ -27,3 +27,14 @@ The bundled ONNX Runtime native library identifies version 1.27.0. Its license
 source is https://github.com/microsoft/onnxruntime/tree/v1.27.0 and its license
 text is included at
 app/src/main/assets/licenses/onnxruntime-1.27.0-LICENSE.txt.
+
+The separate meeting runtime, libdictai_meeting.so, uses NVIDIA
+NeMo-Speech.cpp at commit 97a15afa5caa9bce5baaa86c1184103877af4101 with
+statically linked GGML and SentencePiece. Its source revisions, model
+artifacts, and bundled notices are recorded in
+app/src/main/assets/licenses/meeting/SOURCES.md. The complete upstream
+NeMo-Speech.cpp third-party notice is retained there as
+nemo-speech-THIRD_PARTY_NOTICES.md, including the attribution for portions
+derived from parakeet.cpp. That upstream notice also describes optional
+components outside this Android build; the SOURCES file identifies the
+dependencies selected for the meeting runtime.

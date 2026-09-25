@@ -15,6 +15,7 @@ import java.util.Date
 /** Selectable native text with image pages in reading order, using Android's bundled PDF engine. */
 internal object NotePdfExport {
     fun write(note: TranscriptNote, output: OutputStream, store: NoteImageStore) {
+        val projected = note.withMeetingProjection()
         val pdf = PdfDocument()
         try {
             val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(32, 35, 41); textSize = 12f }
@@ -56,23 +57,22 @@ internal object NotePdfExport {
             }
             try {
                 nextPage()
-                prose(note.title, 21f, true)
-                prose(DateFormat.getDateTimeInstance().format(Date(note.updatedAt)), 10f)
-                NoteImageMarkers.parts(note).forEach { part ->
+                prose(projected.title, 21f, true)
+                prose(DateFormat.getDateTimeInstance().format(Date(projected.updatedAt)), 10f)
+                NoteImageMarkers.parts(projected).forEach { part ->
                     when (part) {
                         is NoteImageMarkers.Part.Text -> prose(part.text)
                         is NoteImageMarkers.Part.Image -> {
                             val image = part.image
                             val bitmap = NoteImageStore.decode(store.file(image.id), 1800)
                             try {
-                                val scale = minOf(511f / bitmap.width, 650f / bitmap.height)
-                                val height = bitmap.height * scale
-                                if (y + height + 52 > 796) nextPage()
+                                val fitted = NoteExportImageSizing.fit(image.kind, bitmap.width, bitmap.height)
+                                if (y + fitted.heightPt + 52 > 796 && y > 42f) nextPage()
                                 prose("Image ${image.number} · ${image.kind.label}" + if (part.missingMarker) " · repère retiré du texte" else "", 10f)
-                                val left = 42 + (511 - bitmap.width * scale) / 2
-                                page!!.canvas.drawBitmap(bitmap, null, RectF(left, y, left + bitmap.width * scale, y + height),
+                                val left = 42 + (511 - fitted.widthPt) / 2
+                                page!!.canvas.drawBitmap(bitmap, null, RectF(left, y, left + fitted.widthPt, y + fitted.heightPt),
                                     Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
-                                y += height + 8
+                                y += fitted.heightPt + 8
                                 prose(DateFormat.getDateTimeInstance().format(Date(image.capturedAt)), 9f)
                             } finally { bitmap.recycle() }
                         }
