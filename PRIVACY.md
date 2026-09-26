@@ -11,6 +11,13 @@ and inserts the result into text fields across apps.
 DictAI's normal transcription path runs on the device using models that you
 download into the app's private storage. Audio is not sent to a DictAI server.
 
+In the Meeting prototype, audio waiting for transcription can temporarily use
+the app's private cache, with a limit of 128 MiB of pending PCM audio. Cleanup
+runs as processing advances and when the session closes. Leftovers from an
+interrupted process are cleaned up when a later meeting starts. Cancelling a
+meeting discards pending audio while keeping the transcribed text and edits in
+a local draft.
+
 ### Optional cloud cleanup
 
 If you enable cloud cleanup, DictAI sends the transcript text, the selected

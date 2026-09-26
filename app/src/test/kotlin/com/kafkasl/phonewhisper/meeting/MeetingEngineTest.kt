@@ -1,17 +1,21 @@
 package com.kafkasl.phonewhisper.meeting
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
 
 class MeetingEngineTest {
     @Test
@@ -109,6 +113,67 @@ class MeetingEngineTest {
         assertEquals(1, native.closeCount.get())
         assertFalse(native.concurrentNativeCalls)
         assertEquals(1, native.callThreadIds.toSet().size)
+    }
+
+    @Test
+    fun `cancel returns while an admitted pcm offer is blocked on queue storage`() {
+        val spoolRoot = Files.createTempDirectory("meeting-engine-cancel-blocked-offer").toFile()
+        val native = RecordingNative()
+        val engine = MeetingEngine(
+            "asr-path",
+            "diar-path",
+            native,
+            queueCapacityBytes = 2,
+            spoolRoot = spoolRoot,
+            spoolCapacityBytes = 8,
+        )
+        val ready = CountDownLatch(1)
+        val session = engine.start("run-cancel-blocked-offer", "fr", ready::countDown, {}) { error("unexpected failure") }
+        assertTrue(ready.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+
+        val queue = session.javaClass.getDeclaredField("queue").apply { isAccessible = true }.get(session)
+        val queueLock = queue.javaClass.getDeclaredField("lock").apply { isAccessible = true }
+            .get(queue) as ReentrantLock
+        queueLock.lock()
+        val offerStarted = CountDownLatch(1)
+        val offerReturned = CountDownLatch(1)
+        val offerResult = AtomicBoolean(true)
+        val producer = Thread {
+            offerStarted.countDown()
+            offerResult.set(session.acceptPcm16(byteArrayOf(1, 2), 2))
+            offerReturned.countDown()
+        }.apply { isDaemon = true }
+        val cancelReturned = CountDownLatch(1)
+        val canceller = Thread {
+            session.cancel()
+            cancelReturned.countDown()
+        }.apply { isDaemon = true }
+        var producerStarted = false
+        var cancellerStarted = false
+        var cancelWasResponsive = false
+
+        try {
+            producer.start()
+            producerStarted = true
+            assertTrue(offerStarted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue("audio offer did not wait behind simulated slow spool I/O", awaitWaiting(producer))
+            canceller.start()
+            cancellerStarted = true
+            cancelWasResponsive = cancelReturned.await(CANCEL_CALLBACK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+            assertFalse(session.closed.isDone)
+        } finally {
+            queueLock.unlock()
+            if (producerStarted) producer.join(TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
+            if (cancellerStarted) canceller.join(TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
+        }
+
+        awaitClosed(session)
+        assertTrue("cancel must not wait for an admitted queue offer", cancelWasResponsive)
+        assertTrue("the admitted offer is rejected after cancellation", offerReturned.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        assertFalse(offerResult.get())
+        assertEquals(1, native.closeCount.get())
+        assertNoSessionSpools(spoolRoot)
+        spoolRoot.deleteRecursively()
     }
 
     @Test
@@ -446,6 +511,166 @@ class MeetingEngineTest {
     }
 
     @Test
+    fun `bounded private spool accepts over ten seconds and finish drains exact pcm fifo`() {
+        val spoolRoot = Files.createTempDirectory("meeting-engine-spool").toFile()
+        val native = RecordingNative().apply {
+            firstAcceptEntered = CountDownLatch(1)
+            firstAcceptRelease = CountDownLatch(1)
+        }
+        val engine = MeetingEngine(
+            "asr-path",
+            "diar-path",
+            native,
+            queueCapacityBytes = 1_280,
+            spoolRoot = spoolRoot,
+            spoolCapacityBytes = MeetingAudioQueue.MAX_SPOOL_BYTES,
+        )
+        val ready = CountDownLatch(1)
+        val failures = Collections.synchronizedList(mutableListOf<String>())
+        val session = engine.start("run-long-backlog", "fr", ready::countDown, {}) { failures += it }
+        val blocks = pcmBlocks(blockCount = 550)
+
+        try {
+            assertTrue(ready.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(session.acceptPcm16(blocks.first(), blocks.first().size))
+            assertTrue(native.firstAcceptEntered!!.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            blocks.drop(1).forEach { block -> assertTrue(session.acceptPcm16(block, block.size)) }
+            assertTrue("more than ten seconds remain queued behind native work", session.queuedAudioMs > 10_000L)
+            session.finish()
+        } finally {
+            native.firstAcceptRelease!!.countDown()
+        }
+
+        awaitClosed(session)
+        val acceptedBytes = native.acceptedBlocks.flatMap { it }.toByteArray()
+        assertArrayEquals(blocks.flatMap { it.asIterable() }.toByteArray(), acceptedBytes)
+        assertEquals(550, native.acceptCount.get())
+        assertEquals(1, native.finishCount.get())
+        assertTrue(failures.isEmpty())
+        assertNoSessionSpools(spoolRoot)
+        spoolRoot.deleteRecursively()
+    }
+
+    @Test
+    fun `spool quota reports a safe limit error and cancellation still closes the native lease`() {
+        val spoolRoot = Files.createTempDirectory("meeting-engine-spool-limit").toFile()
+        val native = RecordingNative().apply {
+            firstAcceptEntered = CountDownLatch(1)
+            firstAcceptRelease = CountDownLatch(1)
+        }
+        val engine = MeetingEngine(
+            "asr-path",
+            "diar-path",
+            native,
+            queueCapacityBytes = 2,
+            spoolRoot = spoolRoot,
+            spoolCapacityBytes = 2,
+        )
+        val ready = CountDownLatch(1)
+        val failureDelivered = CountDownLatch(1)
+        val failures = Collections.synchronizedList(mutableListOf<String>())
+        val session = engine.start("run-spool-limit", "fr", ready::countDown, {}) {
+            failures += it
+            failureDelivered.countDown()
+        }
+
+        try {
+            assertTrue(ready.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(session.acceptPcm16(byteArrayOf(1, 2), 2))
+            assertTrue(native.firstAcceptEntered!!.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(session.acceptPcm16(byteArrayOf(3, 4), 2))
+            assertFalse(session.acceptPcm16(byteArrayOf(5, 6), 2))
+            assertTrue(failureDelivered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertEquals(listOf(MeetingEngine.AUDIO_SPOOL_LIMIT_ERROR), failures)
+            session.cancel()
+            assertFalse(session.closed.isDone)
+        } finally {
+            native.firstAcceptRelease!!.countDown()
+        }
+
+        awaitClosed(session)
+        assertEquals(0, native.finishCount.get())
+        assertEquals(1, native.closeCount.get())
+        assertNoSessionSpools(spoolRoot)
+        spoolRoot.deleteRecursively()
+    }
+
+    @Test
+    fun `cancel clears spooled backlog after blocked native accept and rejects late updates`() {
+        val spoolRoot = Files.createTempDirectory("meeting-engine-spool-cancel").toFile()
+        val native = RecordingNative().apply {
+            firstAcceptEntered = CountDownLatch(1)
+            firstAcceptRelease = CountDownLatch(1)
+        }
+        val engine = MeetingEngine(
+            "asr-path",
+            "diar-path",
+            native,
+            queueCapacityBytes = 640,
+            spoolRoot = spoolRoot,
+            spoolCapacityBytes = MeetingAudioQueue.MAX_SPOOL_BYTES,
+        )
+        val ready = CountDownLatch(1)
+        val updates = Collections.synchronizedList(mutableListOf<MeetingHypothesis>())
+        val session = engine.start("run-cancel-spool", "fr", ready::countDown, updates::add) { error("unexpected failure") }
+        val blocks = pcmBlocks(blockCount = 550)
+
+        try {
+            assertTrue(ready.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(session.acceptPcm16(blocks.first(), blocks.first().size))
+            assertTrue(native.firstAcceptEntered!!.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            blocks.drop(1).forEach { block -> assertTrue(session.acceptPcm16(block, block.size)) }
+            assertTrue(session.queuedAudioMs > 10_000L)
+
+            session.cancel()
+            assertEquals(0L, session.queuedAudioMs)
+            assertFalse(session.closed.isDone)
+        } finally {
+            native.firstAcceptRelease!!.countDown()
+        }
+
+        awaitClosed(session)
+        assertEquals(1, native.acceptCount.get())
+        assertEquals(0, native.finishCount.get())
+        assertEquals(1, native.closeCount.get())
+        assertTrue(updates.isEmpty())
+        assertNoSessionSpools(spoolRoot)
+        spoolRoot.deleteRecursively()
+    }
+
+    @Test
+    fun `cancel during native finish suppresses its late final update`() {
+        val native = RecordingNative().apply {
+            finishEntered = CountDownLatch(1)
+            finishRelease = CountDownLatch(1)
+        }
+        val engine = MeetingEngine("asr-path", "diar-path", native)
+        val ready = CountDownLatch(1)
+        val updates = Collections.synchronizedList(mutableListOf<MeetingHypothesis>())
+        val session = engine.start("run-cancel-finish", "fr", ready::countDown, updates::add) { error("unexpected failure") }
+
+        try {
+            assertTrue(ready.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(session.acceptPcm16(byteArrayOf(1, 2), 2))
+            session.finish()
+            assertTrue(native.finishEntered!!.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            val updatesBeforeCancel = updates.toList()
+            assertEquals(listOf(false), updatesBeforeCancel.map { it.isFinal })
+            session.cancel()
+            assertFalse(session.closed.isDone)
+            native.finishRelease!!.countDown()
+            awaitClosed(session)
+            assertEquals("cancel must reject native finish's late final", updatesBeforeCancel, updates.toList())
+            assertTrue(updates.none { it.isFinal })
+        } finally {
+            native.finishRelease!!.countDown()
+        }
+
+        assertEquals(1, native.finishCount.get())
+        assertEquals(1, native.closeCount.get())
+    }
+
+    @Test
     fun `open and warmup failures report safe errors and release the engine for retry`() {
         val native = RecordingNative().apply { failNextOpen.set(true) }
         val engine = MeetingEngine("secret-asr-path", "secret-diar-path", native)
@@ -526,6 +751,27 @@ class MeetingEngineTest {
         session.closed.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
     }
 
+    private fun awaitWaiting(thread: Thread): Boolean {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS)
+        while (thread.state != Thread.State.WAITING && System.nanoTime() < deadline) Thread.yield()
+        return thread.state == Thread.State.WAITING
+    }
+
+    private fun pcmBlocks(blockCount: Int): List<ByteArray> = List(blockCount) { blockIndex ->
+        ByteArray(640).also { block ->
+            repeat(block.size / 2) { sampleIndex ->
+                val sample = blockIndex * (block.size / 2) + sampleIndex
+                val pcm16 = (sample and 0x7FFF).toShort().toInt()
+                block[sampleIndex * 2] = (pcm16 and 0xFF).toByte()
+                block[sampleIndex * 2 + 1] = (pcm16 ushr 8).toByte()
+            }
+        }
+    }
+
+    private fun assertNoSessionSpools(root: File) {
+        assertTrue(root.listFiles()?.none { it.isDirectory && it.name.startsWith("session-") } != false)
+    }
+
     private class RecordingNative : MeetingNativeBridge {
         val openCount = AtomicInteger()
         val acceptCount = AtomicInteger()
@@ -545,6 +791,8 @@ class MeetingEngineTest {
         @Volatile var firstAcceptRelease: CountDownLatch? = null
         @Volatile var secondAcceptEntered: CountDownLatch? = null
         @Volatile var secondAcceptRelease: CountDownLatch? = null
+        @Volatile var finishEntered: CountDownLatch? = null
+        @Volatile var finishRelease: CountDownLatch? = null
         private val activeCalls = AtomicInteger()
 
         override fun open(asrPath: String, diarPath: String, language: String): Long = call("open") {
@@ -574,6 +822,8 @@ class MeetingEngineTest {
 
         override fun finish(handle: Long): List<MeetingNativeUpdate> = call("finish") {
             finishCount.incrementAndGet()
+            finishEntered?.countDown()
+            awaitRelease(finishRelease)
             listOf(update(99, "final", isFinal = true))
         }
 

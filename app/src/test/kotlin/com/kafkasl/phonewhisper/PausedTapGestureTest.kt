@@ -11,10 +11,10 @@ class PausedTapGestureTest {
         assertEquals(DictationTapGestureCoordinator.Action.NONE, taps.onTimeout(first.timeout!!, 1279).action)
         assertEquals(DictationTapGestureCoordinator.Action.RESUME_RECORDING, taps.onTimeout(first.timeout, 1280).action)
     }
-    @Test fun `double paused tap cancels without briefly resuming microphone`() {
+    @Test fun `double paused tap resumes instead of cancelling the session`() {
         val taps = DictationTapGestureCoordinator()
         val first = taps.onTap(DictationTapGestureCoordinator.SurfaceState.PAUSED, 1000)
-        assertEquals(DictationTapGestureCoordinator.Action.CANCEL_RECORDING,
+        assertEquals(DictationTapGestureCoordinator.Action.RESUME_RECORDING,
             taps.onTap(DictationTapGestureCoordinator.SurfaceState.PAUSED, 1100).action)
         assertEquals(DictationTapGestureCoordinator.Action.NONE, taps.onTimeout(first.timeout!!, 1300).action)
     }

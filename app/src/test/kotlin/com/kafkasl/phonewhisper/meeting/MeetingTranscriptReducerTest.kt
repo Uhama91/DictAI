@@ -9,6 +9,216 @@ import org.junit.Test
 
 class MeetingTranscriptReducerTest {
     @Test
+    fun partialWordTimingsKeepUntimedTranscriptEdgesUnattributed() {
+        val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
+
+        reducer.apply(
+            hypothesis(
+                utteranceId = 2,
+                revision = 1,
+                words = listOf(word("hello", 200, 300, 1), word("world", 300, 400, 2)),
+                transcript = "Before, hello world afterward.",
+                processedMs = 600,
+            ),
+        )
+
+        val turns = reducer.snapshot().turns
+        assertEquals(listOf("Before,", "hello", "world", "afterward."), turns.map { it.recognizedText })
+        assertNull(turns.first().automaticParticipantId)
+        assertEquals("meeting-a:participant:1", turns[1].automaticParticipantId)
+        assertEquals("meeting-a:participant:2", turns[2].automaticParticipantId)
+        assertNull(turns.last().automaticParticipantId)
+        assertFalse(turns.first().attributionStable)
+        assertFalse(turns.last().attributionStable)
+    }
+
+    @Test
+    fun partialWordRevisionPreservesEdgeAndTimedEditsAndManualAssignments() {
+        val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
+        val timedWords = listOf(word("hello", 200, 300, 1), word("world", 300, 400, 2))
+        reducer.apply(
+            hypothesis(
+                utteranceId = 3,
+                revision = 1,
+                words = timedWords,
+                transcript = "Before hello world",
+                processedMs = 600,
+            ),
+        )
+
+        val before = reducer.snapshot().turns
+        val prefix = before.single { it.recognizedText == "Before" }
+        val hello = before.single { it.recognizedText == "hello" }
+        val world = before.single { it.recognizedText == "world" }
+        val personOne = requireNotNull(hello.automaticParticipantId)
+        val personTwo = requireNotNull(world.automaticParticipantId)
+        reducer.edit(prefix.id, "Earlier")
+        reducer.assign(prefix.id, personTwo)
+        reducer.edit(hello.id, "greetings")
+        reducer.assign(world.id, personOne)
+
+        reducer.apply(
+            hypothesis(
+                utteranceId = 3,
+                revision = 2,
+                words = timedWords,
+                transcript = "Before hello world afterward",
+                processedMs = 600,
+            ),
+        )
+
+        val revised = reducer.snapshot().turns
+        val revisedPrefix = revised.single { it.id == prefix.id }
+        val revisedHello = revised.single { it.id == hello.id }
+        val revisedWorld = revised.single { it.id == world.id }
+        val suffix = revised.single { it.recognizedText == "afterward" }
+        assertEquals("Before", revisedPrefix.recognizedText)
+        assertEquals("Earlier", revisedPrefix.editedText)
+        assertEquals(personTwo, revisedPrefix.manualParticipantId)
+        assertEquals("greetings", revisedHello.editedText)
+        assertEquals("hello", revisedHello.recognizedText)
+        assertEquals(personOne, revisedWorld.manualParticipantId)
+        assertEquals("afterward", suffix.recognizedText)
+        assertNull(suffix.automaticParticipantId)
+        assertFalse(suffix.attributionStable)
+    }
+
+    @Test
+    fun internalGapRepeatedWordAndTokenMismatchKeepTheWholeTranscriptUnattributed() {
+        val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
+        reducer.apply(
+            hypothesis(
+                utteranceId = 4,
+                revision = 1,
+                words = listOf(word("hello", 100, 200, 1), word("world", 200, 300, 2)),
+                transcript = "Before hello missing world afterward",
+                processedMs = 500,
+            ),
+        )
+        reducer.apply(
+            hypothesis(
+                utteranceId = 5,
+                revision = 1,
+                words = listOf(word("yes", 100, 200, 1)),
+                transcript = "yes maybe yes",
+                processedMs = 500,
+            ),
+        )
+        reducer.apply(
+            hypothesis(
+                utteranceId = 6,
+                revision = 1,
+                words = listOf(word("hello", 100, 200, 1), word("planet", 200, 300, 2)),
+                transcript = "hello world",
+                processedMs = 500,
+            ),
+        )
+        reducer.apply(
+            hypothesis(
+                utteranceId = 7,
+                revision = 1,
+                words = listOf(word("hello", 0, 200, 1)),
+                transcript = "Before hello",
+                processedMs = 500,
+            ),
+        )
+        reducer.apply(
+            hypothesis(
+                utteranceId = 8,
+                revision = 1,
+                words = listOf(word("hello", 100, 500, 1)),
+                transcript = "hello afterward",
+                processedMs = 500,
+            ),
+        )
+
+        val turnsByUtterance = reducer.snapshot().turns.groupBy { it.utteranceId }
+        assertEquals("Before hello missing world afterward", turnsByUtterance.getValue(4).single().recognizedText)
+        assertEquals("yes maybe yes", turnsByUtterance.getValue(5).single().recognizedText)
+        assertEquals("hello world", turnsByUtterance.getValue(6).single().recognizedText)
+        assertEquals("Before hello", turnsByUtterance.getValue(7).single().recognizedText)
+        assertEquals("hello afterward", turnsByUtterance.getValue(8).single().recognizedText)
+        assertTrue(turnsByUtterance.values.flatten().all { it.automaticParticipantId == null })
+        assertTrue(turnsByUtterance.values.flatten().all { !it.attributionStable })
+    }
+
+    @Test
+    fun editedAndManuallyAssignedUntimedSuffixMovesToItsNewWordTimingWithoutDuplication() {
+        val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
+        reducer.apply(
+            hypothesis(
+                utteranceId = 9,
+                revision = 1,
+                words = listOf(word("hello", 100, 200, 1)),
+                transcript = "hello world",
+                processedMs = 600,
+            ),
+        )
+
+        val before = reducer.snapshot().turns
+        val hello = before.single { it.recognizedText == "hello" }
+        val suffix = before.single { it.recognizedText == "world" }
+        val participantId = requireNotNull(hello.automaticParticipantId)
+        reducer.edit(suffix.id, "planet")
+        reducer.assign(suffix.id, participantId)
+
+        reducer.apply(
+            hypothesis(
+                utteranceId = 9,
+                revision = 2,
+                words = listOf(word("hello", 100, 200, 1), word("world", 300, 400, 2)),
+                transcript = "hello world",
+                processedMs = 600,
+            ),
+        )
+
+        val revised = reducer.snapshot().turns
+        assertEquals(listOf("hello", "world"), revised.map { it.recognizedText })
+        val revisedSuffix = revised.single { it.recognizedText == "world" }
+        assertEquals(suffix.id, revisedSuffix.id)
+        assertEquals("planet", revisedSuffix.editedText)
+        assertEquals(participantId, revisedSuffix.manualParticipantId)
+        assertEquals(300L, revisedSuffix.startMs)
+        assertEquals(400L, revisedSuffix.endMs)
+    }
+
+    @Test
+    fun editedAndManuallyAssignedTimedTurnBecomingUntimedPrefixDoesNotDuplicateText() {
+        val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
+        reducer.apply(
+            hypothesis(
+                utteranceId = 10,
+                revision = 1,
+                words = listOf(word("hello", 100, 200, 1)),
+                transcript = "hello",
+                processedMs = 600,
+            ),
+        )
+        val original = reducer.snapshot().turns.single()
+        val participantId = requireNotNull(original.automaticParticipantId)
+        reducer.edit(original.id, "hi")
+        reducer.assign(original.id, participantId)
+
+        reducer.apply(
+            hypothesis(
+                utteranceId = 10,
+                revision = 2,
+                words = listOf(word("world", 300, 400, 2)),
+                transcript = "hello world afterward",
+                processedMs = 600,
+            ),
+        )
+
+        val turns = reducer.snapshot().turns
+        assertEquals(1, turns.size)
+        assertEquals(original.id, turns.single().id)
+        assertEquals("hello world afterward", turns.single().recognizedText)
+        assertEquals("hi world afterward", turns.single().editedText)
+        assertEquals(participantId, turns.single().manualParticipantId)
+        assertNull(turns.single().automaticParticipantId)
+    }
+
+    @Test
     fun correctionSurvivesRevisionAndNewWordsContinueAfterItsAnchor() {
         val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
         val originalWords = listOf(word("Le", 100, 150), word("mardi", 150, 200))

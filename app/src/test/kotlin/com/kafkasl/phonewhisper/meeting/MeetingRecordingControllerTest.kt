@@ -342,6 +342,165 @@ class MeetingRecordingControllerTest {
     }
 
     @Test
+    fun cancelAfterFinishCancelsNativeWorkAndDoesNotPublishTheEditedDraft() {
+        val fixture = RecordingFixture()
+        val controller = fixture.newDocument()
+        fixture.startListening(controller)
+        val session = fixture.sessionFactory.session
+        fixture.sessionFactory.emit(update("run-1", "phrase reconnue"))
+        fixture.dispatcher.runAll()
+        val turn = controller.state.document.turns.single()
+        controller.editTurn(turn.id, "correction humaine")
+
+        val finished = controller.finish()
+        fixture.dispatcher.runAll()
+        assertEquals(1, session.finishCount)
+        assertFalse(finished.isDone)
+
+        val cancelled = controller.cancel()
+        assertEquals(MeetingRecordingPhase.CLOSING, controller.state.phase)
+        assertEquals("cancel supersedes an already-issued finish", 1, session.cancelCount)
+        assertFutureFails(finished)
+
+        session.closed.complete(Unit)
+        fixture.dispatcher.runAll()
+
+        assertTrue(cancelled.get(TIMEOUT_SECONDS, TimeUnit.SECONDS) == Unit)
+        assertTrue("cancel is idempotent", cancelled === controller.cancel())
+        assertTrue(fixture.publisher.documents.isEmpty())
+        assertEquals("correction humaine", fixture.savedDrafts.single().turns.single().editedText)
+        assertEquals(MeetingRecordingPhase.FINISHED, controller.state.phase)
+    }
+
+    @Test
+    fun cancelDuringFinalDraftFlushCompletesWithoutPublishingTheNote() {
+        val fixture = RecordingFixture()
+        val controller = fixture.newDocument()
+        fixture.startListening(controller)
+        fixture.sessionFactory.emit(update("run-1", "phrase reconnue"))
+        fixture.dispatcher.runAll()
+        controller.editTurn(controller.state.document.turns.single().id, "correction humaine")
+        fixture.scheduler.deferWrites = true
+
+        val finished = controller.finish()
+        fixture.dispatcher.runAll()
+        fixture.sessionFactory.session.closed.complete(Unit)
+        fixture.dispatcher.runAll()
+        assertEquals(1, fixture.scheduler.pendingWriteCount)
+
+        val cancelled = controller.cancel()
+        fixture.dispatcher.runAll()
+        fixture.scheduler.runPendingWrites()
+        fixture.dispatcher.runAll()
+
+        assertFutureFails(finished)
+        assertTrue("cancellation waits for the final draft write", cancelled.get(TIMEOUT_SECONDS, TimeUnit.SECONDS) == Unit)
+        assertTrue(fixture.publisher.documents.isEmpty())
+        assertEquals("correction humaine", fixture.savedDrafts.last().turns.single().editedText)
+        assertEquals(MeetingRecordingPhase.FINISHED, controller.state.phase)
+    }
+
+    @Test
+    fun cancelDuringNotePublicationCancelsLatePublicationAndKeepsDraft() {
+        val fixture = RecordingFixture()
+        val controller = fixture.newDocument()
+        fixture.startListening(controller)
+        fixture.sessionFactory.emit(update("run-1", "phrase reconnue"))
+        fixture.dispatcher.runAll()
+        controller.editTurn(controller.state.document.turns.single().id, "correction humaine")
+        fixture.publisher.deferNextSave = true
+
+        val finished = controller.finish()
+        fixture.dispatcher.runAll()
+        fixture.sessionFactory.session.closed.complete(Unit)
+        fixture.dispatcher.runAll()
+        val publication = requireNotNull(fixture.publisher.pendingPublication)
+        assertFalse(finished.isDone)
+
+        val cancelled = controller.cancel()
+        fixture.dispatcher.runAll()
+        fixture.publisher.completeDeferredSaveSuccessfully()
+        fixture.dispatcher.runAll()
+
+        assertFutureFails(finished)
+        assertTrue(cancelled.get(TIMEOUT_SECONDS, TimeUnit.SECONDS) == Unit)
+        assertTrue("late publication was cancelled", publication.isCancelled)
+        assertTrue(fixture.publisher.documents.isEmpty())
+        assertEquals("correction humaine", fixture.savedDrafts.last().turns.single().editedText)
+    }
+
+    @Test
+    fun cancelDuringPauseStopsTheMicrophoneAndResolvesThePauseFuture() {
+        val fixture = RecordingFixture()
+        val controller = fixture.newDocument()
+        fixture.startListening(controller)
+        val microphone = fixture.microphoneFactory.recorders.single()
+        val session = fixture.sessionFactory.session
+        microphone.stopFuture = CompletableFuture()
+
+        val paused = controller.pause()
+        val cancelled = controller.cancel()
+        assertFutureFails(paused)
+        assertEquals(MeetingRecordingPhase.CLOSING, controller.state.phase)
+        assertEquals(1, microphone.stopCount)
+        assertEquals(1, session.cancelCount)
+        assertTrue(controller.state.captureActive)
+
+        microphone.stopFuture.complete(Unit)
+        session.closed.complete(Unit)
+        fixture.dispatcher.runAll()
+
+        assertFalse(controller.state.captureActive)
+        assertTrue(cancelled.get(TIMEOUT_SECONDS, TimeUnit.SECONDS) == Unit)
+    }
+
+    @Test
+    fun cancelAfterAudioQueueFailureOverridesFinishAndKeepsTheDraft() {
+        val fixture = RecordingFixture()
+        val controller = fixture.newDocument()
+        fixture.startListening(controller)
+        val session = fixture.sessionFactory.session
+        val microphone = fixture.microphoneFactory.recorders.single()
+        session.acceptResults.addAll(listOf(true, false))
+
+        assertTrue(microphone.offer(byteArrayOf(1, 2)))
+        fixture.sessionFactory.emit(update("run-1", "phrase conservée"))
+        fixture.dispatcher.runAll()
+        assertFalse(microphone.offer(byteArrayOf(3, 4)))
+        fixture.dispatcher.runAll()
+        assertEquals(1, session.finishCount)
+
+        val cancelled = controller.cancel()
+        assertEquals(1, session.cancelCount)
+        session.closed.complete(Unit)
+        fixture.dispatcher.runAll()
+
+        assertTrue(cancelled.get(TIMEOUT_SECONDS, TimeUnit.SECONDS) == Unit)
+        assertTrue(fixture.publisher.documents.isEmpty())
+        assertEquals("phrase conservée", fixture.savedDrafts.last().turns.single().recognizedText)
+        assertTrue(controller.state.recordingError != null)
+        assertEquals(MeetingRecordingPhase.FINISHED, controller.state.phase)
+    }
+
+    @Test
+    fun destroyResolvesPendingFinishFutureAndWaitsForNativeClose() {
+        val fixture = RecordingFixture()
+        val controller = fixture.newDocument()
+        fixture.startListening(controller)
+        val finished = controller.finish()
+        fixture.dispatcher.runAll()
+
+        val destroyed = controller.destroy()
+        assertFutureFails(finished)
+        assertFalse(destroyed.isDone)
+
+        fixture.sessionFactory.session.closed.complete(Unit)
+        fixture.dispatcher.runAll()
+
+        assertTrue(destroyed.get(TIMEOUT_SECONDS, TimeUnit.SECONDS) == Unit)
+    }
+
+    @Test
     fun cancelBeforeNativeReadyCompletesPendingStartAndClosesOpenedSession() {
         val fixture = RecordingFixture()
         val controller = fixture.newDocument()
@@ -421,7 +580,8 @@ class MeetingRecordingControllerTest {
         assertTrue(controller.state.captureActive)
         assertNotNull(captureFailure { resumeDuringPause.get(TIMEOUT_SECONDS, TimeUnit.SECONDS) })
         microphone.stopFuture.complete(Unit)
-        fixture.drainMainUntil { !controller.state.captureActive }
+        fixture.drainMainUntil { session.checkpointCount == 1 }
+        assertFalse("capture state follows confirmed microphone release", controller.state.captureActive)
         assertEquals(1, session.checkpointCount)
         session.checkpointFuture.complete(Unit)
         fixture.dispatcher.runAll()
@@ -522,11 +682,14 @@ class MeetingRecordingControllerTest {
     fun cancellingPendingReservationReleasesALateLeaseWithoutStartingAudio() {
         val fixture = RecordingFixture()
         val controller = fixture.newDocument()
-        controller.start("fr")
+        val started = controller.start("fr")
         val request = fixture.reservation.requests.single()
 
-        controller.cancel()
+        val cancelled = controller.cancel()
         assertTrue(request.cancelled)
+        assertFutureFails(started)
+        fixture.dispatcher.runAll()
+        assertTrue("preparation cancellation does not wait for the reservation callback", cancelled.get(TIMEOUT_SECONDS, TimeUnit.SECONDS) == Unit)
         val lateLease = FakeRuntimeLease()
         request.grant(lateLease)
         fixture.dispatcher.runAll()
@@ -576,9 +739,10 @@ class MeetingRecordingControllerTest {
         microphone.stopFuture.complete(Unit)
         assertFalse(paused.isDone)
         assertTrue(fixture.savedDrafts.isEmpty())
-        assertTrue(controller.state.captureActive)
+        assertTrue("UI state changes on its serialized dispatcher", controller.state.captureActive)
 
-        fixture.drainMainUntil { !controller.state.captureActive }
+        fixture.drainMainUntil { session.checkpointCount == 1 }
+        assertFalse("capture state follows confirmed microphone release", controller.state.captureActive)
         assertEquals(1, session.checkpointCount)
         assertFalse(session.checkpointFuture.isDone)
         assertTrue(fixture.savedDrafts.isEmpty())
@@ -957,7 +1121,7 @@ class MeetingRecordingControllerTest {
         val publisher = FakeNotePublisher(persistenceEvents, isMainDispatch = { dispatcher.isDispatchingTask })
         val focus = FakeFocusedEditPort(events)
         val errorRelay = MeetingDraftErrorRelay()
-        private val scheduler = InlineDraftScheduler()
+        val scheduler = InlineDraftScheduler()
         var failNextDraftSave = false
         private val writer = MeetingDraftWriter(
             persistence = MeetingDraftPersistence { document ->
@@ -1197,6 +1361,8 @@ class MeetingRecordingControllerTest {
         var savedNoteLookupCount = 0
         var savedNoteLookupsRanOnMain = true
         val savedNoteSessionIds = mutableSetOf<String>()
+        var deferNextSave = false
+        var pendingPublication: CompletableFuture<Unit>? = null
         override fun hasAttachments(sessionId: String): Boolean = attachmentsPresent
         override fun hasSavedNote(sessionId: String): Boolean {
             savedNoteLookupCount += 1
@@ -1216,10 +1382,25 @@ class MeetingRecordingControllerTest {
                     it.completeExceptionally(IllegalStateException("/private/path/note"))
                 }
             }
+            if (deferNextSave) {
+                deferNextSave = false
+                pendingDocument = document
+                return CompletableFuture<Unit>().also { pendingPublication = it }
+            }
             documents += document
             savedNoteSessionIds += document.sessionId
             return CompletableFuture.completedFuture(Unit)
         }
+
+        fun completeDeferredSaveSuccessfully(): Unit {
+            val pending = requireNotNull(pendingPublication)
+            if (pending.complete(Unit)) {
+                documents += pendingDocument ?: error("deferred note document missing")
+                savedNoteSessionIds += requireNotNull(pendingDocument).sessionId
+            }
+        }
+
+        private var pendingDocument: MeetingDocument? = null
     }
 
     private class FakeFocusedEditPort(private val events: MutableList<String>) : MeetingFocusedEditPort {
@@ -1255,8 +1436,17 @@ class MeetingRecordingControllerTest {
     }
 
     private class InlineDraftScheduler : MeetingDraftScheduler {
+        private val pendingWrites = ArrayDeque<() -> Unit>()
+        var deferWrites = false
+        val pendingWriteCount: Int get() = pendingWrites.size
+
         override fun schedule(delayMs: Long, task: () -> Unit): MeetingDraftScheduledTask = MeetingDraftScheduledTask {}
-        override fun execute(task: () -> Unit): Unit = task()
+        override fun execute(task: () -> Unit): Unit {
+            if (deferWrites) pendingWrites.addLast(task) else task()
+        }
+        fun runPendingWrites(): Unit {
+            while (pendingWrites.isNotEmpty()) pendingWrites.removeFirst().invoke()
+        }
         override fun shutdown(): Unit = Unit
     }
 

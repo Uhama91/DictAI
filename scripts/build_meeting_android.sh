@@ -51,7 +51,7 @@ printf 'NeMo-Speech.cpp=%s\nGGML=%s\n' "$actual_nemo_rev" "$actual_ggml_rev"
 mkdir -p "$SOURCE/app/src/main/cpp/meeting"
 STAGING="$SOURCE/app/src/main/cpp/meeting"
 for source_file in CMakeLists.txt meeting_probe.cpp meeting_jni.cpp meeting_native_logic.cpp \
-    meeting_native_logic.h meeting_jni.exports; do
+    meeting_native_logic.h meeting_asr_config.h meeting_jni.exports; do
     install -m 0644 "$ROOT/app/src/main/cpp/meeting/$source_file" "$STAGING/$source_file"
 done
 

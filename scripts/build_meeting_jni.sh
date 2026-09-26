@@ -86,7 +86,7 @@ verify_cached_model "$MODELS/$DIAR_FILE" "$DIAR_SIZE" "$DIAR_SHA"
 
 mkdir -p "$STAGING"
 for source_file in CMakeLists.txt meeting_probe.cpp meeting_jni.cpp meeting_native_logic.cpp \
-    meeting_native_logic.h meeting_jni.exports; do
+    meeting_native_logic.h meeting_asr_config.h meeting_jni.exports; do
     install -m 0644 "$ROOT/app/src/main/cpp/meeting/$source_file" "$STAGING/$source_file"
 done
 grep -Fq 'add_library(nemo_speech_asr STATIC ${ASR_SOURCES})' "$SOURCE/src/asr/CMakeLists.txt" || {

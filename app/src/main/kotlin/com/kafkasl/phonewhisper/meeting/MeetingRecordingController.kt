@@ -69,8 +69,9 @@ internal class MeetingRecordingController private constructor(
     private var cancelFuture: CompletableFuture<Unit>? = null
     private var destroyFuture: CompletableFuture<Unit>? = null
     private var finalizationStarted = false
+    private var cancellationFinalizationStarted = false
     private var finalizationNeedsNotePublication = false
-    private var finalizationDurable = false
+    private var finalNotePublication: CompletableFuture<Unit>? = null
     private var currentAudioFailure: String? = null
 
     val state: MeetingRecordingState
@@ -297,7 +298,12 @@ internal class MeetingRecordingController private constructor(
         val completion = CompletableFuture<Unit>()
         cancelFuture = completion
         termination = MeetingControllerTermination.CANCEL
+        finalizationNeedsNotePublication = false
         failPendingTransitionFutures(TRANSITION_ERROR)
+        finishFuture?.let { if (!it.isDone) it.completeExceptionally(IllegalStateException(TRANSITION_ERROR)) }
+        finalNotePublication?.cancel(true)
+        finalNotePublication = null
+        publishState(phase = MeetingRecordingPhase.CLOSING)
         val pendingRequest = reservationRequest
         if (pendingRequest != null && !reservationSettled.isDone) {
             pendingRequest.cancel()
@@ -305,15 +311,20 @@ internal class MeetingRecordingController private constructor(
             reservationSettled.whenComplete { _, _ ->
                 if (nativeSession == null && !destroyed) postMain { finalizeCancelledWithoutNativeSession() }
             }
+            finalizeCancellationAfterClose(closeError = null)
             return completion
         }
 
-        publishState(phase = MeetingRecordingPhase.CLOSING)
         val activeSession = nativeSession
         if (activeSession == null) {
-            finalizeCancelledWithoutNativeSession()
+            finalizeCancellationAfterClose(closeError = null)
+        } else if (nativeClosed?.isDone == true) {
+            finalizeCancellationAfterClose(
+                closeError = if (nativeClosed?.isCompletedExceptionally == true) CLOSE_ERROR else null,
+            )
         } else {
-            stopCurrentMicrophone().whenComplete { _, _ -> requestNativeCancel(activeSession) }
+            stopCurrentMicrophone()
+            requestNativeCancel(activeSession)
         }
         return completion
     }
@@ -324,6 +335,10 @@ internal class MeetingRecordingController private constructor(
         destroyFuture = completion
         destroyed = true
         failPendingTransitionFutures(TRANSITION_ERROR)
+        failTerminalFuture(finishFuture)
+        failTerminalFuture(cancelFuture)
+        finalNotePublication?.cancel(true)
+        finalNotePublication = null
         if (termination != MeetingControllerTermination.FINISH || nativeCommand.get() == NATIVE_COMMAND_NONE) {
             termination = MeetingControllerTermination.DESTROY
         }
@@ -433,7 +448,7 @@ internal class MeetingRecordingController private constructor(
                 language = requireNotNull(startLanguage),
                 onReady = { postMain { onNativeReady() } },
                 onUpdate = { hypothesis -> postMain { onNativeUpdate(hypothesis) } },
-                onFailure = { postMain { onNativeFailure() } },
+                onFailure = { message -> postMain { onNativeFailure(message) } },
             )
         } catch (_: Throwable) {
             lease = null
@@ -631,14 +646,19 @@ internal class MeetingRecordingController private constructor(
         publishState(persistDraft = true)
     }
 
-    private fun onNativeFailure() {
+    private fun onNativeFailure(message: String) {
         if (destroyed || termination == MeetingControllerTermination.CANCEL || termination == MeetingControllerTermination.DESTROY) return
-        currentAudioFailure = INFERENCE_ERROR
+        val safeMessage = when (message) {
+            MeetingEngine.AUDIO_SPOOL_LIMIT_ERROR,
+            MeetingEngine.AUDIO_SPOOL_IO_ERROR -> message
+            else -> INFERENCE_ERROR
+        }
+        currentAudioFailure = safeMessage
         termination = MeetingControllerTermination.FAILURE
-        failPendingTransitionFutures(INFERENCE_ERROR)
+        failPendingTransitionFutures(safeMessage)
         finishFuture = finishFuture ?: CompletableFuture()
         finalizationNeedsNotePublication = true
-        publishState(phase = MeetingRecordingPhase.FINALIZING, recordingError = INFERENCE_ERROR)
+        publishState(phase = MeetingRecordingPhase.FINALIZING, recordingError = safeMessage)
         val activeSession = nativeSession ?: return
         stopCurrentMicrophone().whenComplete { _, failure ->
             if (failure == null) {
@@ -842,12 +862,12 @@ internal class MeetingRecordingController private constructor(
         finalizationStarted = true
         editor.finish()
         publishState(phase = MeetingRecordingPhase.FINALIZING, captureActive = false, persistDraft = true)
-        flushCurrentDraft().whenComplete { _, failure ->
+        val flush = flushCurrentDraft()
+        flush.whenComplete { _, failure ->
             postMain {
-                if (destroyed) return@postMain
+                if (destroyed || termination == MeetingControllerTermination.CANCEL) return@postMain
                 if (failure != null) failFinalDraft()
                 else {
-                    finalizationDurable = true
                     publishFinalNote(finishFuture ?: CompletableFuture())
                 }
             }
@@ -855,37 +875,28 @@ internal class MeetingRecordingController private constructor(
     }
 
     private fun finalizeCancelledWithoutNativeSession() {
-        if (destroyed || finalizationStarted) return
-        finalizationStarted = true
-        editor.finish()
-        publishState(phase = MeetingRecordingPhase.FINALIZING, captureActive = false, persistDraft = true)
-        flushCurrentDraft().whenComplete { _, failure ->
-            postMain {
-                if (destroyed) return@postMain
-                if (failure != null) {
-                    publishState(phase = MeetingRecordingPhase.FINISHED, saveError = SAVE_ERROR)
-                    cancelFuture?.completeExceptionally(IllegalStateException(SAVE_ERROR))
-                } else {
-                    publishState(phase = MeetingRecordingPhase.FINISHED, saveError = null)
-                    cancelFuture?.complete(Unit)
-                }
-            }
-        }
+        finalizeCancellationAfterClose(closeError = null)
     }
 
     private fun finalizeCancelledAfterClose(closeError: String?) {
-        if (finalizationStarted || destroyed) return
-        finalizationStarted = true
+        finalizeCancellationAfterClose(closeError)
+    }
+
+    private fun finalizeCancellationAfterClose(closeError: String?) {
+        if (cancellationFinalizationStarted || destroyed || termination != MeetingControllerTermination.CANCEL) return
+        cancellationFinalizationStarted = true
         editor.finish()
+        val cancellationError = closeError ?: currentAudioFailure ?: currentState.recordingError
         publishState(
             phase = MeetingRecordingPhase.FINALIZING,
             captureActive = microphoneReleaseConfirmed().not(),
-            recordingError = closeError,
+            recordingError = cancellationError,
             persistDraft = true,
         )
-        flushCurrentDraft().whenComplete { _, failure ->
+        val flush = flushCurrentDraft()
+        flush.whenComplete { _, failure ->
             postMain {
-                if (destroyed) return@postMain
+                if (destroyed || termination != MeetingControllerTermination.CANCEL) return@postMain
                 if (failure != null) {
                     publishState(phase = MeetingRecordingPhase.FINISHED, saveError = SAVE_ERROR)
                     cancelFuture?.completeExceptionally(IllegalStateException(SAVE_ERROR))
@@ -893,7 +904,7 @@ internal class MeetingRecordingController private constructor(
                     publishState(
                         phase = MeetingRecordingPhase.FINISHED,
                         captureActive = microphoneReleaseConfirmed().not(),
-                        recordingError = closeError,
+                        recordingError = cancellationError,
                         saveError = null,
                     )
                     if (closeError == null) cancelFuture?.complete(Unit)
@@ -913,13 +924,13 @@ internal class MeetingRecordingController private constructor(
             recordingError = closeError ?: currentAudioFailure,
             persistDraft = true,
         )
-        flushCurrentDraft().whenComplete { _, failure ->
+        val flush = flushCurrentDraft()
+        flush.whenComplete { _, failure ->
             postMain {
-                if (destroyed) return@postMain
+                if (destroyed || termination == MeetingControllerTermination.CANCEL) return@postMain
                 if (failure != null) {
                     failFinalDraft()
                 } else {
-                    finalizationDurable = true
                     if (closeError != null) {
                         finalizationNeedsNotePublication = false
                         publishState(
@@ -982,9 +993,10 @@ internal class MeetingRecordingController private constructor(
         } catch (_: Throwable) {
             failedFuture<Unit>(NOTE_ERROR)
         }
+        finalNotePublication = publication
         publication.whenComplete { _, failure ->
             postMain {
-                if (destroyed) {
+                if (destroyed || termination == MeetingControllerTermination.CANCEL) {
                     completion.completeExceptionally(IllegalStateException(TRANSITION_ERROR))
                 } else if (failure != null) {
                     finalizationNeedsNotePublication = true
@@ -997,6 +1009,10 @@ internal class MeetingRecordingController private constructor(
                 }
             }
         }
+    }
+
+    private fun failTerminalFuture(future: CompletableFuture<Unit>?): Unit {
+        future?.let { if (!it.isDone) it.completeExceptionally(IllegalStateException(TRANSITION_ERROR)) }
     }
 
     private fun continueDestroyAfterReservation() {
@@ -1104,7 +1120,10 @@ internal class MeetingRecordingController private constructor(
                 nativeSession to lease
             }
             if (failure != null) resources.second?.let(::poisonRuntimeLease)
-            if (failure == null) completion.complete(Unit)
+            if (failure == null) {
+                postMain { markMicrophoneStopped() }
+                completion.complete(Unit)
+            }
             else completion.completeExceptionally(IllegalStateException(MICROPHONE_ERROR))
             val activeSession = resources.first
             val activeLease = resources.second
@@ -1121,7 +1140,7 @@ internal class MeetingRecordingController private constructor(
             microphone = null
             microphoneStopFuture = null
         }
-        publishState(captureActive = false)
+        if (!destroyed) publishState(captureActive = false)
     }
 
     private fun microphoneReleaseConfirmed(): Boolean = synchronized(lifecycleLock) {
@@ -1129,23 +1148,22 @@ internal class MeetingRecordingController private constructor(
     }
 
     private fun requestNativeCancel(activeSession: MeetingSession) {
-        if (nativeCommand.compareAndSet(NATIVE_COMMAND_NONE, NATIVE_COMMAND_CANCEL)) {
+        while (true) {
+            val command = nativeCommand.get()
+            if (command == NATIVE_COMMAND_CANCEL) return
+            if (command != NATIVE_COMMAND_NONE && command != NATIVE_COMMAND_FINISH) return
+            if (!nativeCommand.compareAndSet(command, NATIVE_COMMAND_CANCEL)) continue
             try {
                 activeSession.cancel()
             } catch (_: Throwable) {
                 // closed remains the only authority for releasing the native lease.
             }
+            return
         }
     }
 
     private fun requestNativeCancelAfterFinishFailure(activeSession: MeetingSession) {
-        if (nativeCommand.compareAndSet(NATIVE_COMMAND_FINISH, NATIVE_COMMAND_CANCEL)) {
-            try {
-                activeSession.cancel()
-            } catch (_: Throwable) {
-                // The closed signal remains the only authority for releasing the lease.
-            }
-        }
+        requestNativeCancel(activeSession)
     }
 
     private fun releaseUnopenedLease(activeLease: MeetingNativeRuntimeLease): Boolean = try {

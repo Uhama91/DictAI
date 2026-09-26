@@ -418,6 +418,14 @@ class OverlayService : Service() {
     private var bridgeWasContainerVisible = false
 
     private var floatingMenu: View? = null
+    private var floatingMenuBackAction: (() -> Unit)? = null
+    private val cancelPillAccessibilityActionId = R.id.accessibility_action_cancel_pill
+    private data class PillAccessibilityProjection(
+        val description: String,
+        val actionLabel: String?,
+    )
+    private var lastPillAccessibilityProjection: PillAccessibilityProjection? = null
+    private var lastPillAccessibilityTarget: View? = null
     private var formatMenuRows = emptyList<TextView>()
     private var formatMenuFormats = emptyList<PostProcessingFormat>()
     private var transcriptionModeRows = emptyList<TextView>()
@@ -855,11 +863,25 @@ class OverlayService : Service() {
     }
 
     private fun applyTranscriptionMode(mode: TranscriptionMode) {
-        wave?.setMeetingMode(mode == TranscriptionMode.MEETING)
-        pill?.contentDescription = when (mode) {
-            TranscriptionMode.DICTATION -> "Pastille Dictée"
-            TranscriptionMode.MEETING -> "Pastille Réunion"
+        val meetingMode = mode == TranscriptionMode.MEETING
+        wave?.let { waveView ->
+            waveView.setMeetingMode(meetingMode)
+            val targetHeight = if (meetingMode) {
+                FrameLayout.LayoutParams.MATCH_PARENT
+            } else {
+                (32 * resources.displayMetrics.density).toInt()
+            }
+            val waveLayout = waveView.layoutParams
+            if (waveLayout.height != targetHeight) {
+                waveLayout.height = targetHeight
+                waveView.layoutParams = waveLayout
+            }
         }
+        val accessibilityDescription = when (mode) {
+            TranscriptionMode.DICTATION -> "Pastille Dictée"
+            TranscriptionMode.MEETING -> meetingPillAccessibilityDescription()
+        }
+        updatePillAccessibilityProjection(accessibilityDescription)
         transcriptionModeRows.forEach { row ->
             val rowMode = row.tag as? TranscriptionMode ?: return@forEach
             val selected = rowMode == mode
@@ -2007,12 +2029,22 @@ class OverlayService : Service() {
                 State.TRANSCRIBING -> OverlayStateIndicatorView.VisualState.PROCESSING
                 else -> OverlayStateIndicatorView.VisualState.IDLE
             })
-            pill?.contentDescription = when (s) {
-                State.PAUSED -> if (purpose == DictationPurpose.NOTE) "Note en pause. Appuyer pour dicter dans la note." else "Dictée en pause. Appuyer pour reprendre."
-                State.PAUSING -> "Mise en pause de la dictée."
-                State.RECORDING -> if (purpose == DictationPurpose.NOTE) "Dictée dans la note. Appuyer pour mettre en pause." else "Dictée de message en cours. Appuyer pour insérer. Glisser vers le bas pour mettre en pause."
-                else -> "Appuyer pour dicter. Glisser vers le haut pour choisir un mode ou un format. Maintenir jusqu’à la vibration pour déplacer."
+            val accessibilityDescription = if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+                meetingPillAccessibilityDescription()
+            } else {
+                val cancelHelp = if (classicSessionCancellationAvailable()) {
+                    " Glisser vers la droite ou utiliser l’action d’accessibilité « Annuler »."
+                } else ""
+                when (s) {
+                    State.PAUSED -> (if (purpose == DictationPurpose.NOTE) "Note en pause. Appuyer pour dicter dans la note." else "Dictée en pause. Appuyer pour reprendre.") + cancelHelp
+                    State.PAUSING -> "Mise en pause de la dictée.$cancelHelp"
+                    State.RECORDING -> (if (purpose == DictationPurpose.NOTE) "Dictée dans la note. Appuyer pour mettre en pause." else "Dictée de message en cours. Appuyer pour insérer. Glisser vers le bas pour mettre en pause.") + cancelHelp
+                    State.TRANSCRIBING -> "Transcription en cours.$cancelHelp"
+                    State.CANCELLING -> "Annulation de la dictée en cours."
+                    else -> "Appuyer pour dicter. Glisser vers le haut pour choisir un mode ou un format. Maintenir jusqu’à la vibration pour déplacer."
+                }
             }
+            updatePillAccessibilityProjection(accessibilityDescription)
             showRecordingPill(s == State.RECORDING)
             // Bordure lumineuse pendant la transcription.
             if (s == State.TRANSCRIBING) loader?.start() else loader?.stop()
@@ -2027,6 +2059,95 @@ class OverlayService : Service() {
             else { main.removeCallbacks(collapse); container?.animate()?.alpha(1f)?.setDuration(120)?.start() }
         }
         if (Looper.myLooper() == main.looper) render.run() else main.post(render)
+    }
+
+    private fun classicSessionCancellationAvailable(): Boolean = activeRun != null && when (state) {
+        State.RECORDING, State.PAUSING, State.PAUSED, State.TRANSCRIBING -> true
+        State.IDLE, State.CANCELLING, State.MIC_UNARMED -> false
+    }
+
+    private fun meetingSessionCancellationAvailable(): Boolean {
+        if (meetingReplacementOperation != null || meetingRecordingController == null) return false
+        return MeetingPillInteraction.resolve(
+            phase = meetingPillPhase(),
+            gesture = MeetingPillInteraction.Gesture.SWIPE_RIGHT,
+            context = MeetingPillInteraction.Context(
+                hasDocumentContent = false,
+                dialogOpen = meetingDialogOpen || meetingFinishPromptPending,
+            ),
+        ) == MeetingPillInteraction.Intent.CANCEL_SESSION
+    }
+
+    private fun pillAccessibilityActionAvailable(): Boolean =
+        floatingMenuBackAction != null || if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+            meetingSessionCancellationAvailable()
+        } else classicSessionCancellationAvailable()
+
+    private fun pillAccessibilityActionLabel(): String =
+        if (floatingMenuBackAction != null) "Retour à Mes dossiers" else "Annuler"
+
+    private fun updatePillAccessibilityProjection(description: String) {
+        val target = pill ?: return
+        val actionLabel = pillAccessibilityActionLabel().takeIf { pillAccessibilityActionAvailable() }
+        val next = PillAccessibilityProjection(description, actionLabel)
+        if (next == lastPillAccessibilityProjection && target === lastPillAccessibilityTarget) return
+        lastPillAccessibilityProjection = next
+        lastPillAccessibilityTarget = target
+        target.contentDescription = if (floatingMenuBackAction != null) {
+            "Dossier ouvert. Glisser vers la droite ou utiliser l’action d’accessibilité « Retour à Mes dossiers » pour revenir à Mes dossiers."
+        } else {
+            description
+        }
+        runCatching {
+            target.sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+        }
+    }
+
+    private fun refreshPillAccessibilityProjection() {
+        val baseDescription = lastPillAccessibilityProjection?.description
+            ?: pill?.contentDescription?.toString()
+            ?: return
+        updatePillAccessibilityProjection(baseDescription)
+    }
+
+    private fun meetingPillAccessibilityDescription(): String {
+        val phase = meetingPillPhase()
+        val base = when (phase) {
+            MeetingPillInteraction.Phase.READY -> "Mode Réunion prêt. Appuyer pour démarrer la réunion."
+            MeetingPillInteraction.Phase.PREPARING -> "Préparation de la réunion en cours."
+            MeetingPillInteraction.Phase.LISTENING -> "Réunion en cours."
+            MeetingPillInteraction.Phase.PAUSING -> "Mise en pause de la réunion."
+            MeetingPillInteraction.Phase.PAUSED -> "Réunion en pause. Appuyer pour reprendre."
+            MeetingPillInteraction.Phase.FINALIZING -> "Finalisation de la réunion en cours."
+            MeetingPillInteraction.Phase.CLOSING -> "Fermeture de la réunion en cours."
+            MeetingPillInteraction.Phase.FINISHED -> "Réunion terminée."
+            MeetingPillInteraction.Phase.RESTORED -> "Brouillon de réunion restauré."
+            MeetingPillInteraction.Phase.MODEL_UNAVAILABLE -> "Modèle de réunion indisponible."
+            MeetingPillInteraction.Phase.ERROR -> "Une erreur est survenue pendant la réunion."
+        }
+        return when {
+            phase == MeetingPillInteraction.Phase.CLOSING || meetingDialogOpen || meetingFinishPromptPending -> base
+            meetingSessionCancellationAvailable() ->
+                "$base Glisser vers la droite ou utiliser l’action d’accessibilité « Annuler » pour conserver le brouillon de réunion."
+            else -> "$base Glisser vers le haut pour choisir un mode."
+        }
+    }
+
+    private fun cancelCurrentPillOperation() {
+        floatingMenuBackAction?.let { back ->
+            back()
+            return
+        }
+        if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+            dispatchMeetingPillGesture(MeetingPillInteraction.Gesture.SWIPE_RIGHT)
+            return
+        }
+        when (state) {
+            State.RECORDING -> if (activeRun != null) cancelRec()
+            State.TRANSCRIBING -> if (activeRun != null) cancelProcessing()
+            State.PAUSING, State.PAUSED -> if (activeRun != null) cancelPausedNote()
+            State.IDLE, State.CANCELLING, State.MIC_UNARMED -> Unit
+        }
     }
 
     private fun overlayWithAlpha(color: Int, alpha: Int): Int =
@@ -3531,6 +3652,12 @@ class OverlayService : Service() {
         var dragLastRawX = 0f; var dragLastRawY = 0f
         var touchInterrupted = false
         val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+        val rightSwipeGesture = RightSwipeBackGesture(
+            touchSlop = touchSlop,
+            minimumDistance = maxOf(24 * dp, 2 * touchSlop),
+            maximumDistance = 56 * dp,
+        )
+        var pillNotesBackAction: (() -> Unit)? = null
         val gestureMode = PillGestureMode(touchSlop)
         val notesGesture = VerticalSwipeGesture(touchSlop, maxOf(24 * dp, 3 * touchSlop))
         val formatGesture = VerticalSwipeGesture(touchSlop, maxOf(56 * dp, 3 * touchSlop))
@@ -3553,9 +3680,12 @@ class OverlayService : Service() {
             val up = formatGesture.progress(dx, dy)
             val down = pauseGesture.progress(dx, dy)
             val left = notesGesture.progress(dy, dx)
-            val progress = maxOf(up, down, left)
+            val right = rightSwipeGesture.progress(dx, dy)
+            val progress = maxOf(up, down, left, right)
             gestureHint.visibility = if (progress > 0f) View.VISIBLE else View.GONE
-            gestureHint.text = if (left > 0f) "← Notes" else if (up > 0f) {
+            gestureHint.text = if (right > 0f) {
+                if (pillNotesBackAction != null) "← Mes dossiers" else "Annuler"
+            } else if (left > 0f) "← Notes" else if (up > 0f) {
                 when {
                     purpose == DictationPurpose.NOTE -> "↑ Note"
                     panelHidden && isTranscriptEditable() -> "↑ Texte"
@@ -3681,10 +3811,54 @@ class OverlayService : Service() {
             updatePillLayout(dragAnchor)
         }
 
+        pillView.apply {
+            isFocusable = true
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            accessibilityDelegate = object : View.AccessibilityDelegate() {
+                override fun onInitializeAccessibilityNodeInfo(
+                    host: View,
+                    info: android.view.accessibility.AccessibilityNodeInfo,
+                ) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    if (pillAccessibilityActionAvailable()) {
+                        info.addAction(
+                            android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(
+                                cancelPillAccessibilityActionId,
+                                pillAccessibilityActionLabel(),
+                            ),
+                        )
+                    }
+                }
+
+                override fun performAccessibilityAction(
+                    host: View,
+                    action: Int,
+                    args: android.os.Bundle?,
+                ): Boolean {
+                    if (action == cancelPillAccessibilityActionId) {
+                        if (!pillAccessibilityActionAvailable()) return false
+                        cancelCurrentPillOperation()
+                        return true
+                    }
+                    return super.performAccessibilityAction(host, action, args)
+                }
+            }
+        }
+
         pillView.setOnTouchListener { _, ev ->
             if (exportPanel != null) return@setOnTouchListener true
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    pillNotesBackAction = floatingMenuBackAction
+                    val canCancelActiveSession = if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+                        meetingSessionCancellationAvailable()
+                    } else classicSessionCancellationAvailable()
+                    val screen = screenRect()
+                    rightSwipeGesture.begin(
+                        downX = lp.x + ev.x,
+                        rightBoundary = screen.right.toFloat(),
+                        enabled = pillNotesBackAction != null || canCancelActiveSession,
+                    )
                     dismissFloatingMenu()
                     hideGestureHint()
                     downX = lp.x; downY = lp.y; touchX = ev.rawX; touchY = ev.rawY
@@ -3717,6 +3891,8 @@ class OverlayService : Service() {
                 }
                 MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> {
                     touchInterrupted = true
+                    pillNotesBackAction = null
+                    rightSwipeGesture.cancel()
                     main.removeCallbacks(longPress)
                     hideGestureHint()
                     formatSwipe.cancel()
@@ -3734,6 +3910,7 @@ class OverlayService : Service() {
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     gestureMode.move(dx, dy)
                     if (gestureMode.mode == PillGestureMode.Mode.DRAG) {
+                        rightSwipeGesture.cancel()
                         updateDrag(ev.rawX, ev.rawY)
                     } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         main.removeCallbacks(longPress)
@@ -3760,11 +3937,27 @@ class OverlayService : Service() {
                     if (touchInterrupted) return@setOnTouchListener true
                     val dx = ev.rawX - touchX; val dy = ev.rawY - touchY
                     gestureMode.move(dx, dy)
+                    val rightSwipeReleased = if (gestureMode.mode == PillGestureMode.Mode.DRAG) {
+                        rightSwipeGesture.cancel()
+                        false
+                    } else rightSwipeGesture.release(dx, dy)
                     if (gestureMode.mode == PillGestureMode.Mode.DRAG) {
                         updateDrag(ev.rawX, ev.rawY)
                         if (moved) finishDrag()
+                    } else if (rightSwipeReleased && pillNotesBackAction != null) {
+                        tapCoordinator.reset()
+                        pillNotesBackAction?.invoke()
+                    } else if (rightSwipeReleased) {
+                        tapCoordinator.reset()
+                        if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
+                            dispatchMeetingPillGesture(MeetingPillInteraction.Gesture.SWIPE_RIGHT)
+                        } else cancelCurrentPillOperation()
                     } else if (transcriptionModes.snapshot().mode == TranscriptionMode.MEETING) {
-                        meetingGestureForRelease(dx, dy, gestureMode.mode == PillGestureMode.Mode.WAITING)
+                        meetingGestureForRelease(
+                            dx,
+                            dy,
+                            gestureMode.mode == PillGestureMode.Mode.WAITING,
+                        )
                             ?.let(::dispatchMeetingPillGesture)
                     } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         tapCoordinator.reset()
@@ -3819,6 +4012,7 @@ class OverlayService : Service() {
                     pauseGesture.cancel()
                     notesGesture.cancel()
                     gestureMode.cancel()
+                    pillNotesBackAction = null
                     true
                 }
                 else -> false
@@ -3828,6 +4022,7 @@ class OverlayService : Service() {
             override fun onViewAttachedToWindow(view: View) = Unit
             override fun onViewDetachedFromWindow(view: View) {
                 main.removeCallbacks(longPress)
+                rightSwipeGesture.cancel()
                 gestureMode.cancel()
             }
         })
@@ -5609,15 +5804,22 @@ class OverlayService : Service() {
     private fun dismissFloatingMenu() {
         floatingMenu?.let { runCatching { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } }
         floatingMenu = null
+        floatingMenuBackAction = null
         formatMenuRows = emptyList()
         formatMenuFormats = emptyList()
         transcriptionModeRows = emptyList()
         formatMenuSelected = -1
         formatMenuParams = null
         formatMenuSwipeMode = false
+        refreshPillAccessibilityProjection()
     }
 
-    private fun showFloatingMenu(title: String, entries: List<MenuEntry>, above: Boolean = false) {
+    private fun showFloatingMenu(
+        title: String,
+        entries: List<MenuEntry>,
+        above: Boolean = false,
+        onSwipeRightBack: (() -> Unit)? = null,
+    ) {
         dismissFloatingMenu()
         releaseTranscriptFocus()
         val dp = resources.displayMetrics.density
@@ -5680,14 +5882,60 @@ class OverlayService : Service() {
                 leftMargin = (4 * dp).toInt(); rightMargin = (4 * dp).toInt(); bottomMargin = (6 * dp).toInt()
             })
         }
-        root.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        val menuScroll: ScrollView = if (onSwipeRightBack == null) {
+            ScrollView(this)
+        } else {
+            val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+            NotesBackScrollView(
+                context = this,
+                rightBoundary = screen.right.toFloat(),
+                minimumDistance = maxOf(24 * dp, 2 * touchSlop),
+                maximumDistance = 56 * dp,
+                onSwipeBack = onSwipeRightBack,
+            )
+        }
+        menuScroll.addView(list)
+        root.addView(menuScroll, LinearLayout.LayoutParams(-1, 0, 1f))
         val bounds = FloatingMenuPlacement.bounds(pillRect(params ?: return), screen, width, height, (6 * dp).toInt(), above)
         val layout = WindowManager.LayoutParams(bounds.width, bounds.height, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP or Gravity.START; x = bounds.x; y = bounds.y }
-        root.setOnTouchListener { _, event -> if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) { dismissFloatingMenu(); true } else false }
-        try { (getSystemService(WINDOW_SERVICE) as WindowManager).addView(root, layout); floatingMenu = root }
+        root.setOnTouchListener { _, event ->
+            if (event.actionMasked != MotionEvent.ACTION_OUTSIDE) {
+                false
+            } else if (floatingMenu !== root) {
+                true
+            } else if (
+                onSwipeRightBack != null && floatingMenuBackAction === onSwipeRightBack &&
+                outsideTouchTargetsVisiblePill(event.rawX, event.rawY)
+            ) {
+                // Let the pill receive its DOWN, capture this menu's back action, and dismiss the
+                // menu itself. ACTION_OUTSIDE is sent before that DOWN on the shared overlay UID.
+                false
+            } else {
+                if (floatingMenu === root) dismissFloatingMenu()
+                true
+            }
+        }
+        try {
+            (getSystemService(WINDOW_SERVICE) as WindowManager).addView(root, layout)
+            floatingMenu = root
+            floatingMenuBackAction = onSwipeRightBack
+            refreshPillAccessibilityProjection()
+        }
         catch (_: Exception) { toast("Impossible d’afficher le menu flottant.") }
+    }
+
+    private fun outsideTouchTargetsVisiblePill(rawX: Float, rawY: Float): Boolean {
+        if (rawX == 0f || rawY == 0f) return false
+        val target = pill ?: return false
+        if (!target.isAttachedToWindow || !target.isShown || target.visibility != View.VISIBLE ||
+            target.width <= 0 || target.height <= 0
+        ) return false
+        val location = IntArray(2)
+        target.getLocationOnScreen(location)
+        return rawX >= location[0] && rawX < location[0] + target.width &&
+            rawY >= location[1] && rawY < location[1] + target.height
     }
 
     private fun showNotesOverlay(view: NotesView = NotesView.Root) {
@@ -5745,7 +5993,8 @@ class OverlayService : Service() {
             NotesView.Unfiled -> "Sans dossier"
             is NotesView.Folder -> notes.getFolder(actualView.id)?.name ?: "Mes notes"
         }
-        showFloatingMenu(title, entries)
+        val swipeRightBack = if (actualView == NotesView.Root) null else ({ showNotesOverlay(NotesView.Root) })
+        showFloatingMenu(title, entries, onSwipeRightBack = swipeRightBack)
         maybePromptFolderChoice()
     }
 
@@ -6387,7 +6636,7 @@ class OverlayService : Service() {
             ): com.kafkasl.phonewhisper.meeting.MeetingSession {
                 val paths = (modelStore.currentState as? MeetingModelStoreState.Ready)?.paths
                     ?: throw IllegalStateException("Modèles Réunion indisponibles")
-                return MeetingEngine(paths.asrPath, paths.diarizationPath)
+                return MeetingEngine(paths.asrPath, paths.diarizationPath, applicationContext.cacheDir)
                     .start(runId, language, onReady, onUpdate, onFailure)
             }
         }
@@ -7041,6 +7290,7 @@ class OverlayService : Service() {
             MeetingPillInteraction.Intent.SHOW_PAUSE_HINT -> toast("Mettre en pause pour enregistrer")
             MeetingPillInteraction.Intent.OPEN_MODE_MENU -> showFormatPicker(swipeMode = false, touchable = true)
             MeetingPillInteraction.Intent.SHOW_MEETING_PANEL -> openMeetingPanel()
+            MeetingPillInteraction.Intent.CANCEL_SESSION -> controller?.cancel()
         }
     }
 
@@ -7518,6 +7768,7 @@ class OverlayService : Service() {
             panel.view.recyclerView.visibility = View.GONE
         }
         wave?.setMeetingCaptureActive(state.captureActive)
+        updatePillAccessibilityProjection(meetingPillAccessibilityDescription())
         updateNotif()
     }
 

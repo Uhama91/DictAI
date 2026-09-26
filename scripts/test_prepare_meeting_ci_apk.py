@@ -45,13 +45,13 @@ HISTORICAL_LIBRARIES = (
     "libtranscribe_jni.so",
 )
 BADGING = (
-    "package: name='com.uhama.whisperpin.meetingtest' versionCode='36' "
-    "versionName='0.9.6-dictai-meeting-test2' platformBuildVersionName='14'\n"
+    "package: name='com.uhama.whisperpin.meetingtest' versionCode='37' "
+    "versionName='0.9.6-dictai-meeting-test3' platformBuildVersionName='14'\n"
     "native-code: 'arm64-v8a'\n"
 )
 OLD_MEETING_BADGING = (
-    "package: name='com.uhama.whisperpin.meetingtest' versionCode='35' "
-    "versionName='0.9.6-dictai-meeting-test' platformBuildVersionName='14'\n"
+    "package: name='com.uhama.whisperpin.meetingtest' versionCode='36' "
+    "versionName='0.9.6-dictai-meeting-test2' platformBuildVersionName='14'\n"
     "native-code: 'arm64-v8a'\n"
 )
 
@@ -142,8 +142,8 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
         self.assertEqual((self.output / "SHA256SUMS").read_text(), f"{apk_sha}  dictai-meeting-test.apk\n")
         metadata = json.loads((self.output / "metadata.json").read_text())
         self.assertEqual(metadata["applicationId"], "com.uhama.whisperpin.meetingtest")
-        self.assertEqual(metadata["versionCode"], 36)
-        self.assertEqual(metadata["versionName"], "0.9.6-dictai-meeting-test2")
+        self.assertEqual(metadata["versionCode"], 37)
+        self.assertEqual(metadata["versionName"], "0.9.6-dictai-meeting-test3")
         self.assertEqual(metadata["abi"], "arm64-v8a")
         self.assertEqual(metadata["sizeBytes"], self.apk.stat().st_size)
         self.assertEqual(metadata["sha256"], apk_sha)
@@ -154,7 +154,7 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
         write_apk(self.apk)
         bad_badging = (
             (BADGING.replace("com.uhama.whisperpin.meetingtest", "com.uhama.whisperpin"), "applicationId"),
-            (BADGING.replace("versionCode='36'", "versionCode='34'"), "versionCode"),
+            (BADGING.replace("versionCode='37'", "versionCode='34'"), "versionCode"),
             (BADGING.replace("0.9.6-dictai-meeting-test", "0.9.6-debug"), "versionName"),
             (BADGING.replace("arm64-v8a", "x86_64"), "arm64-v8a"),
         )
@@ -172,6 +172,11 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
         result = self.run_prepare()
 
         self.assert_rejected(result, "versionCode")
+
+    def test_gradle_keeps_regular_variant_at_35_and_advances_meeting_prototype(self) -> None:
+        gradle = (ROOT / "app" / "build.gradle.kts").read_text()
+        self.assertIn("versionCode = if (meetingPrototype) 37 else 35", gradle)
+        self.assertIn('meetingPrototype -> "0.9.6-dictai-meeting-test3"', gradle)
 
     def test_rejects_missing_meeting_notice_and_historical_library(self) -> None:
         for missing in (MEETING_ASSETS[0], "lib/arm64-v8a/libonnxruntime.so"):

@@ -206,11 +206,15 @@ Vérifier sur **Xiaomi Pad 7** et **Poco F7**, avec le micro intégré puis les 
 3. Corriger un mot et ajouter plusieurs lignes au clavier pendant la pause ; déplacer le curseur vers le début.
 4. Appuyer une fois pour reprendre : texte conservé, curseur et vue revenus en bas. Continuer à parler : les nouvelles lignes restent visibles.
 5. Appuyer à nouveau pour terminer : vérifier les ajouts manuels et les deux portions dictées dans le presse-papiers et le champ cible.
-6. Répéter plusieurs pauses ; tester une reprise immédiate pendant la fermeture du micro, une interruption du Bluetooth, la rotation, le double tap d’annulation et l’arrêt du service pendant la pause.
+6. Répéter plusieurs pauses ; tester une reprise immédiate pendant la fermeture du micro, une interruption du Bluetooth, la rotation, le glissement à droite pour annuler et l’arrêt du service pendant la pause.
 
 Le texte est sauvegardé localement pendant la dictée et les corrections. Après destruction du service, il est restauré en pause ; la reprise ouvre une nouvelle session audio et ajoute la suite au brouillon protégé. L’audio de l’ancienne session n’est pas conservé. Le brouillon est supprimé après la fin ou l’annulation de la dictée.
 
 Les gestes de format et de pause affichent une indication progressive sur la pastille et un retour haptique au seuil. Ils ne déplacent jamais le bouton. Le maintien immobile jusqu’à la vibration affiche « Déplacer » et réserve tout le mouvement suivant au positionnement.
+
+Un glissement direct vers la droite annule la dictée ou la réunion active, y compris pendant le traitement. Dans un dossier de notes, le même geste sur la liste ou la pastille revient d’abord à la racine (« Mes notes »), sans annuler la session. Une action d’accessibilité offre le même retour ou la même annulation. Le double appui ne sert plus à annuler une session active ; le raccourci historique juste après le démarrage depuis le repos reste disponible.
+
+Dans le prototype Réunion, l’annulation conserve le texte déjà transcrit et les retouches dans un brouillon, puis abandonne l’audio en attente. Le cache audio temporaire est privé et limité à 128 Mio de PCM en attente. Le cercle de boucles occupe une plus grande partie de la hauteur de la pastille, tout en gardant une marge visible pendant la rotation.
 
 Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute en cours… », sans attendre les premiers mots du modèle. Il est déjà éditable. Les lectures audio sont limitées à 20 ms par bloc ; le tampon matériel conserve sa taille minimale requise. Le délai de reconnaissance dépend toujours du modèle et de l’appareil.
 

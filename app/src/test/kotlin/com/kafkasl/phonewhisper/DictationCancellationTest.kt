@@ -88,7 +88,7 @@ class DictationDoubleTapTest {
 
 class DictationTapGestureCoordinatorTest {
     @Test
-    fun established_recording_double_tap_cancels_before_any_stop() {
+    fun established_recording_double_tap_stops_without_cancelling_the_session() {
         val coordinator = DictationTapGestureCoordinator(windowMs = 280)
 
         val first = coordinator.onTap(
@@ -102,7 +102,7 @@ class DictationTapGestureCoordinatorTest {
             DictationTapGestureCoordinator.SurfaceState.RECORDING,
             atMs = 1_279,
         )
-        assertEquals(DictationTapGestureCoordinator.Action.CANCEL_RECORDING, second.action)
+        assertEquals(DictationTapGestureCoordinator.Action.STOP_RECORDING, second.action)
     }
 
     @Test
@@ -139,7 +139,7 @@ class DictationTapGestureCoordinatorTest {
     }
 
     @Test
-    fun processing_double_tap_still_cancels_without_publication() {
+    fun processing_double_tap_keeps_the_processing_run_active() {
         val coordinator = DictationTapGestureCoordinator(windowMs = 280)
 
         assertEquals(
@@ -150,7 +150,7 @@ class DictationTapGestureCoordinatorTest {
             ).action,
         )
         assertEquals(
-            DictationTapGestureCoordinator.Action.CANCEL_PROCESSING,
+            DictationTapGestureCoordinator.Action.ARM_PROCESSING_WINDOW,
             coordinator.onTap(
                 DictationTapGestureCoordinator.SurfaceState.TRANSCRIBING,
                 atMs = 4_279,
@@ -177,7 +177,7 @@ class DictationTapGestureCoordinatorTest {
             ).action,
         )
         assertEquals(
-            DictationTapGestureCoordinator.Action.CANCEL_PROCESSING,
+            DictationTapGestureCoordinator.Action.ARM_PROCESSING_WINDOW,
             coordinator.onTap(
                 DictationTapGestureCoordinator.SurfaceState.TRANSCRIBING,
                 atMs = 5_559,
@@ -186,7 +186,7 @@ class DictationTapGestureCoordinatorTest {
     }
 
     @Test
-    fun stale_recording_timeout_is_a_no_op_after_cancellation() {
+    fun stale_recording_timeout_is_a_no_op_after_double_tap_stops() {
         val coordinator = DictationTapGestureCoordinator(windowMs = 280)
         val deferred = coordinator.onTap(
             DictationTapGestureCoordinator.SurfaceState.RECORDING,
@@ -195,7 +195,7 @@ class DictationTapGestureCoordinatorTest {
         val timeout = checkNotNull(deferred.timeout)
 
         assertEquals(
-            DictationTapGestureCoordinator.Action.CANCEL_RECORDING,
+            DictationTapGestureCoordinator.Action.STOP_RECORDING,
             coordinator.onTap(
                 DictationTapGestureCoordinator.SurfaceState.RECORDING,
                 atMs = 6_100,

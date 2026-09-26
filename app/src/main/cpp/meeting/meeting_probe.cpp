@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "audio_file.h"
+#include "meeting_asr_config.h"
 #include "recognizer.h"
 
 namespace {
@@ -129,6 +130,7 @@ emit_result(
 asr::RecognizerConfig
 make_config(const std::string& asr_path, const std::string& diar_path = {}) {
     asr::RecognizerConfig config;
+    dictai::meeting::use_meeting_rnnt_context(config);
     config.backend.gpu = -1;
     config.model.path = asr_path;
     config.batching.enabled = false;
@@ -622,7 +624,8 @@ run_asr_diar(const std::string& asr_path, const std::string& diar_path,
              const audio::AudioFile& input) {
     auto config = make_config(asr_path, diar_path);
     std::printf("CONFIG endpointing=1 token_silence_ms=800 diar_preset=v3-streaming "
-                "spkcache=264 fifo=80 chunk=13 update=40 left=0 right=1\n");
+                "spkcache=264 fifo=80 chunk=13 update=40 left=0 right=1 "
+                "rnnt_right_context=1\n");
     const auto load_start = Clock::now();
     asr::Recognizer recognizer(std::move(config));
     std::printf("MODEL_LOAD mode=asr+diar elapsed_ms=%lld\n",

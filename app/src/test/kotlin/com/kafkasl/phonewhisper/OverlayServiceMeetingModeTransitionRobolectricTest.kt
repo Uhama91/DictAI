@@ -379,7 +379,8 @@ class OverlayServiceMeetingModeTransitionRobolectricTest {
             notesPreferences.getString(incoming.id, null))
         assertEquals("the original note identity remains current", note.id,
             field<String?>(requireNotNull(service), "activeNoteId"))
-        assertEquals("Pastille Réunion", field<View>(requireNotNull(service), "pill").contentDescription)
+        assertEquals("Brouillon de réunion restauré. Glisser vers le haut pour choisir un mode.",
+            field<View>(requireNotNull(service), "pill").contentDescription)
         assertNoNativeSessionOrMicrophone()
     }
 
@@ -539,7 +540,8 @@ class OverlayServiceMeetingModeTransitionRobolectricTest {
         assertEquals(note.id, field<String?>(requireNotNull(service), "activeNoteId"))
         assertEquals(listOf(image), notesStorage.all().firstOrNull { it.id == note.id }?.images)
         assertEquals(originalDocument, notesStorage.all().firstOrNull { it.id == note.id }?.meeting)
-        assertEquals("Pastille Réunion", field<View>(requireNotNull(service), "pill").contentDescription)
+        assertEquals("Brouillon de réunion restauré. Glisser vers le haut pour choisir un mode.",
+            field<View>(requireNotNull(service), "pill").contentDescription)
         assertNoNativeSessionOrMicrophone()
     }
 

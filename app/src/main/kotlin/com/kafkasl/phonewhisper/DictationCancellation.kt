@@ -176,11 +176,10 @@ internal class DoubleTapDetector(private val windowMs: Long = 280L) {
 /**
  * Keeps tap recognition independent from the overlay touch listener.
  *
- * A recording tap cannot stop immediately: doing so turns the first tap into a
- * TRANSCRIBING state and loses the opportunity to recognize the second tap.
- * Instead, the coordinator returns a timeout token.  Only that exact token may
- * later resolve the deferred stop, so a double-tap cancellation makes its stale
- * timeout harmless.
+ * One active recording tap remains deferred so a quick second tap can stop the
+ * run without cancelling it. A paused second tap resumes; only the legacy
+ * double-tap immediately after starting from IDLE still cancels and opens the app.
+ * Rightward swipes own active-session cancellation.
  */
 internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L) {
     init { require(windowMs > 0) }
@@ -241,7 +240,7 @@ internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L)
         val previous = sequence
         if (previous?.origin == Origin.PAUSED && isInsideWindow(previous.atMs, atMs)) {
             sequence = null
-            return Decision(Action.CANCEL_RECORDING)
+            return Decision(Action.RESUME_RECORDING)
         }
         if (previous?.origin == Origin.PAUSED && previous.timeout != null && atMs >= previous.timeout.deadlineMs) {
             sequence = null
@@ -260,13 +259,13 @@ internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L)
                 if (previous.origin == Origin.IDLE) {
                     Action.CANCEL_RECORDING_AND_OPEN_APP
                 } else {
-                    Action.CANCEL_RECORDING
+                    Action.STOP_RECORDING
                 },
             )
         }
 
         // If the main looper delivered a later tap before its timeout callback,
-        // resolve the old single tap now.  At exactly 280 ms it is deliberately
+        // resolve the old single tap now. At exactly 280 ms it is deliberately
         // not a double-tap; the strict comparison is the boundary contract.
         if (previous?.origin == Origin.RECORDING && previous.timeout != null &&
             atMs >= previous.timeout.deadlineMs
@@ -281,11 +280,6 @@ internal class DictationTapGestureCoordinator(private val windowMs: Long = 280L)
     }
 
     private fun onProcessingTap(atMs: Long): Decision {
-        val previous = sequence
-        if (previous?.origin == Origin.PROCESSING && isInsideWindow(previous.atMs, atMs)) {
-            sequence = null
-            return Decision(Action.CANCEL_PROCESSING)
-        }
         sequence = Sequence(Origin.PROCESSING, atMs, timeout = null)
         return Decision(Action.ARM_PROCESSING_WINDOW)
     }

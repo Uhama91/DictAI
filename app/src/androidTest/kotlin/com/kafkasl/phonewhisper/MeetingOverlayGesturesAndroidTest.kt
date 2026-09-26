@@ -97,7 +97,10 @@ class MeetingOverlayGesturesAndroidTest {
         val draftFile = File(draftDirectory, "meeting.json")
         var modelStoreForCleanup: MeetingModelStore? = null
         var modelRootForCleanup: File? = null
+        var sessionFactoryForCleanup: FakeSessionFactory? = null
         var microphoneFactoryForCleanup: FakeMicrophoneFactory? = null
+        var simulatedFolderId: String? = null
+        var simulatedNoteId: String? = null
         var serviceStartAttempted = false
         var modeChanged = false
         var testFactoryInstalled = false
@@ -133,6 +136,7 @@ class MeetingOverlayGesturesAndroidTest {
             assertNotNull("the local fixture pair is ready", modelReady.get())
 
             val sessionFactory = FakeSessionFactory()
+            sessionFactoryForCleanup = sessionFactory
             val microphoneFactory = FakeMicrophoneFactory()
             microphoneFactoryForCleanup = microphoneFactory
             val admission = MeetingNativeAdmission(
@@ -155,6 +159,16 @@ class MeetingOverlayGesturesAndroidTest {
             }
             testFactoryInstalled = factoryInstall
             assertTrue("the one-shot service fixture factory installs before service creation", factoryInstall)
+
+            val noteStore = TranscriptNotes(AndroidTranscriptNoteStorage(target))
+            val simulatedFolder = requireNotNull(noteStore.createFolder("SIMULÉ · Geste ${fixtureId.take(8)}"))
+            simulatedFolderId = simulatedFolder.id
+            val simulatedNote = noteStore.save(
+                id = null,
+                text = "Texte simulé de test — aucune dictée ni réunion réelle n’est contenue dans cette note.",
+                folderId = simulatedFolder.id,
+            )
+            simulatedNoteId = simulatedNote.id
 
             val originalMeetingNoteIds = readPersistedMeetingNoteIds(target)
             val captureDirectory = File(
@@ -179,6 +193,52 @@ class MeetingOverlayGesturesAndroidTest {
                 accessibleWindowSummary(instrumentation).isNotEmpty()
             })
             awaitBubble(instrumentation)
+
+            anchorPillAtRight(instrumentation, target)
+            showNotesFolder(service = requireNotNull(fixtureService.get()), folderId = simulatedFolder.id)
+            awaitVisibleText(instrumentation, simulatedFolder.name)
+            capture(
+                instrumentation,
+                activeScenario,
+                captureDirectory,
+                "00-simulated-folder-before-list-swipe.png",
+                simulatedNote.title,
+            )
+            swipeVisibleLabelRight(instrumentation, target, simulatedNote.title)
+            awaitVisibleText(instrumentation, "Mes notes")
+            awaitVisibleText(instrumentation, simulatedFolder.name)
+            assertEquals(
+                "a rightward list swipe leaves the simulated note unchanged",
+                simulatedNote.text,
+                TranscriptNotes(AndroidTranscriptNoteStorage(target)).get(simulatedNote.id)?.text,
+            )
+            capture(
+                instrumentation,
+                activeScenario,
+                captureDirectory,
+                "00-simulated-folder-root-after-list-swipe.png",
+                "Mes notes",
+            )
+
+            showNotesFolder(service = requireNotNull(fixtureService.get()), folderId = simulatedFolder.id)
+            awaitVisibleText(instrumentation, simulatedFolder.name)
+            capture(
+                instrumentation,
+                activeScenario,
+                captureDirectory,
+                "00-simulated-folder-before-pill-swipe.png",
+                simulatedNote.title,
+            )
+            swipeBubbleRight(instrumentation, target)
+            awaitVisibleText(instrumentation, "Mes notes")
+            awaitVisibleText(instrumentation, simulatedFolder.name)
+            capture(
+                instrumentation,
+                activeScenario,
+                captureDirectory,
+                "00-simulated-folder-root-after-pill-swipe.png",
+                "Mes notes",
+            )
 
             swipeBubble(instrumentation, target, -dp(target, 150))
             awaitVisibleText(instrumentation, "Ouvrir la réunion")
@@ -216,6 +276,38 @@ class MeetingOverlayGesturesAndroidTest {
             awaitVisibleText(instrumentation, "Je prépare les documents.")
             firstSession.emit(utteranceId = 3L, revision = 1L, text = "Nous vérifierons ensemble le matériel.", channel = 1, startMs = 7_000L)
             awaitVisibleText(instrumentation, "Nous vérifierons ensemble le matériel.")
+
+            showNotesFolder(service = requireNotNull(fixtureService.get()), folderId = simulatedFolder.id)
+            awaitVisibleText(instrumentation, simulatedFolder.name)
+            capture(
+                instrumentation,
+                activeScenario,
+                captureDirectory,
+                "00-simulated-folder-active-before-pill-swipe.png",
+                simulatedNote.title,
+            )
+            swipeBubbleRight(instrumentation, target)
+            awaitVisibleText(instrumentation, "Mes notes")
+            awaitVisibleText(instrumentation, simulatedFolder.name)
+            val liveStateAfterFolderSwipe = requireNotNull(awaitMeetingRecordingState(instrumentation) {
+                it.phase == MeetingRecordingPhase.LISTENING && it.document.sessionId == firstSessionId
+            }) { "the folder-priority swipe returns to the root and keeps the active meeting listening" }
+            assertEquals("the menu back action does not request native session cancellation", 0, firstSession.cancelCount)
+            assertEquals("the folder navigation preserves the live session phase", MeetingRecordingPhase.LISTENING,
+                liveStateAfterFolderSwipe.phase)
+            assertEquals(
+                "the folder navigation leaves the simulated note unchanged",
+                simulatedNote.text,
+                TranscriptNotes(AndroidTranscriptNoteStorage(target)).get(simulatedNote.id)?.text,
+            )
+            capture(
+                instrumentation,
+                activeScenario,
+                captureDirectory,
+                "00-simulated-folder-active-root-after-pill-swipe.png",
+                "Mes notes",
+            )
+            dismissFloatingNotesMenu(requireNotNull(fixtureService.get()))
 
             tapTextContains(instrumentation, "Ouvrir les 2 intervenants")
             tapText(instrumentation, "Personne 1")
@@ -442,6 +534,52 @@ class MeetingOverlayGesturesAndroidTest {
                 "Écoute en cours")
             assertEquals("the real coordinator still owns the fresh meeting run", TranscriptionMode.MEETING,
                 coordinator.snapshot().activeRunMode)
+            val cancelledSession = sessionFactory.sessions.last()
+            val cancelledSessionId = nextLiveState.document.sessionId
+            createdFixtureNoteIds += cancelledSessionId
+            cancelledSession.deferCloseOnCancel = true
+            val simulatedMeetingText = "Texte simulé à conserver pendant l’annulation du geste."
+            cancelledSession.emit(
+                utteranceId = 1L,
+                revision = 1L,
+                text = simulatedMeetingText,
+                channel = 1,
+                startMs = 1_000L,
+            )
+            awaitVisibleText(instrumentation, simulatedMeetingText)
+            capture(
+                instrumentation,
+                activeScenario,
+                captureDirectory,
+                "06-simulated-meeting-before-cancel-swipe.png",
+                simulatedMeetingText,
+            )
+            swipeBubbleRight(instrumentation, target)
+            awaitVisibleText(instrumentation, "Fermeture de la réunion en cours")
+            val cancellingState = requireNotNull(awaitMeetingRecordingState(instrumentation) {
+                it.phase == MeetingRecordingPhase.CLOSING
+            }) { "the real overlay listener sends the finalizing session into CLOSING" }
+            assertEquals("the right-swipe fixture preserves its simulated meeting text",
+                simulatedMeetingText,
+                cancellingState.document.turns.single { it.utteranceId == 1L }.recognizedText)
+            assertEquals("the swipe requests native cancellation exactly once", 1, cancelledSession.cancelCount)
+            capture(
+                instrumentation,
+                activeScenario,
+                captureDirectory,
+                "06-simulated-meeting-cancellation-in-progress.png",
+                "Fermeture de la réunion en cours",
+            )
+            cancelledSession.closed.complete(Unit)
+            val cancelled = requireNotNull(awaitMeetingRecordingState(instrumentation) {
+                it.phase == MeetingRecordingPhase.FINISHED && it.document.sessionId == cancelledSessionId
+            }) { "the simulated native cancellation closes without publishing a library note" }
+            assertTrue("the cancelled meeting retains the simulated draft text",
+                cancelled.document.turns.any { it.recognizedText == simulatedMeetingText })
+            assertFalse("cancellation keeps a draft instead of publishing a meeting note",
+                readPersistedMeetingNoteIds(target).contains(cancelledSessionId))
+            assertEquals("the persisted draft retains the simulated text", simulatedMeetingText,
+                awaitDraft(draftFile).turns.single { it.utteranceId == 1L }.recognizedText)
             assertEquals("the menu/profile/edit flow made no request to the network", 0, networkCalls.get())
 
             android.util.Log.i(TAG, "status=pass captureDir=${captureDirectory.absolutePath} " +
@@ -470,6 +608,9 @@ class MeetingOverlayGesturesAndroidTest {
                 cleanup("clear pending test factory") { OverlayService.clearMeetingTestOverridesFactoryForTest() }
             }
             cleanup("release controlled microphone stop") { microphoneFactoryForCleanup?.firstStop?.complete(Unit) }
+            cleanup("release simulated native cancellations") {
+                sessionFactoryForCleanup?.sessions?.forEach { it.closed.complete(Unit) }
+            }
             if (serviceStartAttempted) {
                 cleanup("stop fixture service") { target.stopService(Intent(target, OverlayService::class.java)) }
                 serviceShutdownSafe = runCatching {
@@ -513,6 +654,8 @@ class MeetingOverlayGesturesAndroidTest {
                 cleanup("remove only fixture-created meeting notes") {
                     val notes = TranscriptNotes(AndroidTranscriptNoteStorage(target))
                     createdFixtureNoteIds.forEach(notes::delete)
+                    simulatedNoteId?.let(notes::delete)
+                    simulatedFolderId?.let(notes::deleteFolder)
                     val remainingIds = readPersistedMeetingNoteIds(target)
                     check(createdFixtureNoteIds.none(remainingIds::contains)) {
                         "fixture-created notes remain after cleanup"
@@ -702,7 +845,9 @@ class MeetingOverlayGesturesAndroidTest {
 
         val checkpointCount: Int get() = checkpoints.get()
         val finishCount: Int get() = finishes.get()
+        val cancelCount: Int get() = cancels.get()
         val latestSpeakerChannels: Set<Int> get() = synchronized(speakerChannels) { speakerChannels.toSet() }
+        @Volatile var deferCloseOnCancel: Boolean = false
         override val queuedAudioMs: Long get() = 0L
 
         override fun acceptPcm16(buffer: ByteArray, length: Int): Boolean {
@@ -723,7 +868,7 @@ class MeetingOverlayGesturesAndroidTest {
 
         override fun cancel() {
             cancels.incrementAndGet()
-            closed.complete(Unit)
+            if (!deferCloseOnCancel) closed.complete(Unit)
         }
 
         override fun close() {
@@ -852,6 +997,100 @@ class MeetingOverlayGesturesAndroidTest {
         context: Context,
         deltaY: Int,
     ) = swipeBubbleWhileHeld(instrumentation, context, deltaY) {}
+
+    private fun swipeBubbleRight(instrumentation: android.app.Instrumentation, context: Context) {
+        anchorPillAtRight(instrumentation, context)
+        val bounds = requireNotNull(actualPillBoundsInScreen(instrumentation)) {
+            "the actual attached pill view supplies the rightward swipe bounds"
+        }
+        val rightBoundary = screenRect(instrumentation).right
+        val density = context.resources.displayMetrics.density
+        val touchSlop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+        val minimumDistance = maxOf((24 * density).toInt(), 2 * touchSlop)
+        val available = rightBoundary - bounds.centerX()
+        val distance = minOf((30 * density).toInt(), available - 1)
+        assertTrue("the right-anchored pill leaves enough runway for a physical right swipe", distance >= minimumDistance)
+        injectSwipe(
+            instrumentation,
+            bounds.centerX(),
+            bounds.centerY(),
+            bounds.centerX() + distance,
+            bounds.centerY(),
+            whileHeld = {},
+        )
+    }
+
+    private fun swipeVisibleLabelRight(
+        instrumentation: android.app.Instrumentation,
+        context: Context,
+        label: String,
+    ) {
+        awaitVisibleText(instrumentation, label)
+        val node = requireNotNull(findVisibleNode(instrumentation) { nodeHasLabelFragment(it, label) }) {
+            "the notes row '$label' is the real touch target"
+        }
+        val bounds = try { accessibilityBounds(node) } finally { node.recycle() }
+        val rightBoundary = screenRect(instrumentation).right
+        val density = context.resources.displayMetrics.density
+        val touchSlop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+        val minimumDistance = maxOf((24 * density).toInt(), 2 * touchSlop)
+        val distance = minOf((64 * density).toInt(), rightBoundary - bounds.centerX() - 2)
+        assertTrue("the notes row has sufficient visible rightward runway", distance >= minimumDistance)
+        injectSwipe(
+            instrumentation,
+            bounds.centerX(),
+            bounds.centerY(),
+            bounds.centerX() + distance,
+            bounds.centerY(),
+            whileHeld = {},
+        )
+    }
+
+    private fun anchorPillAtRight(instrumentation: android.app.Instrumentation, context: Context) {
+        val service = requireNotNull(fixtureService.get()) { "the fixture owns the real OverlayService" }
+        instrumentation.runOnMainSync {
+            val pill = requireNotNull(serviceField(service, "pill") as? View)
+            val params = requireNotNull(serviceField(service, "params") as? android.view.WindowManager.LayoutParams)
+            params.x = screenRect(service).right - params.width
+            val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+            windowManager.updateViewLayout(pill, params)
+        }
+        assertTrue("the pill is attached at the right edge after the fixture moves it", awaitCondition {
+            val bounds = actualPillBoundsInScreen(instrumentation) ?: return@awaitCondition false
+            screenRect(instrumentation).right - bounds.right <= 2
+        })
+    }
+
+    private fun screenRect(instrumentation: android.app.Instrumentation): com.kafkasl.phonewhisper.Rect {
+        val service = requireNotNull(fixtureService.get())
+        return screenRect(service)
+    }
+
+    private fun screenRect(service: OverlayService): com.kafkasl.phonewhisper.Rect =
+        OverlayService::class.java.getDeclaredMethod("screenRect").apply { isAccessible = true }
+            .invoke(service) as com.kafkasl.phonewhisper.Rect
+
+    private fun showNotesFolder(service: OverlayService, folderId: String) {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val notesViewType = Class.forName("com.kafkasl.phonewhisper.OverlayService\$NotesView")
+            val folderType = Class.forName("com.kafkasl.phonewhisper.OverlayService\$NotesView\$Folder")
+            val folderPage = folderType.getDeclaredConstructor(String::class.java).apply { isAccessible = true }
+                .newInstance(folderId)
+            OverlayService::class.java.getDeclaredMethod("showNotesOverlay", notesViewType).apply {
+                isAccessible = true
+            }.invoke(service, folderPage)
+        }
+    }
+
+    private fun dismissFloatingNotesMenu(service: OverlayService) {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            OverlayService::class.java.getDeclaredMethod("dismissFloatingMenu").apply { isAccessible = true }
+                .invoke(service)
+        }
+    }
+
+    private fun serviceField(service: OverlayService, name: String): Any? =
+        OverlayService::class.java.getDeclaredField(name).apply { isAccessible = true }.get(service)
 
     private fun swipeBubbleWhileHeld(
         instrumentation: android.app.Instrumentation,

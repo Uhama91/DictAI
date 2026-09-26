@@ -17,6 +17,7 @@
 
 #include <unistd.h>
 
+#include "meeting_asr_config.h"
 #include "meeting_native_logic.h"
 #include "recognizer.h"
 
@@ -318,6 +319,7 @@ class MeetingSession {
             throw std::invalid_argument("Meeting model files are unavailable");
 
         asr::RecognizerConfig config;
+        dictai::meeting::use_meeting_rnnt_context(config);
         config.backend.gpu = -1;
         config.model.path = asr_path;
         config.batching.enabled = false;
@@ -330,7 +332,6 @@ class MeetingSession {
 
         auto session = std::shared_ptr<MeetingSession>(new MeetingSession());
         session->recognizer_ = std::make_unique<asr::Recognizer>(std::move(config));
-        session->recognizer_->warmup();
         const auto* diar_model = session->recognizer_->diar_model();
         if (diar_model == nullptr || diar_model->cfg().num_speakers != 8)
             throw std::runtime_error("Diarization model does not provide eight speakers");

@@ -117,9 +117,9 @@ class MeetingNativeBridgeInstrumentedTest {
                     "modelsLoadedInAppPrivateFiles=true preFinishTags=${cycleOne.tagsBeforeFinish.size} " +
                     "stableSequence=${cycleOne.stableSequence.joinToString(",")} " +
                     "preFinishPushedMs=${cycleOne.pushedAtStableReturnMs} " +
-                    "warmupMs=${cycleOne.warmupMs} streamCallMs=${cycleOne.streamCallMs} " +
+                    "openMs=${cycleOne.openMs} streamCallMs=${cycleOne.streamCallMs} " +
                     "streamWallMs=${cycleOne.streamWallMs} finishMs=${cycleOne.finishMs} " +
-                    "secondWarmupMs=${cycleTwo.warmupMs} diarSpeakers=8 " +
+                    "secondOpenMs=${cycleTwo.openMs} diarSpeakers=8 " +
                     "oldRuntimeLibrariesLoaded=$OLD_RUNTIME_LIBRARIES_COUNT " +
                     "accentedUtf8=true handlesDistinct=true utteranceIdsRestart=true",
             )
@@ -146,7 +146,7 @@ class MeetingNativeBridgeInstrumentedTest {
         var acceptCallNs = 0L
         val openStart = SystemClock.elapsedRealtime()
         val handle = bridge.open(asrModel.absolutePath, diarModel.absolutePath, "fr")
-        val warmupMs = SystemClock.elapsedRealtime() - openStart
+        val openMs = SystemClock.elapsedRealtime() - openStart
         assertTrue("native open must return a positive registry handle", handle > 0)
         var pushedBytes = 0
         var finishMs = 0L
@@ -185,7 +185,7 @@ class MeetingNativeBridgeInstrumentedTest {
             val stableSequence = stableSpeakerSequence(latest.values)
             assertTrue("stable speaker order must return to its first tag as A-B-C-A before finish", stableAbcaBeforeEof)
             assertTrue("latest pre-finish stable sequence must be A-B-C-A", isAbca(stableSequence))
-            assertGlobalTimestamps(latest.values, totalAudioMs)
+            assertGlobalTimestamps(latest.values, totalAudioMs, openMs)
             assertFrenchUtf8(responseText.toString())
 
             val streamCallMs = acceptCallNs / 1_000_000L
@@ -210,7 +210,7 @@ class MeetingNativeBridgeInstrumentedTest {
                 "cycle=1 status=pass audioMs=$totalAudioMs pushedBeforeFinish=true " +
                     "wordBeforeEof=true speakerTagBeforeEof=true stableAbcaBeforeEof=true " +
                     "tags=${tagsBeforeFinish.sorted().joinToString(",")} " +
-                    "pushedAtStableReturnMs=$pushedAtStableReturnMs warmupMs=$warmupMs " +
+                    "pushedAtStableReturnMs=$pushedAtStableReturnMs openMs=$openMs " +
                 "acceptCallMs=$streamCallMs streamWallMs=$streamWallMs finishMs=$finishMs " +
                     "handlePositive=true acceptAfterFinish=refused",
             )
@@ -219,7 +219,7 @@ class MeetingNativeBridgeInstrumentedTest {
                 tagsBeforeFinish,
                 stableSequence,
                 pushedAtStableReturnMs,
-                warmupMs,
+                openMs,
                 streamCallMs,
                 finishMs,
                 streamWallMs = streamWallMs,
@@ -241,7 +241,7 @@ class MeetingNativeBridgeInstrumentedTest {
         val responseText = StringBuilder()
         val openStart = SystemClock.elapsedRealtime()
         val handle = bridge.open(asrModel.absolutePath, diarModel.absolutePath, "fr")
-        val warmupMs = SystemClock.elapsedRealtime() - openStart
+        val openMs = SystemClock.elapsedRealtime() - openStart
         assertTrue(handle > 0)
         val feedBytes = minOf(pcm.size.toLong(), SECOND_SESSION_FEED_MS * PCM_BYTES_PER_SECOND / 1000L).toInt()
         var pushedBytes = 0
@@ -282,7 +282,7 @@ class MeetingNativeBridgeInstrumentedTest {
             Log.i(
                 LOG_TAG,
                 "cycle=2 status=pass audioMs=${pushedBytes * 1000L / PCM_BYTES_PER_SECOND} " +
-                    "warmupMs=$warmupMs acceptCallMs=${acceptCallNs / 1_000_000L} finishMs=$finishMs " +
+                    "openMs=$openMs acceptCallMs=${acceptCallNs / 1_000_000L} finishMs=$finishMs " +
                     "utteranceIds=${utteranceIds.sorted().joinToString(",")} handlePositive=true",
             )
             return CycleResult(
@@ -290,7 +290,7 @@ class MeetingNativeBridgeInstrumentedTest {
                 emptySet(),
                 emptyList(),
                 -1,
-                warmupMs,
+                openMs,
                 acceptCallNs / 1_000_000L,
                 finishMs,
                 utteranceIds,
@@ -358,21 +358,44 @@ class MeetingNativeBridgeInstrumentedTest {
         sequence.size == 4 && sequence[0] == 1 && sequence[3] == 1 &&
             sequence[0] != sequence[1] && sequence[0] != sequence[2] && sequence[1] != sequence[2]
 
-    private fun assertGlobalTimestamps(updates: Collection<MeetingNativeUpdate>, totalAudioMs: Long) {
-        val finalWords = updates.asSequence()
-            .filter { it.isFinal }
-            .flatMap { update ->
-                update.words.asSequence().filter {
-                    it.channel > 0 && it.endMs <= update.stableSpeakerThroughMs
-                }
+    private fun assertGlobalTimestamps(
+        updates: Collection<MeetingNativeUpdate>,
+        totalAudioMs: Long,
+        openMs: Long,
+    ) {
+        val observedWords = updates.flatMap { update -> update.words.map { word -> update to word } }
+        val stableSpeakerWords = observedWords.filter { (update, word) ->
+            update.isFinal && word.channel > 0 && word.endMs <= update.stableSpeakerThroughMs
+        }
+        val earliest = stableSpeakerWords.minOfOrNull { (_, word) -> word.startMs }
+        val latest = stableSpeakerWords.maxOfOrNull { (_, word) -> word.startMs }
+        val firstWords = observedWords.sortedBy { (_, word) -> word.startMs }.take(12)
+            .joinToString(separator = ";") { (update, word) ->
+                "${word.text}@${word.startMs}-${word.endMs}" +
+                    "(channel=${word.channel},isFinal=${update.isFinal}," +
+                    "stableSpeakerThrough=${update.stableSpeakerThroughMs}," +
+                    "audioProcessed=${update.audioProcessedMs},utterance=${update.utteranceId})"
             }
-            .toList()
-        assertTrue("stable speaker-tagged words must be returned", finalWords.isNotEmpty())
-        val earliest = finalWords.minOf { it.startMs }
-        val latest = finalWords.maxOf { it.startMs }
-        assertTrue("first turn must remain near the start of the audio", earliest < 1_000)
-        assertTrue("last turn must retain its global offset, not restart near zero", latest >= 9_000)
-        assertTrue("last-turn timestamp must remain within the fixture", latest < totalAudioMs)
+        val firstTranscripts = updates.sortedBy { it.utteranceId }.take(2)
+            .joinToString(separator = " || ") { update ->
+                "utterance=${update.utteranceId},revision=${update.revision}," +
+                    "isFinal=${update.isFinal},rawTranscript=\"${update.transcript}\""
+            }
+        val diagnostic = "openMs=$openMs totalAudioMs=$totalAudioMs " +
+            "stableSpeakerWordCount=${stableSpeakerWords.size} earliest=$earliest latest=$latest " +
+            "firstWords=[$firstWords] firstTranscripts=[$firstTranscripts]"
+        Log.i(LOG_TAG, "globalTimestampDiagnostic $diagnostic")
+
+        assertTrue("stable speaker-tagged words must be returned; $diagnostic", stableSpeakerWords.isNotEmpty())
+        assertTrue("first turn must remain near the start of the audio; $diagnostic", requireNotNull(earliest) < 1_000)
+        assertTrue(
+            "last turn must retain its global offset, not restart near zero; $diagnostic",
+            requireNotNull(latest) >= 9_000,
+        )
+        assertTrue(
+            "last-turn timestamp must remain within the fixture; $diagnostic",
+            requireNotNull(latest) < totalAudioMs,
+        )
     }
 
     private fun assertFrenchUtf8(text: String) {
@@ -438,7 +461,7 @@ class MeetingNativeBridgeInstrumentedTest {
         val tagsBeforeFinish: Set<Int>,
         val stableSequence: List<Int>,
         val pushedAtStableReturnMs: Long,
-        val warmupMs: Long,
+        val openMs: Long,
         val streamCallMs: Long,
         val finishMs: Long,
         val utteranceIds: Set<Long> = emptySet(),

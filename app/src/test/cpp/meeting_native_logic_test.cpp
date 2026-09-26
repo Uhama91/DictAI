@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "meeting_native_logic.h"
+#include "meeting_asr_config.h"
 
 namespace meeting = dictai::meeting;
 
@@ -31,6 +32,16 @@ meeting::Update update_ending_at(const std::string& transcript, std::int64_t end
 }
 
 int main() {
+    struct StreamingConfig {
+        int rnnt_right_context = -1;
+    };
+    struct RecognizerConfig {
+        StreamingConfig streaming;
+    } recognizer_config;
+    meeting::use_meeting_rnnt_context(recognizer_config);
+    expect(recognizer_config.streaming.rnnt_right_context == 1,
+           "meeting French streaming preserves its validated historical right context");
+
     const std::vector<uint8_t> pcm = {0x00, 0x80, 0xff, 0x7f, 0x00, 0x00};
     expect(meeting::validate_pcm16_length(pcm.size(), 6) == 3, "sample count");
     const auto samples = meeting::pcm16le_to_float(pcm.data(), pcm.size(), 6);

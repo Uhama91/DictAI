@@ -27,10 +27,18 @@ class MeetingNativeToolingTest(unittest.TestCase):
         actual = staged_sources(probe_script)
         self.assertEqual(
             ["CMakeLists.txt", "meeting_probe.cpp", "meeting_jni.cpp",
-             "meeting_native_logic.cpp", "meeting_native_logic.h", "meeting_jni.exports"],
+             "meeting_native_logic.cpp", "meeting_native_logic.h", "meeting_asr_config.h",
+             "meeting_jni.exports"],
             expected,
         )
         self.assertEqual(expected, actual)
+
+    def test_interactive_jni_open_skips_synthetic_warmup(self):
+        source = (MEETING_CPP / "meeting_jni.cpp").read_text()
+        open_start = source.index("static std::shared_ptr<MeetingSession> open(")
+        accept_start = source.index("std::vector<Update> accept(", open_start)
+        interactive_open = source[open_start:accept_start]
+        self.assertNotIn("warmup()", interactive_open)
 
     def test_coexistence_manifest_pins_exactly_the_nine_historical_libraries(self):
         manifest = SCRIPTS / "native/meeting-existing-runtime.manifest"
@@ -50,6 +58,17 @@ class MeetingNativeToolingTest(unittest.TestCase):
         script = (SCRIPTS / "check_meeting_native.sh").read_text()
         self.assertIn("meeting-existing-runtime.manifest", script)
         self.assertNotIn('"$EXISTING_RUNTIME"/*.so', script)
+
+    def test_native_log_gate_requires_the_validated_meeting_context_for_both_streams(self):
+        script = (SCRIPTS / "check_meeting_native.sh").read_text()
+        self.assertIn("right=1( |$)", script)
+        self.assertIn("if (meeting_context < 2)", script)
+        probe = (MEETING_CPP / "meeting_probe.cpp").read_text()
+        self.assertIn("rnnt_right_context=1", probe)
+        self.assertNotIn("rnnt_right_context=model-default", probe)
+        helper = (MEETING_CPP / "meeting_asr_config.h").read_text()
+        self.assertIn("use_meeting_rnnt_context", helper)
+        self.assertIn("config.streaming.rnnt_right_context = 1", helper)
 
     def test_coexistence_checker_reads_the_manifest_file(self):
         script = (SCRIPTS / "check_meeting_native.sh").read_text()

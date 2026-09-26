@@ -37,6 +37,7 @@ verify_log() {
             return 0
         }
         /^MODEL_CAPACITY stage=diar speakers=8$/ { model_ok=1 }
+        /^\[asr\] mode=streaming head=rnnt / && $0 ~ /(^| )right=1( |$)/ { meeting_context++ }
         /^RUNTIME_COEXIST status=loaded / { runtime_loaded++ }
         /^RUNTIME_COEXIST_SUMMARY libraries=9 status=ok$/ { runtime_summary=1 }
         /^FINISH_BEGIN stage=diar-realtime / { finish_realtime=1 }
@@ -58,6 +59,7 @@ verify_log() {
             n_burst=0; ids_burst=""
             for (i=1; i<=8; i++) if (tags_burst[i]) { n_burst++; ids_burst=ids_burst (ids_burst ? "," : "") i }
             ok=1
+            if (meeting_context < 2) { print "FAIL: meeting ASR did not keep historical RNNT right context 1 in both runs" > "/dev/stderr"; ok=0 }
             if (!model_ok) { print "FAIL: diarization model is not verified as eight-speaker" > "/dev/stderr"; ok=0 }
             if (runtime_loaded!=9 || !runtime_summary) { print "FAIL: existing and new native runtimes did not coexist with all nine libraries in one process" > "/dev/stderr"; ok=0 }
             if (n_rt<2) { print "FAIL: fewer than two distinct positive speaker tags before realtime EOF" > "/dev/stderr"; ok=0 }

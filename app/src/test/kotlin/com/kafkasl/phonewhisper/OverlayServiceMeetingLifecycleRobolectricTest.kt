@@ -4,7 +4,10 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.os.SystemClock
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.TextView
 import com.kafkasl.phonewhisper.meeting.MeetingDraftOwnership
@@ -21,6 +24,7 @@ import com.kafkasl.phonewhisper.meeting.MeetingRecordingController
 import com.kafkasl.phonewhisper.meeting.MeetingRecordingPhase
 import com.kafkasl.phonewhisper.meeting.MeetingSession
 import com.kafkasl.phonewhisper.meeting.MeetingSessionFactoryPort
+import com.kafkasl.phonewhisper.meeting.MeetingWord
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -192,6 +196,69 @@ class OverlayServiceMeetingLifecycleRobolectricTest {
         assertEquals("the first recorder was stopped exactly once", 1, requireNotNull(microphoneFactory).microphones.first().stopCalls.get())
         assertEquals("the resumed capture uses one new microphone", 1, requireNotNull(microphoneFactory).microphones.last().startCalls.get())
         assertEquals("resume still owns one native session", 0, session.cancelCalls.get())
+    }
+
+    @Test
+    fun `right swipe cancels a meeting during finalization and preserves its transcript draft`() {
+        startServiceWithFakes(deferMicrophoneStop = false, closeNativeOnCancel = false)
+        openMeetingPanel()
+        val controller = requireNotNull(ownedController)
+        sendCommand(MeetingPanelSessionCommand.START)
+        awaitMainCondition {
+            onMain {
+                controller.state.phase == MeetingRecordingPhase.LISTENING &&
+                    requireNotNull(microphoneFactory).microphones.size == 1
+            }
+        }
+
+        val session = requireNotNull(sessionFactory).sessions.single()
+        session.emitLateHypothesis()
+        awaitMainCondition {
+            onMain { controller.state.document.turns.any { it.recognizedText == "Texte conservé" } }
+        }
+        val currentService = requireNotNull(service)
+        val dialogDescription = onMain {
+            val dialogFlag = currentService.javaClass.getDeclaredField("meetingDialogOpen").apply { isAccessible = true }
+            dialogFlag.setBoolean(currentService, true)
+            try {
+                pillAccessibilityDescription(currentService)
+            } finally {
+                dialogFlag.setBoolean(currentService, false)
+            }
+        }
+        onMain { controller.finish() }
+        awaitMainCondition { onMain { controller.state.phase == MeetingRecordingPhase.FINALIZING } }
+
+        val transcriptBeforeCancel = onMain { controller.state.document.turns.map { it.recognizedText } }
+        onMain {
+            val pill = field<View>(currentService, "pill")
+            val layout = field<android.view.WindowManager.LayoutParams>(currentService, "params")
+            val pillWidth = (74 * context.resources.displayMetrics.density).toInt()
+            layout.width = pillWidth
+            val screen = serviceScreenRect(currentService)
+            layout.x = screen.right - pillWidth
+            val centerX = pillWidth / 2f
+            val slop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+            val minimumDistance = maxOf(24 * context.resources.displayMetrics.density, 2f * slop)
+            val runway = screen.right - (layout.x + centerX)
+            val threshold = maxOf(minimumDistance, runway * 0.6f)
+            val distance = minOf(threshold + 3f, runway - 2f)
+            assertTrue("edge fixture must fit meeting cancellation threshold: slop=$slop minimum=$minimumDistance runway=$runway", distance >= threshold)
+            val downTime = SystemClock.uptimeMillis()
+            send(pill, MotionEvent.ACTION_DOWN, centerX, 20f, downTime)
+            send(pill, MotionEvent.ACTION_UP, centerX + distance, 20f, downTime + 20L)
+        }
+
+        awaitMainCondition { session.cancelCalls.get() == 1 }
+        val closingDescription = onMain { pillAccessibilityDescription(currentService) }
+        assertFalse("a modal meeting dialog must not advertise gestures it blocks", dialogDescription.contains("Glisser vers"))
+        assertEquals("closing offers only its state message", "Fermeture de la réunion en cours.", closingDescription)
+        assertEquals("the finalizing swipe retains recognized text", transcriptBeforeCancel,
+            onMain { controller.state.document.turns.map { it.recognizedText } })
+        session.closed.complete(Unit)
+        awaitMainCondition { onMain { controller.state.phase == MeetingRecordingPhase.FINISHED } }
+        assertEquals("cancellation keeps the meeting transcript draft", transcriptBeforeCancel,
+            onMain { controller.state.document.turns.map { it.recognizedText } })
     }
 
     @Test
@@ -367,9 +434,29 @@ class OverlayServiceMeetingLifecycleRobolectricTest {
         return requireNotNull(result.get())
     }
 
+    private var currentTouchDownTime = 0L
+
+    private fun send(view: View, action: Int, x: Float, y: Float, time: Long): Unit {
+        if (action == MotionEvent.ACTION_DOWN) currentTouchDownTime = time
+        val event = MotionEvent.obtain(currentTouchDownTime, time, action, x, y, 0)
+        try {
+            view.dispatchTouchEvent(event)
+        } finally {
+            event.recycle()
+        }
+    }
+
     private fun invokeNoArgs(target: Any, methodName: String): Unit {
         target.javaClass.getDeclaredMethod(methodName).apply { isAccessible = true }.invoke(target)
     }
+
+    private fun serviceScreenRect(target: OverlayService): Rect = target.javaClass
+        .getDeclaredMethod("screenRect").apply { isAccessible = true }
+        .invoke(target) as Rect
+
+    private fun pillAccessibilityDescription(target: OverlayService): String = target.javaClass
+        .getDeclaredMethod("meetingPillAccessibilityDescription").apply { isAccessible = true }
+        .invoke(target) as String
 
     private inline fun <reified T> field(target: Any, name: String): T {
         val field = target.javaClass.getDeclaredField(name).apply { isAccessible = true }
@@ -433,8 +520,8 @@ class OverlayServiceMeetingLifecycleRobolectricTest {
                 runId = runId,
                 utteranceId = 1L,
                 revision = 1L,
-                words = emptyList(),
-                transcript = "late callback",
+                words = listOf(MeetingWord("Texte", 0L, 240L, 1)),
+                transcript = "Texte conservé",
                 isFinal = true,
                 stableSpeakerThroughMs = 0L,
                 audioProcessedMs = 0L,

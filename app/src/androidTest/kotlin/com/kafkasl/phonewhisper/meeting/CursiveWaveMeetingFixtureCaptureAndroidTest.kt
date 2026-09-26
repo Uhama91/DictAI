@@ -88,7 +88,7 @@ class CursiveWaveMeetingFixtureCaptureAndroidTest {
                 }
                 smallPill.addView(
                     actualPillWave,
-                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 32), Gravity.CENTER),
+                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 44), Gravity.CENTER),
                 )
                 val zoomSurface = FrameLayout(activity).apply { setBackgroundColor(palette.surface) }
                 val zoomWave = CursiveWaveView(activity).apply {
@@ -160,6 +160,10 @@ class CursiveWaveMeetingFixtureCaptureAndroidTest {
                 waves.forEach {
                     it.setMeetingMode(false)
                     it.contentDescription = "Onde Dictée existante"
+                }
+                val dictationPillWave = waves.first()
+                dictationPillWave.layoutParams = dictationPillWave.layoutParams.apply {
+                    height = dp(dictationPillWave.context, 32)
                 }
                 requireNotNull(caption).text = "Dictée — géométrie existante"
             }

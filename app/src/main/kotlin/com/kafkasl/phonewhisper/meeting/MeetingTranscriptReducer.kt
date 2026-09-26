@@ -1,5 +1,7 @@
 package com.kafkasl.phonewhisper.meeting
 
+import java.util.Locale
+
 /** Reconciles revisioned, utterance-local hypotheses into stable editable meeting turns. */
 class MeetingTranscriptReducer(
     private val sessionId: String,
@@ -25,9 +27,249 @@ class MeetingTranscriptReducer(
         if (validWords == null) {
             reconcileTranscript(hypothesis, existing)
         } else {
-            reconcileWords(hypothesis, validWords, existing)
+            val alignment = alignTimedWordsToTranscript(validWords, hypothesis.transcript)
+            val unresolvedConsumedEdge = alignment?.hasUnmatchedEdges == false && existing.any { state ->
+                state.identityWords.isEmpty() && !untimedTextAnchorMatchesWords(state, validWords, hypothesis.transcript)
+            }
+            val protectedTimedTextBecameUntimed = alignment?.hasUnmatchedEdges == true && existing.any { state ->
+                state.identityWords.isNotEmpty() &&
+                    (state.editAnchor != null || state.turn.hasManualAttribution) &&
+                    identityWordIndices(state.identityWords, validWords).isEmpty()
+            }
+            if ((alignment == null || unresolvedConsumedEdge || protectedTimedTextBecameUntimed) &&
+                hypothesis.transcript.hasVisibleText()
+            ) {
+                // If timed words cannot be mapped uniquely and contiguously, their speaker
+                // labels cannot safely be attached to portions of this fuller transcript.
+                reconcileTranscript(hypothesis, existing)
+            } else if (alignment?.hasUnmatchedEdges == true && !alignment.canRepresentEdges(validWords, hypothesis)) {
+                // Untimed text needs a real gap at the edge. A zero-length/overlapping interval
+                // is not a license to invent timing or lose the transcript fragment.
+                reconcileTranscript(hypothesis, existing)
+            } else {
+                reconcileWords(hypothesis, validWords, existing)
+                if (alignment?.hasUnmatchedEdges == true) {
+                    reconcilePartialTranscript(hypothesis, validWords, existing, alignment)
+                }
+            }
         }
     }
+
+    private fun untimedTextAnchorMatchesWords(
+        state: StoredTurn,
+        words: List<MeetingWord>,
+        transcript: String,
+    ): Boolean {
+        val sourceText = state.editAnchor?.sourceText ?: state.turn.recognizedText
+        if (!sourceText.hasVisibleText()) return false
+        return MeetingEditAnchor.capture(emptyList(), "", sourceText)
+            .locateTextWords(words, revisedTranscript = transcript).isAligned
+    }
+
+    private fun alignTimedWordsToTranscript(
+        words: List<MeetingWord>,
+        transcript: String,
+    ): TimedWordTranscriptAlignment? {
+        val transcriptTokens = MeetingEditAnchor.tokenize(transcript)
+            .filter { it.value.hasWordCharacter() }
+        if (transcriptTokens.isEmpty() || transcriptTokens.size > MAX_TEXT_WORDS) return null
+
+        val timedTokens = words.flatMapIndexed { wordIndex, word ->
+            MeetingEditAnchor.tokenize(word.text)
+                .filter { it.value.hasWordCharacter() }
+                .map { TimedTranscriptToken(wordIndex, it.value) }
+        }
+        if (timedTokens.isEmpty() || timedTokens.size > MAX_TEXT_WORDS || timedTokens.size > transcriptTokens.size) {
+            return null
+        }
+
+        val candidateStarts = (0..transcriptTokens.size - timedTokens.size).filter { start ->
+            timedTokens.indices.all { offset ->
+                normalizeTranscriptToken(timedTokens[offset].text) ==
+                    normalizeTranscriptToken(transcriptTokens[start + offset].value)
+            }
+        }
+        if (candidateStarts.size != 1) return null
+
+        val firstTokenIndex = candidateStarts.single()
+        val endTokenIndex = firstTokenIndex + timedTokens.size
+        val spansByWord = words.map { mutableListOf<TextSpan>() }
+        timedTokens.forEachIndexed { offset, timedToken ->
+            val transcriptToken = transcriptTokens[firstTokenIndex + offset]
+            spansByWord[timedToken.wordIndex] += TextSpan(transcriptToken.start, transcriptToken.end)
+        }
+        spansByWord.forEachIndexed { wordIndex, spans ->
+            if (spans.isNotEmpty()) return@forEachIndexed
+            val nearbySpan = spansByWord.take(wordIndex).lastOrNull { it.isNotEmpty() }?.lastOrNull()
+                ?: spansByWord.drop(wordIndex + 1).firstOrNull { it.isNotEmpty() }?.firstOrNull()
+                ?: return null
+            spans += nearbySpan
+        }
+
+        val prefixText = transcript.substring(0, transcriptTokens[firstTokenIndex].start).trim()
+        val suffixStartChar = transcriptTokens.getOrNull(endTokenIndex)?.start ?: transcript.length
+        val suffixText = transcript.substring(suffixStartChar).trim()
+        return TimedWordTranscriptAlignment(
+            transcript = transcript,
+            wordSpans = spansByWord.map { spans -> TextSpan(spans.first().start, spans.last().end) },
+            prefixText = prefixText,
+            suffixText = suffixText,
+            suffixStartChar = suffixStartChar,
+            hasUnmatchedEdges = firstTokenIndex > 0 || endTokenIndex < transcriptTokens.size,
+        )
+    }
+
+    private fun TimedWordTranscriptAlignment.canRepresentEdges(
+        words: List<MeetingWord>,
+        hypothesis: MeetingHypothesis,
+    ): Boolean {
+        if (prefixText.hasVisibleText() && words.first().startMs <= 0) return false
+        if (suffixText.hasVisibleText() && words.last().endMs >= hypothesis.audioProcessedMs) return false
+        return true
+    }
+
+    private fun reconcilePartialTranscript(
+        hypothesis: MeetingHypothesis,
+        words: List<MeetingWord>,
+        existing: List<StoredTurn>,
+        alignment: TimedWordTranscriptAlignment,
+    ) {
+        val current = turnsByUtterance[hypothesis.utteranceId].orEmpty()
+        val timedStates = current.filter { it.identityWords.isNotEmpty() }
+        timedStates.forEach { state ->
+            val wordIndices = identityWordIndices(state.identityWords, words)
+            val recognized = if (wordIndices.isEmpty()) {
+                state.turn.recognizedText
+            } else {
+                alignment.textForWordIndices(wordIndices)
+            }
+            state.turn = state.turn.copy(recognizedText = recognized)
+        }
+
+        val edges = buildList {
+            if (alignment.prefixText.hasVisibleText()) add(TranscriptEdge(alignment.prefixText, 0L))
+            if (alignment.suffixText.hasVisibleText()) {
+                add(TranscriptEdge(alignment.suffixText, hypothesis.audioProcessedMs.coerceAtLeast(0)))
+            }
+        }
+        val oldEdges = existing.filter { it.identityWords.isEmpty() }
+        val candidateEdges = oldEdges.associateWith { state ->
+            edges.indices.filter { edgeIndex -> edgeAligns(state, edges[edgeIndex].text) }
+        }
+        val matchedEdges = mutableMapOf<Int, StoredTurn>()
+        candidateEdges.forEach { (state, candidates) ->
+            if (candidates.size != 1) return@forEach
+            val edgeIndex = candidates.single()
+            val competingStates = candidateEdges.count { (other, otherCandidates) ->
+                other !== state && edgeIndex in otherCandidates
+            }
+            if (competingStates == 0) matchedEdges[edgeIndex] = state
+        }
+
+        val edgeStates = edges.mapIndexed { index, edge ->
+            val state = matchedEdges[index] ?: createEdgeState(hypothesis, edge)
+            if (index in matchedEdges) updateEdgeState(state, hypothesis, edge)
+            state
+        }.toMutableList()
+        oldEdges.filter { state ->
+            (state.editAnchor != null || state.turn.hasManualAttribution) && edgeStates.none { it === state }
+        }.forEach { state ->
+            if (edgeStates.none { it === state }) edgeStates += state
+        }
+
+        turnsByUtterance[hypothesis.utteranceId] = (timedStates + edgeStates)
+            .sortedWith(compareBy<StoredTurn> { it.turn.startMs }.thenBy { it.turn.id })
+            .toMutableList()
+    }
+
+    private fun edgeAligns(state: StoredTurn, candidateText: String): Boolean {
+        val sourceText = state.editAnchor?.sourceText ?: state.turn.recognizedText
+        if (!sourceText.hasVisibleText() || !candidateText.hasVisibleText()) return false
+        return MeetingEditAnchor.capture(emptyList(), "", sourceText).locateText(candidateText).isAligned
+    }
+
+    private fun createEdgeState(hypothesis: MeetingHypothesis, edge: TranscriptEdge): StoredTurn {
+        val id = newTurnId(hypothesis.utteranceId)
+        return StoredTurn(
+            turn = MeetingTurn(
+                id = id,
+                utteranceId = hypothesis.utteranceId,
+                startMs = edge.anchorMs,
+                endMs = edge.anchorMs,
+                recognizedText = edge.text,
+                automaticParticipantId = null,
+                attributionStable = false,
+            ),
+            identityWords = emptyList(),
+        )
+    }
+
+    private fun updateEdgeState(state: StoredTurn, hypothesis: MeetingHypothesis, edge: TranscriptEdge) {
+        var editedText = state.turn.editedText
+        state.editAnchor?.let { anchor ->
+            val match = anchor.locateText(edge.text)
+            if (match.isAligned) {
+                val continuation = edge.text.substring(match.endChar.coerceIn(0, edge.text.length)).trimStart()
+                editedText = appendText(state.editBaseText.orEmpty(), continuation)
+                addDiagnostic(hypothesis.utteranceId, state.turn.id, MeetingEditAlignmentStatus.ALIGNED)
+            } else {
+                editedText = state.editBaseText.orEmpty()
+                addDiagnostic(hypothesis.utteranceId, state.turn.id, MeetingEditAlignmentStatus.UNRESOLVED)
+            }
+        }
+        state.turn = state.turn.copy(
+            startMs = edge.anchorMs,
+            endMs = edge.anchorMs,
+            recognizedText = edge.text,
+            automaticParticipantId = null,
+            editedText = editedText,
+            attributionStable = false,
+        )
+    }
+
+    private fun TimedWordTranscriptAlignment.textForWordIndices(indices: List<Int>): String {
+        if (indices.isEmpty()) return ""
+        val sortedIndices = indices.distinct().sorted()
+        val runs = mutableListOf<IntRange>()
+        var runStart = sortedIndices.first()
+        var runEnd = runStart
+        sortedIndices.drop(1).forEach { index ->
+            if (index == runEnd + 1) {
+                runEnd = index
+            } else {
+                runs += runStart..runEnd
+                runStart = index
+                runEnd = index
+            }
+        }
+        runs += runStart..runEnd
+
+        return runs.fold("") { text, run ->
+            val start = wordSpans[run.first].start
+            val end = (if (run.last < wordSpans.lastIndex) {
+                wordSpans[run.last + 1].start
+            } else {
+                suffixStartChar
+            }).coerceIn(start, transcript.length)
+            appendText(text, transcript.substring(start, end).trim())
+        }
+    }
+
+    private fun identityWordIndices(identityWords: List<MeetingWord>, words: List<MeetingWord>): List<Int> {
+        var nextSearchIndex = 0
+        return identityWords.mapNotNull { identityWord ->
+            val index = (nextSearchIndex until words.size).firstOrNull { words[it] == identityWord }
+            if (index != null) nextSearchIndex = index + 1
+            index
+        }
+    }
+
+    private fun normalizeTranscriptToken(token: String): String = token
+        .filter {
+            Character.isLetterOrDigit(it.code) ||
+                Character.getType(it.code) == Character.NON_SPACING_MARK.toInt()
+        }
+        .lowercase(Locale.ROOT)
 
     fun edit(turnId: String, text: String) {
         val state = findTurn(turnId) ?: return
@@ -79,7 +321,17 @@ class MeetingTranscriptReducer(
         }
 
         val states = existing.sortedWith(compareBy<StoredTurn> { it.turn.startMs }.thenBy { it.turn.id })
-        val protectedStates = states.filter { it.editAnchor != null || it.turn.hasManualAttribution }
+        val untimedTextAlignments = states.filter { it.identityWords.isEmpty() }.associateWith { state ->
+            MeetingEditAnchor.capture(
+                sourceWords = emptyList(),
+                editedText = "",
+                sourceText = state.turn.recognizedText,
+            ).locateTextWords(words, revisedTranscript = hypothesis.transcript)
+        }
+        val protectedStates = states.filter { state ->
+            state.editAnchor != null || state.turn.hasManualAttribution ||
+                untimedTextAlignments[state]?.isAligned == true
+        }
         val editTextAlignments = alignTextAnchors(
             protectedStates.filter { it.editAnchor != null },
             hypothesis.transcript,
@@ -92,7 +344,11 @@ class MeetingTranscriptReducer(
         val mappings = protectedStates.map { state ->
             val matchWords = state.identityWords.ifEmpty { state.editAnchor?.sourceWords.orEmpty() }
             val match = MeetingEditAnchor.capture(matchWords, state.turn.editedText.orEmpty()).locateWords(words)
-            val matched = if (match.isAligned) match.matchedIndices else emptyList()
+            val textMatched = editWordAlignments.firstOrNull { it.state === state }
+                ?.match?.takeIf { it.isAligned }?.matchedWordIndices
+                ?: untimedTextAlignments[state]?.takeIf { it.isAligned }?.matchedWordIndices
+                ?: emptyList()
+            val matched = if (match.isAligned) match.matchedIndices else textMatched
             val timeMatches = if (matched.isEmpty()) {
                 words.indices.filter { index ->
                     val word = words[index]
@@ -506,6 +762,8 @@ class MeetingTranscriptReducer(
     private fun String.hasVisibleText(): Boolean =
         any { !Character.isWhitespace(it) && !Character.isSpaceChar(it) }
 
+    private fun String.hasWordCharacter(): Boolean = any { Character.isLetterOrDigit(it.code) }
+
     private data class StoredTurn(
         var turn: MeetingTurn,
         var identityWords: List<MeetingWord>,
@@ -514,6 +772,21 @@ class MeetingTranscriptReducer(
     )
 
     private data class StateMapping(val state: StoredTurn, val indices: List<Int>)
+
+    private data class TimedTranscriptToken(val wordIndex: Int, val text: String)
+
+    private data class TextSpan(val start: Int, val end: Int)
+
+    private data class TranscriptEdge(val text: String, val anchorMs: Long)
+
+    private data class TimedWordTranscriptAlignment(
+        val transcript: String,
+        val wordSpans: List<TextSpan>,
+        val prefixText: String,
+        val suffixText: String,
+        val suffixStartChar: Int,
+        val hasUnmatchedEdges: Boolean,
+    )
 
     private data class TextAnchorAlignment(
         val state: StoredTurn,

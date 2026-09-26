@@ -4,11 +4,15 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
 
 class MeetingAudioQueueTest {
     @Test
@@ -38,6 +42,7 @@ class MeetingAudioQueueTest {
         val queue = MeetingAudioQueue()
         val tenSeconds = ByteArray(320_000)
 
+        assertEquals(128L * 1024L * 1024L, MeetingAudioQueue.MAX_SPOOL_BYTES)
         assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(tenSeconds, tenSeconds.size))
         assertEquals(320_000, queue.queuedBytes)
         assertEquals(MeetingAudioQueue.OfferResult.FULL, queue.offer(byteArrayOf(1, 2), 2))
@@ -71,6 +76,33 @@ class MeetingAudioQueueTest {
         assertEquals(0, queue.queuedBytes)
         assertNull(queue.take())
         assertNull(queue.take())
+    }
+
+    @Test
+    fun `finish input returns without waiting for queue storage work`() {
+        val queue = MeetingAudioQueue(capacityBytes = 4)
+        val queueLock = MeetingAudioQueue::class.java.getDeclaredField("lock").apply { isAccessible = true }
+            .get(queue) as ReentrantLock
+        queueLock.lock()
+        val finishReturned = CountDownLatch(1)
+        val finisher = Thread {
+            queue.finishInput()
+            finishReturned.countDown()
+        }.apply { isDaemon = true }
+        var finishedPromptly = false
+
+        try {
+            finisher.start()
+            finishedPromptly = finishReturned.await(250, TimeUnit.MILLISECONDS)
+        } finally {
+            queueLock.unlock()
+            finisher.join(TimeUnit.SECONDS.toMillis(1))
+        }
+
+        assertTrue("finish input must not wait on disk-backed queue work", finishedPromptly)
+        assertEquals(MeetingAudioQueue.OfferResult.CLOSED, queue.offer(byteArrayOf(1, 2), 2))
+        assertNull(queue.take())
+        queue.close()
     }
 
     @Test
@@ -188,6 +220,153 @@ class MeetingAudioQueueTest {
         assertEquals(0, queue.queuedBytes)
         assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(byteArrayOf(1, 2), 2))
     }
+
+    @Test
+    fun `disk spool preserves block fifo and drains before finished input`() {
+        val root = Files.createTempDirectory("meeting-audio-spool").toFile()
+        val queue = MeetingAudioQueue(
+            capacityBytes = 4,
+            spoolRoot = root,
+            spoolCapacityBytes = 64,
+            segmentTargetBytes = 12,
+        )
+        val blocks = listOf(
+            byteArrayOf(1, 2),
+            byteArrayOf(3, 4),
+            byteArrayOf(5, 6),
+            byteArrayOf(7, 8),
+            byteArrayOf(9, 10),
+        )
+
+        try {
+            blocks.forEach { assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(it, it.size)) }
+            assertTrue(queue.spooledBytesQueued > 0)
+            queue.finishInput()
+
+            blocks.forEach { assertArrayEquals(it, queue.take()) }
+            assertNull(queue.take())
+            assertEquals(0, queue.queuedBytes)
+            assertEquals(0L, queue.spooledBytesQueued)
+            assertNoSessionSpools(root)
+        } finally {
+            queue.close()
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `disk capacity rejects new pcm and frees backlog budget as blocks are consumed`() {
+        val root = Files.createTempDirectory("meeting-audio-spool-limit").toFile()
+        val queue = MeetingAudioQueue(
+            capacityBytes = 2,
+            spoolRoot = root,
+            spoolCapacityBytes = 4,
+            segmentTargetBytes = 12,
+        )
+        val first = byteArrayOf(1, 2)
+        val second = byteArrayOf(3, 4)
+        val third = byteArrayOf(5, 6)
+
+        try {
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(first, first.size))
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(second, second.size))
+            assertEquals(4L, queue.spooledBytesQueued)
+            assertEquals(MeetingAudioQueue.OfferResult.LIMIT_REACHED, queue.offer(third, third.size))
+
+            assertArrayEquals(first, queue.take())
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(third, third.size))
+            queue.finishInput()
+            assertArrayEquals(second, queue.take())
+            assertArrayEquals(third, queue.take())
+            assertNull(queue.take())
+            assertNoSessionSpools(root)
+        } finally {
+            queue.close()
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `spool io failure is explicit and cancel close purge the session directory`() {
+        val parent = Files.createTempDirectory("meeting-audio-spool-io").toFile()
+        val notDirectory = File(parent, "not-a-directory").apply { writeText("block") }
+        val queue = MeetingAudioQueue(
+            capacityBytes = 2,
+            spoolRoot = notDirectory,
+            spoolCapacityBytes = 8,
+        )
+        try {
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(byteArrayOf(1, 2), 2))
+            assertEquals(MeetingAudioQueue.OfferResult.IO_ERROR, queue.offer(byteArrayOf(3, 4), 2))
+            queue.cancel()
+            assertEquals(0, queue.queuedBytes)
+            queue.close()
+        } finally {
+            queue.close()
+            parent.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `failure to reclaim a consumed segment is reported instead of losing quota accounting`() {
+        val root = Files.createTempDirectory("meeting-audio-spool-delete").toFile()
+        val queue = MeetingAudioQueue(
+            capacityBytes = 2,
+            spoolRoot = root,
+            spoolCapacityBytes = 16,
+            segmentTargetBytes = 6,
+        )
+        val block = byteArrayOf(1, 2)
+        var sessionDirectory: File? = null
+
+        try {
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(block, block.size))
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, queue.offer(block, block.size))
+            sessionDirectory = sessionDirectories(root).single()
+            assertTrue(sessionDirectory!!.setWritable(false, true))
+
+            assertThrows(MeetingAudioSpoolException::class.java) { queue.take() }
+            assertEquals(MeetingAudioQueue.OfferResult.IO_ERROR, queue.offer(block, block.size))
+        } finally {
+            sessionDirectory?.setWritable(true, true)
+            queue.close()
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `orphan sweep skips an active locked spool and reclaims it after close`() {
+        val root = Files.createTempDirectory("meeting-audio-spool-lock").toFile()
+        val active = MeetingAudioQueue(capacityBytes = 2, spoolRoot = root, spoolCapacityBytes = 32)
+        var second: MeetingAudioQueue? = null
+
+        try {
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, active.offer(byteArrayOf(1, 2), 2))
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, active.offer(byteArrayOf(3, 4), 2))
+            val activeDirectory = sessionDirectories(root).single()
+
+            val other = MeetingAudioQueue(capacityBytes = 2, spoolRoot = root, spoolCapacityBytes = 32)
+            second = other
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, other.offer(byteArrayOf(5, 6), 2))
+            assertEquals(MeetingAudioQueue.OfferResult.ACCEPTED, other.offer(byteArrayOf(7, 8), 2))
+            assertTrue(activeDirectory.exists())
+            assertArrayEquals(byteArrayOf(1, 2), active.take())
+
+            active.close()
+            assertFalse(activeDirectory.exists())
+        } finally {
+            active.close()
+            second?.close()
+            root.deleteRecursively()
+        }
+    }
+
+    private fun assertNoSessionSpools(root: File) {
+        assertTrue(sessionDirectories(root).isEmpty())
+    }
+
+    private fun sessionDirectories(root: File): List<File> =
+        root.listFiles()?.filter { it.isDirectory && it.name.startsWith("session-") }.orEmpty()
 
     private fun awaitWaiting(thread: Thread, timeout: Long, unit: TimeUnit): Boolean {
         val deadline = System.nanoTime() + unit.toNanos(timeout)

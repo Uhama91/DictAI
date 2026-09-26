@@ -46,6 +46,30 @@ class MeetingPillInteractionTest {
     }
 
     @Test
+    fun rightSwipeCancelsOnlyAnActiveOrPreparingMeeting() {
+        val right = MeetingPillInteraction.Gesture.SWIPE_RIGHT
+        listOf(
+            MeetingPillInteraction.Phase.PREPARING,
+            MeetingPillInteraction.Phase.LISTENING,
+            MeetingPillInteraction.Phase.PAUSING,
+            MeetingPillInteraction.Phase.PAUSED,
+            MeetingPillInteraction.Phase.FINALIZING,
+            MeetingPillInteraction.Phase.ERROR,
+        ).forEach { phase ->
+            assertEquals(MeetingPillInteraction.Intent.CANCEL_SESSION, intent(phase, right))
+        }
+        listOf(
+            MeetingPillInteraction.Phase.READY,
+            MeetingPillInteraction.Phase.CLOSING,
+            MeetingPillInteraction.Phase.FINISHED,
+            MeetingPillInteraction.Phase.RESTORED,
+            MeetingPillInteraction.Phase.MODEL_UNAVAILABLE,
+        ).forEach { phase ->
+            assertEquals(MeetingPillInteraction.Intent.NONE, intent(phase, right))
+        }
+    }
+
+    @Test
     fun finishedOrRestoredNoteIsSavedOnlyWhenItHasContent() {
         val down = MeetingPillInteraction.Gesture.SWIPE_DOWN
         listOf(MeetingPillInteraction.Phase.FINISHED, MeetingPillInteraction.Phase.RESTORED).forEach { phase ->
