@@ -229,7 +229,7 @@ class OverlayService : Service() {
         val draftOwnership: MeetingDraftOwnership,
         val draftFile: File,
         val modelStore: MeetingModelStore,
-        val modelAvailability: MeetingModelAvailabilityPort,
+        val modelAvailability: MeetingModelAvailabilityPort? = null,
         val reservation: MeetingNativeReservationPort,
         val sessionFactory: MeetingSessionFactoryPort,
         val microphoneFactory: MeetingMicrophoneFactoryPort,
@@ -2011,7 +2011,7 @@ class OverlayService : Service() {
                 State.PAUSED -> if (purpose == DictationPurpose.NOTE) "Note en pause. Appuyer pour dicter dans la note." else "Dictée en pause. Appuyer pour reprendre."
                 State.PAUSING -> "Mise en pause de la dictée."
                 State.RECORDING -> if (purpose == DictationPurpose.NOTE) "Dictée dans la note. Appuyer pour mettre en pause." else "Dictée de message en cours. Appuyer pour insérer. Glisser vers le bas pour mettre en pause."
-                else -> "Appuyer pour dicter. Glisser vers le haut pour les formats. Maintenir jusqu’à la vibration pour déplacer."
+                else -> "Appuyer pour dicter. Glisser vers le haut pour choisir un mode ou un format. Maintenir jusqu’à la vibration pour déplacer."
             }
             showRecordingPill(s == State.RECORDING)
             // Bordure lumineuse pendant la transcription.
@@ -3750,7 +3750,6 @@ class OverlayService : Service() {
                                 showFormatPicker(swipeMode = true, touchable = false)
                                 hideGestureHint()
                             }
-                            if (update.opened) updateFormatMenuHighlight(update.selectedIndex)
                         }
                     }
                     true
@@ -3770,11 +3769,11 @@ class OverlayService : Service() {
                     } else if (gestureMode.mode == PillGestureMode.Mode.SHORTCUT) {
                         tapCoordinator.reset()
                         val formatResult = formatSwipe.release(dx, dy)
-                        if (formatResult.action == FormatSwipeGesture.ReleaseAction.COMMIT) {
-                            selectFormat(formatResult.selectedIndex)
-                        } else if (formatResult.action == FormatSwipeGesture.ReleaseAction.OPEN_MENU) {
-                            // A very fast swipe can deliver only DOWN/UP. Materialize the same
-                            // menu on UP so the reveal gesture never loses its tappable result.
+                        if (formatResult.action == FormatSwipeGesture.ReleaseAction.COMMIT ||
+                            formatResult.action == FormatSwipeGesture.ReleaseAction.OPEN_MENU
+                        ) {
+                            // A swipe reveals the common menu but never selects an item; selection
+                            // is an explicit tap. Materialize it here for a fast DOWN/UP reveal.
                             if (formatMenuParams == null) showFormatPicker(swipeMode = true, touchable = true)
                             enableFormatMenuTouch()
                         } else {
@@ -6449,10 +6448,13 @@ class OverlayService : Service() {
 
     private fun attachMeetingModelListener(store: MeetingModelStore) {
         if (meetingModelListener != null) return
-        val listener: (MeetingModelStoreState) -> Unit = { next ->
+        val listener: (MeetingModelStoreState) -> Unit = { _ ->
             main.post {
                 if (meetingSurfaceOpen && meetingModelStore === store) {
-                    renderMeetingState(meetingControllerState, next)
+                    renderMeetingState(
+                        state = meetingRecordingController?.state ?: meetingControllerState,
+                        modelState = store.currentState,
+                    )
                 }
             }
         }
@@ -6975,6 +6977,7 @@ class OverlayService : Service() {
             }
         }
         return when (state.phase) {
+            MeetingRecordingPhase.MODEL_UNAVAILABLE,
             MeetingRecordingPhase.DOCUMENT -> if (meetingDocumentRestored) {
                 MeetingPillInteraction.Phase.RESTORED
             } else when (meetingModelStoreForPanel().currentState) {
@@ -6991,7 +6994,6 @@ class OverlayService : Service() {
             MeetingRecordingPhase.FINALIZING -> MeetingPillInteraction.Phase.FINALIZING
             MeetingRecordingPhase.CLOSING -> MeetingPillInteraction.Phase.CLOSING
             MeetingRecordingPhase.FINISHED -> MeetingPillInteraction.Phase.FINISHED
-            MeetingRecordingPhase.MODEL_UNAVAILABLE -> MeetingPillInteraction.Phase.MODEL_UNAVAILABLE
             MeetingRecordingPhase.ERROR -> MeetingPillInteraction.Phase.ERROR
         }
     }
@@ -7455,16 +7457,12 @@ class OverlayService : Service() {
                 detail = state.recordingError,
                 saveError = state.saveError,
             )
-            MeetingRecordingPhase.MODEL_UNAVAILABLE -> MeetingPanelStatus(
-                phase = MeetingPanelStatus.Phase.MODEL_UNAVAILABLE,
-                detail = state.recordingError,
-                saveError = state.saveError,
-            )
             MeetingRecordingPhase.ERROR -> MeetingPanelStatus(
                 phase = MeetingPanelStatus.Phase.ERROR,
                 detail = state.recordingError,
                 saveError = state.saveError,
             )
+            MeetingRecordingPhase.MODEL_UNAVAILABLE,
             MeetingRecordingPhase.DOCUMENT -> when (modelState) {
                 is MeetingModelStoreState.Ready -> MeetingPanelStatus(MeetingPanelStatus.Phase.READY, saveError = state.saveError)
                 is MeetingModelStoreState.Downloading -> MeetingPanelStatus(
@@ -7486,9 +7484,16 @@ class OverlayService : Service() {
             }
         }
         val availabilityOverride = meetingTestOverrides?.modelAvailability?.currentAvailability()
-        val effectiveStatus = if (state.phase == MeetingRecordingPhase.DOCUMENT) {
+        val derivesFromReadiness = state.phase == MeetingRecordingPhase.DOCUMENT ||
+            state.phase == MeetingRecordingPhase.MODEL_UNAVAILABLE
+        val effectiveStatus = if (derivesFromReadiness) {
             when (availabilityOverride) {
-                MeetingModelAvailability.READY -> status.copy(phase = MeetingPanelStatus.Phase.READY)
+                MeetingModelAvailability.READY -> status.copy(
+                    phase = MeetingPanelStatus.Phase.READY,
+                    detail = null,
+                    progressPercent = null,
+                    modelSize = null,
+                )
                 MeetingModelAvailability.MISSING -> status.copy(
                     phase = MeetingPanelStatus.Phase.MODEL_UNAVAILABLE,
                     modelSize = meetingModelSizeLabel(),

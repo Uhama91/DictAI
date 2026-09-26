@@ -5,6 +5,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.TextView
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -29,6 +30,9 @@ class OverlayServiceGestureRobolectricTest {
     private lateinit var context: android.content.Context
     private lateinit var controller: ServiceController<OverlayService>
     private lateinit var service: OverlayService
+    private lateinit var modes: TranscriptionModeCoordinator
+    private var previousModePresent = false
+    private var previousMode: String? = null
     private var previousSelected: String? = null
     private var previousCustom: String? = null
 
@@ -40,6 +44,12 @@ class OverlayServiceGestureRobolectricTest {
         previousSelected = formatPrefs.getString("selected", null)
         previousCustom = formatPrefs.getString("custom", null)
         formatPrefs.edit().clear().putString("selected", "cleanup").apply()
+        val modePrefs = context.getSharedPreferences("whisperpin", android.content.Context.MODE_PRIVATE)
+        previousModePresent = modePrefs.contains("transcription_mode")
+        previousMode = modePrefs.getString("transcription_mode", null)
+        TranscriptionModeCoordinator.clearProcessForTest()
+        modePrefs.edit().putString("transcription_mode", TranscriptionMode.DICTATION.preferenceValue).commit()
+        modes = TranscriptionModeCoordinator.process(context)
         controller = Robolectric.buildService(OverlayService::class.java)
         service = controller.create().get()
         // onCreate may be prevented from starting an FGS by the host; showButton is idempotent
@@ -55,24 +65,74 @@ class OverlayServiceGestureRobolectricTest {
         previousSelected?.let { edit.putString("selected", it) }
         previousCustom?.let { edit.putString("custom", it) }
         edit.apply()
+        TranscriptionModeCoordinator.clearProcessForTest()
+        val modePrefs = context.getSharedPreferences("whisperpin", android.content.Context.MODE_PRIVATE)
+        val modeEdit = modePrefs.edit()
+        if (previousModePresent) modeEdit.putString("transcription_mode", previousMode)
+        else modeEdit.remove("transcription_mode")
+        modeEdit.commit()
         ShadowSettings.reset()
     }
 
     @Test
-    fun `upward pull opens menu and a held second move commits the next format`() {
+    fun `multiple upward moves only open the common menu until a mode is tapped`() {
         val pill = field<FrameLayout>(service, "pill")
         val formats = PostProcessingFormats(context)
         assertEquals("cleanup", formats.selected().id)
+        assertEquals(TranscriptionMode.DICTATION, modes.snapshot().mode)
 
         send(pill, MotionEvent.ACTION_DOWN, 20f, 20f)
         send(pill, MotionEvent.ACTION_MOVE, 20f, -36f)
         assertNotNull(field<Any>(service, "formatMenuParams"))
         assertEquals(0, field<Int>(service, "formatMenuSelected"))
         send(pill, MotionEvent.ACTION_MOVE, 20f, -100f)
-        send(pill, MotionEvent.ACTION_UP, 20f, -100f)
+        send(pill, MotionEvent.ACTION_MOVE, 20f, -160f)
+        send(pill, MotionEvent.ACTION_UP, 20f, -160f)
 
-        assertEquals("corrected", formats.selected().id)
+        assertEquals("a swipe does not change the selected format", "cleanup", formats.selected().id)
+        assertEquals("a swipe does not change Dictation mode", TranscriptionMode.DICTATION, modes.snapshot().mode)
+        assertEquals("the selected format remains highlighted", 0, field<Int>(service, "formatMenuSelected"))
+        val menuParams = field<WindowManager.LayoutParams>(service, "formatMenuParams")
+        assertTrue("the common menu remains touchable after release",
+            menuParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0)
+
+        assertTrue("an explicit mode-row tap selects Meeting", clickModeRow(TranscriptionMode.MEETING))
+        assertEquals(TranscriptionMode.MEETING, modes.snapshot().mode)
         assertTrue(field<Any?>(service, "formatMenuParams") == null)
+
+        val pillAgain = field<FrameLayout>(service, "pill")
+        send(pillAgain, MotionEvent.ACTION_DOWN, 20f, 20f)
+        send(pillAgain, MotionEvent.ACTION_MOVE, 20f, -36f)
+        send(pillAgain, MotionEvent.ACTION_UP, 20f, -36f)
+        val meetingOpenedMenu = field<WindowManager.LayoutParams>(service, "formatMenuParams")
+        assertTrue("an upward swipe from Meeting opens the common mode menu",
+            meetingOpenedMenu.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0)
+        assertTrue("the same common menu can explicitly return to Dictation", clickModeRow(TranscriptionMode.DICTATION))
+        assertEquals(TranscriptionMode.DICTATION, modes.snapshot().mode)
+        assertEquals("changing modes leaves the selected format untouched", "cleanup", formats.selected().id)
+
+        send(pillAgain, MotionEvent.ACTION_DOWN, 20f, 20f)
+        send(pillAgain, MotionEvent.ACTION_MOVE, 20f, -36f)
+        send(pillAgain, MotionEvent.ACTION_UP, 20f, -36f)
+        val listIndex = formats.all().indexOfFirst { it.id == "list" }
+        val listRow = field<List<TextView>>(service, "formatMenuRows").single { it.tag == listIndex }
+        assertTrue("an explicit format row remains clickable after the reveal gesture", listRow.performClick())
+        assertEquals("list", formats.selected().id)
+    }
+
+    @Test
+    fun `quick down up reveal leaves the common menu open and touchable`() {
+        val pill = field<FrameLayout>(service, "pill")
+        val formats = PostProcessingFormats(context)
+
+        send(pill, MotionEvent.ACTION_DOWN, 20f, 20f)
+        send(pill, MotionEvent.ACTION_UP, 20f, -40f)
+
+        assertEquals("a quick reveal leaves Dictation selected", TranscriptionMode.DICTATION, modes.snapshot().mode)
+        assertEquals("a quick reveal does not choose a format", "cleanup", formats.selected().id)
+        val menuParams = field<WindowManager.LayoutParams>(service, "formatMenuParams")
+        assertTrue("the quick reveal menu remains touchable",
+            menuParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0)
     }
 
     @Test
@@ -85,6 +145,7 @@ class OverlayServiceGestureRobolectricTest {
         send(pill, MotionEvent.ACTION_CANCEL, 20f, -36f)
 
         assertEquals("cleanup", formats.selected().id)
+        assertEquals(TranscriptionMode.DICTATION, modes.snapshot().mode)
         assertTrue(field<Any?>(service, "formatMenuParams") == null)
     }
 
@@ -240,6 +301,12 @@ class OverlayServiceGestureRobolectricTest {
         val method = target.javaClass.declaredMethods.first { it.name == name && it.parameterTypes.size == args.size }
         method.isAccessible = true
         method.invoke(target, *args)
+    }
+
+    private fun clickModeRow(mode: TranscriptionMode): Boolean {
+        val row = field<List<TextView>>(service, "transcriptionModeRows").single { it.tag == mode }
+        assertTrue("mode row remains clickable in the common menu", row.isClickable)
+        return row.performClick()
     }
 
     private fun invokeValue(target: Any, name: String, vararg args: Any?): Any? {

@@ -104,6 +104,9 @@ class MeetingOverlayDefaultRuntimeAndroidTest {
         assertNull("no unrelated runtime lease may be active", modeBefore.activeRunMode)
         assertFalse("a poisoned process cannot safely run the real-runtime smoke", modeBefore.poisoned)
         assertFalse("an earlier service instance must not be reused", isOverlayServiceRunning(target))
+        val evidenceDirectory = createGestureEvidenceDirectory(target, modelGenerationId)
+        val formats = PostProcessingFormats(target)
+        val formatBeforeGesture = formats.selected().id
 
         var modeChanged = false
         var onboardingChanged = false
@@ -123,10 +126,13 @@ class MeetingOverlayDefaultRuntimeAndroidTest {
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             uiAutomation.serviceInfo = automationInfo
 
-            check(coordinator.changeMode(TranscriptionMode.MEETING)) {
-                "Meeting mode must be admitted before starting the visible host Activity"
+            if (modeBefore.mode != TranscriptionMode.DICTATION) {
+                check(coordinator.changeMode(TranscriptionMode.DICTATION)) {
+                    "Dictation mode must be admitted before opening the gesture menu"
+                }
+                modeChanged = true
             }
-            modeChanged = true
+            assertEquals("the smoke starts in Dictation", TranscriptionMode.DICTATION, coordinator.snapshot().mode)
             onboardingChanged = true
             check(preferences.edit().putBoolean("onb_complete", true).commit())
             testFactoryInstalled = OverlayService.setMeetingTestOverridesFactoryForTest { service ->
@@ -151,6 +157,21 @@ class MeetingOverlayDefaultRuntimeAndroidTest {
             awaitPill(instrumentation)
 
             swipePillUp(instrumentation, target)
+            awaitDictationFormatMenu(instrumentation, service)
+            assertEquals(
+                "opening the mode menu by swipe preserves the selected format",
+                formatBeforeGesture,
+                formats.selected().id,
+            )
+            captureGestureEvidence(instrumentation, evidenceDirectory, "dictation-swipe-menu-open.png")
+            tapBounds(instrumentation, modeRowBounds(instrumentation, service, TranscriptionMode.MEETING))
+            awaitConditionOrFail("the real overlay mode-row tap selects Meeting", SERVICE_START_TIMEOUT_MS) {
+                coordinator.snapshot().mode == TranscriptionMode.MEETING
+            }
+            modeChanged = coordinator.snapshot().mode != modeBefore.mode
+            assertEquals("choosing Meeting preserves Dictation's format", formatBeforeGesture, formats.selected().id)
+
+            swipePillUp(instrumentation, target)
             awaitVisibleLabel(instrumentation, "Ouvrir la réunion", SERVICE_START_TIMEOUT_MS)
             tapLabel(instrumentation, "Ouvrir la réunion")
             awaitVisibleLabel(instrumentation, "Prête", SERVICE_START_TIMEOUT_MS)
@@ -169,9 +190,12 @@ class MeetingOverlayDefaultRuntimeAndroidTest {
             runId = initialRunId
             assertFalse("the new native session id was not already a stored note", notesBefore.contains(initialSessionId))
             assertFalse("a document-only panel has not started capture", initial.second.captureActive)
+            captureGestureEvidence(instrumentation, evidenceDirectory, "meeting-panel-ready-before-microphone.png")
 
             safeNativeClose = false
-            tapMeetingAction(instrumentation, "Démarrer la réunion")
+            tapBounds(instrumentation, requireNotNull(pillBounds(instrumentation)) {
+                "the real pill is the start target after the panel becomes Ready"
+            })
             val listening = awaitControllerState(instrumentation, service, ENGINE_START_TIMEOUT_MS) {
                 it.phase == MeetingRecordingPhase.LISTENING && it.captureActive
             }
@@ -598,6 +622,107 @@ class MeetingOverlayDefaultRuntimeAndroidTest {
         awaitConditionOrFail("the service attaches its real floating pill", SERVICE_START_TIMEOUT_MS) {
             pillBounds(instrumentation) != null
         }
+    }
+
+    private fun awaitDictationFormatMenu(
+        instrumentation: android.app.Instrumentation,
+        service: OverlayService,
+    ) {
+        awaitConditionOrFail("the Dictation swipe leaves the real overlay menu open and touchable", SERVICE_START_TIMEOUT_MS) {
+            val open = AtomicBoolean(false)
+            instrumentation.runOnMainSync {
+                val menu = readServiceField(service, "floatingMenu") as? View
+                val params = readServiceField(service, "formatMenuParams") as? android.view.WindowManager.LayoutParams
+                val rows = readServiceField(service, "transcriptionModeRows") as? List<*>
+                val meetingRow = rows?.filterIsInstance<android.widget.TextView>()
+                    ?.singleOrNull { it.text.toString() == "Réunion" }
+                open.set(
+                    menu != null && menu.isAttachedToWindow && menu.isShown &&
+                        params != null &&
+                        params.flags and android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0 &&
+                        meetingRow != null && meetingRow.isAttachedToWindow && meetingRow.isShown && meetingRow.isClickable,
+                )
+            }
+            open.get()
+        }
+    }
+
+    private fun modeRowBounds(
+        instrumentation: android.app.Instrumentation,
+        service: OverlayService,
+        mode: TranscriptionMode,
+    ): Rect {
+        val result = AtomicReference<Rect?>()
+        instrumentation.runOnMainSync {
+            val menu = requireNotNull(readServiceField(service, "floatingMenu") as? View) {
+                "the mode row belongs to the real floating menu"
+            }
+            val rows = requireNotNull(readServiceField(service, "transcriptionModeRows") as? List<*>)
+            val row = rows.filterIsInstance<android.widget.TextView>().single { it.tag == mode }
+            val expectedLabel = if (mode == TranscriptionMode.MEETING) "Réunion" else "Dictée"
+            check(row.text.toString() == expectedLabel && row.isClickable && row.isShown && row.isAttachedToWindow) {
+                "the requested mode is an actionable row in the attached floating menu"
+            }
+            val menuGlobalBounds = Rect()
+            val rowGlobalBounds = Rect()
+            check(menu.getGlobalVisibleRect(menuGlobalBounds) && row.getGlobalVisibleRect(rowGlobalBounds)) {
+                "the actual menu and mode row have bounds in the same window coordinate space"
+            }
+            check(!rowGlobalBounds.isEmpty && menuGlobalBounds.contains(rowGlobalBounds)) {
+                "the tapped mode row is inside the floating menu, not the Activity"
+            }
+            val visibleLocal = Rect()
+            check(row.getLocalVisibleRect(visibleLocal) && !visibleLocal.isEmpty) {
+                "the real mode row has a visible local touch target"
+            }
+            val locationOnScreen = IntArray(2)
+            row.getLocationOnScreen(locationOnScreen)
+            val screenBounds = Rect(visibleLocal).apply { offset(locationOnScreen[0], locationOnScreen[1]) }
+            val displaySize = android.graphics.Point()
+            val windowManager = instrumentation.targetContext
+                .getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.getRealSize(displaySize)
+            check(screenBounds.intersect(Rect(0, 0, displaySize.x, displaySize.y)) && !screenBounds.isEmpty) {
+                "the visible mode-row tap target intersects the physical screen"
+            }
+            result.set(Rect(screenBounds))
+        }
+        return requireNotNull(result.get())
+    }
+
+    private fun createGestureEvidenceDirectory(context: Context, generationId: String): File {
+        val externalFiles = requireNotNull(context.getExternalFilesDir(null)) {
+            "the host exposes app-specific external files for native screenshot extraction"
+        }
+        val directory = File(
+            File(externalFiles, "meeting-default-runtime-evidence"),
+            "$generationId-${SystemClock.elapsedRealtime()}",
+        )
+        check(directory.isDirectory || directory.mkdirs()) { "could not create the dedicated evidence directory" }
+        Log.i(TAG, "gestureEvidenceDirectory=${directory.absolutePath}")
+        return directory
+    }
+
+    private fun captureGestureEvidence(
+        instrumentation: android.app.Instrumentation,
+        directory: File,
+        filename: String,
+    ) {
+        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot()) {
+            "Android did not provide the requested synthetic gesture evidence screenshot"
+        }
+        val outputFile = File(directory, filename)
+        try {
+            FileOutputStream(outputFile).use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                    "could not encode the synthetic gesture evidence screenshot"
+                }
+            }
+        } finally {
+            bitmap.recycle()
+        }
+        Log.i(TAG, "gestureEvidence=${outputFile.absolutePath} bytes=${outputFile.length()} sha256=${sha256(outputFile)}")
     }
 
     private fun pillBounds(instrumentation: android.app.Instrumentation): Rect? {

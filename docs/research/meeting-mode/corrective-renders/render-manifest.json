@@ -1,0 +1,30 @@
+{
+  "source": "docs/superpowers/plans/2026-09-25-meeting-mode-gesture-readiness-fix.md",
+  "sourceSha256": "2e9395b6dd203e1c74882e933e44344b59e618cfc03f65c6a445ed7b0d8d80cd",
+  "html": "meeting-mode-gesture-readiness-fix.html",
+  "htmlSha256": "ea474d67343d6aad876af2c39c9f7d34a17e92daaa26f9c30069c718a41cbc91",
+  "render": {
+    "engine": "Playwright screenshot / Chromium",
+    "playwrightVersion": "Version 1.58.0",
+    "dpi": 150,
+    "pagePixels": "1240x1754"
+  },
+  "pages": [
+    {
+      "path": "page-001.png",
+      "sha256": "82d71d155307433a4755ec03689532ccadc3d74367d9d96c931f21f42b463aec"
+    },
+    {
+      "path": "page-002.png",
+      "sha256": "3ca29c91e66c3eb7e69dea5ca25cb954b460d7c624930d090fc2688d42c43f3c"
+    },
+    {
+      "path": "page-003.png",
+      "sha256": "9078032eb6d68a6ed28e58d4378e57a5c45fc88a03f7ff79af16dfa0351fe0e9"
+    }
+  ],
+  "preview": {
+    "path": "README.md",
+    "sha256": "ae110f8e56a8ff5647052377b5188dc6a3f612efd71d6de02754e65c316c0854"
+  }
+}

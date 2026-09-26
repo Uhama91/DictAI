@@ -45,6 +45,11 @@ HISTORICAL_LIBRARIES = (
     "libtranscribe_jni.so",
 )
 BADGING = (
+    "package: name='com.uhama.whisperpin.meetingtest' versionCode='36' "
+    "versionName='0.9.6-dictai-meeting-test2' platformBuildVersionName='14'\n"
+    "native-code: 'arm64-v8a'\n"
+)
+OLD_MEETING_BADGING = (
     "package: name='com.uhama.whisperpin.meetingtest' versionCode='35' "
     "versionName='0.9.6-dictai-meeting-test' platformBuildVersionName='14'\n"
     "native-code: 'arm64-v8a'\n"
@@ -137,8 +142,8 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
         self.assertEqual((self.output / "SHA256SUMS").read_text(), f"{apk_sha}  dictai-meeting-test.apk\n")
         metadata = json.loads((self.output / "metadata.json").read_text())
         self.assertEqual(metadata["applicationId"], "com.uhama.whisperpin.meetingtest")
-        self.assertEqual(metadata["versionCode"], 35)
-        self.assertEqual(metadata["versionName"], "0.9.6-dictai-meeting-test")
+        self.assertEqual(metadata["versionCode"], 36)
+        self.assertEqual(metadata["versionName"], "0.9.6-dictai-meeting-test2")
         self.assertEqual(metadata["abi"], "arm64-v8a")
         self.assertEqual(metadata["sizeBytes"], self.apk.stat().st_size)
         self.assertEqual(metadata["sha256"], apk_sha)
@@ -149,7 +154,7 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
         write_apk(self.apk)
         bad_badging = (
             (BADGING.replace("com.uhama.whisperpin.meetingtest", "com.uhama.whisperpin"), "applicationId"),
-            (BADGING.replace("versionCode='35'", "versionCode='34'"), "versionCode"),
+            (BADGING.replace("versionCode='36'", "versionCode='34'"), "versionCode"),
             (BADGING.replace("0.9.6-dictai-meeting-test", "0.9.6-debug"), "versionName"),
             (BADGING.replace("arm64-v8a", "x86_64"), "arm64-v8a"),
         )
@@ -159,6 +164,14 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
                 self.write_aapt(text)
                 result = self.run_prepare()
                 self.assert_rejected(result, reason)
+
+    def test_rejects_previous_meeting_identity(self) -> None:
+        write_apk(self.apk)
+        self.write_aapt(OLD_MEETING_BADGING)
+
+        result = self.run_prepare()
+
+        self.assert_rejected(result, "versionCode")
 
     def test_rejects_missing_meeting_notice_and_historical_library(self) -> None:
         for missing in (MEETING_ASSETS[0], "lib/arm64-v8a/libonnxruntime.so"):

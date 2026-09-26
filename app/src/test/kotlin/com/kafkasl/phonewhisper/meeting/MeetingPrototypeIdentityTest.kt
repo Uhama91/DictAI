@@ -10,14 +10,17 @@ class MeetingPrototypeIdentityTest {
         when {
             BuildConfig.MEETING_PROTOTYPE -> {
                 assertEquals("com.uhama.whisperpin.meetingtest", BuildConfig.APPLICATION_ID)
-                assertEquals("0.9.6-dictai-meeting-test", BuildConfig.VERSION_NAME)
+                assertEquals(36, BuildConfig.VERSION_CODE)
+                assertEquals("0.9.6-dictai-meeting-test2", BuildConfig.VERSION_NAME)
             }
             BuildConfig.LOCAL_FORMAT_PROTOTYPE -> {
                 assertEquals("com.uhama.whisperpin", BuildConfig.APPLICATION_ID)
+                assertEquals(35, BuildConfig.VERSION_CODE)
                 assertEquals("0.9.6-dictai-gemma-test", BuildConfig.VERSION_NAME)
             }
             else -> {
                 assertEquals("com.uhama.whisperpin", BuildConfig.APPLICATION_ID)
+                assertEquals(35, BuildConfig.VERSION_CODE)
                 assertEquals("0.9.6-dictai", BuildConfig.VERSION_NAME)
             }
         }
