@@ -89,7 +89,7 @@ class MeetingEngineTest {
         val native = HandyMeetingNativeBridge(
             handyFactory = { _, _ -> handy },
             diarizationFactory = { throw AssertionError("worker must fail before diarization open") },
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
             workerFactory = { _, _ -> throw workerFailure },
         )
         val engine = MeetingEngine("asr-path", "diar-path", native)
@@ -1029,7 +1029,7 @@ class MeetingEngineTest {
                 }
                 diarization
             },
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
             workerFactory = { runnable, name -> Thread(runnable, name).apply { isDaemon = true } },
         )
         val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)
@@ -1093,7 +1093,7 @@ class MeetingEngineTest {
                 }
                 diarization
             },
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
             workerFactory = { runnable, name -> Thread(runnable, name).apply { isDaemon = true } },
         )
         val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)
@@ -1137,7 +1137,7 @@ class MeetingEngineTest {
                 diarLoadCount.incrementAndGet()
                 throw IllegalStateException("diarization model load failed")
             },
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
             workerFactory = { runnable, name -> Thread(runnable, name).apply { isDaemon = true } },
         )
         val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)
@@ -1182,7 +1182,7 @@ class MeetingEngineTest {
         val native = HandyMeetingNativeBridge(
             handyFactory = { _, _ -> handy },
             diarizationFactory = { diarization },
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
             workerFactory = { runnable, name -> Thread(runnable, name).apply { isDaemon = true } },
         )
         val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)

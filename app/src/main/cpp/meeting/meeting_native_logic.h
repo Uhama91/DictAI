@@ -15,6 +15,8 @@ constexpr std::size_t kMaxPcmBytes = 320000;  // 10 seconds at mono 16 kHz PCM16
 constexpr std::size_t kMaxPendingFinals = 64;
 
 std::size_t validate_pcm16_length(std::size_t capacity, std::int64_t length);
+int validate_diarization_cpu_threads(int cpu_threads);
+int validate_diarization_chunk_frames(int chunk_frames);
 std::vector<float> pcm16le_to_float(const std::uint8_t* bytes, std::size_t capacity,
                                     std::int64_t length);
 

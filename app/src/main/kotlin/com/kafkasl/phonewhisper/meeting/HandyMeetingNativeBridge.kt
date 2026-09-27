@@ -33,17 +33,17 @@ internal class HandyMeetingNativeBridge(
         HandyMeetingNative.open(path, language)
     },
     private val diarizationFactory: (modelPath: String) -> DiarizationSessionPort = { path ->
-        NativeDiarizationSession(DiarizationNative.open(path))
+        NativeDiarizationSession(DiarizationNative.open(path, cpuThreads = 2, chunkFrames = 100))
     },
     private val maxDiarizationQueueBytes: Int = MAX_DIARIZATION_BACKLOG_BYTES,
-    /** Test seam; production lowers priority before loading or calling the diarization runtime. */
-    private val setDiarWorkerBackgroundPriority: () -> Unit = {
-        Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+    /** Test seam; production applies normal priority before loading or calling the diarization runtime. */
+    private val setDiarWorkerPriority: () -> Unit = {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT)
     },
     private val workerFactory: (Runnable, String) -> Thread = { runnable, name ->
         Thread(runnable, name).apply {
             isDaemon = true
-            priority = Thread.MIN_PRIORITY
+            priority = Thread.NORM_PRIORITY
         }
     },
     private val diarizationSpoolRoot: File? = null,
@@ -372,7 +372,7 @@ internal class HandyMeetingNativeBridge(
             try {
                 if (shouldStopWorker()) return
                 try {
-                    setDiarWorkerBackgroundPriority()
+                    setDiarWorkerPriority()
                 } catch (_: Throwable) {
                     // Priority is best-effort; a platform limitation must not disable ASR or diarization.
                 }

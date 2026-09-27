@@ -43,7 +43,7 @@ internal class DiarizationNative internal constructor(
     private val bindings: Bindings,
 ) : Closeable {
     internal interface Bindings {
-        fun open(diarPath: String): Long
+        fun open(diarPath: String, cpuThreads: Int, chunkFrames: Int): Long
         fun acceptPcm16(handle: Long, buffer: ByteArray, lengthBytes: Int)
         fun snapshot(handle: Long, firstFrameIndex: Long, maxFrames: Int): DiarizationFrameWindow
         fun finish(handle: Long)
@@ -96,10 +96,39 @@ internal class DiarizationNative internal constructor(
     internal companion object {
         const val MAX_FRAME_WINDOW = 16_384
         private const val PCM16_SAMPLE_BYTES = 2
+        private const val DEFAULT_CPU_THREADS = 1
+        private const val MIN_CPU_THREADS = 1
+        private const val MAX_CPU_THREADS = 4
+        private const val DEFAULT_CHUNK_FRAMES = 0
+        private const val FOUR_SECOND_CHUNK_FRAMES = 50
+        private const val EIGHT_SECOND_CHUNK_FRAMES = 100
 
-        fun open(diarPath: String): DiarizationNative {
+        fun open(
+            diarPath: String,
+            cpuThreads: Int = DEFAULT_CPU_THREADS,
+            chunkFrames: Int = DEFAULT_CHUNK_FRAMES,
+            bindings: Bindings? = null,
+        ): DiarizationNative {
+            validateOpenArguments(diarPath, cpuThreads, chunkFrames)
+            val selectedBindings = bindings ?: JniBindings
+            return DiarizationNative(
+                selectedBindings.open(diarPath, cpuThreads, chunkFrames),
+                selectedBindings,
+            )
+        }
+
+        private fun validateOpenArguments(diarPath: String, cpuThreads: Int, chunkFrames: Int) {
             require(diarPath.isNotBlank()) { "diarPath must not be blank" }
-            return DiarizationNative(JniBindings.open(diarPath), JniBindings)
+            require(cpuThreads in MIN_CPU_THREADS..MAX_CPU_THREADS) {
+                "cpuThreads must be between $MIN_CPU_THREADS and $MAX_CPU_THREADS"
+            }
+            require(
+                chunkFrames == DEFAULT_CHUNK_FRAMES ||
+                    chunkFrames == FOUR_SECOND_CHUNK_FRAMES ||
+                    chunkFrames == EIGHT_SECOND_CHUNK_FRAMES,
+            ) {
+                "chunkFrames must be 0, 50, or 100"
+            }
         }
     }
 
@@ -108,7 +137,7 @@ internal class DiarizationNative internal constructor(
             System.loadLibrary("dictai_meeting")
         }
 
-        external override fun open(diarPath: String): Long
+        external override fun open(diarPath: String, cpuThreads: Int, chunkFrames: Int): Long
         external override fun acceptPcm16(handle: Long, buffer: ByteArray, lengthBytes: Int)
         external override fun snapshot(
             handle: Long,

@@ -15,6 +15,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HandyMeetingVoiceLeadTest {
+    @Test(timeout = 10_000L)
+    fun default_diarization_worker_opens_with_normal_java_priority() {
+        val handy = BlockingHandy()
+        val diarization = RecordingDiarization()
+        val diarizationOpened = CountDownLatch(1)
+        val observedJavaPriority = AtomicInteger(-1)
+        val bridge = HandyMeetingNativeBridge(
+            handyFactory = { _, _ -> handy },
+            diarizationFactory = {
+                observedJavaPriority.set(Thread.currentThread().priority)
+                diarizationOpened.countDown()
+                diarization
+            },
+            setDiarWorkerPriority = {},
+        )
+        val handle = bridge.open("fake-handy", "fake-diarization", "fr-FR")
+
+        try {
+            assertTrue(diarizationOpened.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertEquals(Thread.NORM_PRIORITY, observedJavaPriority.get())
+        } finally {
+            bridge.close(handle)
+        }
+    }
+
     @Test(timeout = 60_000L)
     fun stalled_handy_caps_voice_lead_at_sixty_seconds_then_drains_capture_fifo() {
         val rig = VoiceLeadRig()
@@ -144,7 +169,7 @@ class HandyMeetingVoiceLeadTest {
             handyFactory = { _, _ -> handy },
             diarizationFactory = { diarization },
             maxDiarizationQueueBytes = 120 * PCM_BYTES_PER_SECOND,
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
             workerFactory = { runnable, name ->
                 Thread(runnable, name).apply {
                     isDaemon = true

@@ -32,6 +32,33 @@ meeting::Update update_ending_at(const std::string& transcript, std::int64_t end
 }
 
 int main() {
+    for (const int cpu_threads : {1, 2, 3, 4}) {
+        expect(meeting::validate_diarization_cpu_threads(cpu_threads) == cpu_threads,
+               "diarization accepts one through four CPU threads");
+    }
+    for (const int cpu_threads : {0, 5}) {
+        bool rejected = false;
+        try {
+            meeting::validate_diarization_cpu_threads(cpu_threads);
+        } catch (const std::invalid_argument&) {
+            rejected = true;
+        }
+        expect(rejected, "diarization rejects CPU thread counts outside one through four");
+    }
+    for (const int chunk_frames : {0, 50, 100}) {
+        expect(meeting::validate_diarization_chunk_frames(chunk_frames) == chunk_frames,
+               "diarization accepts the model default and supported chunk frame overrides");
+    }
+    for (const int chunk_frames : {-1, 1, 49, 51, 99, 101}) {
+        bool rejected = false;
+        try {
+            meeting::validate_diarization_chunk_frames(chunk_frames);
+        } catch (const std::invalid_argument&) {
+            rejected = true;
+        }
+        expect(rejected, "diarization rejects unsupported chunk frame overrides");
+    }
+
     struct StreamingConfig {
         int rnnt_right_context = -1;
     };

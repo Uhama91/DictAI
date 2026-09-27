@@ -26,13 +26,20 @@ constexpr char kFrameWindowClass[] =
 constexpr std::size_t kMaxPcmBytes = dictai::meeting::kMaxPcmBytes;
 constexpr jint kMaxFrameWindow = 16384;
 
-ggml_runtime::Params backend_params() {
+ggml_runtime::Params backend_params(int cpu_threads) {
     ggml_runtime::Params params;
     params.use_gpu = false;
     params.gpu_device_idx = 0;
     params.pe_bin_path = const_cast<char*>("");
-    params.cpu_threads = 1;
+    params.cpu_threads = cpu_threads;
     return params;
+}
+
+asr::DiarGeometry resolved_geometry_with_chunk_override(
+    asr::DiarModel& model, int chunk_frames) {
+    asr::DiarGeometry geometry = model.resolved_geometry(asr::DiarGeometry{});
+    if (chunk_frames != 0) geometry.chunk_len = chunk_frames;
+    return geometry;
 }
 
 struct DiarizationSession {
@@ -43,9 +50,9 @@ struct DiarizationSession {
     bool finished = false;
     bool closed = false;
 
-    explicit DiarizationSession(const std::string& path)
-        : backend(backend_params()), model(backend, path),
-          stream(model, model.resolved_geometry(asr::DiarGeometry{})) {
+    explicit DiarizationSession(const std::string& path, int cpu_threads, int chunk_frames)
+        : backend(backend_params(cpu_threads)), model(backend, path),
+          stream(model, resolved_geometry_with_chunk_override(model, chunk_frames)) {
         if (model.cfg().sample_rate != 16000) {
             throw std::invalid_argument("Diarization model must use 16 kHz audio");
         }
@@ -103,10 +110,15 @@ std::string java_string_to_utf8(JNIEnv* env, jstring value) {
     return result;
 }
 
-jlong native_open(JNIEnv* env, jobject, jstring diar_path) {
+jlong native_open(JNIEnv* env, jobject, jstring diar_path, jint cpu_threads, jint chunk_frames) {
     try {
+        const int validated_cpu_threads =
+            dictai::meeting::validate_diarization_cpu_threads(cpu_threads);
+        const int validated_chunk_frames =
+            dictai::meeting::validate_diarization_chunk_frames(chunk_frames);
         const std::string path = java_string_to_utf8(env, diar_path);
-        auto session = std::make_shared<DiarizationSession>(path);
+        auto session = std::make_shared<DiarizationSession>(
+            path, validated_cpu_threads, validated_chunk_frames);
         const jlong handle = g_next_handle.fetch_add(1);
         if (handle <= 0) throw std::overflow_error("Diarization handle space exhausted");
         {
@@ -269,7 +281,7 @@ void native_close(JNIEnv* env, jobject, jlong handle) {
 }
 
 JNINativeMethod kMethods[] = {
-    {const_cast<char*>("open"), const_cast<char*>("(Ljava/lang/String;)J"),
+    {const_cast<char*>("open"), const_cast<char*>("(Ljava/lang/String;II)J"),
      reinterpret_cast<void*>(native_open)},
     {const_cast<char*>("acceptPcm16"), const_cast<char*>("(J[BI)V"),
      reinterpret_cast<void*>(native_accept_pcm16)},

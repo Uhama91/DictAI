@@ -27,6 +27,13 @@ class MeetingAmiDiarizationInstrumentedTest {
     @Test(timeout = 240_000L)
     fun test5_streams_ami_60s_and_scores_upstream_frame_der() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val args = InstrumentationRegistry.getArguments()
+        val cpuThreads = args.getString("threads")?.toIntOrNull() ?: DEFAULT_CPU_THREADS
+        val chunkFrames = args.getString("chunkFrames")?.toIntOrNull() ?: DEFAULT_CHUNK_FRAMES
+        require(cpuThreads in 1..4) { "threads must be between 1 and 4" }
+        require(chunkFrames == 0 || chunkFrames == 50 || chunkFrames == 100) {
+            "chunkFrames must be 0, 50, or 100"
+        }
         val fixtureDir = File("/data/local/tmp/dictai-meeting-ami-test5")
         val wavFile = fixtureDir.resolve(AMI_WAV_NAME)
         val rttmFile = fixtureDir.resolve(AMI_RTTM_NAME)
@@ -50,7 +57,7 @@ class MeetingAmiDiarizationInstrumentedTest {
         val installedApk = File(target.applicationInfo.sourceDir)
         val packageInfo = target.packageManager.getPackageInfo(target.packageName, 0)
         val openStartNanos = SystemClock.elapsedRealtimeNanos()
-        val diar = DiarizationNative.open(diarModel.absolutePath)
+        val diar = DiarizationNative.open(diarModel.absolutePath, cpuThreads, chunkFrames)
         val openMs = nanosToMs(SystemClock.elapsedRealtimeNanos() - openStartNanos)
         val pssAfterOpenKb = Debug.getPss().toLong()
         var closed = false
@@ -136,7 +143,10 @@ class MeetingAmiDiarizationInstrumentedTest {
                 APK_MEETING_JNI_ENTRY,
                 APK_TRANSCRIBE_JNI_ENTRY,
             ).joinToString("\n") { apkEntryIdentity(installedApk, it) }
-            val output = File(target.cacheDir, "meeting-test5/ami-diarization-${SystemClock.elapsedRealtime()}")
+            val output = File(
+                target.cacheDir,
+                "meeting-test5/ami-diarization-threads$cpuThreads-chunk$chunkFrames-${SystemClock.elapsedRealtime()}",
+            )
             check(output.mkdirs()) { "Could not create AMI evidence directory ${output.absolutePath}" }
 
             File(output, "reference.rttm").writeBytes(rttmFile.readBytes())
@@ -153,6 +163,7 @@ class MeetingAmiDiarizationInstrumentedTest {
                 appendLine("rttm=$AMI_RTTM_NAME bytes=${rttmFile.length()} sha256=${sha256(rttmFile)}")
                 appendLine("pcmBytes=${pcm.size} audioSeconds=$AMI_AUDIO_SECONDS sampleRateHz=16000 channels=1 format=PCM16LE")
                 appendLine("diarModel=$DIAR_MODEL_NAME bytes=${diarModel.length()} sha256=${sha256(diarModel)}")
+                appendLine("diarizationCpuThreads=$cpuThreads chunkFrames=$chunkFrames")
                 appendLine("sourceRevision=$NEMO_SOURCE_REVISION")
                 appendLine("upstreamScorer=model_smoke.py sha256=$MODEL_SMOKE_SHA256 function=diarization_errors")
                 appendLine("upstreamScorerSemantics=frame-level DER and speaker confusion, no collar, best speaker mapping")
@@ -185,6 +196,7 @@ class MeetingAmiDiarizationInstrumentedTest {
             File(output, "summary.txt").writeText(summary, StandardCharsets.UTF_8)
 
             Log.i(LOG_TAG, "phase=ami-diarization-summary audioSeconds=$AMI_AUDIO_SECONDS " +
+                "threads=$cpuThreads chunkFrames=$chunkFrames " +
                 "openMs=$openMs endOfFeedWallMs=$endOfFeedMs acceptCallWallMs=${nanosToMs(acceptCallWallNanos)} " +
                 "maxAcceptCallWallMs=${nanosToMs(maxAcceptCallWallNanos)} " +
                 "maxDeadlineLagMs=${nanosToMs(maxDeadlineLagNanos)} finishMs=$finishMs " +
@@ -487,6 +499,8 @@ class MeetingAmiDiarizationInstrumentedTest {
         const val AMI_WAV_SHA256 = "f00f92e53115a4a6724aec0ddaf9c675df6d5fabd3a489b43fffe56ba52a3ae9"
         const val AMI_RTTM_SHA256 = "40751c9fc0bb934f741789ce3fafccd2c1f9d7c112585b8b40ac177a9de13b2d"
         const val AMI_AUDIO_SECONDS = 60L
+        const val DEFAULT_CPU_THREADS = 1
+        const val DEFAULT_CHUNK_FRAMES = 0
         const val PCM_BYTES_PER_SECOND = 32_000L
         const val PCM_BYTES_PER_20_MS = 640
         const val NANOS_PER_SECOND = 1_000_000_000L

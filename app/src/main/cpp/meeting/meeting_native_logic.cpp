@@ -14,6 +14,20 @@ validate_pcm16_length(std::size_t capacity, std::int64_t length) {
     return static_cast<std::size_t>(length) / sizeof(std::int16_t);
 }
 
+int validate_diarization_cpu_threads(int cpu_threads) {
+    if (cpu_threads < 1 || cpu_threads > 4) {
+        throw std::invalid_argument("Diarization CPU threads must be between 1 and 4");
+    }
+    return cpu_threads;
+}
+
+int validate_diarization_chunk_frames(int chunk_frames) {
+    if (chunk_frames != 0 && chunk_frames != 50 && chunk_frames != 100) {
+        throw std::invalid_argument("Diarization chunk frames must be 0, 50, or 100");
+    }
+    return chunk_frames;
+}
+
 std::vector<float>
 pcm16le_to_float(const std::uint8_t* bytes, std::size_t capacity, std::int64_t length) {
     const std::size_t sample_count = validate_pcm16_length(capacity, length);

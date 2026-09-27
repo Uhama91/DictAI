@@ -366,7 +366,7 @@ class HandyMeetingNativeBridgeTest {
         val bridge = HandyMeetingNativeBridge(
             handyFactory = { _, _ -> handyOpens.incrementAndGet(); RecordingHandy(window("hello")) },
             diarizationFactory = { diarOpens.incrementAndGet(); RecordingDiarization() },
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
         )
 
         try {
@@ -475,7 +475,7 @@ class HandyMeetingNativeBridgeTest {
         val loadBridge = HandyMeetingNativeBridge(
             handyFactory = { _, _ -> loadHandy },
             diarizationFactory = { throw IllegalStateException("diar model load failed") },
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
             workerFactory = { runnable, name ->
                 Thread({
                     try { runnable.run() } finally { workerFinished.countDown() }
@@ -569,7 +569,7 @@ class HandyMeetingNativeBridgeTest {
         val bridge = HandyMeetingNativeBridge(
             handyFactory = { _, _ -> handy },
             diarizationFactory = { RecordingDiarization() },
-            setDiarWorkerBackgroundPriority = {},
+            setDiarWorkerPriority = {},
             workerFactory = { _, _ -> throw startFailure },
         )
 
@@ -644,7 +644,7 @@ class HandyMeetingNativeBridgeTest {
         handyFactory = handyFactory,
         diarizationFactory = { openDiarization?.invoke() ?: diarization },
         maxDiarizationQueueBytes = maxDiarizationQueueBytes,
-        setDiarWorkerBackgroundPriority = {},
+        setDiarWorkerPriority = {},
         workerFactory = workerFactory,
         diarizationSpoolRoot = diarizationSpoolRoot,
         onDiarizationBlockTransferredForTest = onDiarizationBlockTransferredForTest,

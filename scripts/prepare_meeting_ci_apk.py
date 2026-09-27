@@ -19,11 +19,11 @@ from pathlib import Path
 
 
 APPLICATION_ID = "com.uhama.whisperpin.meetingtest"
-VERSION_CODE = 40
-VERSION_NAME = "0.9.6-dictai-meeting-test6"
+VERSION_CODE = 41
+VERSION_NAME = "0.9.6-dictai-meeting-test7"
 ABI = "arm64-v8a"
 MEETING_LIBRARY = "lib/arm64-v8a/libdictai_meeting.so"
-MEETING_LIBRARY_SHA256 = "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546"
+MEETING_LIBRARY_SHA256 = "4067084ca70b18906ff478d429652adc3dccb8c5f40e60715d6599564cadd248"
 TRANSCRIBE_JNI_LIBRARY = "lib/arm64-v8a/libtranscribe_jni.so"
 TRANSCRIBE_JNI_SHA256 = "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b"
 HISTORICAL_LIBRARIES = frozenset(
