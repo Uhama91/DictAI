@@ -1,0 +1,33 @@
+{
+  "runId": 36306954957,
+  "runUrl": "https://github.com/Uhama91/DictAI/actions/runs/36306954957",
+  "runConclusion": "success",
+  "headSha": "503fb097ce1977a7ace0711f504aabe0fababf22",
+  "artifact": {
+    "name": "dictai-meeting-test",
+    "id": 10927212965,
+    "url": "https://api.github.com/repos/Uhama91/DictAI/actions/artifacts/10927212965",
+    "archiveUrl": "https://api.github.com/repos/Uhama91/DictAI/actions/artifacts/10927212965/zip",
+    "archiveSizeBytes": 93165942,
+    "archiveSha256": "3087dfb0bc18a4d14135348763e9f46145cad70270985b0c1eb75971e03b7262",
+    "archiveCrc": "passed",
+    "sha256Manifest": "passed"
+  },
+  "downloadedApkLocalPath": "app/build/reports/meeting/conversation-2026-09-27/test5-actions/payload/dictai-meeting-test.apk",
+  "identity": {
+    "applicationId": "com.uhama.whisperpin.meetingtest",
+    "versionCode": 39,
+    "versionName": "0.9.6-dictai-meeting-test5",
+    "abi": "arm64-v8a"
+  },
+  "apkSizeBytes": 93164926,
+  "apkSha256": "12758a60e95ed48e16efe28e66e4cd7826dc0fd91aa4d8e7dee327d755b008b7",
+  "metadataCiCommitMatchesHead": true,
+  "meetingJniSha256": "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546",
+  "transcribeJniSha256": "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b",
+  "packagerPayloadVerification": "passed",
+  "signatureV2": "passed",
+  "signerCertificateSha256": "6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539",
+  "zipalign16KiB": "passed (zipalign -c -P 16 4, exit 0)",
+  "nativeElfCheck": "All 13 native libraries have 16 KB ELF alignment, are stored, and are allowed."
+}

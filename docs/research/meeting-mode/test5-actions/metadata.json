@@ -1,0 +1,12 @@
+{
+  "abi": "arm64-v8a",
+  "apk": "dictai-meeting-test.apk",
+  "applicationId": "com.uhama.whisperpin.meetingtest",
+  "ciCommit": "503fb097ce1977a7ace0711f504aabe0fababf22",
+  "meetingEngineSha256": "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546",
+  "sha256": "12758a60e95ed48e16efe28e66e4cd7826dc0fd91aa4d8e7dee327d755b008b7",
+  "sizeBytes": 93164926,
+  "transcribeBridgeSha256": "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b",
+  "versionCode": 39,
+  "versionName": "0.9.6-dictai-meeting-test5"
+}

@@ -106,6 +106,14 @@ La première passe Astra, après correction du plafonnement au PCM capturé, val
 
 La seconde passe Astra, sur les mêmes empreintes, examine les inversions de verrous, la réutilisation des buffers, l'annulation pendant l'ouverture ou un calcul natif, le drainage et la conservation des retouches. Aucun point bloquant supplémentaire n'est trouvé. Le hook ne fait ni JNI ni I/O ; l'annulation ne prend pas le verrou sérialisant les producteurs. Si un hook générique lève une exception après engagement du bloc, ce seul bloc peut déjà entrer dans l'ASR avant le signal d'échec. Aucune offre suivante n'est admise et la session échoue explicitement ; aucune reprise avec un trou temporel n'est autorisée.
 
+## Publication GitHub Actions
+
+Le commit `503fb097ce1977a7ace0711f504aabe0fababf22` (`fix(meeting): synchronize shared audio capture [meeting-test]`) est publié sur `codex/meeting-mode`. La [construction 36306954957](https://github.com/Uhama91/DictAI/actions/runs/36306954957) s'est achevée avec succès le 27 septembre 2026 à 08:48:38 UTC. Les étapes de test, de compilation Android, de contrôle des bibliothèques natives, de signature, d'alignement et de packaging du prototype ont toutes réussi.
+
+L'artefact [dictai-meeting-test, ID 10927212965](https://github.com/Uhama91/DictAI/actions/runs/36306954957/artifacts/10927212965) appartient à ce commit et n'est pas expiré au moment du contrôle. L'empreinte SHA-256 de l'archive fournie par GitHub est `3087dfb0bc18a4d14135348763e9f46145cad70270985b0c1eb75971e03b7262` ; elle diffère de celle du fichier APK contenu dans l'archive.
+
+L'archive a été téléchargée puis vérifiée : le contrôle CRC et la vérification du manifeste SHA-256 ont réussi. L'identité est `com.uhama.whisperpin.meetingtest`, version 39 / `0.9.6-dictai-meeting-test5`, et la métadonnée `ciCommit` correspond au commit publié. L'APK de 93 164 926 octets a exactement la même empreinte `12758a60e95ed48e16efe28e66e4cd7826dc0fd91aa4d8e7dee327d755b008b7` que le binaire local des essais natifs. Sur le fichier téléchargé, la signature v2, le certificat, l'alignement ZIP, l'alignement 16 Kio des 13 bibliothèques ELF et les deux empreintes JNI épinglées ont été vérifiés. Les reçus compacts sont publiés dans `test5-actions/` ; l'APK téléchargé reste dans le répertoire local de build.
+
 ## Limites de validation
 
 La page YouTube a été consultée, mais son audio n'a pas été analysé ici. Le Poco F7 n'est pas connecté. Les temps sur émulateur ne prédisent pas son comportement en conversation naturelle. Les horodatages Handy sont des positions d'émission du décodeur ; ils ne garantissent pas la frontière phonétique exacte de chaque mot. Un chevauchement ou une zone insuffisamment couverte doit pouvoir rester sans attribution.

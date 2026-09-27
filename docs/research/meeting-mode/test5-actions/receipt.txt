@@ -1,0 +1,9 @@
+Run 36306954957 https://github.com/Uhama91/DictAI/actions/runs/36306954957 — success, HEAD 503fb097ce1977a7ace0711f504aabe0fababf22
+Artifact dictai-meeting-test #10927212965: https://api.github.com/repos/Uhama91/DictAI/actions/artifacts/10927212965
+Archive SHA-256 3087dfb0bc18a4d14135348763e9f46145cad70270985b0c1eb75971e03b7262 (93165942 bytes), CRC and APK SHA256SUMS: PASS
+APK com.uhama.whisperpin.meetingtest v39 / 0.9.6-dictai-meeting-test5 (arm64-v8a), 93164926 bytes, SHA-256 12758a60e95ed48e16efe28e66e4cd7826dc0fd91aa4d8e7dee327d755b008b7
+metadata.ciCommit matches Actions HEAD: True
+Signature v2: PASS; signer certificate SHA-256 6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539
+zipalign 16 KiB: PASS; All 13 native libraries have 16 KB ELF alignment, are stored, and are allowed.
+JNI SHA-256: meeting=83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546; transcribe=68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b
+Local APK (ignored): app/build/reports/meeting/conversation-2026-09-27/test5-actions/payload/dictai-meeting-test.apk
