@@ -1,0 +1,64 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+w: [33m[1m⚠️ Deprecated Gradle Version[0m[0m
+The used Gradle version (Gradle 8.9) is deprecated and will not be supported in future Kotlin Gradle Plugin releases.
+The minimum supported Gradle version will become Gradle 8.14.4 in Kotlin 2.5.0.
+
+This warning can be suppressed in 'gradle.properties':
+    kotlin.suppressGradlePluginWarnings=DeprecatedGradleVersionWarning
+[32m[1mSolution:[0m[0m
+[32m[3mPlease update the Gradle version to at least Gradle 8.14.4.[0m[0m
+
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:processDebugManifestForPackage
+> Task :app:processDebugResources
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+
+> Task :app:compileDebugKotlin
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:1235:63 Expression is unused.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:2320:67 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:2347:71 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:4942:85 Unnecessary safe call on a non-null receiver of type 'MeetingImageAnchor'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:59:37 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:70:37 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:82:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:94:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:115:42 'static fun obtain(p0: AccessibilityNodeInfo!): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:123:23 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+
+BUILD SUCCESSFUL in 31s
+28 actionable tasks: 15 executed, 13 up-to-date

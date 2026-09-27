@@ -171,7 +171,11 @@ La fixture de présentation finale passe en 19,957 s. Les 17 captures propres, l
 
 Les [deux revues finales](handy-test4-evidence/reviews.md) portent sur le même manifeste immuable de 61 fichiers (`f4c2f57d74e2bfed144747ae4c703a96519f2c6ab0d6dc042265b73e418c2dd3`). L’APK local de l’application, version `0.9.6-dictai-meeting-test4`, code 38, porte le SHA-256 `0ad1d9dd283a2d33edf6e42b19db6d1cfcc0e3a332c234bd1dec8ab1d74d0732`. L’APK AndroidTest final porte `d6db33d57fccbc6313eb0b045398fef5d0df6f4cab5621f07e8a4a55320951c6`. L’identité test4 est isolée de l’application normale ; la signature, les 13 bibliothèques natives sans poids de modèle, leur alignement à 16 Kio et les empreintes des deux JNI ont été vérifiés.
 
-La livraison GitHub Actions exige encore de contrôler l’artefact reconstruit sur le commit publié. L’empreinte locale ne doit pas être présentée comme celle de cet artefact CI.
+La première exécution [GitHub Actions 36292940843](https://github.com/Uhama91/DictAI/actions/runs/36292940843), sur `cff47bf7bbe2575f36ab20b30d39e7ca453667bb`, a échoué sur un test parmi les 1 099 cas JVM. `new meeting publishes edits made after finish before replacing the document` attendait que la note soit publiée puis vérifiait immédiatement le remplacement du contrôleur. Or le service effectue ensuite plusieurs opérations asynchrones de fermeture, libération et réouverture. L'assertion à la ligne 843 arrivait donc avant l'achèvement attendu. Aucun artefact APK n'a été produit par cette exécution. Le correctif de test attend aussi un nouveau contrôleur non nul, en conservant la vérification de la retouche sauvegardée et le délai maximal existant ; il ne modifie pas la production.
+
+Après correction, les 29 tests de `OverlayServiceMeetingRobolectricTest` passent en variante normale (8,375 s) et prototype (8,159 s). Les deux revues complémentaires acceptent ce changement de test seul. Les sources de production, les JNI et les fixtures Android restent identiques ; leurs contrôles précédents ne sont pas relancés. Le manifeste et les traces du correctif CI sont archivés séparément dans `handy-test4-evidence/`.
+
+La livraison GitHub Actions exige encore de contrôler l’artefact reconstruit sur le commit corrigé. L’empreinte locale ne doit pas être présentée comme celle de cet artefact CI.
 
 ### Lecture du microphone
 

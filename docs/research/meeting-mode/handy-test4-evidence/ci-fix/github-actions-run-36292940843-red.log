@@ -1,0 +1,429 @@
+build	Run unit tests and build selected APK	﻿2026-09-27T04:02:30.0560798Z ##[group]Run args=(testDebugUnitTest assembleDebug assembleDebugAndroidTest --stacktrace)
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0561515Z [36;1margs=(testDebugUnitTest assembleDebug assembleDebugAndroidTest --stacktrace)[0m
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0562088Z [36;1mif [[ "$MEETING_PROTOTYPE" == true ]]; then[0m
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0562509Z [36;1m  args+=(-PmeetingPrototype=true)[0m
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0562922Z [36;1melif [[ "$PROTOTYPE" == true ]]; then[0m
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0563369Z [36;1m  args+=(-PlocalFormatPrototype=true)[0m
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0563709Z [36;1mfi[0m
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0564323Z [36;1m./gradlew --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' "${args[@]}"[0m
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0605936Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0606383Z env:
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0606670Z   PROTOTYPE: false
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0607027Z   MEETING_PROTOTYPE: true
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0607515Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0608190Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0608675Z   ANDROID_HOME: /usr/local/lib/android/sdk
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0609067Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.0609457Z ##[endgroup]
+build	Run unit tests and build selected APK	2026-09-27T04:02:30.1686108Z Downloading https://services.gradle.org/distributions/gradle-8.9-bin.zip
+build	Run unit tests and build selected APK	2026-09-27T04:02:31.6356160Z ............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9284027Z 
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9284972Z Welcome to Gradle 8.9!
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9285388Z 
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9287295Z Here are the highlights of this release:
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9288279Z  - Enhanced Error and Warning Messages
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9289281Z  - IDE Integration Improvements
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9290373Z  - Daemon JVM Information
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9290880Z 
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9291591Z For more details see https://docs.gradle.org/8.9/release-notes.html
+build	Run unit tests and build selected APK	2026-09-27T04:02:32.9291947Z 
+build	Run unit tests and build selected APK	2026-09-27T04:02:33.3287979Z To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+build	Run unit tests and build selected APK	2026-09-27T04:02:34.8286394Z Daemon will be stopped at the end of the build 
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6291526Z 
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6311220Z > Configure project :app
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6332270Z w: ⚠️ Deprecated Gradle Version
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6333678Z The used Gradle version (Gradle 8.9) is deprecated and will not be supported in future Kotlin Gradle Plugin releases.
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6335120Z The minimum supported Gradle version will become Gradle 8.14.4 in Kotlin 2.5.0.
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6335811Z 
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6336332Z This warning can be suppressed in 'gradle.properties':
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6337323Z     kotlin.suppressGradlePluginWarnings=DeprecatedGradleVersionWarning
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6338505Z Solution: Please update the Gradle version to at least Gradle 8.14.4.
+build	Run unit tests and build selected APK	2026-09-27T04:03:33.6339144Z 
+build	Run unit tests and build selected APK	2026-09-27T04:03:34.7277626Z 
+build	Run unit tests and build selected APK	2026-09-27T04:03:34.7279245Z > Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+build	Run unit tests and build selected APK	2026-09-27T04:03:34.7280916Z > Task :app:preBuild UP-TO-DATE
+build	Run unit tests and build selected APK	2026-09-27T04:03:34.8276434Z > Task :app:preDebugBuild UP-TO-DATE
+build	Run unit tests and build selected APK	2026-09-27T04:03:46.1294713Z > Task :app:generateDebugBuildConfig
+build	Run unit tests and build selected APK	2026-09-27T04:03:46.1295797Z > Task :app:generateDebugResValues
+build	Run unit tests and build selected APK	2026-09-27T04:03:46.2277309Z > Task :app:checkDebugAarMetadata
+build	Run unit tests and build selected APK	2026-09-27T04:03:46.3290763Z > Task :app:mapDebugSourceSetPaths
+build	Run unit tests and build selected APK	2026-09-27T04:03:46.3309378Z > Task :app:generateDebugResources
+build	Run unit tests and build selected APK	2026-09-27T04:03:47.4321153Z > Task :app:packageDebugResources
+build	Run unit tests and build selected APK	2026-09-27T04:03:48.5280801Z > Task :app:mergeDebugResources
+build	Run unit tests and build selected APK	2026-09-27T04:03:48.9303873Z > Task :app:createDebugCompatibleScreenManifests
+build	Run unit tests and build selected APK	2026-09-27T04:03:48.9317636Z > Task :app:extractDeepLinksDebug
+build	Run unit tests and build selected APK	2026-09-27T04:03:49.0276922Z > Task :app:parseDebugLocalResources
+build	Run unit tests and build selected APK	2026-09-27T04:03:49.2303028Z > Task :app:processDebugMainManifest
+build	Run unit tests and build selected APK	2026-09-27T04:03:49.3277435Z > Task :app:processDebugManifest
+build	Run unit tests and build selected APK	2026-09-27T04:03:49.3301737Z > Task :app:processDebugManifestForPackage
+build	Run unit tests and build selected APK	2026-09-27T04:03:49.3302831Z > Task :app:javaPreCompileDebug
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.5311530Z > Task :app:preDebugUnitTestBuild UP-TO-DATE
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.5312585Z > Task :app:javaPreCompileDebugUnitTest
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.5340918Z > Task :app:mergeDebugShaders
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.5370926Z > Task :app:compileDebugShaders NO-SOURCE
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.5400722Z > Task :app:generateDebugAssets UP-TO-DATE
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.7276762Z > Task :app:mergeDebugAssets
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.7296196Z > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.7297252Z > Task :app:compressDebugAssets
+build	Run unit tests and build selected APK	2026-09-27T04:03:50.7298160Z > Task :app:desugarDebugFileDependencies
+build	Run unit tests and build selected APK	2026-09-27T04:03:52.2280736Z > Task :app:processDebugResources
+build	Run unit tests and build selected APK	2026-09-27T04:03:52.3276255Z > Task :app:checkDebugDuplicateClasses
+build	Run unit tests and build selected APK	2026-09-27T04:03:59.7276764Z > Task :app:packageDebugUnitTestForUnitTest
+build	Run unit tests and build selected APK	2026-09-27T04:03:59.7277591Z > Task :app:generateDebugUnitTestConfig
+build	Run unit tests and build selected APK	2026-09-27T04:04:22.2291466Z > Task :app:compileDebugKotlin
+build	Run unit tests and build selected APK	2026-09-27T04:04:29.7307516Z > Task :app:mergeExtDexDebug
+build	Run unit tests and build selected APK	2026-09-27T04:05:15.1291271Z > Task :app:mergeLibDexDebug
+build	Run unit tests and build selected APK	2026-09-27T04:05:15.5301416Z > Task :app:mergeDebugJniLibFolders
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.1291479Z > Task :app:mergeDebugNativeLibs
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.5290603Z 
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.5329074Z > Task :app:stripDebugDebugSymbols
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.5362839Z Unable to strip the following libraries, packaging them as they are: libdictai_llm.so, libdictai_llm_arm82.so, libdictai_meeting.so, libggml-base.so, libggml-cpu.so, libggml.so, liblitertlm_jni.so, libonnxruntime.so, libsherpa-onnx-c-api.so, libsherpa-onnx-cxx-api.so, libsherpa-onnx-jni.so, libtranscribe.so, libtranscribe_jni.so.
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.5390184Z 
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.5420877Z > Task :app:validateSigningDebug
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.5450741Z > Task :app:writeDebugAppMetadata
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.6285505Z > Task :app:writeDebugSigningConfigVersions
+build	Run unit tests and build selected APK	2026-09-27T04:05:16.6310824Z > Task :app:preDebugAndroidTestBuild SKIPPED
+build	Run unit tests and build selected APK	2026-09-27T04:05:18.9284025Z > Task :app:processDebugAndroidTestManifest
+build	Run unit tests and build selected APK	2026-09-27T04:05:18.9320867Z > Task :app:generateDebugAndroidTestBuildConfig
+build	Run unit tests and build selected APK	2026-09-27T04:05:18.9360949Z > Task :app:checkDebugAndroidTestAarMetadata
+build	Run unit tests and build selected APK	2026-09-27T04:05:18.9390804Z > Task :app:generateDebugAndroidTestResValues
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.0311156Z > Task :app:mapDebugAndroidTestSourceSetPaths
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.0340958Z > Task :app:generateDebugAndroidTestResources
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.1281342Z > Task :app:mergeDebugAndroidTestResources
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.5311222Z > Task :app:processDebugAndroidTestResources
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.5340790Z > Task :app:javaPreCompileDebugAndroidTest
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.5371077Z > Task :app:mergeDebugAndroidTestShaders
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.5392986Z > Task :app:compileDebugAndroidTestShaders NO-SOURCE
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.5430648Z > Task :app:generateDebugAndroidTestAssets UP-TO-DATE
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.5480687Z > Task :app:mergeDebugAndroidTestAssets
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.6291407Z > Task :app:compressDebugAndroidTestAssets
+build	Run unit tests and build selected APK	2026-09-27T04:05:19.6317565Z > Task :app:desugarDebugAndroidTestFileDependencies
+build	Run unit tests and build selected APK	2026-09-27T04:05:20.1276335Z > Task :app:checkDebugAndroidTestDuplicateClasses
+build	Run unit tests and build selected APK	2026-09-27T04:05:22.7282824Z > Task :app:mergeExtDexDebugAndroidTest
+build	Run unit tests and build selected APK	2026-09-27T04:05:22.7311038Z > Task :app:mergeLibDexDebugAndroidTest
+build	Run unit tests and build selected APK	2026-09-27T04:05:22.7364897Z > Task :app:mergeDebugAndroidTestJniLibFolders
+build	Run unit tests and build selected APK	2026-09-27T04:05:22.8301677Z > Task :app:mergeDebugAndroidTestNativeLibs NO-SOURCE
+build	Run unit tests and build selected APK	2026-09-27T04:05:22.8361081Z > Task :app:stripDebugAndroidTestDebugSymbols NO-SOURCE
+build	Run unit tests and build selected APK	2026-09-27T04:05:22.8380607Z > Task :app:validateSigningDebugAndroidTest
+build	Run unit tests and build selected APK	2026-09-27T04:05:22.8381693Z > Task :app:writeDebugAndroidTestSigningConfigVersions
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5280469Z 
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5391229Z > Task :app:compileDebugKotlin
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5442507Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/AndroidTranscriptNoteStorage.kt:94:16 'when' expression over a subject of type 'Any?' is not exhaustive. Add a 'null' or 'else' branch.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5481898Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/NoteCameraActivity.kt:296:26 'var systemUiVisibility: Int' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5512045Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/NoteCameraActivity.kt:297:19 'static field SYSTEM_UI_FLAG_LIGHT_STATUS_BAR: Int' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5541831Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/NoteCameraActivity.kt:297:59 'static field SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR: Int' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5572415Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/NoteCameraActivity.kt:746:18 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5575557Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayExportPanel.kt:258:22 'var allowFileAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5599191Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayExportPanel.kt:259:22 'var allowUniversalAccessFromFileURLs: Boolean' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5603020Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayExportPanel.kt:267:30 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5606316Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayExportPanel.kt:386:37 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Bitmap'.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5609070Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayImageBlockSpan.kt:19:66 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5611507Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:1235:63 Expression is unused.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5613903Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:2320:67 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5616471Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:2347:71 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5619042Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:4942:85 Unnecessary safe call on a non-null receiver of type 'MeetingImageAnchor'.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5621592Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/TranscriptImageBlockRenderer.kt:51:32 No cast needed.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5624422Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:59:37 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5627112Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:70:37 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5629722Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:82:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5632416Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:94:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5635619Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:115:42 'static fun obtain(p0: AccessibilityNodeInfo!): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5638575Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:123:23 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5641619Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/meeting/MeetingEngine.kt:229:45 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+build	Run unit tests and build selected APK	2026-09-27T04:05:24.5644547Z w: file:///home/runner/work/DictAI/DictAI/app/src/main/kotlin/com/kafkasl/phonewhisper/meeting/MeetingModelStore.kt:264:40 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingModelStoreState'.
+build	Run unit tests and build selected APK	2026-09-27T04:05:33.3292398Z 
+build	Run unit tests and build selected APK	2026-09-27T04:05:33.3330989Z > Task :app:compileDebugJavaWithJavac
+build	Run unit tests and build selected APK	2026-09-27T04:05:33.4276373Z > Task :app:bundleDebugClassesToRuntimeJar
+build	Run unit tests and build selected APK	2026-09-27T04:05:33.4307402Z > Task :app:bundleDebugClassesToCompileJar
+build	Run unit tests and build selected APK	2026-09-27T04:05:33.4321524Z > Task :app:processDebugJavaRes
+build	Run unit tests and build selected APK	2026-09-27T04:05:48.4301276Z > Task :app:dexBuilderDebug
+build	Run unit tests and build selected APK	2026-09-27T04:05:48.7292166Z > Task :app:mergeDebugGlobalSynthetics
+build	Run unit tests and build selected APK	2026-09-27T04:05:50.7281210Z > Task :app:mergeDebugJavaResource
+build	Run unit tests and build selected APK	2026-09-27T04:05:51.5311353Z > Task :app:mergeProjectDexDebug
+build	Run unit tests and build selected APK	2026-09-27T04:05:52.4291264Z > Task :app:packageDebug
+build	Run unit tests and build selected APK	2026-09-27T04:05:52.4342726Z > Task :app:createDebugApkListingFileRedirect
+build	Run unit tests and build selected APK	2026-09-27T04:05:52.4391233Z > Task :app:assembleDebug
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7310635Z 
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7331923Z > Task :app:compileDebugAndroidTestKotlin
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7402726Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayDefaultRuntimeAndroidTest.kt:567:31 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7432037Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayDefaultRuntimeAndroidTest.kt:784:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7462146Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayDefaultRuntimeAndroidTest.kt:794:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7522263Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayDefaultRuntimeAndroidTest.kt:807:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7552732Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayDefaultRuntimeAndroidTest.kt:818:83 'static fun obtain(p0: AccessibilityNodeInfo!): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7611771Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayDefaultRuntimeAndroidTest.kt:821:85 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7641631Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:323:33 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7701755Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:324:34 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7723195Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:337:30 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7761975Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:338:31 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7791535Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:347:41 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7794134Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:348:42 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7796536Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:353:37 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7799003Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:354:38 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7801722Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:366:33 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7804208Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:367:33 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7806872Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:398:35 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7809498Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:680:57 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Throwable'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7812257Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1032:71 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7814821Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1121:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7843733Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1133:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7902118Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1144:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7904800Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1163:27 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7941951Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1175:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7954160Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1212:24 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.7981462Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1224:34 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8001773Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1248:33 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8011550Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1255:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8032648Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1274:23 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8055101Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1284:25 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8081936Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1285:26 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8111657Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1287:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8141734Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1298:31 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8161797Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1305:38 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8176320Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1312:38 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8201966Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1321:54 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8231929Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1445:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8247210Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1457:26 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8281322Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1467:59 'static fun obtain(p0: AccessibilityNodeInfo!): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8292550Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1470:85 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8322125Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1477:67 'static fun obtain(p0: AccessibilityNodeInfo!): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8331684Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingOverlayGesturesAndroidTest.kt:1480:73 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8362026Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/NoteCameraCaptureAndroidTest.kt:56:21 Unnecessary non-null assertion (!!) on a non-null receiver of type 'ActivityScenario<NoteCameraActivity>'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8402948Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/NoteCameraCaptureAndroidTest.kt:69:21 Unnecessary non-null assertion (!!) on a non-null receiver of type 'ActivityScenario<NoteCameraActivity>'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8431935Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/NoteCameraCaptureAndroidTest.kt:89:21 Unnecessary non-null assertion (!!) on a non-null receiver of type 'ActivityScenario<NoteCameraActivity>'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8452478Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/HandyMeetingBridgeEngineInstrumentedTest.kt:256:80 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8479967Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingOverlayImageMenusAndroidTest.kt:319:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8483051Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingOverlayImageMenusAndroidTest.kt:326:76 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8512118Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingOverlayImageMenusAndroidTest.kt:330:82 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8533289Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingOverlayImageMenusAndroidTest.kt:339:37 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8571708Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingOverlayImageMenusAndroidTest.kt:355:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8601665Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingOverlayImageMenusAndroidTest.kt:364:14 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8617537Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingOverlayImageMenusAndroidTest.kt:372:83 'static fun obtain(p0: AccessibilityNodeInfo!): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8642051Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingOverlayImageMenusAndroidTest.kt:375:85 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8651806Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingStreamingPortsInstrumentedTest.kt:242:57 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8681833Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingStreamingPortsInstrumentedTest.kt:262:59 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:00.8684675Z w: file:///home/runner/work/DictAI/DictAI/app/src/androidTest/kotlin/com/kafkasl/phonewhisper/meeting/MeetingStreamingPortsInstrumentedTest.kt:273:42 Unnecessary safe call on a non-null receiver of type 'Throwable'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:01.9282981Z 
+build	Run unit tests and build selected APK	2026-09-27T04:06:01.9359160Z > Task :app:compileDebugAndroidTestJavaWithJavac
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4288735Z 
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4350987Z > Task :app:compileDebugUnitTestKotlin
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4397653Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/CursiveWaveMotionTest.kt:72:74 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4459406Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/MainActivityNativeRenderTest.kt:70:27 'fun updateConfiguration(p0: Configuration!, p1: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4522114Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/MainActivityNativeRenderTest.kt:78:31 'fun updateConfiguration(p0: Configuration!, p1: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4525453Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceGestureRobolectricTest.kt:247:22 'static fun idleMainLooper(p0: Long): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4579454Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingLifecycleRobolectricTest.kt:110:58 Expression is unused.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4641810Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:176:17 Expression is unused.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4681737Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:316:49 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4761776Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:387:94 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4821754Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:407:87 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4861800Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:618:34 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingDocument'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4951921Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:619:33 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingDocument'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.4982038Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:650:33 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingDocument'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5071829Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:739:49 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5111623Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:744:49 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5159169Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:889:66 Redundant call of conversion method.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5221614Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingModeTransitionRobolectricTest.kt:167:17 Expression is unused.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5251453Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingModeTransitionRobolectricTest.kt:785:73 Expression is unused.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5282104Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingRobolectricTest.kt:1013:21 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'Array<(out) CapturedType(*)!>?'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5341970Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingRobolectricTest.kt:1025:35 This class is not recommended for use in Kotlin. Use 'kotlin.Long' instead.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5401766Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:318:38 Java type mismatch: inferred type is 'Any?', but 'Any' was expected.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5461903Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:349:69 'static fun obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5491682Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:358:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5522142Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:380:75 'static fun obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5611602Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:387:24 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5671874Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:393:73 'static fun obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5675037Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:399:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5732253Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:494:21 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'Array<(out) CapturedType(*)!>?'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5762316Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:599:69 'static fun obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5821866Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:610:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5882042Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayTranscriptEditorImageBlocksRobolectricTest.kt:91:22 'static fun idleMainLooper(p0: Long): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5941812Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingAudioQueueTest.kt:326:40 Unnecessary non-null assertion (!!) on a non-null receiver of type 'File'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5971321Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingAudioRecordTest.kt:86:13 Expression is unused.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.5995962Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingEngineTest.kt:396:26 Unnecessary non-null assertion (!!) on a non-null receiver of type '(MeetingNativeUpdate) -> Unit'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.6047005Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingImageOperationsTest.kt:557:66 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingImageMutation'.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.6062453Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingPanelControllerRobolectricTest.kt:760:28 'fun updateConfiguration(p0: Configuration!, p1: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.6102378Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingPanelControllerRobolectricTest.kt:808:28 'fun updateConfiguration(p0: Configuration!, p1: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
+build	Run unit tests and build selected APK	2026-09-27T04:06:03.6105848Z w: file:///home/runner/work/DictAI/DictAI/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingRecordingControllerTest.kt:1434:48 Expression is unused.
+build	Run unit tests and build selected APK	2026-09-27T04:06:04.5275472Z 
+build	Run unit tests and build selected APK	2026-09-27T04:06:04.5276788Z > Task :app:dexBuilderDebugAndroidTest
+build	Run unit tests and build selected APK	2026-09-27T04:06:04.5277892Z > Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+build	Run unit tests and build selected APK	2026-09-27T04:06:04.5279133Z > Task :app:processDebugUnitTestJavaRes
+build	Run unit tests and build selected APK	2026-09-27T04:06:34.5277223Z > Task :app:testDebugUnitTest
+build	Run unit tests and build selected APK	2026-09-27T04:06:54.4274748Z 
+build	Run unit tests and build selected APK	2026-09-27T04:06:54.4276059Z OverlayServiceMeetingRobolectricTest > new meeting publishes edits made after finish before replacing the document FAILED
+build	Run unit tests and build selected APK	2026-09-27T04:06:54.4277264Z     java.lang.AssertionError at OverlayServiceMeetingRobolectricTest.kt:843
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.0303143Z 
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.0331189Z 1099 tests completed, 1 failed
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2300760Z 
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2300886Z 
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2381881Z FAILURE: Build failed with an exception.
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2382698Z > Task :app:testDebugUnitTest FAILED
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2395757Z 
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2420683Z * What went wrong:
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2421418Z 67 actionable tasks: 67 executed
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2422388Z Execution failed for task ':app:testDebugUnitTest'.
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2423723Z > There were failing tests. See the report at: file:///home/runner/work/DictAI/DictAI/app/build/reports/tests/testDebugUnitTest/index.html
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2424476Z 
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2424916Z * Try:
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2425447Z > Run with --scan to get full insights.
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2425897Z 
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2430916Z * Exception is:
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2432446Z org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:testDebugUnitTest'.
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2434261Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:130)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2436673Z 	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:293)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2438260Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:128)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2440443Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:116)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2442462Z 	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2444374Z 	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2446314Z 	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2448296Z 	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2450457Z 	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2452256Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2454025Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2455782Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2457710Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2460405Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2462495Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2464086Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2465825Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2467692Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2469172Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2471044Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2472330Z 	at org.gradle.execution.plan.LocalTaskNodeExecutor.execute(LocalTaskNodeExecutor.java:42)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2473885Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:331)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2475833Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:318)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2477806Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:314)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2479729Z 	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:85)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2495060Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:314)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2497139Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:303)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2498826Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2500398Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2501815Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2503310Z 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2505669Z Caused by: org.gradle.api.internal.exceptions.MarkedVerificationException: There were failing tests. See the report at: file:///home/runner/work/DictAI/DictAI/app/build/reports/tests/testDebugUnitTest/index.html
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2507650Z 	at org.gradle.api.tasks.testing.AbstractTestTask.handleTestFailures(AbstractTestTask.java:705)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2509080Z 	at org.gradle.api.tasks.testing.AbstractTestTask.handleCollectedResults(AbstractTestTask.java:539)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2510632Z 	at org.gradle.api.tasks.testing.AbstractTestTask.executeTests(AbstractTestTask.java:534)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2523775Z 	at org.gradle.api.tasks.testing.Test.executeTests(Test.java:715)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2525544Z 	at com.android.build.gradle.tasks.factory.AndroidUnitTest.executeTests(AndroidUnitTest.java:171)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2531106Z 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2533477Z 	at org.gradle.internal.reflect.JavaMethod.invoke(JavaMethod.java:125)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2537351Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.doExecute(StandardTaskAction.java:58)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2543263Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:51)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2545337Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:29)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2546876Z 	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:244)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2548221Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2550141Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2551770Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2553523Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2554950Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2556427Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2557991Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2559447Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:229)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2562155Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:212)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2565208Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:195)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2568552Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:162)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2570520Z 	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:105)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2572659Z 	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:44)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2574261Z 	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2600366Z 	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:56)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2602416Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2604737Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2606693Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2608219Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2609657Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2611335Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2612863Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2614343Z 	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:56)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2615468Z 	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:44)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2616732Z 	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2618257Z 	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2619525Z 	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2621156Z 	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:50)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2622641Z 	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:28)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2623659Z 	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.execute(RemovePreviousOutputsStep.java:67)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2624725Z 	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.execute(RemovePreviousOutputsStep.java:37)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2625751Z 	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:61)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2626824Z 	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:26)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2627971Z 	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2629344Z 	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2631005Z 	at org.gradle.internal.execution.steps.ResolveInputChangesStep.execute(ResolveInputChangesStep.java:40)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2632599Z 	at org.gradle.internal.execution.steps.ResolveInputChangesStep.execute(ResolveInputChangesStep.java:29)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2633744Z 	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:189)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2634683Z 	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$1(BuildCacheStep.java:75)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2635476Z 	at org.gradle.internal.Either$Right.fold(Either.java:175)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2636182Z 	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2636944Z 	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:73)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2637717Z 	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:48)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2639013Z 	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:46)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2640209Z 	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:35)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2641211Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2642082Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2642922Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2643752Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2644779Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2646030Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2647239Z 	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:49)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2648448Z 	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:27)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2649592Z 	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:71)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2650945Z 	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:39)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2652005Z 	at org.gradle.internal.execution.steps.ResolveChangesStep.execute(ResolveChangesStep.java:65)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2652829Z 	at org.gradle.internal.execution.steps.ResolveChangesStep.execute(ResolveChangesStep.java:36)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2653622Z 	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:105)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2654349Z 	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:54)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2655515Z 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:64)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2657238Z 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:43)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2658438Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.executeWithNonEmptySources(AbstractSkipEmptyWorkStep.java:125)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2659507Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:61)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2660572Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:36)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2661831Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2662993Z 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:36)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2664259Z 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:23)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2665619Z 	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.execute(HandleStaleOutputsStep.java:75)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2666621Z 	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.execute(HandleStaleOutputsStep.java:41)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2667746Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.lambda$execute$0(AssignMutableWorkspaceStep.java:35)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2668731Z 	at org.gradle.api.internal.tasks.execution.TaskExecution$4.withWorkspace(TaskExecution.java:289)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2669715Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:31)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2670950Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:22)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2672190Z 	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:40)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2673070Z 	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:23)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2674167Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.lambda$execute$2(ExecuteWorkBuildOperationFiringStep.java:67)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2675429Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:67)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2676624Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:39)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2677836Z 	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:46)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2679103Z 	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:34)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2680546Z 	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:48)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2681711Z 	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:35)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2683257Z 	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:61)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2684898Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:127)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2686775Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:116)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2688610Z 	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2690772Z 	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2692650Z 	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2694387Z 	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2696018Z 	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2697885Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2701860Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2703403Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2705674Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2707629Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2709402Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2711142Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2712634Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2714555Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2716183Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2717955Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2719360Z 	at org.gradle.execution.plan.LocalTaskNodeExecutor.execute(LocalTaskNodeExecutor.java:42)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2721175Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:331)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2723144Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:318)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2725145Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:314)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2726832Z 	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:85)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2728524Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:314)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2730529Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:303)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2732051Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2733431Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2734978Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2736391Z 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2737698Z 
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2737713Z 
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.2738004Z BUILD FAILED in 4m 35s
+build	Run unit tests and build selected APK	2026-09-27T04:07:05.6847757Z ##[error]Process completed with exit code 1.

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" tests="29" skipped="0" failures="0" errors="0" timestamp="2026-09-27T04:11:37" hostname="MacBook-Pro-de-Ullie.local" time="8.159">
+  <properties/>
+  <testcase name="meeting errors remain visible while listening" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="5.088"/>
+  <testcase name="returning to a known note after an opaque presentation restores the editor" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.219"/>
+  <testcase name="new meeting publishes edits made after finish before replacing the document" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.146"/>
+  <testcase name="upward menu requires explicit meeting choice and keeps the dictation format" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.1"/>
+  <testcase name="replacement updates a previously saved note after all speech is deleted" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.141"/>
+  <testcase name="restored documentary note reports host publication failure in notification" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.154"/>
+  <testcase name="meeting notification reports phase without exposing transcript text" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.112"/>
+  <testcase name="closing phase abandons a pending documentary note publication" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.116"/>
+  <testcase name="save open note reflushes edits that race its initial draft barrier" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.131"/>
+  <testcase name="meeting state callback renders synchronously when already on main" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.083"/>
+  <testcase name="service resident engine refuses dictation model loads in meeting mode" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.055"/>
+  <testcase name="meeting downward preview follows listening and paused phases" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.093"/>
+  <testcase name="replacement note with a mismatched session identity stays opaque" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.098"/>
+  <testcase name="meeting swipe down while paused opens the finish confirmation" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.211"/>
+  <testcase name="meeting menu hides dictation formats and exposes an explicit panel action" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.068"/>
+  <testcase name="replacement publishes text entered in the documentary turn zero" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.093"/>
+  <testcase name="finish confirmation uses overlay window and ignores a stale phase" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.148"/>
+  <testcase name="failed note publication remains visible and retry publishes without restarting audio" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.126"/>
+  <testcase name="passage review preserves deliberate deletion and reports an empty recognized hypothesis" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.099"/>
+  <testcase name="live progress refresh stops while hidden resumes without a hypothesis and is cleared at finish and destroy" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.088"/>
+  <testcase name="opening the explicit meeting entry installs the meeting editor without starting audio" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.072"/>
+  <testcase name="stale start command cannot replace an active meeting run" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.064"/>
+  <testcase name="starting a replacement meeting does not publish an empty document" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.097"/>
+  <testcase name="meeting dialog security failure clears overlay tracking" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.046"/>
+  <testcase name="duplicate new meeting requests perform one replacement" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.082"/>
+  <testcase name="restoring the dictation panel abandons an in flight meeting note publication" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.084"/>
+  <testcase name="passage review includes unstable manual speech and excludes the document anchor" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.087"/>
+  <testcase name="finish from the actual meeting actions dialog opens confirmation after dismiss" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.169"/>
+  <testcase name="meeting panel keeps full transcript surface and hides dictation rows after resize" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingRobolectricTest" time="0.087"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

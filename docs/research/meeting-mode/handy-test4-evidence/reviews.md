@@ -50,3 +50,13 @@ Résultat : aucun obstacle supplémentaire identifié pour un essai expérimenta
 - [Comptes et empreintes](test-counts.json), [contrôles du paquet](apk-check-final-post-ui.json).
 - [Comparaison courte native](native/ports-short-results.xml), [moteur intégré](native/engine-integrated-results.xml), [échec prolongé conservé](native/ports-long-corrected-results.xml).
 - [Galerie Android auditée](../ui-renders/handy-test4/README.md).
+
+## Complément après le premier passage CI
+
+Le run [36292940843](https://github.com/Uhama91/DictAI/actions/runs/36292940843) a échoué sur une attente prématurée d'un test de remplacement de document. L'état initial ci-dessus reste archivé. Le seul changement applicatif au sens du manifeste est un test JVM, `OverlayServiceMeetingRobolectricTest.kt`, dont l'empreinte corrigée est `c4da1274da4f8eda0cf2261938ccff8d95e2564587978f3aedadbddb224c10aa`. Les 60 autres fichiers du manifeste initial conservent leurs empreintes ; aucune source de production, bibliothèque ou fixture Android n'a changé.
+
+**Passe de conformité sur le correctif figé.** Astra a lu le test et l'enchaînement réel `startNewMeetingAfterSaving` : publication de la note, fermeture, restitution de propriété, effacement de l'ancien brouillon puis acquisition du nouveau. Attendre la seule publication ne prouvait pas l'achèvement de ce parcours. Les quatre lignes ajoutées attendent maintenant un contrôleur non nul et distinct avant l'assertion finale. La vérification de la retouche sauvegardée est conservée.
+
+**Passe adversariale sur le même correctif.** La condition ne peut pas réussir sur le `null` transitoire entre les contrôleurs. Elle utilise le même mécanisme borné de traitement de la boucle principale, sans pause arbitraire supplémentaire, sans augmentation du délai et sans suppression d'assertion. Le test rouge de CI reste la preuve du défaut. Les 29 cas de la classe passent ensuite en variante normale et en prototype. Les précédentes preuves natives et visuelles restent valables pour le code de production inchangé ; elles ne sont pas réexécutées pour ce changement de test.
+
+Verdict : correctif de test accepté. Le [manifeste CI corrigé](source-manifest-ci-fix.sha256) et les preuves sous `ci-fix/` distinguent ce nouvel état des 1 099 résultats locaux précédents. La publication reste conditionnée au succès de la nouvelle exécution GitHub et à la vérification de son APK. La limite du test prolongé des voix demeure inchangée.

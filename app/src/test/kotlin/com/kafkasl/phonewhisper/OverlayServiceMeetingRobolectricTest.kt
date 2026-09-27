@@ -840,6 +840,10 @@ class OverlayServiceMeetingRobolectricTest {
         }
         assertEquals("the durable note includes post-finish edits", "Retouche après la fin",
             noteStore.get(original.sessionId)?.meeting?.turns?.singleOrNull()?.editedText)
+        awaitMainCondition {
+            field<MeetingRecordingController?>(service, "meetingRecordingController")
+                ?.let { it !== controller } == true
+        }
         assertTrue("a fresh controller is installed only after publishing the finished note",
             field<MeetingRecordingController?>(service, "meetingRecordingController") !== controller)
     }
