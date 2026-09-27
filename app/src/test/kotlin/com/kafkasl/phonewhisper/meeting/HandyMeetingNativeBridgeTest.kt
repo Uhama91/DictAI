@@ -14,43 +14,6 @@ import org.junit.Test
 
 class HandyMeetingNativeBridgeTest {
     @Test
-    fun asr_is_ready_and_publishes_while_diarization_model_open_is_blocked() {
-        val diarOpenEntered = CountDownLatch(1)
-        val diarOpenRelease = CountDownLatch(1)
-        val handy = RecordingHandy(window("Salut."))
-        var handyLanguage: String? = null
-        val bridge = bridge(
-            handy = handy,
-            handyFactory = { _, language -> handyLanguage = language; handy },
-            openDiarization = {
-                diarOpenEntered.countDown()
-                awaitRelease(diarOpenRelease)
-                RecordingDiarization()
-            },
-        )
-        val handle = bridge.open("handy", "diar", "fr")
-        val updates = Collections.synchronizedList(mutableListOf<MeetingNativeUpdate>())
-        val updateArrived = CountDownLatch(1)
-
-        try {
-            assertTrue(diarOpenEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
-            bridge.setUpdateListener(handle) { update -> updates += update; updateArrived.countDown() }
-            assertEquals(emptyList<MeetingNativeUpdate>(), bridge.acceptPcm16(handle, ByteArray(32_000), 32_000))
-
-            assertTrue("Handy transcript must not wait for diarization loading", updateArrived.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
-            assertEquals("fr-FR", handyLanguage)
-            assertEquals("Salut.", updates.single().transcript)
-            val progress = bridge.voiceProgress(handle)
-            assertEquals(MeetingVoiceState.PREPARING, progress.state)
-            assertEquals(1_000L, progress.pendingAudioMs)
-        } finally {
-            diarOpenRelease.countDown()
-            bridge.requestCancel(handle)
-            bridge.close(handle)
-        }
-    }
-
-    @Test
     fun finish_publishes_final_text_before_diar_drain_then_publishes_voice_revision() {
         val diarAcceptEntered = CountDownLatch(1)
         val diarAcceptRelease = CountDownLatch(1)
@@ -71,7 +34,7 @@ class HandyMeetingNativeBridgeTest {
         val finishReturned = CountDownLatch(1)
 
         try {
-            bridge.acceptPcm16(handle, pcm, pcm.size)
+            acceptCapturedPcm(bridge, handle, pcm)
             assertTrue(diarAcceptEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
             Thread({
                 bridge.finish(handle)
@@ -96,6 +59,98 @@ class HandyMeetingNativeBridgeTest {
     }
 
     @Test
+    fun diarization_progress_tracks_captured_pcm_while_a_later_handy_call_is_blocked() {
+        val firstWindowRead = CountDownLatch(1)
+        val processedDiarBytes = AtomicInteger()
+        val diarFinishEntered = CountDownLatch(1)
+        val diar = object : DiarizationSessionPort {
+            override fun acceptPcm16(buffer: ByteArray, lengthBytes: Int) {
+                processedDiarBytes.addAndGet(lengthBytes)
+            }
+
+            override fun snapshot(firstFrameIndex: Long, maxFrames: Int): DiarizationFrameWindow {
+                val stableFrames = processedDiarBytes.get().toLong() / 320L // 10 ms per diarization frame.
+                val frameCount = minOf(maxFrames.toLong(), (stableFrames - firstFrameIndex).coerceAtLeast(0L)).toInt()
+                if (maxFrames > 0 && stableFrames >= 100L) firstWindowRead.countDown()
+                return DiarizationFrameWindow(
+                    firstFrameIndex = firstFrameIndex,
+                    secondsPerFrame = 0.01,
+                    probabilities = FloatArray(frameCount) { 1.0f },
+                    speakerCount = 1,
+                    stableFrameCount = stableFrames,
+                    totalFrameCount = stableFrames,
+                )
+            }
+
+            override fun finish() {
+                diarFinishEntered.countDown()
+            }
+
+            override fun close() = Unit
+        }
+        val secondHandyAcceptEntered = CountDownLatch(1)
+        val secondHandyAcceptRelease = CountDownLatch(1)
+        val handy = RecordingHandy(
+            window("Bonjour."),
+            secondAcceptEntered = secondHandyAcceptEntered,
+            secondAcceptRelease = secondHandyAcceptRelease,
+            secondAcceptTimeoutSeconds = 6L,
+        )
+        val bridge = bridge(handy = handy, diarization = diar)
+        val handle = bridge.open("handy", "diar", "fr")
+        val updates = Collections.synchronizedList(mutableListOf<MeetingNativeUpdate>())
+        bridge.setUpdateListener(handle, updates::add)
+        val pcm = ByteArray(32_000) // 1 second.
+        val secondAcceptReturned = CountDownLatch(1)
+        val secondAcceptFailure = java.util.concurrent.atomic.AtomicReference<Throwable?>()
+        var secondAcceptStarted = false
+
+        try {
+            acceptCapturedPcm(bridge, handle, pcm)
+            assertTrue(firstWindowRead.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(
+                "the first captured second is stable before admitting the next block",
+                awaitCondition(TIMEOUT_SECONDS, TimeUnit.SECONDS) {
+                    bridge.voiceProgress(handle).pendingAudioMs == 0L
+                },
+            )
+
+            secondAcceptStarted = true
+            Thread({
+                try {
+                    acceptCapturedPcm(bridge, handle, pcm)
+                } catch (failure: Throwable) {
+                    secondAcceptFailure.set(failure)
+                } finally {
+                    secondAcceptReturned.countDown()
+                }
+            }, "meeting-test-capture-ahead-of-handy").start()
+            assertTrue(secondHandyAcceptEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(
+                "the second block becomes diarization-stable from captured PCM while Handy is still blocked",
+                awaitCondition(TIMEOUT_SECONDS, TimeUnit.SECONDS) {
+                    bridge.voiceProgress(handle).pendingAudioMs == 0L
+                },
+            )
+            assertEquals("Handy has entered but not returned from the second accept", 2, handy.acceptCount.get())
+
+            secondHandyAcceptRelease.countDown()
+            assertTrue(secondAcceptReturned.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertEquals(null, secondAcceptFailure.get())
+            bridge.finish(handle)
+
+            assertTrue(updates.isNotEmpty())
+            assertTrue("stable diarization time stays within the two captured seconds", updates.all { it.stableSpeakerThroughMs <= 2_000L })
+            assertTrue("reported processing time stays within the two captured seconds", updates.all { it.audioProcessedMs <= 2_000L })
+            assertTrue(diarFinishEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        } finally {
+            secondHandyAcceptRelease.countDown()
+            if (secondAcceptStarted) assertTrue(secondAcceptReturned.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            bridge.close(handle)
+        }
+    }
+
+    @Test
     fun cancel_does_not_wait_for_inflight_diar_call_and_suppresses_late_revisions() {
         val diarAcceptEntered = CountDownLatch(1)
         val diarAcceptRelease = CountDownLatch(1)
@@ -112,7 +167,7 @@ class HandyMeetingNativeBridgeTest {
         val cancelReturned = CountDownLatch(1)
 
         try {
-            bridge.acceptPcm16(handle, pcm, pcm.size)
+            acceptCapturedPcm(bridge, handle, pcm)
             assertTrue(diarAcceptEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
             val updatesBeforeCancel = updates.size
             Thread({
@@ -149,9 +204,9 @@ class HandyMeetingNativeBridgeTest {
 
         try {
             bridge.setUpdateListener(handle) { }
-            assertEquals(emptyList<MeetingNativeUpdate>(), bridge.acceptPcm16(handle, ByteArray(4), 4))
+            assertEquals(emptyList<MeetingNativeUpdate>(), acceptCapturedPcm(bridge, handle, ByteArray(4)))
             assertTrue(diarAcceptEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
-            assertEquals(emptyList<MeetingNativeUpdate>(), bridge.acceptPcm16(handle, ByteArray(4), 4))
+            assertEquals(emptyList<MeetingNativeUpdate>(), acceptCapturedPcm(bridge, handle, ByteArray(4)))
 
             assertEquals(2, handy.acceptCount.get())
             val progress = bridge.voiceProgress(handle)
@@ -228,7 +283,7 @@ class HandyMeetingNativeBridgeTest {
         }
 
         try {
-            bridge.acceptPcm16(handle, ByteArray(pcmBytes), pcmBytes)
+            acceptCapturedPcm(bridge, handle, ByteArray(pcmBytes))
 
             assertTrue("recent frames must be attributed after audio exceeds 164 s", voiceRevision.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
             assertEquals(listOf(0L to 0, 13_000L to 12_000), requested.toList())
@@ -259,7 +314,7 @@ class HandyMeetingNativeBridgeTest {
             val snapshots = handy.snapshotCount.get()
             val finishes = handy.finishCount.get()
 
-            assertEquals(emptyList<MeetingNativeUpdate>(), bridge.acceptPcm16(handle, ByteArray(32), 32))
+            assertEquals(emptyList<MeetingNativeUpdate>(), acceptCapturedPcm(bridge, handle, ByteArray(32)))
             assertEquals(emptyList<MeetingNativeUpdate>(), bridge.finish(handle))
             assertEquals(accepts, handy.acceptCount.get())
             assertEquals(snapshots, handy.snapshotCount.get())
@@ -274,7 +329,7 @@ class HandyMeetingNativeBridgeTest {
     }
 
     @Test
-    fun diarization_load_or_feed_failure_does_not_stop_handy_transcription() {
+    fun diarization_load_failure_blocks_capture_and_feed_failure_does_not_stop_handy() {
         val loadHandy = RecordingHandy(window("Salut "))
         val workerFinished = CountDownLatch(1)
         val loadBridge = HandyMeetingNativeBridge(
@@ -291,13 +346,15 @@ class HandyMeetingNativeBridgeTest {
         val loadUpdates = Collections.synchronizedList(mutableListOf<MeetingNativeUpdate>())
         loadBridge.setUpdateListener(loadHandle, loadUpdates::add)
         try {
-            loadBridge.acceptPcm16(loadHandle, ByteArray(32_000), 32_000)
+            assertThrows(IllegalStateException::class.java) { loadBridge.awaitCaptureReady(loadHandle) }
             assertTrue(workerFinished.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
-            assertEquals(listOf("Salut "), loadUpdates.map { it.transcript })
+            assertTrue("a failed diarization load never allows Handy capture", loadUpdates.isEmpty())
+            assertEquals(0, loadHandy.acceptCount.get())
             assertEquals(MeetingVoiceUnavailableReason.MODEL_LOAD_FAILED, loadBridge.voiceProgress(loadHandle).unavailableReason)
         } finally {
             loadBridge.close(loadHandle)
         }
+        assertEquals("Handy is released exactly once after model-load failure", 1, loadHandy.closeCount.get())
 
         val feedHandy = RecordingHandy(window("Bonjour "))
         val failingDiar = RecordingDiarization(acceptFailure = IllegalStateException("diar feed failed"))
@@ -306,7 +363,7 @@ class HandyMeetingNativeBridgeTest {
         val feedUpdates = Collections.synchronizedList(mutableListOf<MeetingNativeUpdate>())
         feedBridge.setUpdateListener(feedHandle, feedUpdates::add)
         try {
-            feedBridge.acceptPcm16(feedHandle, ByteArray(32_000), 32_000)
+            acceptCapturedPcm(feedBridge, feedHandle, ByteArray(32_000))
             assertTrue(failingDiar.closed.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
             assertEquals(listOf("Bonjour "), feedUpdates.map { it.transcript })
             assertEquals(MeetingVoiceUnavailableReason.PROCESSING_FAILED, feedBridge.voiceProgress(feedHandle).unavailableReason)
@@ -337,7 +394,7 @@ class HandyMeetingNativeBridgeTest {
             awaitRelease(callbackRelease)
         }
         Thread({
-            bridge.acceptPcm16(handle, ByteArray(32), 32)
+            acceptCapturedPcm(bridge, handle, ByteArray(32))
             acceptReturned.countDown()
         }, "meeting-test-blocked-callback").start()
         assertTrue(callbackEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
@@ -412,11 +469,11 @@ class HandyMeetingNativeBridgeTest {
         }
 
         try {
-            bridge.acceptPcm16(handle, ByteArray(32_000), 32_000)
+            acceptCapturedPcm(bridge, handle, ByteArray(32_000))
             assertTrue(snapshotEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
             secondAcceptStarted = true
             Thread({
-                bridge.acceptPcm16(handle, ByteArray(32), 32)
+                acceptCapturedPcm(bridge, handle, ByteArray(32))
                 secondAcceptReturned.countDown()
             }, "meeting-test-blocked-asr").start()
             assertTrue(secondAcceptEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
@@ -449,11 +506,31 @@ class HandyMeetingNativeBridgeTest {
         workerFactory = workerFactory,
     )
 
+    private fun acceptCapturedPcm(
+        bridge: HandyMeetingNativeBridge,
+        handle: Long,
+        pcm: ByteArray,
+    ): List<MeetingNativeUpdate> {
+        bridge.awaitCaptureReady(handle)
+        bridge.onPcmCaptured(handle, pcm, pcm.size)
+        return bridge.acceptPcm16(handle, pcm, pcm.size)
+    }
+
+    private fun awaitCondition(timeout: Long, unit: TimeUnit, condition: () -> Boolean): Boolean {
+        val deadline = System.nanoTime() + unit.toNanos(timeout)
+        while (System.nanoTime() < deadline) {
+            if (condition()) return true
+            Thread.yield()
+        }
+        return condition()
+    }
+
     private class RecordingHandy(
         private val snapshotWindow: HandyTokenWindow,
         private val secondAcceptEntered: CountDownLatch? = null,
         private val secondAcceptRelease: CountDownLatch? = null,
         private val closeFailure: Throwable? = null,
+        private val secondAcceptTimeoutSeconds: Long = TIMEOUT_SECONDS,
     ) : HandyAsrPort {
         val acceptCount = AtomicInteger()
         val snapshotCount = AtomicInteger()
@@ -464,7 +541,7 @@ class HandyMeetingNativeBridgeTest {
         override fun acceptPcm16(buffer: ByteArray, lengthBytes: Int) {
             if (acceptCount.incrementAndGet() == 2) {
                 secondAcceptEntered?.countDown()
-                awaitRelease(secondAcceptRelease)
+                awaitRelease(secondAcceptRelease, secondAcceptTimeoutSeconds)
             }
         }
 
@@ -496,10 +573,14 @@ class HandyMeetingNativeBridgeTest {
         val closed = CountDownLatch(1)
         val finishEntered = CountDownLatch(1)
         val frames = testDiarizationWindow()
+        val acceptedPcmBlocks = Collections.synchronizedList(mutableListOf<ByteArray>())
+        val acceptCount = AtomicInteger()
         val closeCount = AtomicInteger()
         val snapshotRequests = Collections.synchronizedList(mutableListOf<Pair<Long, Int>>())
 
         override fun acceptPcm16(buffer: ByteArray, lengthBytes: Int) {
+            acceptedPcmBlocks += buffer
+            acceptCount.incrementAndGet()
             acceptEntered?.countDown()
             awaitRelease(acceptRelease)
             acceptFailure?.let { throw it }
@@ -539,8 +620,8 @@ class HandyMeetingNativeBridgeTest {
     private companion object {
         const val TIMEOUT_SECONDS = 3L
 
-        fun awaitRelease(latch: CountDownLatch?) {
-            if (latch != null) check(latch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        fun awaitRelease(latch: CountDownLatch?, timeoutSeconds: Long = TIMEOUT_SECONDS) {
+            if (latch != null) check(latch.await(timeoutSeconds, TimeUnit.SECONDS)) {
                 "test latch timed out"
             }
         }

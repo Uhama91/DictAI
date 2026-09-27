@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-09-27T08:28:03" hostname="MacBook-Pro-de-Ullie.local" time="0.15">
+  <properties/>
+  <testcase name="preserves_utf8_apostrophes_and_punctuation_while_aligning_lexical_timing" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.007"/>
+  <testcase name="retries_one_token_at_a_time_for_a_split_utf8_codepoint_after_the_8192_token_window" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.128"/>
+  <testcase name="waits_for_a_trailing_utf8_code_point_without_poisoning_later_alignment" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.001"/>
+  <testcase name="retains_an_unfinished_suffix_without_assigning_or_sealing_its_partial_word" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="an_unaligned_repeated_middle_word_does_not_reuse_the_following_words_timing" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="an_earlier_chunk_is_not_sealed_until_its_boundary_word_is_committed" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="identical_snapshots_skip_revisions_but_audio_timing_final_and_retry_changes_are_processed" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="overlapping_native_speakers_leave_the_word_unattributed" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="audio_processed_time_never_moves_backward_between_asr_and_diarization_updates" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.001"/>
+  <testcase name="float32_ten_millisecond_frames_do_not_add_a_frame_at_exact_boundaries" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="a_compacted_diarization_window_does_not_erase_a_stable_known_speaker" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="retries_before_a_sliding_token_window_splits_an_accented_character" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="late_speaker_revision_keeps_utterance_identity_transcript_and_user_edit" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.002"/>
+  <testcase name="audio_time_only_changes_do_not_emit_revisions_and_old_chunks_are_not_resurrected" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.001"/>
+  <testcase name="a_single_silent_frame_does_not_veto_a_stable_dominant_speaker" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="all_new_long_transcript_chunks_are_emitted_once_before_revision_retention_is_applied" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.01"/>
+  <testcase name="falls_back_to_authoritative_text_when_token_alignment_is_not_exact" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <testcase name="native_speaker_seven_maps_to_the_eighth_domain_participant" classname="com.kafkasl.phonewhisper.meeting.MeetingHandyTranscriptAssemblerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

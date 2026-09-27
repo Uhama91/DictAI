@@ -1,4 +1,4 @@
-# Réunion : transcription Handy prioritaire et attribution indépendante
+# Réunion : transcription Handy prioritaire et attribution indépendante
 
 ## Besoin confirmé
 
@@ -13,6 +13,7 @@ Avant cette correction, la dictée et Réunion capturent toutes deux un micro mo
 3. Attribuer les mots selon leurs temps dans l'audio, jamais selon l'instant où les résultats arrivent. Ne pas extrapoler le dernier intervenant sur une zone audio que la diarisation n'a pas encore traitée. Afficher « Intervenant à confirmer » en attendant.
 4. Une attribution tardive révise le passage existant. Elle ne duplique pas son texte, ne le rajoute pas à la fin et ne remplace pas une attribution ou une retouche humaine.
 5. Conserver les files audio bornées, leur stockage temporaire privé, l'annulation immédiate côté interface et la libération prouvée des ressources avant une autre session.
+6. Pour le test 5, attendre la préparation des deux modèles avant de démarrer le micro. Leur chronologie repose sur les mêmes échantillons capturés, avec une origine et une frontière de fin communes. Cette exigence remplace le démarrage anticipé de Handy du test 4.
 
 ## Contrats de données
 
@@ -32,8 +33,10 @@ Le travail conservé pour les révisions est limité à 120 secondes d'audio et 
 
 `MeetingEngine` conserve la responsabilité de l'admission des blocs, de sa file principale, des checkpoints et de la fermeture. La composition Handy/diarisation est placée derrière une frontière dédiée et testable, avec dépendances injectées.
 
-- Le chemin principal alimente Handy et publie son résultat sans attendre la diarisation. La disponibilité initiale attend Handy seulement ; le chargement de la diarisation a lieu sur son worker indépendant.
-- Le chemin secondaire reçoit une copie bornée du même audio, dans le même ordre. Il publie ensuite des révisions d'attribution.
+- Une barrière attend les deux modèles sur le worker, après publication du handle annulable et avant le signal autorisant le micro. Un échec de chargement empêche le début de capture ; une annulation empêche toute disponibilité tardive.
+- Chaque bloc accepté rejoint les deux branches à l'admission de la capture, avant que le consommateur Handy soit réveillé. Le chemin secondaire reçoit une copie bornée, sans inférence ni attente de calcul sur le thread de capture. Il ne doit pas attendre que Handy ait traité ce bloc ou les précédents.
+- Le chemin principal alimente Handy et publie son résultat sans attendre la diarisation. Le chemin secondaire publie ensuite les révisions d'attribution sur la même chronologie audio.
+- Le premier et le dernier échantillon acceptés sont communs aux deux modèles. Les silences capturés sont conservés ; une pause interrompt les deux entrées et la reprise poursuit leur compteur commun. Le silence ajouté en interne pour finaliser un décodeur n'allonge pas la durée enregistrée. Les deux calculs peuvent terminer à des instants différents.
 - Les callbacks utilisent des identifiants et des révisions monotones. Les résultats d'une ancienne session sont ignorés.
 - L'annulation ferme les entrées, abandonne les blocs encore en attente et empêche toute nouvelle publication. Elle ne bloque pas le thread de l'interface pendant un calcul natif.
 - La fermeture attend la libération effective des deux chemins avant de rendre la réservation native. Une fermeture incertaine conserve le mécanisme de protection existant.
@@ -60,6 +63,7 @@ Le catalogue Réunion doit désigner explicitement Handy si ce chemin est retenu
 - Test déterministe : bloquer la diarisation avec un verrou de test, alimenter Handy factice et observer le texte avant de libérer la diarisation. Libérer ensuite et vérifier une révision de la même prise de parole.
 - Tests A/B/A, résultat tardif, frontière encore inconnue, chevauchement non attribuable, retouche, attribution manuelle et image attachée.
 - Tests annulation pendant chargement, calcul et finalisation ; fermeture des deux ressources, absence de callback tardif et conservation du texte déjà présent.
+- Tests de préparation retardée ou échouée, premier bloc identique, Handy bloqué pendant l'admission des blocs suivants, ordre FIFO, bloc refusé absent des deux branches et dernière entrée commune avant finalisation.
 - Test d'une longue suite de résultats : mémoire de travail bornée, hypothèses sous la limite du réducteur et absence de duplication aux frontières des blocs.
 - Comparaison native du texte Handy avec le chemin dictée existant : aucun changement de modèle, de langue ou de réglage masqué par l'activation des horodatages.
 - Comparaison native de Handy seul avec Handy et diarisation simultanés, sur la même fixture française : premier texte, temps de calcul, retard audio, mémoire et fermeture. Les workers indépendants partagent encore les ressources du téléphone ; des doubles de test ne suffisent pas à prouver leur coexistence. Vérifier ensuite le chemin intégré avec assembleur et interface.

@@ -1,0 +1,5 @@
+Build local du prototype Réunion test 5 sous le JBR Android Studio 21.
+Le worktree était modifié lors de cette compilation. Le champ ciCommit du fichier metadata.json est la valeur de git rev-parse HEAD (fd65d3ed3252f069881c7db27cce3316b11d5b4b) ; il ne représente pas à lui seul l’état complet des fichiers compilés ni une publication Actions.
+SHA-256 de l’APK local : 12758a60e95ed48e16efe28e66e4cd7826dc0fd91aa4d8e7dee327d755b008b7. Cette empreinte correspond à celle du run natif consignée dans le bilan.
+Les APK restent sous app/build/reports/meeting/conversation-2026-09-27/test5-final/ et app/build/outputs/ ; aucun binaire APK n’est inclus dans les preuves destinées à Git.
+Le build-tools 35.0.0 indiqué par défaut dans l’ancien environnement n’était pas installé ; les contrôles aapt, zipalign et apksigner ont été exécutés avec les outils installés de la version 36.0.0.

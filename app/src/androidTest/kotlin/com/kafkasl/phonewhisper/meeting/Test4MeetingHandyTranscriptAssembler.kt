@@ -4,11 +4,14 @@ import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.security.MessageDigest
 import java.util.LinkedHashMap
+import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.round
 import kotlin.math.roundToLong
 
 /** Turns Handy's append-only UTF-8/token snapshots into bounded, revisable meeting chunks. */
-internal class MeetingHandyTranscriptAssembler(
+internal class Test4MeetingHandyTranscriptAssembler(
     private val maxWordsPerChunk: Int = MAX_WORDS_PER_CHUNK,
     private val maxRetainedAudioMs: Long = MAX_RETAINED_AUDIO_MS,
     private val maxRetainedChunks: Int = MAX_RETAINED_CHUNKS,
@@ -521,13 +524,58 @@ internal class MeetingHandyTranscriptAssembler(
     }
 
     private fun channelFor(word: MeetingWord, diarization: DiarizationFrameWindow?): Int {
-        return MeetingSpeakerAttribution.channelFor(word.startMs, word.endMs, diarization)
+        if (diarization == null || word.endMs <= word.startMs) return UNKNOWN_CHANNEL
+        val frameDurationMs = diarization.secondsPerFrame * MILLIS_PER_SECOND
+        if (!frameDurationMs.isFinite() || frameDurationMs <= 0.0) return UNKNOWN_CHANNEL
+        val firstFrame = floor(framePosition(word.startMs, frameDurationMs)).toLong()
+        val endFrameExclusive = ceil(framePosition(word.endMs, frameDurationMs)).toLong()
+        val windowFrameCount = diarization.probabilities.size / diarization.speakerCount
+        val windowEnd = diarization.firstFrameIndex + windowFrameCount
+        if (firstFrame < diarization.firstFrameIndex || endFrameExclusive > windowEnd ||
+            endFrameExclusive > diarization.stableFrameCount || firstFrame >= endFrameExclusive
+        ) return UNKNOWN_CHANNEL
+
+        var speaker: Int? = null
+        for (frame in firstFrame until endFrameExclusive) {
+            val localFrame = (frame - diarization.firstFrameIndex).toInt()
+            var activeSpeaker = -1
+            for (candidate in 0 until diarization.speakerCount) {
+                val probability = diarization.probabilities[localFrame * diarization.speakerCount + candidate]
+                if (probability.isFinite() && probability >= MIN_SPEAKER_PROBABILITY) {
+                    if (activeSpeaker >= 0) return UNKNOWN_CHANNEL
+                    activeSpeaker = candidate
+                }
+            }
+            if (activeSpeaker < 0 || (speaker != null && speaker != activeSpeaker)) {
+                return UNKNOWN_CHANNEL
+            }
+            speaker = activeSpeaker
+        }
+        val channel = speaker?.plus(1) ?: return UNKNOWN_CHANNEL
+        return if (channel in MIN_CHANNEL..MAX_CHANNEL) {
+            channel
+        } else {
+            UNKNOWN_CHANNEL
+        }
     }
 
     private fun stableThroughMs(window: DiarizationFrameWindow?): Long {
         if (window == null) return 0L
         val value = window.stableFrameCount.toDouble() * window.secondsPerFrame * MILLIS_PER_SECOND
         return if (value.isFinite() && value >= 0.0) value.roundToLong() else 0L
+    }
+
+    /**
+     * Diarization cadence is transported as a Float32-derived Double. Treat only the tiny
+     * accumulated Float32 representation error near an integral frame as a boundary; real
+     * timestamp gaps remain uncovered and therefore unattributed.
+     */
+    private fun framePosition(timeMs: Long, frameDurationMs: Double): Double {
+        val position = timeMs / frameDurationMs
+        val nearestBoundary = round(position)
+        val float32Error = abs(nearestBoundary) * FLOAT32_RELATIVE_BOUNDARY_TOLERANCE
+        val tolerance = maxOf(MIN_FRAME_POSITION_TOLERANCE, float32Error)
+        return if (abs(position - nearestBoundary) <= tolerance) nearestBoundary else position
     }
 
     private fun decodeFullText(bytes: ByteArray): DecodedFullText {
@@ -604,7 +652,12 @@ internal class MeetingHandyTranscriptAssembler(
     private companion object {
         val WORD_PATTERN = Regex("[\\p{L}\\p{M}\\p{N}]+(?:['’\\-‐‑][\\p{L}\\p{M}\\p{N}]+)*")
         const val MILLIS_PER_SECOND = 1_000.0
-        const val UNKNOWN_CHANNEL = MeetingSpeakerAttribution.UNKNOWN_CHANNEL
+        const val FLOAT32_RELATIVE_BOUNDARY_TOLERANCE = 6.0e-8
+        const val MIN_FRAME_POSITION_TOLERANCE = 1.0e-9
+        const val MIN_SPEAKER_PROBABILITY = 0.5f
+        const val UNKNOWN_CHANNEL = 0
+        const val MIN_CHANNEL = 1
+        const val MAX_CHANNEL = 8
         const val MAX_WORDS_PER_CHUNK = 64
         const val MAX_REDUCER_WORDS = 512
         const val MAX_RETAINED_AUDIO_MS = 120_000L

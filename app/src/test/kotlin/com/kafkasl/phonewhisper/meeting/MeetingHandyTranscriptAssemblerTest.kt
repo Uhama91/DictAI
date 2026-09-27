@@ -467,6 +467,53 @@ class MeetingHandyTranscriptAssemblerTest {
     }
 
     @Test
+    fun a_single_silent_frame_does_not_veto_a_stable_dominant_speaker() {
+        val assembler = MeetingHandyTranscriptAssembler()
+        assembler.update(
+            window("Bonjour", listOf("Bonjour".toByteArray()), listOf(0L to 300L)),
+            audioProcessedMs = 400L,
+            isFinal = true,
+        )
+
+        val rows = List(30) { frame ->
+            if (frame == 10) floatArrayOf(0.0f, 0.0f) else floatArrayOf(0.8f, 0.1f)
+        }
+        val revisions = assembler.reviseDiarization(probabilityDiarization(rows), audioProcessedMs = 400L)
+        val attributedChannel = revisions.firstOrNull()?.words?.singleOrNull()?.channel ?: 0
+
+        assertEquals("the stable dominant speaker should survive one silent frame", 1, attributedChannel)
+    }
+
+    @Test
+    fun late_speaker_revision_keeps_utterance_identity_transcript_and_user_edit() {
+        val assembler = MeetingHandyTranscriptAssembler()
+        val initial = assembler.update(
+            window("Bonjour", listOf("Bonjour".toByteArray()), listOf(0L to 300L)),
+            audioProcessedMs = 400L,
+            isFinal = true,
+        ).single()
+        val reducer = MeetingTranscriptReducer("late-speaker", "run")
+        reducer.apply(initial.asHypothesis("run"))
+        val originalTurn = reducer.snapshot().turns.single()
+        reducer.edit(originalTurn.id, "Bonjour, modifié.")
+
+        val rows = List(30) { frame ->
+            if (frame == 10) floatArrayOf(0.0f, 0.0f) else floatArrayOf(0.8f, 0.1f)
+        }
+        val revision = assembler.reviseDiarization(probabilityDiarization(rows), audioProcessedMs = 900L).single()
+        reducer.apply(revision.asHypothesis("run"))
+        val updatedTurn = reducer.snapshot().turns.single()
+
+        assertEquals(initial.utteranceId, revision.utteranceId)
+        assertTrue(revision.revision > initial.revision)
+        assertEquals("Bonjour", revision.transcript)
+        assertEquals("Bonjour", updatedTurn.recognizedText)
+        assertEquals(originalTurn.id, updatedTurn.id)
+        assertEquals("Bonjour, modifié.", updatedTurn.editedText)
+        assertEquals(1, revision.words.single().channel)
+    }
+
+    @Test
     fun overlapping_native_speakers_leave_the_word_unattributed() {
         val assembler = MeetingHandyTranscriptAssembler()
         val initial = assembler.update(
@@ -490,6 +537,20 @@ class MeetingHandyTranscriptAssemblerTest {
 
         assertTrue(revisions.isEmpty())
     }
+
+    private fun probabilityDiarization(
+        rows: List<FloatArray>,
+        firstFrame: Long = 0L,
+        stableFrameCount: Long = firstFrame + rows.size,
+        secondsPerFrame: Double = 0.01,
+    ) = DiarizationFrameWindow(
+        firstFrameIndex = firstFrame,
+        secondsPerFrame = secondsPerFrame,
+        probabilities = rows.flatMap { it.asIterable() }.toFloatArray(),
+        speakerCount = rows.firstOrNull()?.size ?: 2,
+        stableFrameCount = stableFrameCount,
+        totalFrameCount = maxOf(stableFrameCount, firstFrame + rows.size),
+    )
 
     private fun window(
         fullText: String,

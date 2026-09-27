@@ -1,0 +1,30 @@
+09-27 10:11:18.398 10704 10721 I MeetingPorts: phase=test5-short-abca progressAudioMs=10000 elapsedMs=10002 diarProcessedBytes=302080 backlogMs=560 queueDepth=27 maxQueueDepth=27 diarFrames=728 diarStableFrames=728
+09-27 10:11:22.821 10704 10721 I MeetingPorts: phase=diar-increment processedAudioMs=2000 elapsedMs=2004 deltaFeedWallMs=93 totalFrames=104 stableFrames=104 pssKb=1345044
+09-27 10:11:22.821 10704 10721 I MeetingPorts: phase=diar-increment processedAudioMs=4000 elapsedMs=4003 deltaFeedWallMs=399 totalFrames=312 stableFrames=312 pssKb=1349612
+09-27 10:11:22.821 10704 10721 I MeetingPorts: phase=diar-increment processedAudioMs=6000 elapsedMs=6002 deltaFeedWallMs=731 totalFrames=520 stableFrames=520 pssKb=1353141
+09-27 10:11:22.821 10704 10721 I MeetingPorts: phase=diar-increment processedAudioMs=8000 elapsedMs=8002 deltaFeedWallMs=970 totalFrames=728 stableFrames=728 pssKb=1352525
+09-27 10:11:22.821 10704 10721 I MeetingPorts: phase=diar-increment processedAudioMs=10000 elapsedMs=10128 deltaFeedWallMs=1381 totalFrames=936 stableFrames=936 pssKb=1353337
+09-27 10:11:22.821 10704 10721 I MeetingPorts: phase=diar-increment processedAudioMs=12000 elapsedMs=12411 deltaFeedWallMs=1610 totalFrames=1144 stableFrames=1144 pssKb=1355973
+09-27 10:11:22.821 10704 10721 I MeetingPorts: phase=diar-coverage inputPcmBytes=408968 processedPcmBytes=408968 frameCount=1279 secondsPerFrame=0.009999999776482582 diarizedDurationSeconds=12.789999714121222 inputDurationSeconds=12.78025 speakerCount=8 probabilityCount=10232
+09-27 10:11:22.864 10704 10721 I MeetingPorts: phase=handy-plus-diar handyOpenMs=801 diarOpenMs=62 firstTextMs=1267 handyFeedCallMs=3694 snapshotCallMs=35 snapshotCount=640 maxAsrLagMs=311 sourceFeedWallMs=12783 handyFinalMs=13146 diarFinishMs=856 diarDrainMs=1280 diarFeedCallMs=6156 diarCloseMs=4 handyCloseMs=33 pssAfterCloseKb=63041 diarQueuedBytes=408968 maxQueueDepth=35 maxDiarBacklogMs=720 pssHandyOpenKb=1201879 pssAfterDiarOpenWithHandyKb=1309388 pssBeforeDiarCloseWithHandyKb=1355625 pssAfterStreamKb=1239407 diarFrames=1279 stableFrames=1279 speakers=8 transcript="Bonjour, ouvrons la réunion de la semaine, je propose jeudi matin pour le suivi d'accord merci, nous reprenons jeudi."
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-short-summary audioMs=12780 transcriptChars=117 sourceLexicalWords=19 timedWords=19 timedLexicalWords=19 timingUnknownWords=0 attributedWords=18 unknownTimedWords=1 unknownReasons={frame-below-0.5=1} channels=[1, 2, 3] alignmentBroken=false turns=1 diarFrames=1279 stableFrames=1279 speakers=8 progressSamples=6 replayDir=/data/user/0/com.uhama.whisperpin.meetingtest/cache/meeting-test5/test5-short-abca-1940593
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-history-replay events=648 alignmentBrokenEver=false firstBrokenEventSequence=-1 firstBrokenEventKind=none firstBrokenPcmBytes=-1 finalAlignmentBroken=false finalTimedWords=19 finalUnknownChannelWords=1
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=Bonjour, startMs=240 endMs=480 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=ouvrons startMs=1120 endMs=1440 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=la startMs=1440 endMs=1520 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=réunion startMs=1520 endMs=1760 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=de startMs=1840 endMs=1920 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=la startMs=1920 endMs=2000 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=semaine, startMs=2080 endMs=2240 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=je startMs=3360 endMs=3440 channel=2 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=propose startMs=3520 endMs=3760 channel=2 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=jeudi startMs=3920 endMs=4080 channel=2 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=matin startMs=4480 endMs=4640 channel=2 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=pour startMs=4720 endMs=4800 channel=2 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=le startMs=4800 endMs=4880 channel=2 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=suivi startMs=4880 endMs=5040 channel=2 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=d'accord startMs=6000 endMs=6240 channel=3 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=merci, startMs=9120 endMs=9360 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=nous startMs=10080 endMs=10160 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=reprenons startMs=10160 endMs=10480 channel=1 reason=assigned
+09-27 10:11:23.253 10704 10721 I MeetingPorts: phase=test5-word utteranceId=1 text=jeudi. startMs=10560 endMs=10720 channel=0 reason=frame-below-0.5

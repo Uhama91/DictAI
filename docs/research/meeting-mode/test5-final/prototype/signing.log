@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=WhisperPin Debug, O=Uhama, C=FR
+Signer #1 certificate SHA-256 digest: 6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539
+Signer #1 certificate SHA-1 digest: 6532aa9bae9715445dacf55e1bd8368c5f92f784
+Signer #1 certificate MD5 digest: 45d82f655e7b36f7584e7963529bc960
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 2048
+Signer #1 public key SHA-256 digest: 0a83616edca1eace42aa7c60c6c55c84b8cf8384f2a232df39263e2e85162a11
+Signer #1 public key SHA-1 digest: 00fb325a2b2c6bb3b604205666aa365171bed7d1
+Signer #1 public key MD5 digest: 859fcd1202c374ecd3708ada3c63e393

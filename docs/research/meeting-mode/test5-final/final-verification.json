@@ -1,0 +1,69 @@
+{
+  "jdk": "openjdk version \"21.0.6\" 2025-01-21\nOpenJDK Runtime Environment (build 21.0.6+-13391695-b895.109)\nOpenJDK 64-Bit Server VM (build 21.0.6+-13391695-b895.109, mixed mode)",
+  "worktree": {
+    "gitHead": "fd65d3ed3252f069881c7db27cce3316b11d5b4b",
+    "dirty": true,
+    "packagerCiCommitFieldIsCheckoutHeadOnly": true
+  },
+  "normalVariant": {
+    "log": "docs/research/meeting-mode/test5-final/normal/gradle.log",
+    "buildSuccessful": true,
+    "testCounts": {
+      "variant": "normal",
+      "xmlFileCount": 136,
+      "tests": 1115,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "meetingPrototypeVariant": {
+    "log": "docs/research/meeting-mode/test5-final/prototype/gradle.log",
+    "buildSuccessful": true,
+    "testCounts": {
+      "variant": "meetingPrototype",
+      "xmlFileCount": 136,
+      "tests": 1115,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "prototypeAndroidTestAssembly": {
+    "log": "docs/research/meeting-mode/test5-final/androidTest/gradle.log",
+    "buildSuccessful": true
+  },
+  "prototypeApk": {
+    "path": "app/build/outputs/apk/debug/app-debug.apk",
+    "sizeBytes": 93164926,
+    "sha256": "12758a60e95ed48e16efe28e66e4cd7826dc0fd91aa4d8e7dee327d755b008b7",
+    "package": "com.uhama.whisperpin.meetingtest",
+    "versionCode": "39",
+    "versionName": "0.9.6-dictai-meeting-test5",
+    "abis": [
+      "arm64-v8a"
+    ],
+    "zipalign16KiBExitCode": 0,
+    "signatureV2Verified": true,
+    "signerCertificateSha256": "6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539",
+    "packagerVerification": "passed",
+    "meetingEngineJniSha256": "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546",
+    "transcribeJniSha256": "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b",
+    "nativeLibrariesChecked": 13,
+    "nativeElfAlignment": "all 13 libraries at least 16 KiB; ZIP_STORED and allow-listed",
+    "matchesNativeReplayedApkSha256": true
+  },
+  "prototypeAndroidTestApk": {
+    "path": "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
+    "sizeBytes": 2555295,
+    "sha256": "31f86bfa889d1ba83d5130ecebf25d87c745144f0ed9c7ff22cf66fbaeda8319",
+    "package": "com.uhama.whisperpin.meetingtest.test",
+    "versionCode": "",
+    "versionName": "",
+    "abis": [],
+    "zipalign16KiBExitCode": 0,
+    "signatureV2Verified": true,
+    "signerCertificateSha256": "6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539",
+    "targetPackage": "com.uhama.whisperpin.meetingtest"
+  }
+}

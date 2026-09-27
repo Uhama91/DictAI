@@ -1,0 +1,6 @@
+
+com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest:.
+
+Time: 16.69
+
+OK (1 test)

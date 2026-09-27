@@ -89,6 +89,12 @@ internal class HandyMeetingNativeBridge(
     override fun acceptPcm16(handle: Long, buffer: ByteArray, length: Int): List<MeetingNativeUpdate> =
         requireSession(handle).acceptPcm16(buffer, length)
 
+    override fun awaitCaptureReady(handle: Long) = requireSession(handle).awaitCaptureReady()
+
+    override fun onPcmCaptured(handle: Long, buffer: ByteArray, length: Int) {
+        requireSession(handle).onPcmCaptured(buffer, length)
+    }
+
     override fun finish(handle: Long): List<MeetingNativeUpdate> = requireSession(handle).finish()
 
     override fun setUpdateListener(handle: Long, listener: ((MeetingNativeUpdate) -> Unit)?) {
@@ -177,10 +183,69 @@ internal class HandyMeetingNativeBridge(
                 val window = handy.snapshot(assembler.nextSnapshotFirstTokenIndex, MAX_HANDY_TOKEN_WINDOW)
                 assembler.update(window, audioProcessedMs, isFinal = false)
             }
-            admitDiarizationAudio(buffer, length)
             publish(asrUpdates)
             // All asynchronous transcript and voice revisions use the listener to avoid duplicates.
             return emptyList()
+        }
+
+        fun awaitCaptureReady() {
+            var interrupted = false
+            lock.lock()
+            try {
+                while (diarState == MeetingVoiceState.PREPARING && unavailableReason == null &&
+                    !cancelRequested && !closing && !bridgeClosed
+                ) {
+                    try {
+                        changed.await()
+                    } catch (_: InterruptedException) {
+                        interrupted = true
+                    }
+                }
+                if (unavailableReason != null && !cancelRequested && !closing && !bridgeClosed) {
+                    throw IllegalStateException("Meeting voice model is unavailable")
+                }
+            } finally {
+                lock.unlock()
+                if (interrupted) Thread.currentThread().interrupt()
+            }
+        }
+
+        fun onPcmCaptured(buffer: ByteArray, length: Int) {
+            require(length in PCM_SAMPLE_BYTES..buffer.size && length % PCM_SAMPLE_BYTES == 0) {
+                "length must select complete PCM16 samples"
+            }
+            lock.withLock {
+                if (cancelRequested || closing || bridgeClosed || unavailableReason != null) return
+                if (diarState != MeetingVoiceState.ACTIVE) {
+                    setUnavailableLocked(MeetingVoiceUnavailableReason.PROCESSING_FAILED)
+                    changed.signalAll()
+                    return
+                }
+                val backlogBytes = queuedDiarBytes.toLong() + inFlightDiarBytes
+                if (backlogBytes + length > maxDiarizationQueueBytes) {
+                    setUnavailableLocked(MeetingVoiceUnavailableReason.BACKLOG_LIMIT)
+                    changed.signalAll()
+                    return
+                }
+                val copy = try {
+                    buffer.copyOf(length)
+                } catch (_: Throwable) {
+                    setUnavailableLocked(MeetingVoiceUnavailableReason.PROCESSING_FAILED)
+                    changed.signalAll()
+                    return
+                }
+                try {
+                    diarQueue.addLast(copy)
+                } catch (_: Throwable) {
+                    setUnavailableLocked(MeetingVoiceUnavailableReason.PROCESSING_FAILED)
+                    changed.signalAll()
+                    return
+                }
+                queuedDiarBytes += length
+                admittedDiarBytes += length.toLong()
+                refreshVoiceProgressLocked()
+                changed.signalAll()
+            }
         }
 
         fun finish(): List<MeetingNativeUpdate> {
@@ -193,7 +258,12 @@ internal class HandyMeetingNativeBridge(
             // Publish the authoritative final ASR text before waiting for the slower voice worker.
             publish(finalUpdates)
             lock.withLock {
-                if (!cancelRequested && !closing && !bridgeClosed && unavailableReason == null) {
+                if (!cancelRequested && !closing && !bridgeClosed && unavailableReason == null &&
+                    admittedDiarBytes != acceptedAsrBytes
+                ) {
+                    setUnavailableLocked(MeetingVoiceUnavailableReason.PROCESSING_FAILED)
+                    changed.signalAll()
+                } else if (!cancelRequested && !closing && !bridgeClosed && unavailableReason == null) {
                     finishRequested = true
                     changed.signalAll()
                 }
@@ -248,25 +318,6 @@ internal class HandyMeetingNativeBridge(
             }
         }
 
-        private fun admitDiarizationAudio(buffer: ByteArray, length: Int) {
-            lock.withLock {
-                if (cancelRequested || closing || bridgeClosed || unavailableReason != null) return
-                val backlogBytes = queuedDiarBytes.toLong() + inFlightDiarBytes
-                if (backlogBytes + length > maxDiarizationQueueBytes) {
-                    diarQueue.clear()
-                    queuedDiarBytes = 0
-                    setUnavailableLocked(MeetingVoiceUnavailableReason.BACKLOG_LIMIT)
-                    changed.signalAll()
-                    return
-                }
-                diarQueue.addLast(buffer.copyOf(length))
-                queuedDiarBytes += length
-                admittedDiarBytes += length.toLong()
-                refreshVoiceProgressLocked()
-                changed.signalAll()
-            }
-        }
-
         private fun runDiarizationWorker() {
             var diarization: DiarizationSessionPort? = null
             try {
@@ -283,6 +334,7 @@ internal class HandyMeetingNativeBridge(
                     } else {
                         diarState = MeetingVoiceState.ACTIVE
                         refreshVoiceProgressLocked()
+                        changed.signalAll()
                         true
                     }
                 }
@@ -341,6 +393,7 @@ internal class HandyMeetingNativeBridge(
                 Thread.currentThread().interrupt()
                 lock.withLock {
                     if (unavailableReason == null) setUnavailableLocked(MeetingVoiceUnavailableReason.PROCESSING_FAILED)
+                    changed.signalAll()
                 }
             } catch (_: Throwable) {
                 lock.withLock {
@@ -350,6 +403,7 @@ internal class HandyMeetingNativeBridge(
                             else MeetingVoiceUnavailableReason.PROCESSING_FAILED,
                         )
                     }
+                    changed.signalAll()
                 }
             } finally {
                 try {
@@ -395,8 +449,12 @@ internal class HandyMeetingNativeBridge(
         }
 
         private fun reviseFromDiarization(diarization: DiarizationSessionPort) {
-            val snapshot = latestDiarizationWindow(diarization)
-            val stableThroughMs = (snapshot.stableFrameCount.toDouble() * snapshot.secondsPerFrame * MILLIS_PER_SECOND)
+            val (acceptedAudioMs, capturedAudioMs) = lock.withLock {
+                bytesToAudioMs(acceptedAsrBytes) to bytesToAudioMs(admittedDiarBytes)
+            }
+            val snapshot = latestDiarizationWindow(diarization).capStableThrough(capturedAudioMs)
+            val stableThroughMs = (snapshot.stableFrameCount.toDouble() *
+                snapshot.secondsPerFrame * MILLIS_PER_SECOND)
                 .takeIf { it.isFinite() && it >= 0.0 }
                 ?.roundToLong()
                 ?: 0L
@@ -405,8 +463,17 @@ internal class HandyMeetingNativeBridge(
                 this.stableSpeakerThroughMs = maxOf(this.stableSpeakerThroughMs, stableThroughMs)
                 refreshVoiceProgressLocked()
             }
-            val audioProcessedMs = bytesToAudioMs(acceptedAsrBytes)
-            publish(assembler.reviseDiarization(snapshot, audioProcessedMs))
+            publish(assembler.reviseDiarization(snapshot, acceptedAudioMs))
+        }
+
+        private fun DiarizationFrameWindow.capStableThrough(audioProcessedMs: Long): DiarizationFrameWindow {
+            val frameDurationMs = secondsPerFrame * MILLIS_PER_SECOND
+            val acceptedFrameCount = floor(audioProcessedMs / frameDurationMs)
+                .toLong()
+                .coerceIn(0L, totalFrameCount)
+            val cappedStableFrameCount = minOf(stableFrameCount, acceptedFrameCount)
+            return if (cappedStableFrameCount == stableFrameCount) this
+            else copy(stableFrameCount = cappedStableFrameCount)
         }
 
         /**

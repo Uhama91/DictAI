@@ -1,0 +1,9 @@
+AMI scorer parity record
+
+The Kotlin test scorer output was cross-checked against the pinned upstream Python function `diarization_errors` in `nemo-speech/tests/ci/model_smoke.py` at revision `97a15afa5caa9bce5baaa86c1184103877af4101` (source SHA-256: `f7feeb2b71d9912c411dcb446e5bb2f9422cbc2b2c89fb9b2246217f28ff61e1`). The same reference and hypothesis RTTM files were used. The upstream function returned the matching frame-level, no-collar DER and confusion score under best speaker mapping.
+
+DER: test `0.25177228786251343`; upstream Python `0.251772287862513`.
+Confusion: test `0.026638023630504833`; upstream Python `0.026638023630505`.
+Reference speaker-frames: 4655. Miss: 616. False alarm: 432. Confusion: 124. Best mapped overlap: 3915.
+
+This confirms parity of the diarizer-segment scorer. It does not score the app's per-word channel assignment.

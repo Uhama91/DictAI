@@ -1010,6 +1010,257 @@ class MeetingEngineTest {
     }
 
     @Test
+    fun `capture waits for diarization readiness and sends the first PCM block unchanged to both engines`() {
+        val diarLoadEntered = CountDownLatch(1)
+        val diarLoadRelease = CountDownLatch(1)
+        val diarLoadExited = CountDownLatch(1)
+        val handy = CapturingHandyAsr()
+        val diarization = CapturingDiarization(expectedBlocks = 1)
+        val native = HandyMeetingNativeBridge(
+            handyFactory = { _, _ -> handy },
+            diarizationFactory = {
+                diarLoadEntered.countDown()
+                try {
+                    check(diarLoadRelease.await(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                        "diarization model load was not released"
+                    }
+                } finally {
+                    diarLoadExited.countDown()
+                }
+                diarization
+            },
+            setDiarWorkerBackgroundPriority = {},
+            workerFactory = { runnable, name -> Thread(runnable, name).apply { isDaemon = true } },
+        )
+        val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)
+        val ready = CountDownLatch(1)
+        val failures = Collections.synchronizedList(mutableListOf<String>())
+        val session = engine.start("capture-ready-gate", "fr", ready::countDown, {}) { failures += it }
+        val pcm = byteArrayOf(11, 0, 12, 0)
+        val expectedPcm = pcm.copyOf()
+
+        try {
+            assertTrue(diarLoadEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertFalse(
+                "capture readiness must wait until the diarization model is active",
+                ready.await(RED_WINDOW_MILLIS, TimeUnit.MILLISECONDS),
+            )
+            assertFalse("audio cannot be accepted before both models are ready", session.acceptPcm16(pcm, pcm.size))
+            assertEquals(0, handy.acceptCount.get())
+            assertTrue(diarization.acceptedBlocks.isEmpty())
+
+            diarLoadRelease.countDown()
+            assertTrue(ready.await(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(session.acceptPcm16(pcm, pcm.size))
+            pcm[0] = 99
+            assertTrue(handy.firstAcceptEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(diarization.accepted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+
+            session.finish()
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            assertEquals(1, handy.acceptedBlocks.size)
+            assertEquals(1, diarization.acceptedBlocks.size)
+            assertArrayEquals("Handy receives the complete first captured PCM block", expectedPcm, handy.acceptedBlocks.single())
+            assertArrayEquals("diarization receives the identical first captured PCM block", expectedPcm, diarization.acceptedBlocks.single())
+            assertEquals(1, handy.finishCount.get())
+            assertEquals(1, diarization.finishCount.get())
+            assertTrue(failures.isEmpty())
+        } finally {
+            diarLoadRelease.countDown()
+            if (!session.closed.isDone) session.cancel()
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            if (diarLoadEntered.count == 0L) assertTrue(diarLoadExited.await(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test
+    fun `cancel during diarization readiness wait prevents capture and late readiness`() {
+        val diarLoadEntered = CountDownLatch(1)
+        val diarLoadRelease = CountDownLatch(1)
+        val diarLoadExited = CountDownLatch(1)
+        val handy = CapturingHandyAsr()
+        val diarization = CapturingDiarization(expectedBlocks = 1)
+        val native = HandyMeetingNativeBridge(
+            handyFactory = { _, _ -> handy },
+            diarizationFactory = {
+                diarLoadEntered.countDown()
+                try {
+                    check(diarLoadRelease.await(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                        "diarization model load was not released"
+                    }
+                } finally {
+                    diarLoadExited.countDown()
+                }
+                diarization
+            },
+            setDiarWorkerBackgroundPriority = {},
+            workerFactory = { runnable, name -> Thread(runnable, name).apply { isDaemon = true } },
+        )
+        val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)
+        val ready = CountDownLatch(1)
+        val failures = Collections.synchronizedList(mutableListOf<String>())
+        val session = engine.start("cancel-capture-ready-gate", "fr", ready::countDown, {}) { failures += it }
+
+        try {
+            assertTrue(diarLoadEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            session.cancel()
+            assertFalse(
+                "cancellation while loading must not publish ready",
+                ready.await(RED_WINDOW_MILLIS, TimeUnit.MILLISECONDS),
+            )
+            assertFalse(session.acceptPcm16(byteArrayOf(1, 0), 2))
+            assertEquals("close waits for the in-flight model load to return", false, session.closed.isDone)
+
+            diarLoadRelease.countDown()
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            assertEquals(1L, ready.count)
+            assertEquals(0, handy.acceptCount.get())
+            assertTrue(diarization.acceptedBlocks.isEmpty())
+            assertEquals(1, handy.closeCount.get())
+            assertEquals(1, diarization.closeCount.get())
+            assertTrue(failures.isEmpty())
+        } finally {
+            diarLoadRelease.countDown()
+            if (!session.closed.isDone) session.cancel()
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            if (diarLoadEntered.count == 0L) assertTrue(diarLoadExited.await(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test
+    fun `diarization model load failure prevents readiness and closes the session without PCM`() {
+        val handy = CapturingHandyAsr()
+        val diarLoadCount = AtomicInteger()
+        val native = HandyMeetingNativeBridge(
+            handyFactory = { _, _ -> handy },
+            diarizationFactory = {
+                diarLoadCount.incrementAndGet()
+                throw IllegalStateException("diarization model load failed")
+            },
+            setDiarWorkerBackgroundPriority = {},
+            workerFactory = { runnable, name -> Thread(runnable, name).apply { isDaemon = true } },
+        )
+        val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)
+        val ready = CountDownLatch(1)
+        val failureDelivered = CountDownLatch(1)
+        val failures = Collections.synchronizedList(mutableListOf<String>())
+        val session = engine.start("diarization-load-failure-gate", "fr", ready::countDown, {}) {
+            failures += it
+            failureDelivered.countDown()
+        }
+
+        try {
+            assertFalse(
+                "Handy readiness must not start microphone capture while diarization failed to load",
+                ready.await(RED_WINDOW_MILLIS, TimeUnit.MILLISECONDS),
+            )
+            assertFalse("PCM is rejected while the paired models are not ready", session.acceptPcm16(byteArrayOf(1, 0), 2))
+            assertTrue(failureDelivered.await(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+            assertEquals(listOf(MeetingEngine.FAILURE_MESSAGE), failures)
+            assertEquals(1, diarLoadCount.get())
+            assertEquals(0, handy.acceptCount.get())
+            assertTrue(handy.acceptedBlocks.isEmpty())
+            assertEquals("Handy is released exactly once after readiness fails", 1, handy.closeCount.get())
+            assertEquals(0, handy.finishCount.get())
+        } finally {
+            if (!session.closed.isDone) session.cancel()
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        }
+    }
+
+    @Test
+    fun `capture feeds queued silence and later PCM to diarization before blocked Handy returns`() {
+        val firstHandyAcceptEntered = CountDownLatch(1)
+        val firstHandyAcceptRelease = CountDownLatch(1)
+        val handy = CapturingHandyAsr(
+            firstAcceptEntered = firstHandyAcceptEntered,
+            firstAcceptRelease = firstHandyAcceptRelease,
+        )
+        val diarization = CapturingDiarization(expectedBlocks = 3)
+        val native = HandyMeetingNativeBridge(
+            handyFactory = { _, _ -> handy },
+            diarizationFactory = { diarization },
+            setDiarWorkerBackgroundPriority = {},
+            workerFactory = { runnable, name -> Thread(runnable, name).apply { isDaemon = true } },
+        )
+        val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)
+        val ready = CountDownLatch(1)
+        val failures = Collections.synchronizedList(mutableListOf<String>())
+        val session = engine.start("capture-fanout-order", "fr", ready::countDown, {}) { failures += it }
+        val first = byteArrayOf(1, 0, 2, 0)
+        val pause = byteArrayOf(0, 0, 0, 0)
+        val last = byteArrayOf(7, 0, 8, 0)
+        val expectedBlocks = listOf(first.copyOf(), pause.copyOf(), last.copyOf())
+
+        try {
+            assertTrue(ready.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertTrue(session.acceptPcm16(first, first.size))
+            assertTrue(firstHandyAcceptEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            first[0] = 99
+
+            assertTrue(session.acceptPcm16(pause, pause.size))
+            pause[0] = 99
+            assertTrue(session.acceptPcm16(last, last.size))
+            last[0] = 99
+            session.finish()
+            assertFalse(
+                "native finish cannot drain diarization ahead of the queued Handy blocks",
+                diarization.finishEntered.await(RED_WINDOW_MILLIS, TimeUnit.MILLISECONDS),
+            )
+            assertTrue(
+                "every accepted block, including silence, reaches diarization while Handy is blocked",
+                diarization.accepted.await(RED_WINDOW_MILLIS, TimeUnit.MILLISECONDS),
+            )
+            assertFalse("finish closes capture before more PCM can be accepted", session.acceptPcm16(byteArrayOf(9, 0), 2))
+            assertEquals(expectedBlocks.map { it.toList() }, diarization.acceptedBlocks.map { it.toList() })
+
+            firstHandyAcceptRelease.countDown()
+            assertTrue(handy.firstAcceptExited.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            assertEquals(expectedBlocks.map { it.toList() }, handy.acceptedBlocks.map { it.toList() })
+            assertEquals(1, handy.finishCount.get())
+            assertEquals(1, diarization.finishCount.get())
+            assertTrue(failures.isEmpty())
+        } finally {
+            firstHandyAcceptRelease.countDown()
+            if (!session.closed.isDone) session.cancel()
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            if (firstHandyAcceptEntered.count == 0L) assertTrue(handy.firstAcceptExited.await(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test
+    fun `capture hook failure stops the session before a later PCM block can advance`() {
+        val native = ThrowingCaptureHookNative()
+        val engine = MeetingEngine("asr-path", "diar-path", native, queueCapacityBytes = 64)
+        val ready = CountDownLatch(1)
+        val failureDelivered = CountDownLatch(1)
+        val failures = Collections.synchronizedList(mutableListOf<String>())
+        val session = engine.start("capture-hook-failure", "fr", ready::countDown, {}) {
+            failures += it
+            failureDelivered.countDown()
+        }
+
+        try {
+            assertTrue(ready.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            session.acceptPcm16(byteArrayOf(1, 0), 2)
+            assertTrue(
+                "an unexpected capture-hook failure must stop the session safely",
+                failureDelivered.await(RED_WINDOW_MILLIS, TimeUnit.MILLISECONDS),
+            )
+            assertEquals(listOf(MeetingEngine.FAILURE_MESSAGE), failures)
+            assertFalse("no later block may follow a failed capture hook", session.acceptPcm16(byteArrayOf(3, 0), 2))
+            assertEquals(1, native.captureHookCount.get())
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } finally {
+            if (!session.closed.isDone) session.cancel()
+            session.closed.get(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        }
+    }
+
+    @Test
     fun `saturated queue rejects new pcm without dropping accepted blocks`() {
         val native = RecordingNative().apply {
             firstAcceptEntered = CountDownLatch(1)
@@ -1030,7 +1281,14 @@ class MeetingEngineTest {
             assertEquals(1L, session.queuedAudioMs)
             assertFalse(session.acceptPcm16(rejected, rejected.size))
             assertEquals(1L, session.queuedAudioMs)
+            assertEquals(
+                "the capture hook runs only for queue commits and preserves their FIFO order",
+                listOf(first.toList(), second.toList()),
+                native.capturedBlocks.toList(),
+            )
             session.finish()
+            assertFalse("finish rejects later PCM without another capture-hook call", session.acceptPcm16(rejected, rejected.size))
+            assertEquals(listOf(first.toList(), second.toList()), native.capturedBlocks.toList())
         } finally {
             native.firstAcceptRelease!!.countDown()
         }
@@ -1302,6 +1560,93 @@ class MeetingEngineTest {
         assertTrue(root.listFiles()?.none { it.isDirectory && it.name.startsWith("session-") } != false)
     }
 
+    private class CapturingHandyAsr(
+        val firstAcceptEntered: CountDownLatch = CountDownLatch(1),
+        private val firstAcceptRelease: CountDownLatch? = null,
+    ) : HandyAsrPort {
+        val firstAcceptExited = CountDownLatch(1)
+        val acceptedBlocks = Collections.synchronizedList(mutableListOf<ByteArray>())
+        val acceptCount = AtomicInteger()
+        val finishCount = AtomicInteger()
+        val closeCount = AtomicInteger()
+
+        override fun acceptPcm16(buffer: ByteArray, lengthBytes: Int) {
+            acceptedBlocks += buffer.copyOf(lengthBytes)
+            if (acceptCount.incrementAndGet() == 1) {
+                firstAcceptEntered.countDown()
+                try {
+                    if (firstAcceptRelease != null) {
+                        check(firstAcceptRelease.await(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                            "first Handy call was not released"
+                        }
+                    }
+                } finally {
+                    firstAcceptExited.countDown()
+                }
+            }
+        }
+
+        override fun snapshot(firstTokenIndex: Int, maxTokens: Int): HandyTokenWindow = emptyHandyWindow()
+
+        override fun finish(firstTokenIndex: Int, maxTokens: Int): HandyTokenWindow {
+            finishCount.incrementAndGet()
+            return emptyHandyWindow()
+        }
+
+        override fun close() {
+            closeCount.incrementAndGet()
+        }
+    }
+
+    private class CapturingDiarization(expectedBlocks: Int) : DiarizationSessionPort {
+        val accepted = CountDownLatch(expectedBlocks)
+        val acceptedBlocks = Collections.synchronizedList(mutableListOf<ByteArray>())
+        val finishEntered = CountDownLatch(1)
+        val finishCount = AtomicInteger()
+        val closeCount = AtomicInteger()
+
+        override fun acceptPcm16(buffer: ByteArray, lengthBytes: Int) {
+            acceptedBlocks += buffer.copyOf(lengthBytes)
+            accepted.countDown()
+        }
+
+        override fun snapshot(firstFrameIndex: Long, maxFrames: Int): DiarizationFrameWindow =
+            DiarizationFrameWindow(
+                firstFrameIndex = firstFrameIndex,
+                secondsPerFrame = 0.01,
+                probabilities = FloatArray(0),
+                speakerCount = 1,
+                stableFrameCount = firstFrameIndex,
+                totalFrameCount = firstFrameIndex,
+            )
+
+        override fun finish() {
+            finishCount.incrementAndGet()
+            finishEntered.countDown()
+        }
+
+        override fun close() {
+            closeCount.incrementAndGet()
+        }
+    }
+
+    private class ThrowingCaptureHookNative : MeetingNativeBridge {
+        val captureHookCount = AtomicInteger()
+
+        override fun open(asrPath: String, diarPath: String, language: String): Long = 89L
+
+        override fun onPcmCaptured(handle: Long, buffer: ByteArray, length: Int) {
+            captureHookCount.incrementAndGet()
+            throw IllegalStateException("capture handoff failed")
+        }
+
+        override fun acceptPcm16(handle: Long, buffer: ByteArray, length: Int): List<MeetingNativeUpdate> = emptyList()
+
+        override fun finish(handle: Long): List<MeetingNativeUpdate> = emptyList()
+
+        override fun close(handle: Long) = Unit
+    }
+
     private class AsyncListenerNative : MeetingNativeBridge {
         val events = Collections.synchronizedList(mutableListOf<String>())
         val cancelCount = AtomicInteger()
@@ -1400,6 +1745,7 @@ class MeetingEngineTest {
         val voiceProgressReadCount = AtomicInteger()
         val events = Collections.synchronizedList(mutableListOf<String>())
         val acceptedBlocks = Collections.synchronizedList(mutableListOf<List<Byte>>())
+        val capturedBlocks = Collections.synchronizedList(mutableListOf<List<Byte>>())
         val callThreadIds = Collections.synchronizedList(mutableListOf<Long>())
         val failNextOpen = AtomicBoolean()
         val failNextAccept = AtomicBoolean()
@@ -1440,6 +1786,10 @@ class MeetingEngineTest {
                 if (failNextAccept.compareAndSet(true, false)) throw IllegalStateException("native transcript")
                 acceptedUpdates ?: listOf(update(number.toLong(), "partial-$number", isFinal = false))
             }
+        }
+
+        override fun onPcmCaptured(handle: Long, buffer: ByteArray, length: Int) {
+            capturedBlocks += buffer.copyOf(length).toList()
         }
 
         override fun finish(handle: Long): List<MeetingNativeUpdate> = call("finish") {
@@ -1490,6 +1840,8 @@ class MeetingEngineTest {
     private companion object {
         const val TIMEOUT_SECONDS = 2L
         const val CANCEL_CALLBACK_TIMEOUT_MILLIS = 250L
+        const val CLEANUP_TIMEOUT_SECONDS = 5L
+        const val RED_WINDOW_MILLIS = 1_000L
 
         fun emptyHandyWindow() = HandyTokenWindow(
             fullTextUtf8 = byteArrayOf(),

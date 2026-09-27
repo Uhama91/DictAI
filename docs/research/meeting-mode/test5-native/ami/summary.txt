@@ -1,0 +1,25 @@
+format=meeting-test5-ami-diarization-v1
+fixture=AMI EN2002d excerpt, public 60-second WAV; no Handy ASR loaded
+wav=ami_en2002d_2132.wav bytes=1920044 sha256=f00f92e53115a4a6724aec0ddaf9c675df6d5fabd3a489b43fffe56ba52a3ae9
+rttm=ami_en2002d_2132.rttm bytes=1472 sha256=40751c9fc0bb934f741789ce3fafccd2c1f9d7c112585b8b40ac177a9de13b2d
+pcmBytes=1920000 audioSeconds=60 sampleRateHz=16000 channels=1 format=PCM16LE
+diarModel=diar.gguf bytes=107012128 sha256=08456d9e22cd9a323c0364d98375f3746d6e68507ebb705cd46438c534c7a3a1
+sourceRevision=97a15afa5caa9bce5baaa86c1184103877af4101
+upstreamScorer=model_smoke.py sha256=f7feeb2b71d9912c411dcb446e5bb2f9422cbc2b2c89fb9b2246217f28ff61e1 function=diarization_errors
+upstreamScorerSemantics=frame-level DER and speaker confusion, no collar, best speaker mapping
+hypothesisDerivation=diar_segments_from_probs with pinned native default segmentation values; score is diarizer-only and does not evaluate the app's per-word channel classifier
+segmentation.onset=0.641 offset=0.561 padOnsetSec=0.229 padOffsetSec=0.079 minDurationOnSec=0.511 minDurationOffSec=0.296
+frameSeconds=0.009999999776482582 totalFrames=6001 stableFrames=6001 speakers=8
+referenceSegments=22 referenceSpeakers=4
+hypothesisSegments=25 hypothesisSpeakers=3
+referenceSpeakerFrames=4655 missFrames=616 falseAlarmFrames=432 confusionFrames=124 bestMappedOverlapFrames=3915
+scoreFrameStepSeconds=0.01 DER=0.25177228786251343 confusion=0.026638023630504833
+openMs=71 endOfFeedWallMs=96476 acceptCallWallMs=88620 maxAcceptCallWallMs=2322 maxDeadlineLagMs=37088
+finishMs=2211 finalSnapshotMs=4 closeMs=25 checkpointSnapshotWallMs=2 closeComplete=true
+pssAfterOpenKb=161615 pssBeforeCloseKb=226450 pssAfterCloseKb=65246
+package=com.uhama.whisperpin.meetingtest versionName=0.9.6-dictai-meeting-test5 versionCode=39 installedApkSha256=12758a60e95ed48e16efe28e66e4cd7826dc0fd91aa4d8e7dee327d755b008b7
+jniEntriesBegin
+lib/arm64-v8a/libdictai_meeting.so bytes=2763992 sha256=83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546
+lib/arm64-v8a/libtranscribe_jni.so bytes=461336 sha256=68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b
+jniEntriesEnd
+progressSamples=6 progressFile=progress.tsv hypothesisFile=hypothesis.rttm framesFile=diarization-frames.tsv

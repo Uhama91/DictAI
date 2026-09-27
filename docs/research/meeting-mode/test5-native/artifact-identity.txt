@@ -1,0 +1,22 @@
+Test5 prototype identity (emulator API 36, arm64-v8a)
+package=com.uhama.whisperpin.meetingtest
+versionName=0.9.6-dictai-meeting-test5
+versionCode=39
+installed-main-apk-sha256=12758a60e95ed48e16efe28e66e4cd7826dc0fd91aa4d8e7dee327d755b008b7
+installed-main-apk-bytes=93164926
+short-run-androidTest-apk-sha256=22607dddb045655d18f3f05cdf87d967f89e0defaff9151be2063d5d8ff82103
+ami-run-androidTest-apk-sha256=31f86bfa889d1ba83d5130ecebf25d87c745144f0ed9c7ff22cf66fbaeda8319
+libdictai_meeting.so bytes=2763992 sha256=83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546
+libtranscribe_jni.so bytes=461336 sha256=68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b
+
+Short fixture: synthetic French ABCA, 12,780 ms
+fixture WAV SHA-256=196439ff592c6e6a794c1914804dd996c428f378ab7dd0ff372bfb55baa521d9
+fixture PCM SHA-256=1c1ab9d678b7dee8f71084613778869b1c6fc4e0b769d5ae06c90cc00d50b1e0
+Handy model: 751094240 bytes SHA-256=b94545b313b3223fda7b2857a52681da813935c2127643d1e9ff0c23d988089c
+Diarization model: 107012128 bytes SHA-256=08456d9e22cd9a323c0364d98375f3746d6e68507ebb705cd46438c534c7a3a1
+
+AMI fixture: public EN2002d excerpt, 60 seconds, PCM16LE mono at 16 kHz
+WAV: 1920044 bytes SHA-256=f00f92e53115a4a6724aec0ddaf9c675df6d5fabd3a489b43fffe56ba52a3ae9
+RTTM: 1472 bytes SHA-256=40751c9fc0bb934f741789ce3fafccd2c1f9d7c112585b8b40ac177a9de13b2d
+NVIDIA nemo-speech source revision=97a15afa5caa9bce5baaa86c1184103877af4101
+Upstream scorer tests/ci/model_smoke.py SHA-256=f7feeb2b71d9912c411dcb446e5bb2f9422cbc2b2c89fb9b2246217f28ff61e1

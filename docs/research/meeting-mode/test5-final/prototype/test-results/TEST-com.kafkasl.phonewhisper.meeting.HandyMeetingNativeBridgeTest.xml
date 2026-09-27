@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-09-27T08:27:58" hostname="MacBook-Pro-de-Ullie.local" time="0.128">
+  <properties/>
+  <testcase name="diarization_load_failure_blocks_capture_and_feed_failure_does_not_stop_handy" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.007"/>
+  <testcase name="failed_worker_creation_closes_handys_lease_and_preserves_uncertain_cleanup" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.0"/>
+  <testcase name="diarization_backlog_overflow_disables_voice_without_stopping_handy" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.001"/>
+  <testcase name="finish_publishes_final_text_before_diar_drain_then_publishes_voice_revision" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.0"/>
+  <testcase name="close_waits_for_an_active_listener_and_restores_interrupt_status" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.107"/>
+  <testcase name="unsupported_language_is_rejected_before_opening_either_model" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.001"/>
+  <testcase name="diarization_progress_tracks_captured_pcm_while_a_later_handy_call_is_blocked" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.002"/>
+  <testcase name="cancel_prevents_later_accept_and_finish_from_entering_handy" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.0"/>
+  <testcase name="cancel_does_not_wait_for_inflight_diar_call_and_suppresses_late_revisions" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.001"/>
+  <testcase name="a_long_diarization_session_requests_the_latest_bounded_frame_window" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.007"/>
+  <testcase name="diar_revision_is_not_blocked_by_the_next_synchronous_handy_accept" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeBridgeTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

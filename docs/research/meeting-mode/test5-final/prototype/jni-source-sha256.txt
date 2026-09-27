@@ -1,0 +1,2 @@
+83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546  app/src/main/jniLibs/arm64-v8a/libdictai_meeting.so
+68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b  app/src/main/jniLibs/arm64-v8a/libtranscribe_jni.so

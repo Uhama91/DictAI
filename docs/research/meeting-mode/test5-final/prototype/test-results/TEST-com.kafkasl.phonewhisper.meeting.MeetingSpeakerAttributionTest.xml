@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-27T08:28:05" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="a_word_ending_at_a_speaker_boundary_uses_only_its_own_frames" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.0"/>
+  <testcase name="an_even_alternation_between_speakers_remains_unknown" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.0"/>
+  <testcase name="silence_and_invalid_probabilities_remain_unknown" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.0"/>
+  <testcase name="partial_boundary_frames_are_weighted_by_their_exact_overlap_duration" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.001"/>
+  <testcase name="a_rival_active_for_thirty_percent_of_the_word_remains_unknown" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.0"/>
+  <testcase name="tolerates_a_single_silent_frame_inside_a_dominant_turn" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.0"/>
+  <testcase name="frame_ranges_beyond_exact_double_precision_remain_unknown_without_indexing_past_the_window" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.0"/>
+  <testcase name="sustained_overlap_between_two_active_voices_remains_unknown" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.0"/>
+  <testcase name="requires_full_coverage_inside_both_the_retained_window_and_stable_prefix" classname="com.kafkasl.phonewhisper.meeting.MeetingSpeakerAttributionTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

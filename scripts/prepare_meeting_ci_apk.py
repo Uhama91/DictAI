@@ -19,8 +19,8 @@ from pathlib import Path
 
 
 APPLICATION_ID = "com.uhama.whisperpin.meetingtest"
-VERSION_CODE = 38
-VERSION_NAME = "0.9.6-dictai-meeting-test4"
+VERSION_CODE = 39
+VERSION_NAME = "0.9.6-dictai-meeting-test5"
 ABI = "arm64-v8a"
 MEETING_LIBRARY = "lib/arm64-v8a/libdictai_meeting.so"
 MEETING_LIBRARY_SHA256 = "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546"

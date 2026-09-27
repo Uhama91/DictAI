@@ -16,8 +16,17 @@ data class MeetingNativeUpdate(
  * asynchronously through [setUpdateListener] from another thread.
  */
 interface MeetingNativeBridge {
-    /** Opens the resources needed for ASR readiness; optional voice attribution may continue loading asynchronously. */
+    /** Opens the resources needed for both models that must be ready before audio capture begins. */
     fun open(asrPath: String, diarPath: String, language: String): Long
+
+    /** Waits off the UI thread until capture can feed every required model; cancellation must release this wait. */
+    fun awaitCaptureReady(handle: Long) = Unit
+
+    /**
+     * Receives PCM after the engine queue has committed a copy and before its ASR consumer is woken.
+     * Implementations must copy/enqueue only: no JNI, I/O, decoder wait, or retained reference to [buffer].
+     */
+    fun onPcmCaptured(handle: Long, buffer: ByteArray, length: Int) = Unit
 
     /** Accepts mono 16 kHz PCM16 little-endian bytes; [length] is the number of valid bytes. */
     fun acceptPcm16(handle: Long, buffer: ByteArray, length: Int): List<MeetingNativeUpdate>

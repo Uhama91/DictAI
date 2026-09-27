@@ -1,0 +1,3 @@
+openjdk version "21.0.6" 2025-01-21
+OpenJDK Runtime Environment (build 21.0.6+-13391695-b895.109)
+OpenJDK 64-Bit Server VM (build 21.0.6+-13391695-b895.109, mixed mode)

@@ -1,0 +1,121 @@
+
+> Configure project :app
+w: [33m[1m⚠️ Deprecated Gradle Version[0m[0m
+The used Gradle version (Gradle 8.9) is deprecated and will not be supported in future Kotlin Gradle Plugin releases.
+The minimum supported Gradle version will become Gradle 8.14.4 in Kotlin 2.5.0.
+
+This warning can be suppressed in 'gradle.properties':
+    kotlin.suppressGradlePluginWarnings=DeprecatedGradleVersionWarning
+[32m[1mSolution:[0m[0m
+[32m[3mPlease update the Gradle version to at least Gradle 8.14.4.[0m[0m
+
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:processDebugManifestForPackage
+> Task :app:processDebugResources
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+
+> Task :app:compileDebugKotlin
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:1235:63 Expression is unused.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:2320:67 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:2347:71 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/OverlayService.kt:4942:85 Unnecessary safe call on a non-null receiver of type 'MeetingImageAnchor'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:59:37 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:70:37 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:82:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:94:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:115:42 'static fun obtain(p0: AccessibilityNodeInfo!): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/main/kotlin/com/kafkasl/phonewhisper/WhisperAccessibilityService.kt:123:23 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:mergeProjectDexDebug
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+> Task :app:compileDebugUnitTestKotlin
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/CursiveWaveMotionTest.kt:72:74 Redundant call of conversion method.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/MainActivityNativeRenderTest.kt:70:27 'fun updateConfiguration(p0: Configuration!, p1: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/MainActivityNativeRenderTest.kt:78:31 'fun updateConfiguration(p0: Configuration!, p1: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceGestureRobolectricTest.kt:247:22 'static fun idleMainLooper(p0: Long): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingLifecycleRobolectricTest.kt:110:58 Expression is unused.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:176:17 Expression is unused.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:316:49 Redundant call of conversion method.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:387:94 Redundant call of conversion method.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:407:87 Redundant call of conversion method.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:618:34 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingDocument'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:619:33 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingDocument'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:650:33 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingDocument'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:739:49 Redundant call of conversion method.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:744:49 Redundant call of conversion method.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingMediaRobolectricTest.kt:889:66 Redundant call of conversion method.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingModeTransitionRobolectricTest.kt:167:17 Expression is unused.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingModeTransitionRobolectricTest.kt:785:73 Expression is unused.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingRobolectricTest.kt:1017:21 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'Array<(out) CapturedType(*)!>?'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceMeetingRobolectricTest.kt:1029:35 This class is not recommended for use in Kotlin. Use 'kotlin.Long' instead.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:318:38 Java type mismatch: inferred type is 'Any?', but 'Any' was expected.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:349:69 'static fun obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:358:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:380:75 'static fun obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:387:24 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:393:73 'static fun obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:399:22 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:494:21 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'Array<(out) CapturedType(*)!>?'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:599:69 'static fun obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayServiceSwipeCancellationRobolectricTest.kt:610:18 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/OverlayTranscriptEditorImageBlocksRobolectricTest.kt:91:22 'static fun idleMainLooper(p0: Long): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingAudioQueueTest.kt:326:40 Unnecessary non-null assertion (!!) on a non-null receiver of type 'File'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingAudioRecordTest.kt:86:13 Expression is unused.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingEngineTest.kt:396:26 Unnecessary non-null assertion (!!) on a non-null receiver of type '(MeetingNativeUpdate) -> Unit'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingImageOperationsTest.kt:557:66 Unnecessary non-null assertion (!!) on a non-null receiver of type 'MeetingImageMutation'.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingPanelControllerRobolectricTest.kt:760:28 'fun updateConfiguration(p0: Configuration!, p1: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingPanelControllerRobolectricTest.kt:808:28 'fun updateConfiguration(p0: Configuration!, p1: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/app/src/test/kotlin/com/kafkasl/phonewhisper/meeting/MeetingRecordingControllerTest.kt:1434:48 Expression is unused.
+
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+2026-09-27 10:26:09.081 java[43832:17003907] [JRSAppKitAWT markAppIsDaemon] failed. SetApplicationIsDaemon returned -50
+> Task :app:testDebugUnitTest
+
+BUILD SUCCESSFUL in 53s
+45 actionable tasks: 16 executed, 29 up-to-date

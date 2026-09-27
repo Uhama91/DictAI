@@ -183,17 +183,27 @@ class MeetingEngine internal constructor(
                 return false
             }
             return synchronized(offerOrderLock) {
-                val admitted = synchronized(stateLock) {
-                    if (!ready || finishRequested || cancelRequested || closing || failed || closed.isDone) {
-                        false
+                val nativeHandle = synchronized(stateLock) {
+                    val handle = activeNativeHandle
+                    if (!ready || finishRequested || cancelRequested || closing || failed || closed.isDone || handle == null) {
+                        null
                     } else {
                         pendingOffers += 1
-                        true
+                        handle
+                    }
+                } ?: return@synchronized false
+
+                var captureHookFailure: Throwable? = null
+                val result = queue.offer(buffer, length) {
+                    progressTracker.accepted(length)
+                    try {
+                        native.onPcmCaptured(nativeHandle, buffer, length)
+                    } catch (failure: Throwable) {
+                        // The PCM queue has committed this block. Let offer finish and wake the worker,
+                        // then fail the session before another producer can advance the voice timeline.
+                        captureHookFailure = failure
                     }
                 }
-                if (!admitted) return@synchronized false
-
-                val result = queue.offer(buffer, length) { progressTracker.accepted(length) }
                 var accepted = false
                 var queueError: String? = null
                 var shouldFinishInput = false
@@ -205,7 +215,7 @@ class MeetingEngine internal constructor(
                     ) {
                         acceptedPcm = true
                         acceptedBlockCount += 1
-                        accepted = true
+                        accepted = captureHookFailure == null
                     }
                     if (!cancelRequested && !failed && !closing && !closed.isDone) {
                         when (result) {
@@ -227,6 +237,8 @@ class MeetingEngine internal constructor(
                 failCheckpoints(impossibleCheckpoints)
                 if (queueError != null) {
                     reportFailure(queueError!!)
+                } else if (captureHookFailure != null) {
+                    reportFailure()
                 } else if (shouldFinishInput) {
                     queue.finishInput()
                 }
@@ -255,12 +267,17 @@ class MeetingEngine internal constructor(
         }
 
         override fun finish() {
-            val finishInput = synchronized(stateLock) {
-                if (finishRequested || cancelRequested || closing || failed || closed.isDone) return
-                finishRequested = true
-                pendingOffers == 0
+            synchronized(offerOrderLock) {
+                val finishInput = synchronized(stateLock) {
+                    if (finishRequested || cancelRequested || closing || failed || closed.isDone) {
+                        false
+                    } else {
+                        finishRequested = true
+                        pendingOffers == 0
+                    }
+                }
+                if (finishInput) queue.finishInput()
             }
-            if (finishInput) queue.finishInput()
         }
 
         override fun cancel() {
@@ -308,6 +325,7 @@ class MeetingEngine internal constructor(
                     refreshVoiceProgress(cancelledHandle)
                 }
                 native.setUpdateListener(openedHandle) { update -> publish(update) }
+                native.awaitCaptureReady(openedHandle)
                 queue.prepareSpool()
                 announceReady()
 

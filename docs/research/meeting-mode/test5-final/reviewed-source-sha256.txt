@@ -1,0 +1,5 @@
+dca9e604acce77e1678411474231346360f54b2315a979a4b46b6e000f4ed11f  app/src/main/kotlin/com/kafkasl/phonewhisper/meeting/MeetingNative.kt
+0bf4c3a95b7beaf0cbab84b019abed2dd685d7523f9d30e5e8a429d5cfc8881d  app/src/main/kotlin/com/kafkasl/phonewhisper/meeting/MeetingEngine.kt
+df2171e4a23f032e605f384ac73ef0b95b6e34746c60baa9bc5d8383c8ba2cf3  app/src/main/kotlin/com/kafkasl/phonewhisper/meeting/HandyMeetingNativeBridge.kt
+a678373bd30847539b50151d64c983317ba60b4d660a28a277b6efb3ed1f053e  app/src/main/kotlin/com/kafkasl/phonewhisper/meeting/MeetingHandyTranscriptAssembler.kt
+fa31004efc3a042e3ad6df219f11b63941320e19fd59866a265c014aa8ea6fb6  app/src/main/kotlin/com/kafkasl/phonewhisper/meeting/MeetingSpeakerAttribution.kt

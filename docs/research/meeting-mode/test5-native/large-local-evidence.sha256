@@ -1,0 +1,8 @@
+# Large evidence retained locally under app/build/reports; files are intentionally not copied here.
+LOCAL_ARCHIVE app/build/reports/meeting/conversation-2026-09-27/test5-short-history-prototype/replay-files.tar bytes=2137600 sha256=25bba7c4e1a709dd10cb634f0a6a7af069e369fc73495de53e4e7725a102692a
+LOCAL_MEMBER app/build/reports/meeting/conversation-2026-09-27/test5-short-history-prototype/replay-files.tar::./handy-history.tsv bytes=424303 sha256=20750754b639bed39ee7fe301f66128fa8b64ec1eef8d0b1a4d42652fa9a5dea
+LOCAL_MEMBER app/build/reports/meeting/conversation-2026-09-27/test5-short-history-prototype/replay-files.tar::./diarization-frames.tsv bytes=279273 sha256=579ffa1ff6fc329d2f254f09dcbc18ac0496077a298a86e916b80ac810af6bd2
+LOCAL_MEMBER app/build/reports/meeting/conversation-2026-09-27/test5-short-history-prototype/replay-files.tar::./diar-progress-frames.tsv bytes=875170 sha256=4f656620e9cc75a08ac947d2aaf7f1dd90a0b4543908f276c977006f12bde2a9
+LOCAL_MEMBER app/build/reports/meeting/conversation-2026-09-27/test5-short-history-prototype/replay-files.tar::./replay.zip bytes=488332 sha256=a90808bf80d2beff0d9549435c571d365e90c1040c57d4a011a2f6606d0a0b4d
+LOCAL_ARCHIVE app/build/reports/meeting/conversation-2026-09-27/test5-ami-diarization/ami-diarization-evidence.tar bytes=1335296 sha256=c45fd685a56c9ccd46de27c9cabb9a15775701fd6c4e46df38e6af0e7bf4f70b
+LOCAL_MEMBER app/build/reports/meeting/conversation-2026-09-27/test5-ami-diarization/ami-diarization-evidence.tar::./diarization-frames.tsv bytes=1324420 sha256=922046b595a5f7da0ddf613c1f3224a79b05267868eddcb99e6fbfdf8c3bff7f

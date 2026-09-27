@@ -24,7 +24,7 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 - Plan : `docs/superpowers/plans/2026-05-31-whisperpin-persistence.md` (14 tasks, 1 passe Codex).
 
 ## TODO / état
-- Réunion test4 : validation physique sur Poco F7 restante (délai du texte, suivi des voix, réunion longue). Le test prolongé des voix échoue sur l’AVD ; ce prototype ne valide pas le temps réel soutenu. Bilan : `docs/research/meeting-mode/2026-09-27-handy-conversation-validation.md`.
+- Réunion test5 : validation physique sur Poco F7 restante (conversation à quatre voix, délai du texte et des étiquettes, réunion longue). Le démarrage commun et le fanout de capture sont couverts par tests ; les horodatages Handy ne sont pas un alignement phonétique exact. Bilan courant : `docs/research/meeting-mode/2026-09-27-test5-common-timeline.md`. L'échec prolongé du test4 reste consigné dans le bilan précédent.
 - ⏳ **GATE spike micro (Task 3)** : valider sur Poco F7 que l'OverlayService FGS `microphone` capte
   un audio non silencieux en arrière-plan (mesure `maxAmp`). APK : `~/Downloads/whisperpin-spike.apk`.
   Si VERT → Phases C-F (manifest, refactor, OverlayService complet, boot, watchdog, assistant, bouton, sécurité, matrice).
@@ -45,6 +45,7 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 ## Session Log
 | Date | Action | Fichiers/Config |
 |------|--------|-----------------|
+| 2026-09-27 | Réunion test5 : attente des deux modèles avant capture, même PCM envoyé aux deux branches dès son admission, stabilité bornée par l'audio capturé, attribution tolérant les microcoupures. Tests ciblés verts et deux revues de la production figée ; validation native finale et publication consignées dans le bilan. | `docs/research/meeting-mode/2026-09-27-test5-common-timeline.md`, version prototype 39 |
 | 2026-09-27 | Réunion test4 : transcription Handy Q8 et identification indépendante des voix, révisions sans perte, repères audio et continuations visuelles. Comparaison courte et moteur intégré réussis ; débit des voix insuffisant sur le test prolongé AVD, validation Poco ouverte. | `docs/research/meeting-mode/2026-09-27-handy-conversation-validation.md`, spec et plan Handy, version prototype 38 |
 | 2026-09-27 | Réunion test3 : swipe droit pour annuler/revenir aux dossiers, cercle agrandi, cache audio privé et conservation du texte ; préchauffage JNI retiré, contexte RNNT historique conservé après régression française détectée. 1 022 tests verts par variante et 9 tests Android verts ; 20 captures inspectées, APK local préparé, validation Poco restante. | `docs/research/meeting-mode/2026-09-26-cancellation-throughput-validation.md`, galerie visuelle associée, version prototype 37 |
 | 2026-09-26 | Correctif Réunion test2 : menu conservé après relâchement, disponibilité des modèles actualisée sans démarrage automatique du micro. 976 tests verts par variante, smoke Android réel 52,81 s, deux revues Astra favorables ; publication Actions à vérifier après ce commit, Poco physique restant. | `docs/research/meeting-mode/gesture-readiness-fix-validation.md`, plan correctif du 2026-09-25, version prototype 36 |

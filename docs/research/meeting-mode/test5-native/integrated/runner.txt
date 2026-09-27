@@ -1,0 +1,6 @@
+
+com.kafkasl.phonewhisper.meeting.HandyMeetingBridgeEngineInstrumentedTest:.
+
+Time: 16.987
+
+OK (1 test)
