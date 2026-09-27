@@ -44,10 +44,10 @@ Propriétaire : Luna `coherent_turns` — MeetingTranscriptReducer.kt, MeetingPr
 
 - [x] Une seule exécution Gradle à la fois dans ce worktree ; utiliser le JDK 21 d’Android Studio. Préserver les preuves RED/GREEN avant les suites générales.
 - [x] Rejeu intégrant l’assembleur et le reducer avec un retard supérieur à deux minutes et des résultats livrés à des vitesses variables : texte identique, ordre chronologique, même attribution finale que le traitement sans retard.
-- [ ] Vérification native sur la fixture publique disponible ; mesurer séparément le résultat d’alignement et la durée du traitement. Aucun résultat sur émulateur ne prouve la latence sur le Poco.
+- [ ] Validation native de la fixture publique : essais effectués mais non concluants, le premier expirant pendant le SHA du modèle, le second après les SHA sur l'attente de disponibilité de soixante secondes, avant l'envoi d'audio. Aucun résultat d'alignement ou de débit validé. Cette limite reste explicite dans la livraison d'essai.
 - [x] Deux revues Astra sur le même état figé : contrat fonctionnel/UX, puis concurrence, ressources, sécurité et régressions. Corrections bornées puis nouvelles vérifications si nécessaire.
 - [x] Suites JVM normales et prototype : 1 135 tests chacune ; APK et androidTest compilés, signatures et alignement contrôlés ; identité prototype test6/version40, version habituelle 35 conservée.
-- [ ] Publication sur GitHub Actions dans la continuité de la demande de version test, avec vérification de l’artefact et de son SHA.
-- [ ] Bilan en français : comportement obtenu, preuve du rattrapage, limite de précision des horodatages et validation physique restante. Mise à jour du journal CLAUDE.md en deux lignes maximum.
+- [x] Publication sur GitHub Actions, run `36320831917` réussi ; artefact téléchargé et vérifié, APK test6/version40 de SHA `b21ab53bb97967fc9086d1845ece19fd8262757743435bdc6eb7b68766be115c`, identique au binaire local testé.
+- [x] Bilan en français : comportement obtenu, preuve du rattrapage, limite de précision des horodatages, essais natifs non concluants et validation physique restante. Mise à jour du journal CLAUDE.md en deux lignes maximum.
 
 Sources consultées directement par Astra : [API de diarisation NVIDIA](https://github.com/NVIDIA/NeMo-Speech.cpp/blob/main/include/nemo_speech/diar.h), qui expose des intervalles et des probabilités sans transcription ; [contrat des bindings Handy](https://github.com/handy-computer/transcribe.cpp/blob/main/docs/bindings.md). Le code épinglé du dépôt, et non la branche amont courante, détermine les capacités livrées.

@@ -1,6 +1,6 @@
 # Réunion test6 : attribution différée sur l’audio d’origine
 
-État de validation : en cours. Ce document sera complété avec les résultats vérifiés et l’artefact GitHub Actions avant livraison.
+État : version d'essai **test6 / 40 publiée et vérifiée sur GitHub Actions**. Tests JVM et présentation Android validés ; essai des moteurs natifs non concluant avant l'envoi d'audio. Démarrage, latence et précision des personnes restent à valider sur le Poco F7.
 
 ## Problème et comportement attendu
 
@@ -53,7 +53,7 @@ Le groupe final ciblé compte **162 tests réussis**, sans échec, erreur ni tes
 - Dix sessions consécutives simulent une panne d’écriture après préparation du cache : état `STORAGE_ERROR`, transcription Handy conservée et cache nettoyé. Le contrôle a découvert puis corrigé une course entre le lecteur et le transfert, qui pouvait classer à tort cette panne comme `PROCESSING_FAILED`.
 - Le test d’édition protège le passage avant la première frappe, préserve la saisie et le focus après révision, puis vérifie une réattribution homogène. Une portion protégée couvrant deux voix reste explicitement sans attribution.
 
-Les suites complètes, les mesures natives et l’artefact Actions sont consignés ci-dessous après leur vérification.
+Les suites complètes, les limites des essais natifs et l’artefact Actions sont consignés ci-dessous.
 
 ## Revues de l’état figé
 
@@ -72,7 +72,7 @@ Sous le JDK 21 d’Android Studio, les deux variantes passent chacune **1 135 te
 
 Les tâches `assembleDebug` et `assembleDebugAndroidTest` réussissent pour les deux variantes. Les quatre APK passent la vérification de signature et d'alignement ZIP à 16 Kio ; les treize bibliothèques natives des APK applicatifs passent le contrôle ELF à 16 Kio. Les onze tests du préparateur de distribution et les dix-huit tests du contrôleur ELF réussissent également.
 
-Les journaux et les APK sont archivés dans `app/build/reports/meeting/test6-delayed/test6-v40-final/`. Le manifeste des onze fichiers revus est `reviewed-source-sha256.txt` dans ce même dossier. Les résultats Android natifs et l’identité de l’artefact téléchargé seront ajoutés après leurs contrôles.
+Les journaux et les APK sont archivés dans `app/build/reports/meeting/test6-delayed/test6-v40-final/`. Le manifeste des onze fichiers revus est `reviewed-source-sha256.txt` dans ce même dossier. Le [reçu portable](test6-validation/receipt.txt) rassemble les commandes, les comptes de tests et les empreintes.
 
 L'APK applicatif local testé porte le SHA-256 `b21ab53bb97967fc9086d1845ece19fd8262757743435bdc6eb7b68766be115c`. Les adaptations éventuelles du scénario de capture Android ne modifient pas cet APK.
 
@@ -91,6 +91,18 @@ Le premier essai de capture avait échoué parce que le clavier Gboard s'afficha
 ### Essai natif et limite de l'environnement
 
 Le premier essai `HandyMeetingBridgeEngineInstrumentedTest` a atteint son délai de 300 secondes dans `assertArtifact`, pendant une lecture du modèle Handy pour vérifier son SHA-256. Il n'avait pas encore démarré l'inférence et n'a émis aucune mesure `MeetingEngineHandy`. Ce résultat ne valide donc ni le moteur natif ni sa vitesse, et ne constitue pas une erreur de transcription observée. Les fichiers modèles étaient présents aux tailles attendues ; l'APK installé a été récupéré et son SHA-256 est identique à celui de l'APK local. Le runner et les journaux sont conservés avec les preuves locales.
+
+Une lecture de diagnostic bornée à trente secondes a lu 528 482 304 octets du modèle Handy en 31,17 secondes, soit environ 16 Mio/s, avant son interruption prévue. L'espace libre était de 6,2 Gio dans Android et de 1,3 Tio sur l'hôte. Une seule nouvelle tentative native a ensuite été effectuée, sans modifier les contrôles SHA ni les délais. Les SHA des deux modèles et de la fixture WAV ont passé ; le test a échoué en **242,136 secondes** sur l'attente de disponibilité du moteur, bornée à soixante secondes, avant l'envoi de l'audio. Aucun résultat natif d'attribution ou de débit n'est donc validé pour test6. La lenteur de l'environnement est observée, mais ne suffit pas à établir à elle seule la cause du délai de démarrage.
+
+Le journal du processus confirme le chargement réussi de `libtranscribe_jni.so` à 15:06:41, environ 167 secondes après le début du test. Il ne montre ni fin de préparation des deux modèles ni exception de modèle avant l'assertion de disponibilité à 15:07:56. Ces traces ne permettent pas d'identifier précisément l'étape restée en attente. Aucun nouveau délai de production n'a été introduit pour masquer cet échec.
+
+## Artefact GitHub Actions vérifié
+
+Le [run 36320831917](https://github.com/Uhama91/DictAI/actions/runs/36320831917) réussit en **9 min 13 s** pour le commit `0d92e452fe50bbef1c1d31e4a140a0798c3df71d`. L'artefact `dictai-meeting-test` contient l'APK, ses sommes de contrôle et ses métadonnées.
+
+Après téléchargement, les contrôles confirment : application `com.uhama.whisperpin.meetingtest`, version **40 / 0.9.6-dictai-meeting-test6**, ABI `arm64-v8a`, taille **93 197 694 octets**, et métadonnée `ciCommit` identique au commit du run. Le SHA-256 de l'APK est **`b21ab53bb97967fc9086d1845ece19fd8262757743435bdc6eb7b68766be115c`**, identique octet pour octet à l'APK local contrôlé sur l'émulateur.
+
+La signature est vérifiée avec le certificat SHA-256 `6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539`. L'alignement ZIP à 16 Kio et celui des treize bibliothèques ELF sont conformes. Les empreintes JNI épinglées sont inchangées : Meeting `83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546` et transcribe `68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b`. Aucun modèle n'est embarqué dans cet APK d'essai.
 
 ## Limites conservées
 

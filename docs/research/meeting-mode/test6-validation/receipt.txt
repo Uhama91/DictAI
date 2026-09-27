@@ -1,6 +1,6 @@
 DictAI Meeting test6 / prototype v40 — validation receipt
 Date: 2026-09-27
-Status: JVM, APK, Python, signature, ZIP alignment and ELF alignment checks pass. The final UI capture passed and its three fresh PNGs are archived. Native-engine evidence is pending a bounded storage diagnosis and rerun. CI has not yet been published.
+Status: JVM, APK, Python, signature, ZIP alignment and ELF alignment checks pass. The final UI capture passed and its three fresh PNGs are archived. CI run 36320831917 succeeded and its test6/v40 artifact was downloaded and verified. Native-engine evidence remains unverified: the latest attempt did not reach the audio feed or produce a transcript.
 
 Build environment
 - Android Studio JBR: 21.0.6; Gradle 8.9.
@@ -22,6 +22,13 @@ APK identities and SHA-256
 - Both app APKs contain 13 allowed, stored native libraries, all with 16 KiB ELF PT_LOAD alignment.
 - Prototype packager contract: APK size 93,197,694 bytes; meeting JNI SHA-256 83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546; transcribe JNI SHA-256 68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b.
 
+CI run and downloaded artifact
+- Workflow file: .github/workflows/build.yml; [run 36320831917](https://github.com/Uhama91/DictAI/actions/runs/36320831917) succeeded in 9m13s. Exact head and artifact metadata ciCommit: 0d92e452fe50bbef1c1d31e4a140a0798c3df71d. Artifact id 10932547822 (`dictai-meeting-test`).
+- Downloaded APK: app/build/reports/meeting/test6-delayed/test6-v40-final/ci-download/dictai-meeting-test.apk. Package com.uhama.whisperpin.meetingtest, versionCode 40, versionName 0.9.6-dictai-meeting-test6, arm64-v8a; size 93,197,694 bytes; SHA-256 b21ab53bb97967fc9086d1845ece19fd8262757743435bdc6eb7b68766be115c. This SHA is recorded in SHA256SUMS and metadata.json; the downloaded APK bytes match the local v40 app APK byte-for-byte.
+- CI metadata records meeting JNI SHA-256 83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546 and transcribe JNI SHA-256 68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b; the downloaded APK contents pass the packager contract and match those values and the exact CI commit.
+- Downloaded app APK signature verification passed with certificate SHA-256 6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539; zipalign `-c -P 16 -v 4` passed; all 13 native libraries are allowed, ZIP_STORED and ELF 16 KiB aligned. CI skipped “Verify packaged model and prepare download” for this test artifact.
+- Final prototype androidTest APK SHA-256: 08a751645118db1380afa115b01bd168efa2cd189c03736569571ba88d1d4f0e; `apksigner verify` and `zipalign -c -P 16 -v 4` pass. The app APK stayed unchanged when only the UI-test timeout was raised to 15 s.
+
 Reviewed production/config fingerprints (11 files)
 7f10745437d340981f0b99a94e632774f4d0ab742ff8a62c76d18405ee485324  app/build.gradle.kts
 86d5d3c10827887d25a51ca7edfae9b344d88f3c0c3718bce41b4cda2c7818be  app/src/main/kotlin/com/kafkasl/phonewhisper/meeting/HandyMeetingNativeBridge.kt
@@ -37,7 +44,7 @@ e916da99c88329f0a6a802aab2846ee88e5a342421324d5e3ecb98a7eb779098  app/src/main/k
 
 Instrumented runs
 - UI-only synthetic capture: MeetingPanelNativeFixtureCaptureAndroidTest#capturesDelayedAttributionStatesForVisualReview. The first attempt failed at the 5 s IME-visibility assertion before the third capture. After changing only the androidTest visibility wait to 15 s, the final attempt passed in 19.351 s and produced three fresh PNGs: docs/research/meeting-mode/ui-renders/test6-delayed-attribution/. The final runner/logcat are archived in app/build/reports/meeting/test6-delayed/test6-v40-final/ui-attempt-02-ime-15s/. The app APK SHA remained b21ab53bb97967fc9086d1845ece19fd8262757743435bdc6eb7b68766be115c; only the androidTest APK changed.
-- Native engine fixture: HandyMeetingBridgeEngineInstrumentedTest#handy_bridge_through_engine_publishes_live_text_and_preserves_final_projection. The run timed out at 300 s while assertArtifact read handy.gguf for SHA-256, before engine/model inference. This is a model-file preparation I/O timeout, not a transcription or diarization result. The fixture must be repeated only after bounded storage/read-throughput diagnosis; retain the 300 s test timeout and SHA checks unless that diagnosis justifies another change.
+- Native engine fixture: HandyMeetingBridgeEngineInstrumentedTest#handy_bridge_through_engine_publishes_live_text_and_preserves_final_projection. Attempt 1 timed out at 300 s while assertArtifact read handy.gguf for SHA-256, before engine/model inference; this is not a transcription or diarization result. Attempt 2 took 242.136 s: model and WAV SHA checks passed, but engine readiness was not reached within the 60 s wait before the audio feed. No native transcript or final projection was produced, so the native scenario remains unverified. Do not interpret either attempt as a model-quality or transcription failure.
 - Model files were already present on emulator-5554 under /data/local/tmp/dictai-conversation-20260927/: handy.gguf 751,094,240 bytes; diar.gguf 107,012,128 bytes. RECORD_AUDIO remained granted. No uninstall, pm clear, wipe or model copy was performed.
 
 Evidence bundle root for full logs, XML, APKs and runner outputs: app/build/reports/meeting/test6-delayed/test6-v40-final/.
