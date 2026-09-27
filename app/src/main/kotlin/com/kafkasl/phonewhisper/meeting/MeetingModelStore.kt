@@ -42,6 +42,64 @@ data class MeetingModelPaths(
     val diarizationPath: String get() = diarizationFile.absolutePath
 }
 
+internal data class MeetingModelReuseCandidates(
+    val asrFile: File? = null,
+    val diarizationFile: File? = null,
+)
+
+/** Supplies possible private cache inputs only for an explicit model download operation. */
+internal fun interface MeetingModelReuseCandidateProvider {
+    fun candidates(filesDirectory: File, catalog: MeetingModelCatalog): List<MeetingModelReuseCandidates>
+
+    companion object {
+        val production: MeetingModelReuseCandidateProvider = ProductionMeetingModelReuseCandidateProvider
+    }
+}
+
+private object ProductionMeetingModelReuseCandidateProvider : MeetingModelReuseCandidateProvider {
+    override fun candidates(
+        filesDirectory: File,
+        catalog: MeetingModelCatalog,
+    ): List<MeetingModelReuseCandidates> {
+        if (catalog != MeetingModelCatalog.production) return emptyList()
+        val privateFilesDirectory = runCatching { filesDirectory.canonicalFile.parentFile }.getOrNull()
+            ?: return emptyList()
+        val handyAsr = File(
+            privateFilesDirectory,
+            "models/nemotron-3.5-asr-streaming-0.6b-Q8_0/${catalog.asr.relativePath}",
+        ).takeIf(File::isFile)
+
+        val previousCatalog = MeetingModelCatalog.previousForReuse
+        val previousDiarizationFiles = filesDirectory.listFiles().orEmpty()
+            .asSequence()
+            .filter { it.isDirectory && previousCatalog.isPackageDirectoryName(it.name) }
+            .sortedByDescending(File::lastModified)
+            .mapNotNull { packageDirectory ->
+                val diarizationFile = File(packageDirectory, previousCatalog.diarization.relativePath)
+                val canonicalDirectory = runCatching { packageDirectory.canonicalFile }.getOrNull()
+                    ?: return@mapNotNull null
+                val canonicalDiarization = runCatching { diarizationFile.canonicalFile }.getOrNull()
+                    ?: return@mapNotNull null
+                if (!canonicalDiarization.isFile ||
+                    !canonicalDiarization.toPath().startsWith(canonicalDirectory.toPath())
+                ) {
+                    null
+                } else {
+                    canonicalDiarization
+                }
+            }
+            .toList()
+        return when {
+            handyAsr != null && previousDiarizationFiles.isNotEmpty() ->
+                previousDiarizationFiles.map { MeetingModelReuseCandidates(handyAsr, it) }
+            handyAsr != null -> listOf(MeetingModelReuseCandidates(asrFile = handyAsr))
+            previousDiarizationFiles.isNotEmpty() ->
+                previousDiarizationFiles.map { MeetingModelReuseCandidates(diarizationFile = it) }
+            else -> emptyList()
+        }
+    }
+}
+
 /**
  * Shared private-files store for the pair of meeting models.
  *
@@ -66,6 +124,8 @@ class MeetingModelStore internal constructor(
     private val worker: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "meeting-model-store").apply { isDaemon = true }
     },
+    private val reuseCandidateProvider: MeetingModelReuseCandidateProvider = MeetingModelReuseCandidateProvider.production,
+    private val reuseCopyCheckpoint: (Long) -> Unit = {},
 ) {
     private val stateLock = Any()
     private val listeners = mutableListOf<ListenerRegistration>()
@@ -213,18 +273,159 @@ class MeetingModelStore internal constructor(
     private fun downloadAndPublish(active: Operation, stagingDirectory: File) {
         checkNotCancelled(active)
         publishState(active, MeetingModelStoreState.Downloading(0L, catalog.totalBytes), forceProgress = true)
-        var downloadedBytes = 0L
+        val candidates = try {
+            reuseCandidateProvider.candidates(filesDirectory, catalog)
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val privateFilesDirectory = runCatching { filesDirectory.canonicalFile.parentFile?.canonicalFile }
+            .getOrNull()
+        var acquiredBytes = 0L
 
         for (artifact in catalog.artifacts) {
             checkNotCancelled(active)
-            downloadedBytes = downloadArtifact(active, stagingDirectory, artifact, downloadedBytes)
+            val sourceFiles = candidates.mapNotNull { candidate ->
+                when (artifact.id) {
+                    catalog.asr.id -> candidate.asrFile
+                    catalog.diarization.id -> candidate.diarizationFile
+                    else -> null
+                }
+            }.distinctBy(File::getAbsolutePath)
+            val reused = privateFilesDirectory != null && stageReusableArtifact(
+                active,
+                stagingDirectory,
+                privateFilesDirectory,
+                artifact,
+                sourceFiles,
+            )
+            acquiredBytes = if (reused) {
+                Math.addExact(acquiredBytes, artifact.sizeBytes).also { completedBytes ->
+                    publishState(
+                        active,
+                        MeetingModelStoreState.Downloading(completedBytes, catalog.totalBytes),
+                        forceProgress = true,
+                    )
+                }
+            } else {
+                downloadArtifact(active, stagingDirectory, artifact, acquiredBytes)
+            }
         }
 
         checkNotCancelled(active)
-        publishState(active, MeetingModelStoreState.Downloading(catalog.totalBytes, catalog.totalBytes), forceProgress = true)
+        publishState(
+            active,
+            MeetingModelStoreState.Downloading(catalog.totalBytes, catalog.totalBytes),
+            forceProgress = true,
+        )
         checkNotCancelled(active)
         publishDirectory(stagingDirectory, File(filesDirectory, catalog.packageDirectoryName(active.id)))
         publishAndComplete(active, File(filesDirectory, catalog.packageDirectoryName(active.id)))
+    }
+
+    /** Copies and verifies one local candidate into this operation's isolated staging directory. */
+    private fun stageReusableArtifact(
+        active: Operation,
+        stagingDirectory: File,
+        privateFilesDirectory: File,
+        artifact: MeetingModelArtifact,
+        sourceFiles: List<File>,
+    ): Boolean {
+        if (sourceFiles.isEmpty()) return false
+        val target = resolveArtifactPath(stagingDirectory, artifact.relativePath)
+        val parent = target.parentFile ?: return false
+        if (!parent.exists() && !parent.mkdirs()) return false
+        if (!parent.isDirectory) return false
+        val partFile = File(parent, target.name + ".part")
+
+        for (source in sourceFiles) {
+            checkNotCancelled(active)
+            var staged = false
+            try {
+                if (!copyVerifiedPrivateCandidate(
+                    active,
+                    privateFilesDirectory,
+                    source,
+                    artifact,
+                    partFile,
+                )) continue
+
+                checkNotCancelled(active)
+                Files.move(partFile.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                staged = true
+                return true
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: IOException) {
+                // A failed local reuse is only an optimization miss; explicit download can fetch this file.
+            } finally {
+                if (!staged) {
+                    partFile.delete()
+                    target.delete()
+                }
+            }
+        }
+        return false
+    }
+
+    /** Returns false for missing, escaped, truncated, oversized, or hash-mismatched source files. */
+    private fun copyVerifiedPrivateCandidate(
+        active: Operation,
+        privateFilesDirectory: File,
+        source: File,
+        artifact: MeetingModelArtifact,
+        partFile: File,
+    ): Boolean {
+        val canonicalRoot = privateFilesDirectory.toPath()
+        val canonicalSource = try {
+            source.canonicalFile
+        } catch (_: IOException) {
+            return false
+        }
+        if (!canonicalSource.isFile || canonicalSource.toPath() == canonicalRoot ||
+            !canonicalSource.toPath().startsWith(canonicalRoot) || canonicalSource.length() != artifact.sizeBytes
+        ) {
+            return false
+        }
+        val parent = partFile.parentFile ?: return false
+        if (!parent.exists() && !parent.mkdirs()) return false
+        if (!parent.isDirectory) return false
+
+        val digest = MessageDigest.getInstance("SHA-256")
+        var copied = 0L
+        var oversized = false
+        try {
+            FileInputStream(canonicalSource).use { input ->
+                FileOutputStream(partFile).use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        checkNotCancelled(active)
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) continue
+                        if (count.toLong() > artifact.sizeBytes - copied) {
+                            oversized = true
+                            break
+                        }
+                        output.write(buffer, 0, count)
+                        digest.update(buffer, 0, count)
+                        copied += count
+                        reuseCopyCheckpoint(copied)
+                    }
+                    output.fd.sync()
+                }
+            }
+        } catch (cancelled: CancellationException) {
+            partFile.delete()
+            throw cancelled
+        } catch (_: Exception) {
+            partFile.delete()
+            return false
+        }
+
+        val valid = !oversized && copied == artifact.sizeBytes &&
+            digest.digest().toHex().equals(artifact.sha256, ignoreCase = true)
+        if (!valid) partFile.delete()
+        return valid
     }
 
     /** A complete renamed package survives cancellation; a later refresh may verify and adopt it. */

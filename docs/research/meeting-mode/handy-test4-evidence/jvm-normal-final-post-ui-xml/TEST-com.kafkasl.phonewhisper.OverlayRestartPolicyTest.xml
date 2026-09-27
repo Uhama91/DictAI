@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayRestartPolicyTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:51" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="unknown action is rejected" classname="com.kafkasl.phonewhisper.OverlayRestartPolicyTest" time="0.0"/>
+  <testcase name="xiaomi quick boot is accepted" classname="com.kafkasl.phonewhisper.OverlayRestartPolicyTest" time="0.0"/>
+  <testcase name="package replaced is accepted" classname="com.kafkasl.phonewhisper.OverlayRestartPolicyTest" time="0.0"/>
+  <testcase name="accepted action creates start descriptor without service action" classname="com.kafkasl.phonewhisper.OverlayRestartPolicyTest" time="0.0"/>
+  <testcase name="boot completed is accepted" classname="com.kafkasl.phonewhisper.OverlayRestartPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

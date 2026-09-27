@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.LocalMailTimingTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:48" hostname="MacBook-Pro-de-Ullie.local" time="9.117">
+  <properties/>
+  <testcase name="reportSeparatesWaitGenerationAndValidationAndShowsSmallOvershoot" classname="com.kafkasl.phonewhisper.LocalMailTimingTest" time="0.001"/>
+  <testcase name="mailMarginDoesNotIncreaseListWaitOrDelayDirectAcknowledgments" classname="com.kafkasl.phonewhisper.LocalMailTimingTest" time="0.001"/>
+  <testcase name="longConventionalMailUsesTheModelAndCanFinishBeyondNineSeconds" classname="com.kafkasl.phonewhisper.LocalMailTimingTest" time="9.114"/>
+  <testcase name="interruptedBenchmarkDoesNotInventTheUnobservedCompletionTime" classname="com.kafkasl.phonewhisper.LocalMailTimingTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

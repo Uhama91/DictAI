@@ -16,6 +16,8 @@ if [[ ! -d "$NDK" ]]; then
 fi
 TOOLCHAIN="$NDK/build/cmake/android.toolchain.cmake"
 PATCH="$ROOT/scripts/native/meeting-android.patch"
+THREAD_PATCH="$ROOT/scripts/native/meeting-diar-cpu-threads.patch"
+PATCH_APPLIER="$ROOT/scripts/native/apply-meeting-runtime-patch.sh"
 NEMO_REV=97a15afa5caa9bce5baaa86c1184103877af4101
 SPM_REV=17d7580d6407802f85855d2cc9190634e2c95624
 ASR_REV=1c8deaecc64b91f034d73e08dd8b64625eb3395d
@@ -50,8 +52,9 @@ printf 'NeMo-Speech.cpp=%s\nGGML=%s\n' "$actual_nemo_rev" "$actual_ggml_rev"
 [[ "$actual_ggml_rev" == c03b4e2bcece5134827881af90242086daf75be5 ]] || { printf 'ERROR: GGML gitlink mismatch\n' >&2; exit 2; }
 mkdir -p "$SOURCE/app/src/main/cpp/meeting"
 STAGING="$SOURCE/app/src/main/cpp/meeting"
-for source_file in CMakeLists.txt meeting_probe.cpp meeting_jni.cpp meeting_native_logic.cpp \
-    meeting_native_logic.h meeting_asr_config.h meeting_jni.exports; do
+for source_file in CMakeLists.txt meeting_probe.cpp meeting_jni.cpp meeting_diarization_jni.cpp \
+    meeting_diarization_jni.h meeting_native_logic.cpp meeting_native_logic.h \
+    meeting_asr_config.h meeting_jni.exports; do
     install -m 0644 "$ROOT/app/src/main/cpp/meeting/$source_file" "$STAGING/$source_file"
 done
 
@@ -68,6 +71,8 @@ else
     }
     printf 'Pinned Android CMake patch already applied.\n'
 fi
+
+"$PATCH_APPLIER" "$SOURCE" "$THREAD_PATCH"
 
 if [[ ! -d "$SPM_SOURCE/.git" ]]; then
     git clone --filter=blob:none --no-checkout https://github.com/google/sentencepiece.git "$SPM_SOURCE"

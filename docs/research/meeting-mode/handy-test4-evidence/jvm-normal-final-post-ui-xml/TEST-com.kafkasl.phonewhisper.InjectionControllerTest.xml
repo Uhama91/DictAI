@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.InjectionControllerTest" tests="25" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:36" hostname="MacBook-Pro-de-Ullie.local" time="0.006">
+  <properties/>
+  <testcase name="direct text composition accepts only safe null text and valid selections" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.001"/>
+  <testcase name="clipboard preparation failure returns failed without paste" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="clipboard failure does not prevent successful insertion" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="refused refresh stops before fresh read" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.001"/>
+  <testcase name="fresh fallback that is no longer known is unknown and never prepares clipboard" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="fresh known password fallback is sensitive" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="focused candidate scores ahead of unfocused custom paste candidate" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="after a capture a failed insertion still makes the dictated text recoverable" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="missing controller copies exactly once and reports copy outcome" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="refused focus stops before refresh and fresh read" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="focused editable target outranks focused custom paste target" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="sensitive or unknown target never prepares clipboard" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.001"/>
+  <testcase name="throwing controller keeps recoverable clipboard text" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.001"/>
+  <testcase name="fresh known ordinary fallback is safe" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="focused target refreshes without requesting focus" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="unfocused target requests focus then refreshes before reading fresh state" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="already copied fallback is not copied a second time after a capture" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="safe fallback prepares clipboard exactly once before paste" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.001"/>
+  <testcase name="end feedback is silent for inserted and explicit otherwise" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="present controller always copies even when insertion succeeds or fails" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="direct text insertion after a capture leaves the image clipboard alone" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="paste failure reports copied after one clipboard preparation" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="direct success completes without clipboard preparation or paste" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="target selection returns one original candidate for direct and fallback" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <testcase name="focused Keep-like body is selected instead of unfocused title" classname="com.kafkasl.phonewhisper.InjectionControllerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

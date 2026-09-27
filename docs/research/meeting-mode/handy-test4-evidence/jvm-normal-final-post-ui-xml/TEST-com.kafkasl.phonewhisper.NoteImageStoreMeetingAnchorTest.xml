@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:49" hostname="MacBook-Pro-de-Ullie.local" time="0.105">
+  <properties/>
+  <testcase name="failedMeetingNumberResolutionRollsBackThePendingMapping" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.011"/>
+  <testcase name="failedClearThatMutatesPreferencesMemoryRollsBackAndKeepsReservation" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.008"/>
+  <testcase name="resolvedNumberFlagWithoutMeetingAnchorIsNotDowngradedToLegacyCapture" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.008"/>
+  <testcase name="meetingBatchPersistsSessionTurnAndUtf16OffsetWhileLegacyBatchStaysLegacy" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.01"/>
+  <testcase name="malformedAnchorOnOtherwiseLegacyBatchIsNotDowngraded" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.009"/>
+  <testcase name="failedFirstReservationWriteRollsBackMutatedPreferencesMemory" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.007"/>
+  <testcase name="oldSingleCaptureWithoutMeetingMetadataRemainsReadable" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.009"/>
+  <testcase name="nonStringSessionOrTurnValuesMakeTheAnchorInvalid" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.011"/>
+  <testcase name="resolvedMeetingNumbersAreDurableAndSurviveStoreRecreation" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.012"/>
+  <testcase name="invalidMeetingAnchorRemainsReservedAndCannotBeRewrittenAsLegacyBatch" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.009"/>
+  <testcase name="cancellingAcceptedInvalidMeetingReservationKeepsItsImageFile" classname="com.kafkasl.phonewhisper.NoteImageStoreMeetingAnchorTest" time="0.011"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" tests="24" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:00" hostname="MacBook-Pro-de-Ullie.local" time="1.106">
+  <properties/>
+  <testcase name="lateRevisionKeepsAudioOrderedRowsAndPreservesManualIdentityEditAndImage" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.087"/>
+  <testcase name="ignoredVoiceHidesSpeechButKeepsItsImageAction" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.034"/>
+  <testcase name="captureAnchorCountsSerializedImageMarkerRatherThanEditorObject" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.052"/>
+  <testcase name="revisedHypothesisKeepsFocusedEditorSelectionAndComposingSpan" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.062"/>
+  <testcase name="normalStatusRowWrapsLiveDetailsAcrossTwoLinesAndKeepsFullAccessibleDescription" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.052"/>
+  <testcase name="actionsMatchSessionPhaseAndKeepDownloadCancellationSeparate" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.087"/>
+  <testcase name="continuationKeepsSpeakerAccessibleAndUsesLessVerticalSpaceThanANewHeading" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.033"/>
+  <testcase name="longTurnIsNotSilentlyLimitedToSixLines" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.037"/>
+  <testcase name="continuationAttributionTargetIsAtLeast48DpWithoutAddingAnotherHeaderRow" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.039"/>
+  <testcase name="compactLongTurnKeepsSpeakerAndAudioTimeVisibleAtLargeFont" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.045"/>
+  <testcase name="editingAtTheBottomDoesNotFollowNewRowsAutomatically" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.041"/>
+  <testcase name="documentActionReceivesFocusedEditAnchorAfterFlush" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.033"/>
+  <testcase name="compactHeaderKeepsTheLivePhaseAndAVisibleBacklogOrVoiceAvailabilityDetail" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.04"/>
+  <testcase name="tenImageActionsRemainReachableThroughHorizontalScrolling" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.062"/>
+  <testcase name="manualThemeRefreshRecolorsWithoutReplacingFocusedEditor" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.052"/>
+  <testcase name="successiveRendersCoalesceStaleScrollRestorations" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.097"/>
+  <testcase name="documentActionsAppearOnlyInStablePhases" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.022"/>
+  <testcase name="liveProgressThresholdAndVoiceStatesAreClearWithoutChangingMeetingPhase" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.02"/>
+  <testcase name="compactPanelKeepsStatusCommandsAndRetryAccessibleAt240By112Dp" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.049"/>
+  <testcase name="dismissingAssignmentDoesNothingAndExplicitUnknownUsesNullParticipant" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.031"/>
+  <testcase name="documentActionChoiceIsIgnoredAfterRunChanges" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.036"/>
+  <testcase name="dialogResultsAreIgnoredAfterRunChangesOrTargetTurnDisappears" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.036"/>
+  <testcase name="participantChoicesDisambiguateHomonymsAndRenameCapturedIdentity" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.031"/>
+  <testcase name="liveProgressUpdatesOnlyTheHeaderAndPreservesAnActivelyEditedTurn" classname="com.kafkasl.phonewhisper.meeting.MeetingPanelControllerRobolectricTest" time="0.028"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

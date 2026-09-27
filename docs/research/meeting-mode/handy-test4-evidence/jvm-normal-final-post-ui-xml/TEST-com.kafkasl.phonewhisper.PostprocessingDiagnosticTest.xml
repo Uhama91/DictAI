@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:58" hostname="MacBook-Pro-de-Ullie.local" time="0.004">
+  <properties/>
+  <testcase name="restorationReportsOnlyTheCountAndNeverTheRestoredWords" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.002"/>
+  <testcase name="reportsAppliedSingleParagraphWithoutClaimingGoodGrouping" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.001"/>
+  <testcase name="cloudAndOffDoNotClaimLocalInference" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.0"/>
+  <testcase name="personalFormatDictationAndUnexpectedRuntimeCannotEnterDiagnostic" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.0"/>
+  <testcase name="timeoutAndRejectionsRemainDistinctFromAppliedOutput" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.0"/>
+  <testcase name="directAndCachedResultsDescribeWhetherNativeWasUsedForTheirResult" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.0"/>
+  <testcase name="plainTextWithoutNativeCallIsExpectedRatherThanAnEngineFailure" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.001"/>
+  <testcase name="hesitationRemovalIsReportedEvenWhenModelTimesOutWithoutLoggingContent" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.0"/>
+  <testcase name="gemmaGpuConfigurationAndMissingModelAreExplicit" classname="com.kafkasl.phonewhisper.PostprocessingDiagnosticTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

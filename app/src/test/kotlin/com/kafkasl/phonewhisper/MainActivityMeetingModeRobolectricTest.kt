@@ -168,7 +168,17 @@ class MainActivityMeetingModeRobolectricTest {
         settings!!.performClick()
 
         assertNotNull(textView(activity.window.decorView, "Modèles Réunion"))
-        assertNotNull(clickableChoice(activity.window.decorView, "Télécharger les modèles Réunion"))
+        assertNotNull(clickableChoice(activity.window.decorView, "Préparer les modèles Réunion"))
+        val modelDescription = allActivityViews(activity.window.decorView)
+            .filterIsInstance<TextView>()
+            .first {
+                it.text.toString().startsWith("Jusqu’à ") &&
+                    it.text.toString().contains("Les fichiers déjà présents sont réutilisés.")
+            }
+            .text
+            .toString()
+        assertTrue("the displayed model volume is an upper bound", modelDescription.startsWith("Jusqu’à "))
+        assertTrue("local files are described as reusable", modelDescription.contains("Les fichiers déjà présents sont réutilisés."))
         assertTrue("opening the settings should finish a local model inspection", states.awaitInspection())
         val status = activity.window.decorView.findViewWithTag<TextView>(MeetingModelSettingsPanel.STATUS_TAG)
         assertNotNull(status)
@@ -192,13 +202,14 @@ class MainActivityMeetingModeRobolectricTest {
         assertNotNull(panelBefore)
         assertNotNull(status)
 
-        clickableChoice(activity.window.decorView, "Télécharger les modèles Réunion")!!.performClick()
+        clickableChoice(activity.window.decorView, "Préparer les modèles Réunion")!!.performClick()
         assertTrue("the explicit download action should reach the isolated HTTP interceptor",
             fixture.requestEntered.await(3, TimeUnit.SECONDS))
         assertTrue(states.awaitState { it is MeetingModelStoreState.Downloading } is MeetingModelStoreState.Downloading)
         Shadows.shadowOf(Looper.getMainLooper()).idle()
-        val downloadingText = status!!.text.toString()
-        assertTrue("progress is reflected in the existing status view", downloadingText.contains("Téléchargement"))
+        val preparationText = status!!.text.toString()
+        assertTrue("progress is reflected in the existing status view", preparationText.contains("Préparation des modèles Réunion"))
+        assertNotNull("preparation remains cancellable", clickableChoice(activity.window.decorView, "Annuler la préparation"))
         assertSame(panelBefore, activity.window.decorView.findViewWithTag<View>(MeetingModelSettingsPanel.PANEL_TAG))
 
         controller!!.pause().stop().destroy()
@@ -207,7 +218,7 @@ class MainActivityMeetingModeRobolectricTest {
         assertTrue(states.awaitState { it is MeetingModelStoreState.Error } is MeetingModelStoreState.Error)
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals("a callback after destruction cannot mutate the detached panel", downloadingText, status.text.toString())
+        assertEquals("a callback after destruction cannot mutate the detached panel", preparationText, status.text.toString())
         states.close()
     }
 

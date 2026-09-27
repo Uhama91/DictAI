@@ -1,0 +1,17 @@
+f3da37670bd7f1fd5be51ff1f1643af66eba07e4addab0984436dec7aee5c2b5  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/01-three-voices-return.png
+2bdf6f3817e72c1a2dc7bbab7ba2df4e2cc97efe191449553ae923e6e5f25f30  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/02-homonyms-native-dialog.png
+7ef07b3c851c9cf00c248425462e0b34b27c7068c724418c2423bc1541cba5da  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/03-long-rename-native-dialog.png
+87cfc9228995855ea974b18afaf033ab28341d58d6fbb5803a7f0690939e9d13  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/04-renamed-homonyms.png
+0702a8b77a10a5a710943bfd578824eb568e8532ea1d0cb827c39aec8c83d2ee  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/05-ignored-voice-image-action.png
+f600742aae66206838a5da28d67d5b7bce8cc8b8b7c2efffb98726ca3e34a22d  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/06-focused-edit-field.png
+68311c778ae00ff9ffb082b7efd4ddb868360e2301efae6106ad1f016d948062  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/07-live-save-error.png
+35fe465fdf84ab9d7b3c2e88a7d9e5749d56b34fc95e3a3e97a3095e8636dbc2  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/08-model-download-progress.png
+f3da37670bd7f1fd5be51ff1f1643af66eba07e4addab0984436dec7aee5c2b5  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/09-manual-light-theme.png
+04361291ffa080b9e4560096f4ea3c0789e36e9f5842469dd54515b713d7eb5e  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/10-manual-dark-theme.png
+818a7110d7ccb5c433a2c9e2367edd957d98ea3487c961c8774c9ece6fc42777  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/11-landscape-compact-240x112-normal-font.png
+bda962a69aee806973fb227f4c9792cd9f579f9d595075fde090e482ac2c61da  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/12-landscape-compact-240x112-large-font.png
+27b6df3d137ea61a01cc60fc96742506d05ea4b5ede83d107231f681af9d5ce2  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/13-conversation-aaba-normal-top-portrait-simulated.png
+27b6df3d137ea61a01cc60fc96742506d05ea4b5ede83d107231f681af9d5ce2  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/14-conversation-aaba-normal-bottom-portrait-simulated.png
+74e48de6949fffc19a749fb911f946391a7b4a281f4788bf570b35604f98627c  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/15-conversation-aaba-compact-top-backlog-simulated.png
+06e5bd73aef17ace4b0c6a9a12d07b1babc0c43f0dc2dfb87ef9b917b1db8fcf  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/16-conversation-aaba-compact-voices-unavailable-simulated.png
+0689dcd26558d0dca7b161d184bee79e7c346249ff52396ee253cabca7ecd1ff  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/17-conversation-aaba-compact-bottom-simulated.png

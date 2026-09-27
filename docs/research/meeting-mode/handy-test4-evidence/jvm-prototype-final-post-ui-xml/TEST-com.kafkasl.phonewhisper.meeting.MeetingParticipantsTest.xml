@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingParticipantsTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:13" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="discoversAtMostEightProfilesInFirstSeenOrder" classname="com.kafkasl.phonewhisper.meeting.MeetingParticipantsTest" time="0.0"/>
+  <testcase name="ignoredParticipantKeepsItsIdentity" classname="com.kafkasl.phonewhisper.meeting.MeetingParticipantsTest" time="0.0"/>
+  <testcase name="unassignedAndUnsupportedChannelsNeverCreateProfiles" classname="com.kafkasl.phonewhisper.meeting.MeetingParticipantsTest" time="0.0"/>
+  <testcase name="namesAreSingleLineUnicodeAndLimitedToEightyCodePoints" classname="com.kafkasl.phonewhisper.meeting.MeetingParticipantsTest" time="0.0"/>
+  <testcase name="truncatingAtEightyCodePointsDoesNotSplitAnEmoji" classname="com.kafkasl.phonewhisper.meeting.MeetingParticipantsTest" time="0.001"/>
+  <testcase name="blankRenameRestoresTheDefaultNameWithoutRemovingTheProfile" classname="com.kafkasl.phonewhisper.meeting.MeetingParticipantsTest" time="0.0"/>
+  <testcase name="idsAreScopedToTheSessionAndHomonymsRemainDistinct" classname="com.kafkasl.phonewhisper.meeting.MeetingParticipantsTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

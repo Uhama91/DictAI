@@ -11,9 +11,12 @@ data class MeetingNativeUpdate(
     val audioProcessedMs: Long,
 )
 
-/** Synchronous boundary used by the single meeting worker. */
+/**
+ * Synchronous session calls are owned by the meeting worker; implementations may also deliver live revisions
+ * asynchronously through [setUpdateListener] from another thread.
+ */
 interface MeetingNativeBridge {
-    /** Loads both models and warms the stream; call from the meeting worker, never the UI thread. */
+    /** Opens the resources needed for ASR readiness; optional voice attribution may continue loading asynchronously. */
     fun open(asrPath: String, diarPath: String, language: String): Long
 
     /** Accepts mono 16 kHz PCM16 little-endian bytes; [length] is the number of valid bytes. */
@@ -21,8 +24,24 @@ interface MeetingNativeBridge {
 
     fun finish(handle: Long): List<MeetingNativeUpdate>
 
+    /** Installs or removes a live update callback for this handle; implementations must not retain a removed listener. */
+    fun setUpdateListener(handle: Long, listener: ((MeetingNativeUpdate) -> Unit)?) = Unit
+
+    /** Signals cancellation without closing the handle or waiting for an in-flight native call. Must be idempotent. */
+    fun requestCancel(handle: Long) = Unit
+
+    /**
+     * Returns a content-free cached voice-attribution snapshot. Implementations must not call JNI, block, or wait
+     * for a worker here because the session getter may be read from the UI thread.
+     */
+    fun voiceProgress(handle: Long): MeetingVoiceProgress = MeetingVoiceProgress.EMPTY
+
     fun close(handle: Long)
 }
+
+/** A native handle may remain leased when initialization cleanup itself failed. */
+class MeetingNativeCleanupUncertainException(cause: Throwable) :
+    IllegalStateException("Meeting native resources could not be confirmed released", cause)
 
 internal interface MeetingNativeCalls {
     fun open(asrPath: String, diarPath: String, language: String): Long

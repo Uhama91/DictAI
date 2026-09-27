@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.MainActivityNativeRenderTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:46" hostname="MacBook-Pro-de-Ullie.local" time="1.667">
+  <properties/>
+  <testcase name="homeSmallAndLargeFontRendersWithoutClipping" classname="com.kafkasl.phonewhisper.MainActivityNativeRenderTest" time="0.407"/>
+  <testcase name="compactWaveWritesNativeAnimationFramesForReview" classname="com.kafkasl.phonewhisper.MainActivityNativeRenderTest" time="1.035"/>
+  <testcase name="homeLightRendersAtTargetCanvasSize" classname="com.kafkasl.phonewhisper.MainActivityNativeRenderTest" time="0.104"/>
+  <testcase name="homeDarkRendersAtTargetCanvasSize" classname="com.kafkasl.phonewhisper.MainActivityNativeRenderTest" time="0.09"/>
+  <testcase name="compactWaveRendersRestAndVoiceStatesToTheEdges" classname="com.kafkasl.phonewhisper.MainActivityNativeRenderTest" time="0.031"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

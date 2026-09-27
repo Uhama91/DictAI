@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayStoredMediaRobolectricTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.112">
+  <properties/>
+  <testcase name="deletingNativeImageBlockRemovesItsReferencesAndImagesFromTheNoteAndStrip" classname="com.kafkasl.phonewhisper.OverlayStoredMediaRobolectricTest" time="0.046"/>
+  <testcase name="historicalNoteOpensAsNativeBlockAndKeepsImagesThroughEditSaveAndReopen" classname="com.kafkasl.phonewhisper.OverlayStoredMediaRobolectricTest" time="0.066"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

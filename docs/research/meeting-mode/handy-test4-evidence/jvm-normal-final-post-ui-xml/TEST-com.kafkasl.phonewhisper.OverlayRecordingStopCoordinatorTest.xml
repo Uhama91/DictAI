@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:51" hostname="MacBook-Pro-de-Ullie.local" time="0.004">
+  <properties/>
+  <testcase name="failed_stop_still_confirms_a_successful_release" classname="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" time="0.0"/>
+  <testcase name="resident_close_is_dispatched_without_running_on_the_caller" classname="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" time="0.0"/>
+  <testcase name="failed_release_never_confirms_release_but_keeps_snapshot_order" classname="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" time="0.0"/>
+  <testcase name="timed_out_join_defers_release_and_snapshot_until_the_blocked_reader_exits" classname="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" time="0.002"/>
+  <testcase name="already_loaded_guard_releases_loading_ownership" classname="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" time="0.0"/>
+  <testcase name="destroyed_lifecycle_rejects_a_late_engine_publication" classname="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" time="0.0"/>
+  <testcase name="active_load_guard_never_reads_the_potentially_locked_resident_engine" classname="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" time="0.001"/>
+  <testcase name="completed_stop_joins_releases_then_snapshots_in_order" classname="com.kafkasl.phonewhisper.OverlayRecordingStopCoordinatorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

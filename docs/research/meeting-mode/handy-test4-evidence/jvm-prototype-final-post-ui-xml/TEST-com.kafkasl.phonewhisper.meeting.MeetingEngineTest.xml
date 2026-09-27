@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" tests="33" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:11" hostname="MacBook-Pro-de-Ullie.local" time="0.376">
+  <properties/>
+  <testcase name="cancel signals native outside the worker and suppresses late listener updates" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.003"/>
+  <testcase name="empty checkpoint resolves without producing a final and remains deterministic after finish" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.002"/>
+  <testcase name="spool quota reports a safe limit error and cancellation still closes the native lease" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.002"/>
+  <testcase name="cancel clears spooled backlog after blocked native accept and rejects late updates" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.011"/>
+  <testcase name="hybrid worker setup cleanup failure after Handy acquisition poisons the engine" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="late listener callbacks are rejected during and after native close" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="open and warmup failures report safe errors and release the engine for retry" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.003"/>
+  <testcase name="cancel returns while an admitted update callback is blocked and suppresses the next update" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.0"/>
+  <testcase name="cancel during open defers close and suppresses all later callbacks" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="progress remains nonnegative when admission races cancellation" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="cancel during native finish suppresses its late final update" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.0"/>
+  <testcase name="cancel returns while an admitted pcm offer is blocked on queue storage" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.002"/>
+  <testcase name="saturated queue rejects new pcm without dropping accepted blocks" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="uncertain cleanup reported while opening poisons the engine lease" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.0"/>
+  <testcase name="bounded private spool accepts over ten seconds and finish drains exact pcm fifo" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.076"/>
+  <testcase name="finish drains accepted pcm in order and emits final once with the session run id" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.002"/>
+  <testcase name="checkpoint waits for publication callback after native accept returns" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="cancel during open signals native as soon as the handle becomes available" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.0"/>
+  <testcase name="input before ready and finish during open do not publish or invent a final" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.0"/>
+  <testcase name="progress marks queued pcm discarded on cancel while retaining native work in flight" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.004"/>
+  <testcase name="listener publishes final and later diarization revisions while finish is blocked" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="pcm input validation rejects malformed blocks and accepts only bounded even samples" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="native failure fails a pending checkpoint with a constant safe error" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.0"/>
+  <testcase name="progress includes an in-flight native block and measures its monotonic wall cost" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.002"/>
+  <testcase name="checkpoint waits for in flight native accept when queue is already empty" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="cancel fails a pending checkpoint promptly with a constant safe error" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="voice progress reads a changing bridge cache while accept is blocked and keeps it after close" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.0"/>
+  <testcase name="closing waits for an active listener callback without blocking cancel" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.253"/>
+  <testcase name="checkpoint snapshots accepted blocks and later audio belongs to the next barrier" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.002"/>
+  <testcase name="listener is installed before ready and publishes while accept is blocked" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="checkpoint completion does not hold the state lock" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="cancel during native accept waits for worker close and drops returned updates" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <testcase name="close failure completes exceptionally and permanently prevents another session" classname="com.kafkasl.phonewhisper.meeting.MeetingEngineTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

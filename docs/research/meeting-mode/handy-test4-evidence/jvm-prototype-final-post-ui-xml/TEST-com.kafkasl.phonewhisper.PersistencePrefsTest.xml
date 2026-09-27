@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.PersistencePrefsTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="clamp_keepsInBounds" classname="com.kafkasl.phonewhisper.PersistencePrefsTest" time="0.001"/>
+  <testcase name="invalid saved edge is rejected so legacy migration can run" classname="com.kafkasl.phonewhisper.PersistencePrefsTest" time="0.0"/>
+  <testcase name="legacy coordinates migrate to a persisted edge anchor" classname="com.kafkasl.phonewhisper.PersistencePrefsTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

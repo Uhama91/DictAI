@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.TranscriptFollowStateTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:58" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="typingSelectionAndCompositionKeepCaretOwnershipUntilSettledThenFollowViewport" classname="com.kafkasl.phonewhisper.TranscriptFollowStateTest" time="0.0"/>
+  <testcase name="aNewDictationDoesNotInheritOldEditingOrScrollRequests" classname="com.kafkasl.phonewhisper.TranscriptFollowStateTest" time="0.0"/>
+  <testcase name="editingFlagDoesNotBlockSettledRecognitionFromFollowingTheTail" classname="com.kafkasl.phonewhisper.TranscriptFollowStateTest" time="0.0"/>
+  <testcase name="readingAndCorrectingKeepsTheViewportEvenAfterTheTypingTimeout" classname="com.kafkasl.phonewhisper.TranscriptFollowStateTest" time="0.0"/>
+  <testcase name="newRecognitionFollowsWithoutDependingOnEditorFocus" classname="com.kafkasl.phonewhisper.TranscriptFollowStateTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

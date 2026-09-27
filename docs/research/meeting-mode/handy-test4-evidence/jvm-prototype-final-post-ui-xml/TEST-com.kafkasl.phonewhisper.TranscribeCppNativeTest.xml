@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.TranscribeCppNativeTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="closing_twice_frees_the_native_handle_once_and_blocks_further_calls" classname="com.kafkasl.phonewhisper.TranscribeCppNativeTest" time="0.0"/>
+  <testcase name="feed_and_finish_return_the_native_text_snapshot_without_reconstructing_it" classname="com.kafkasl.phonewhisper.TranscribeCppNativeTest" time="0.0"/>
+  <testcase name="begin_passes_the_requested_BCP47_locale_to_JNI" classname="com.kafkasl.phonewhisper.TranscribeCppNativeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

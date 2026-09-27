@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" tests="22" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:00" hostname="MacBook-Pro-de-Ullie.local" time="0.27">
+  <properties/>
+  <testcase name="limitFailureDoesNotApplyOrClearTheAcceptedReservation" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.014"/>
+  <testcase name="rebaseReinsertsMissingMarkersInOriginalCaptureOrderAfterRetouch" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.012"/>
+  <testcase name="unresolvedNumberPersistenceFailurePrecedesDocumentMutationAndFlush" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.016"/>
+  <testcase name="prepareCaptureInsertsAtUtf16OffsetAndPreservesExistingImageOrder" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.017"/>
+  <testcase name="ignoredOrRetouchedSpeechIsEditedInItsUnderlyingBody" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.02"/>
+  <testcase name="mainThreadCompletionIsDispatchedBeforeSavingOrClearing" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.021"/>
+  <testcase name="duplicateIdsAreIgnoredAndCollidingImageNumbersAreReassigned" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.022"/>
+  <testcase name="deliveryOrdersMutationFlushSaveAndClearAndDoesNotClearOnFailure" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.016"/>
+  <testcase name="concurrentEditsCannotCauseAnUnboundedDraftFlushLoop" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.016"/>
+  <testcase name="retryingSameBatchIsIdempotentAndDoesNotDuplicateMarkerOrAttachment" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.006"/>
+  <testcase name="offsetInsideSurrogatePairIsMovedToSafeUtf16BoundaryWithoutDamagingText" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.006"/>
+  <testcase name="deliveryRebasesOnEditsMadeWhileDraftFlushWasInFlight" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.007"/>
+  <testcase name="resolvedNumbersSurviveDraftFlushThenRetryWithStaleNoteAttachments" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.007"/>
+  <testcase name="missingTurnFallsBackToVisibleDocumentTurnAndReportsRestoration" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.007"/>
+  <testcase name="recoveryNeverTreatsAnOtherSessionLiveDocumentAsTheCaptureTarget" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.016"/>
+  <testcase name="moveAndRemoveMutateOnlyMeetingBodiesAndKeepAttachmentOwnershipExplicit" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.021"/>
+  <testcase name="recoveryPrefersMatchingLiveThenMatchingDraftThenMatchingStructuredNote" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.01"/>
+  <testcase name="rebaseRefusesCurrentAttachmentWithDifferentDurableNumber" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.007"/>
+  <testcase name="persistsResolvedImagesInCaptureOrderWhenBatchContainsExistingIds" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.007"/>
+  <testcase name="globalTenImageLimitDoesNotCreateAnUnattachedMarker" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.007"/>
+  <testcase name="captureAnchorStoresSessionTurnAndUtf16Offset" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.006"/>
+  <testcase name="draftFailureRetainsTheReservationForExplicitRetry" classname="com.kafkasl.phonewhisper.meeting.MeetingImageOperationsTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

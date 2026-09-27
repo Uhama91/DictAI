@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NoteCameraActivityRobolectricTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:48" hostname="MacBook-Pro-de-Ullie.local" time="0.575">
+  <properties/>
+  <testcase name="compactAndExpandedLayoutsUseTheSamePhoneAndKeepAllBatchControlsVisible" classname="com.kafkasl.phonewhisper.NoteCameraActivityRobolectricTest" time="0.268"/>
+  <testcase name="explicitThemeReconfigurationKeepsTheWrapperAndTextureViewSafe" classname="com.kafkasl.phonewhisper.NoteCameraActivityRobolectricTest" time="0.048"/>
+  <testcase name="expandedControlsStayAccessibleOnANarrowShortScreenWithLargeText" classname="com.kafkasl.phonewhisper.NoteCameraActivityRobolectricTest" time="0.082"/>
+  <testcase name="androidTextureViewRejectsBackgroundThatCausedTheOriginalCrash" classname="com.kafkasl.phonewhisper.NoteCameraActivityRobolectricTest" time="0.009"/>
+  <testcase name="viewfinderDecoratesWrapperWithoutSettingTextureViewBackground" classname="com.kafkasl.phonewhisper.NoteCameraActivityRobolectricTest" time="0.036"/>
+  <testcase name="landscapeKeepsThePreviewAttachedAndAllActionsInsideTheShortViewport" classname="com.kafkasl.phonewhisper.NoteCameraActivityRobolectricTest" time="0.088"/>
+  <testcase name="scannerHandoffDoesNotFinishTheCameraOrFailItsPendingBatch" classname="com.kafkasl.phonewhisper.NoteCameraActivityRobolectricTest" time="0.044"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

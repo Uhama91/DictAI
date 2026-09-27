@@ -1,0 +1,4 @@
+0ad1d9dd283a2d33edf6e42b19db6d1cfcc0e3a332c234bd1dec8ab1d74d0732  application APK  app/build/reports/meeting/conversation-2026-09-27/test4-compact-fix/dictai-meeting-test4-compact-fix.apk
+d6db33d57fccbc6313eb0b045398fef5d0df6f4cab5621f07e8a4a55320951c6  androidTest APK  app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546  app/src/main/jniLibs/arm64-v8a/libdictai_meeting.so
+68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b  app/src/main/jniLibs/arm64-v8a/libtranscribe_jni.so

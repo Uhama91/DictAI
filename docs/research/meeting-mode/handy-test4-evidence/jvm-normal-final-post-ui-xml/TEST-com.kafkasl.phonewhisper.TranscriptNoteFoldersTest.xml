@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.TranscriptNoteFoldersTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:58" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="initial folder choice is consumed once and does not repeat on later saves" classname="com.kafkasl.phonewhisper.TranscriptNoteFoldersTest" time="0.0"/>
+  <testcase name="empty folders can be renamed and deleting one safely unfiles its notes" classname="com.kafkasl.phonewhisper.TranscriptNoteFoldersTest" time="0.001"/>
+  <testcase name="new notes stay folderless and old notes remain readable" classname="com.kafkasl.phonewhisper.TranscriptNoteFoldersTest" time="0.0"/>
+  <testcase name="notes move into an existing or newly created folder and back to no folder" classname="com.kafkasl.phonewhisper.TranscriptNoteFoldersTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

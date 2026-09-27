@@ -1,0 +1,118 @@
+{
+  "finalApks": {
+    "androidTestSha256": "d6db33d57fccbc6313eb0b045398fef5d0df6f4cab5621f07e8a4a55320951c6",
+    "applicationSha256": "0ad1d9dd283a2d33edf6e42b19db6d1cfcc0e3a332c234bd1dec8ab1d74d0732",
+    "meetingJniSha256": "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546",
+    "transcribeJniSha256": "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b",
+    "androidTestPath": "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
+    "androidTestSizeBytes": 2349855
+  },
+  "hostSuites": {
+    "jvmMeetingPrototype": {
+      "errors": 0,
+      "failures": 0,
+      "log": "full-jvm-prototype-final-post-ui.log",
+      "skipped": 0,
+      "tests": 1099,
+      "xmlDirectory": "jvm-prototype-final-post-ui-xml",
+      "xmlFiles": 135
+    },
+    "jvmNormal": {
+      "errors": 0,
+      "failures": 0,
+      "log": "full-jvm-normal-final-post-ui.log",
+      "skipped": 0,
+      "tests": 1099,
+      "xmlDirectory": "jvm-normal-final-post-ui-xml",
+      "xmlFiles": 135
+    },
+    "pythonApkPackager": {
+      "failures": 0,
+      "log": "python-apk-packager.log",
+      "tests": 11
+    },
+    "pythonNativeTooling": {
+      "failures": 0,
+      "log": "python-native-tooling.log",
+      "tests": 16
+    }
+  },
+  "instrumentation": {
+    "engineIntegrated": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 1
+    },
+    "shortHandyDiarHandy": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 1
+    },
+    "sustained64sHandyDiar": {
+      "errors": 0,
+      "failures": 1,
+      "skipped": 0,
+      "tests": 1
+    },
+    "finalUiPanelFixture": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 19.957,
+      "runnerEvidence": "android-final/fixture-runner-tool-transcription.txt",
+      "fixtureSha256": "910c2aea3d39f9be0de4bfc6bd015cfbd8e0f30361c0519da05643e7bc207a94",
+      "applicationSha256": "0ad1d9dd283a2d33edf6e42b19db6d1cfcc0e3a332c234bd1dec8ab1d74d0732",
+      "androidTestSha256": "d6db33d57fccbc6313eb0b045398fef5d0df6f4cab5621f07e8a4a55320951c6",
+      "contentBoundary": "simulated UI states; no model or audio loaded; turns=0",
+      "captures": {
+        "directory": "../ui-renders/handy-test4/final-panel-fixture-v3-clean",
+        "total": 17,
+        "portrait1080x2400": 12,
+        "landscape2400x1080": 5
+      }
+    },
+    "finalUiGestures": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 22.916,
+      "runnerEvidence": "ui-runs/meeting-overlay-gestures-final-runner.log",
+      "applicationSha256": "0ad1d9dd283a2d33edf6e42b19db6d1cfcc0e3a332c234bd1dec8ab1d74d0732",
+      "androidTestSha256": "a73384dce0c6ca5c5d9afe46dcd7e7b2cd541c45aa07ed2b3034c783b8b94131",
+      "interactionBoundary": "real Android UI gestures; meeting content simulated; turns=0",
+      "captures": 13
+    },
+    "finalUiRuntime": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 25.792,
+      "runnerEvidence": "ui-runs/meeting-overlay-default-runtime-final-runner.log",
+      "applicationSha256": "0ad1d9dd283a2d33edf6e42b19db6d1cfcc0e3a332c234bd1dec8ab1d74d0732",
+      "androidTestSha256": "a73384dce0c6ca5c5d9afe46dcd7e7b2cd541c45aa07ed2b3034c783b8b94131",
+      "runtimeBoundary": "production JNI and AudioRecord path on AVD; turns=0",
+      "captures": 2
+    },
+    "finalUiRestoration": {
+      "evidence": "android-final/artifact-identity-and-restoration.md",
+      "currentUser": 0,
+      "recordAudioDeniedUsers": [
+        0,
+        10
+      ],
+      "systemAlertWindowAppOpUser0": "default",
+      "systemAlertWindowAppOpUser10": "default; no explicit operation",
+      "screenOffTimeoutMs": {
+        "user0": 2147483647,
+        "user10": 60000
+      },
+      "overlayServiceActive": false
+    }
+  },
+  "sourceManifestFiles": 61
+}

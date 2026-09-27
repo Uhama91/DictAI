@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.DictationTapGestureCoordinatorTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:47" hostname="MacBook-Pro-de-Ullie.local" time="0.003">
+  <properties/>
+  <testcase name="exact_boundary_is_not_a_double_tap_and_rearms_processing_window" classname="com.kafkasl.phonewhisper.DictationTapGestureCoordinatorTest" time="0.002"/>
+  <testcase name="established_recording_single_tap_stops_only_when_its_timeout_expires" classname="com.kafkasl.phonewhisper.DictationTapGestureCoordinatorTest" time="0.0"/>
+  <testcase name="stale_recording_timeout_is_a_no_op_after_double_tap_stops" classname="com.kafkasl.phonewhisper.DictationTapGestureCoordinatorTest" time="0.0"/>
+  <testcase name="mic_unarmed_prompts_for_setup_before_opening_app" classname="com.kafkasl.phonewhisper.DictationTapGestureCoordinatorTest" time="0.0"/>
+  <testcase name="established_recording_double_tap_stops_without_cancelling_the_session" classname="com.kafkasl.phonewhisper.DictationTapGestureCoordinatorTest" time="0.0"/>
+  <testcase name="processing_double_tap_keeps_the_processing_run_active" classname="com.kafkasl.phonewhisper.DictationTapGestureCoordinatorTest" time="0.0"/>
+  <testcase name="idle_double_tap_keeps_legacy_cancel_and_open_app_behavior" classname="com.kafkasl.phonewhisper.DictationTapGestureCoordinatorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

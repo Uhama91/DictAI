@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayExportControllerTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:50" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="bridge request made while foreground is consumed once" classname="com.kafkasl.phonewhisper.OverlayExportControllerTest" time="0.0"/>
+  <testcase name="bridge restore waits for resume and window focus in either order" classname="com.kafkasl.phonewhisper.OverlayExportControllerTest" time="0.0"/>
+  <testcase name="a newer export invalidates an older generation" classname="com.kafkasl.phonewhisper.OverlayExportControllerTest" time="0.0"/>
+  <testcase name="bridge remains pending across background until both signals return" classname="com.kafkasl.phonewhisper.OverlayExportControllerTest" time="0.0"/>
+  <testcase name="closing export invalidates the current generation" classname="com.kafkasl.phonewhisper.OverlayExportControllerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

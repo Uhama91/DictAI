@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:48" hostname="MacBook-Pro-de-Ullie.local" time="0.008">
+  <properties/>
+  <testcase name="failed initialization without a native handle does not call close or poison admission" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.002"/>
+  <testcase name="reservation barrier waits for already-started native generation" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.001"/>
+  <testcase name="global process poison prevents later Gemma destruction calls" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.002"/>
+  <testcase name="close failure wins over cancellation and poisons future reservations" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.0"/>
+  <testcase name="queued work rechecks before loading and an in-flight load rechecks before conversation" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.001"/>
+  <testcase name="only one of two concurrent meeting reservations reaches the worker" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.0"/>
+  <testcase name="a close failure before meeting request remains poisoned across later owners" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.0"/>
+  <testcase name="conversation engine and initialized failed init close errors poison the shared admission boundary" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.001"/>
+  <testcase name="process poison rejects formatter admission queued work and conversation boundary" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.0"/>
+  <testcase name="uncertain conversation or engine close permanently suppresses later native destroy attempts" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.0"/>
+  <testcase name="cancel waits for safe close before completing exceptionally and reopening admission" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.001"/>
+  <testcase name="reservation closes immediately at admission boundary and watchdog return cannot release it" classname="com.kafkasl.phonewhisper.LocalFormatEngineReservationTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

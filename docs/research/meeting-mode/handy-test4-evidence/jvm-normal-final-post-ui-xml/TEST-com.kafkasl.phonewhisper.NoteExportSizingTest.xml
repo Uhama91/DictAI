@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NoteExportSizingTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:49" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="camera photos fit a compact box without changing proportions" classname="com.kafkasl.phonewhisper.NoteExportSizingTest" time="0.0"/>
+  <testcase name="screenshots fit a larger document box" classname="com.kafkasl.phonewhisper.NoteExportSizingTest" time="0.0"/>
+  <testcase name="small source images are never enlarged" classname="com.kafkasl.phonewhisper.NoteExportSizingTest" time="0.001"/>
+  <testcase name="source dimensions must be positive" classname="com.kafkasl.phonewhisper.NoteExportSizingTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

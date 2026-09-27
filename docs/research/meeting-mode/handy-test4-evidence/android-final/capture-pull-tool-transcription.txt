@@ -1,0 +1,11 @@
+Provenance: faithful transcription of the `functions.exec` result returned by
+the final ADB pull on 2026-09-27. The original output was not redirected to a
+file.
+
+Command:
+adb -s emulator-5558 pull \
+  /sdcard/Android/data/com.uhama.whisperpin.meetingtest/files/meeting-ui-fixtures-simulated-v2 \
+  docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean
+
+Observed output:
+/sdcard/Android/data/com.uhama.whisperpin.meetingtest/files/meeting-ui-fixtures-simulated-v2/: 17 files pulled, 0 skipped. 12.1 MB/s (1344252 bytes in 0.106s)

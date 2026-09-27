@@ -1,0 +1,18 @@
+Provenance: transcription faithful to the stdout returned by the final
+`functions.exec` instrumentation session on 2026-09-27. The command output was
+not redirected to a raw log file. This is not the older
+`/tmp/meeting-test4-panel-fixture-final.log` run (12.683 s).
+
+Command:
+adb -s emulator-5558 shell am instrument -w -e class \
+  com.kafkasl.phonewhisper.meeting.MeetingPanelNativeFixtureCaptureAndroidTest \
+  com.uhama.whisperpin.meetingtest.test/androidx.test.runner.AndroidJUnitRunner
+
+Observed stdout:
+
+com.kafkasl.phonewhisper.meeting.MeetingPanelNativeFixtureCaptureAndroidTest:
+.
+
+Time: 19.957
+
+OK (1 test)

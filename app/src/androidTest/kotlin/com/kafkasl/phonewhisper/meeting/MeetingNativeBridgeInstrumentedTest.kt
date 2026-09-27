@@ -120,7 +120,7 @@ class MeetingNativeBridgeInstrumentedTest {
                     "openMs=${cycleOne.openMs} streamCallMs=${cycleOne.streamCallMs} " +
                     "streamWallMs=${cycleOne.streamWallMs} finishMs=${cycleOne.finishMs} " +
                     "secondOpenMs=${cycleTwo.openMs} diarSpeakers=8 " +
-                    "oldRuntimeLibrariesLoaded=$OLD_RUNTIME_LIBRARIES_COUNT " +
+                    "runtimeLibrariesLoaded=$RUNTIME_LIBRARIES_COUNT " +
                     "accentedUtf8=true handlesDistinct=true utteranceIdsRestart=true",
             )
         } finally {
@@ -482,7 +482,7 @@ class MeetingNativeBridgeInstrumentedTest {
         private const val PUSH_CHUNK_BYTES = 5_120
         private const val SECOND_SESSION_FEED_MS = 6_000L
         private const val PCM_BYTES_PER_SECOND = 32_000L
-        private val OLD_RUNTIME_LIBRARIES = listOf(
+        private val RUNTIME_LIBRARIES = listOf(
             "libggml-base.so" to "28fb26bbcd77b709989cbd9300c882031d61a16cdcace2d58e3aa399ac10a9e2",
             "libggml-cpu.so" to "f6d0c48bca18f4138bd5d232a0ac3504f96abeaa22c5598014729db1d3fd22d5",
             "libggml.so" to "a041d176dfb8129a200bd6eb1cef9403481b8f31901c1db70bcb4b8ac923399b",
@@ -491,9 +491,9 @@ class MeetingNativeBridgeInstrumentedTest {
             "libsherpa-onnx-cxx-api.so" to "5c55b5fc02057565fe90f26c2f9ace67b7a6676a56d2dcac51fd7c004abe5d0c",
             "libsherpa-onnx-jni.so" to "a79ff75fbe1c3813cc239037b458a7828298a90a5b77f5314056508eefdf72bc",
             "libtranscribe.so" to "e7878a83c00e70a11ac8bc05d6ba43685fb0edea865dcdd81f52e79442a5c4e4",
-            "libtranscribe_jni.so" to "32e543d9f18ad3bcae32ab83622fc45f83589e9433960bc1a650007ea5d1954e",
+            "libtranscribe_jni.so" to "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b",
         )
-        private var OLD_RUNTIME_LIBRARIES_COUNT = 0
+        private var RUNTIME_LIBRARIES_COUNT = 0
 
         private fun sha256Stream(input: InputStream): String {
             val digest = MessageDigest.getInstance("SHA-256")
@@ -513,21 +513,21 @@ class MeetingNativeBridgeInstrumentedTest {
             assertTrue("T4e must run on the selected arm64 AVD", Build.SUPPORTED_ABIS.contains("arm64-v8a"))
             val apkFile = File(context.applicationInfo.sourceDir)
             ZipFile(apkFile).use { apk ->
-                OLD_RUNTIME_LIBRARIES.forEach { (libraryName, expectedSha256) ->
+            RUNTIME_LIBRARIES.forEach { (libraryName, expectedSha256) ->
                     val entry = apk.getEntry("lib/arm64-v8a/$libraryName")
                         ?: throw AssertionError("existing Dictation runtime library must be packaged: $libraryName")
                     val actualSha256 = apk.getInputStream(entry).use { input -> sha256Stream(input) }
                     assertEquals(
-                        "existing runtime bytes must remain unchanged: $libraryName",
+                        "packaged native runtime identity must match the tested bundle: $libraryName",
                         expectedSha256,
                         actualSha256,
                     )
                 }
             }
-            OLD_RUNTIME_LIBRARIES.forEach { (libraryName, _) ->
+            RUNTIME_LIBRARIES.forEach { (libraryName, _) ->
                 System.loadLibrary(libraryName.removePrefix("lib").removeSuffix(".so"))
             }
-            OLD_RUNTIME_LIBRARIES_COUNT = OLD_RUNTIME_LIBRARIES.size
+            RUNTIME_LIBRARIES_COUNT = RUNTIME_LIBRARIES.size
         }
     }
 }

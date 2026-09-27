@@ -12,6 +12,11 @@ internal fun interface MeetingAudioRecorderFactory {
     fun create(sampleRateHz: Int, blockBytes: Int): MeetingAudioRecorder
 }
 
+internal fun meetingAudioRecordBufferSize(minBufferBytes: Int, blockBytes: Int): Int =
+    maxOf(minBufferBytes, MIN_AUDIO_RECORD_BUFFER_BYTES, blockBytes * 2)
+
+private const val MIN_AUDIO_RECORD_BUFFER_BYTES = 6_400
+
 /** Narrow seam around AudioRecord so JVM tests never access Android's microphone service. */
 internal interface MeetingAudioRecorder {
     val initialized: Boolean
@@ -371,7 +376,7 @@ internal class MeetingAudioRecord(
 
     private companion object {
         const val SAMPLE_RATE_HZ = 16_000
-        const val DEFAULT_BLOCK_BYTES = 3_200
+        const val DEFAULT_BLOCK_BYTES = 640
         const val MAX_BLOCK_BYTES = 8_192
 
         fun createAndroidRecorder(sampleRateHz: Int, blockBytes: Int): MeetingAudioRecorder {
@@ -386,7 +391,7 @@ internal class MeetingAudioRecord(
                 sampleRateHz,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
-                maxOf(minBufferBytes, blockBytes * 2),
+                meetingAudioRecordBufferSize(minBufferBytes, blockBytes),
             )
             return object : MeetingAudioRecorder {
                 override val initialized: Boolean

@@ -59,7 +59,8 @@ data class MeetingModelCatalog(
             name.removePrefix(packageDirectoryPrefix).matches(Regex("[A-Fa-f0-9-]{1,80}"))
 
     companion object {
-        val production = MeetingModelCatalog(
+        /** Previously shipped v1 package, consulted only for a verified diarization-cache source. */
+        internal val previousForReuse = MeetingModelCatalog(
             packageName = "dictai-meeting-models",
             version = "v1-asr-1c8deae-diar-f667ed73",
             asr = MeetingModelArtifact(
@@ -70,6 +71,29 @@ data class MeetingModelCatalog(
                     "nemotron-3.5-asr-streaming-0.6b.q8_0.gguf",
                 sizeBytes = 741_548_352L,
                 sha256 = "a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae",
+            ),
+            diarization = MeetingModelArtifact(
+                id = "diarization",
+                relativePath = "Nemotron-3-Diarization.q8_0.gguf",
+                url = "https://huggingface.co/nvidia/Nemotron-3-Diarization/resolve/" +
+                    "f667ed73aee57d40cc39428eb768b4fd87a0a29e/" +
+                    "Nemotron-3-Diarization.q8_0.gguf",
+                sizeBytes = 107_012_128L,
+                sha256 = "08456d9e22cd9a323c0364d98375f3746d6e68507ebb705cd46438c534c7a3a1",
+            ),
+        )
+
+        val production = MeetingModelCatalog(
+            packageName = "dictai-meeting-models",
+            version = "v2-asr-6d44e540-diar-f667ed73",
+            asr = MeetingModelArtifact(
+                id = "asr",
+                relativePath = "nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf",
+                url = "https://huggingface.co/handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf/resolve/" +
+                    "6d44e540bc31b0de1dbe174a3cea87f53a7f22fb/" +
+                    "nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf",
+                sizeBytes = 751_094_240L,
+                sha256 = "b94545b313b3223fda7b2857a52681da813935c2127643d1e9ff0c23d988089c",
             ),
             diarization = MeetingModelArtifact(
                 id = "diarization",

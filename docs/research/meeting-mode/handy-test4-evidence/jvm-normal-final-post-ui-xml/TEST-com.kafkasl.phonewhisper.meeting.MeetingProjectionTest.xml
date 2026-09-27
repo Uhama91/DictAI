@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" tests="19" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:01" hostname="MacBook-Pro-de-Ullie.local" time="0.002">
+  <properties/>
+  <testcase name="keepEmptyTurnsRetainsEditorAnchorsButTextExportOmitsThem" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="emptyOrWhitespaceEditedTextDoesNotFallBackToRecognizedText" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="filtersIgnoredStableAndManuallyAssignedTurns" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="manualAssignmentOnDocumentaryTurnIsPreserved" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="manualUnknownAssignmentOverridesAnIgnoredAutomaticCandidate" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="manualVisibleParticipantOverridesAnIgnoredAutomaticCandidate" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="alignedSegmentsFollowAudioTimeInsteadOfUtteranceSnapshotOrder" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="adjacentShortTurnsForOneSpeakerShareAHeadingButARealSpeakerChangeRestartsIt" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="audioIntervalsSurviveProjectionButAnUnalignedFallbackGetsNoInventedTime" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="ignoredStableVoiceKeepsOnlyKnownImagesAndNeverExposesItsSpeech" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="renamingUpdatesOnlyTheLabelAndUsesFirstDiscoveryOrder" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="reShowingParticipantRestoresTheExactEditedText" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.001"/>
+  <testcase name="unstableIgnoredCandidateRemainsVisibleAsUnconfirmed" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="chronologicalSortDoesNotCrossAnUntimedTranscriptBarrier" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="onlyTheAlignedWordsInATranscriptWithUnalignedEdgesGetAudioTimes" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="unknownOrManuallyUnassignedSpeakersNeverShareAVisualHeading" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="documentaryTurnHasNoInventedSpeakerAndRemainsEditable" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="equalAudioStartTimesPreserveTheSourceOrderAcrossRevisions" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <testcase name="ignoredImageAndDocumentaryRowsBreakSpeakerGrouping" classname="com.kafkasl.phonewhisper.meeting.MeetingProjectionTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

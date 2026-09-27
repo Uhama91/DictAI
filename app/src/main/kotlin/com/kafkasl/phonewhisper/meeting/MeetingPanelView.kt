@@ -72,7 +72,7 @@ internal class MeetingPanelView(context: Context) : LinearLayout(context) {
         statusRow.addView(statusView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         statusRow.addView(cancelButton, LayoutParams(LayoutParams.WRAP_CONTENT, dp(48)))
         statusView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-        statusView.maxLines = 1
+        statusView.maxLines = 2
         statusView.ellipsize = android.text.TextUtils.TruncateAt.END
         cancelButton.text = "Annuler"
         cancelButton.isAllCaps = false
@@ -107,6 +107,13 @@ internal class MeetingPanelView(context: Context) : LinearLayout(context) {
         participantsButton.contentDescription = "Ouvrir les $count intervenants"
         renderStatus()
         requestLayout()
+    }
+
+    /** Refreshes just the live status header, leaving the RecyclerView and editors untouched. */
+    internal fun updateStatus(newStatus: MeetingPanelStatus) {
+        if (status == newStatus) return
+        status = newStatus
+        renderStatus()
     }
 
     internal fun refreshTheme() {
@@ -180,14 +187,26 @@ internal class MeetingPanelView(context: Context) : LinearLayout(context) {
         val summary = statusLabel(status)
         val error = status.saveError?.takeIf(String::isNotBlank)
         val inlineSummary = if (error == null) summary else "$summary · Échec de sauvegarde"
-        titleView.text = if (compact) "Réunion · $inlineSummary" else "Réunion"
+        val compactDetail = status.compactSummary
+            ?.takeIf(String::isNotBlank)
+            ?: status.detail
+                ?.takeIf { it.isNotBlank() && it != summary }
+                ?.substringBefore(" · ")
+        titleView.text = if (compact && compactDetail != null) {
+            "$summary\n$compactDetail"
+        } else if (compact) {
+            "Réunion · $inlineSummary"
+        } else "Réunion"
+        titleView.maxLines = if (compact && compactDetail != null) 2 else 1
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, if (compact && compactDetail != null) 12f else 14f)
         titleView.contentDescription = buildString {
             append("Réunion, ").append(summary)
+            status.detail?.takeIf { it.isNotBlank() && it != summary }?.let { append(", ").append(it) }
             error?.let { append(", échec de sauvegarde : ").append(it) }
         }
         statusView.text = buildString {
             append(summary)
-            status.detail?.takeIf(String::isNotBlank)?.let { append(" · ").append(it) }
+            status.detail?.takeIf { it.isNotBlank() && it != summary }?.let { append(" · ").append(it) }
             error?.let { append(" · Échec de sauvegarde : ").append(it) }
         }
         val cancelVisible = status.phase == MeetingPanelStatus.Phase.LOADING ||

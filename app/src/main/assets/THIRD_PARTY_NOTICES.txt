@@ -99,11 +99,7 @@ includes attribution for code derived from parakeet.cpp. It also documents
 optional upstream components; it is not a list of everything linked into
 this Android binary.
 
-The two NVIDIA model files used for meeting transcription and diarization
-are downloaded separately and are not bundled in the APK. Their exact
-revisions, sizes, SHA-256 values, and OpenMDW-1.1 license reference are
-recorded in assets/licenses/meeting/SOURCES.md; the license text is included
-as assets/licenses/meeting/OpenMDW-1.1.txt.
+Meeting test4 uses the Handy GGUF conversion of NVIDIA Nemotron 3.5 ASR for transcription and NVIDIA Nemotron 3 Diarization for voice attribution. Both model files are downloaded separately and are not bundled in the APK. Their exact revisions, sizes, SHA-256 values, and OpenMDW-1.1 license reference are recorded in assets/licenses/meeting/SOURCES.md; the license text is included as assets/licenses/meeting/OpenMDW-1.1.txt.
 
 Scope
 -----

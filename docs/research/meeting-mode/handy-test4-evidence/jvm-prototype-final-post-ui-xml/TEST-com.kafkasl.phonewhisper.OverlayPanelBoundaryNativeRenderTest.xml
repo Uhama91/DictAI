@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayPanelBoundaryNativeRenderTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:02" hostname="MacBook-Pro-de-Ullie.local" time="0.087">
+  <properties/>
+  <testcase name="native boundary scenes render text with pill on either side" classname="com.kafkasl.phonewhisper.OverlayPanelBoundaryNativeRenderTest" time="0.087"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.MeetingNoteExportTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:48" hostname="MacBook-Pro-de-Ullie.local" time="0.02">
+  <properties/>
+  <testcase name="share and html exports reproject current turns and escape html without leaking stale speech" classname="com.kafkasl.phonewhisper.MeetingNoteExportTest" time="0.02"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

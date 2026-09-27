@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.GemmaCallTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:47" hostname="MacBook-Pro-de-Ullie.local" time="0.008">
+  <properties/>
+  <testcase name="streamingConsumersReceiveTheCompletePrefixForProjection" classname="com.kafkasl.phonewhisper.GemmaCallTest" time="0.004"/>
+  <testcase name="aThoughtChannelFailsInsteadOfExposingReasoningAsFinalText" classname="com.kafkasl.phonewhisper.GemmaCallTest" time="0.0"/>
+  <testcase name="deadlineRejectsFragmentsEvenBeforeTheWorkerPollsCancellation" classname="com.kafkasl.phonewhisper.GemmaCallTest" time="0.002"/>
+  <testcase name="nativeErrorUnblocksConversationCleanupWithoutPublishingText" classname="com.kafkasl.phonewhisper.GemmaCallTest" time="0.0"/>
+  <testcase name="cancellationDiscardsCompletionAndLateFragments" classname="com.kafkasl.phonewhisper.GemmaCallTest" time="0.0"/>
+  <testcase name="changingTheSessionEpochSuppressesAnAlreadyQueuedCallback" classname="com.kafkasl.phonewhisper.GemmaCallTest" time="0.001"/>
+  <testcase name="cancellationDoesNotWaitForAConsumerHoldingAnotherLock" classname="com.kafkasl.phonewhisper.GemmaCallTest" time="0.0"/>
+  <testcase name="unsupportedOrOversizedLayoutsCannotStartNativeWork" classname="com.kafkasl.phonewhisper.GemmaCallTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

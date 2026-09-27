@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.PillGestureModeTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:58" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="direct swipe cannot become drag even when held at destination" classname="com.kafkasl.phonewhisper.PillGestureModeTest" time="0.0"/>
+  <testcase name="returning a swipe to origin never turns it into a tap" classname="com.kafkasl.phonewhisper.PillGestureModeTest" time="0.0"/>
+  <testcase name="finger jitter still allows tap or stationary hold" classname="com.kafkasl.phonewhisper.PillGestureModeTest" time="0.0"/>
+  <testcase name="cancel blocks delayed hold and next touch starts fresh" classname="com.kafkasl.phonewhisper.PillGestureModeTest" time="0.0"/>
+  <testcase name="stationary hold arms movement and cannot become a shortcut" classname="com.kafkasl.phonewhisper.PillGestureModeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

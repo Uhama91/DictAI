@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.ModelStorageTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:00" hostname="MacBook-Pro-de-Ullie.local" time="0.014">
+  <properties/>
+  <testcase name="accepts exactly one non-empty GGUF without tokens" classname="com.kafkasl.phonewhisper.ModelStorageTest" time="0.001"/>
+  <testcase name="accepts every offline layout currently supported by runtime" classname="com.kafkasl.phonewhisper.ModelStorageTest" time="0.004"/>
+  <testcase name="rejects folders that cannot be loaded by the runtime" classname="com.kafkasl.phonewhisper.ModelStorageTest" time="0.003"/>
+  <testcase name="publication refuses invalid staging without exposing a final directory" classname="com.kafkasl.phonewhisper.ModelStorageTest" time="0.001"/>
+  <testcase name="ordinary GGUF validation uses the marker without hashing the payload" classname="com.kafkasl.phonewhisper.ModelStorageTest" time="0.002"/>
+  <testcase name="GGUF without an integrity marker is not installed" classname="com.kafkasl.phonewhisper.ModelStorageTest" time="0.0"/>
+  <testcase name="same-size GGUF alteration with normal mtime change is invalid" classname="com.kafkasl.phonewhisper.ModelStorageTest" time="0.002"/>
+  <testcase name="GGUF requires the catalogued artifact name" classname="com.kafkasl.phonewhisper.ModelStorageTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

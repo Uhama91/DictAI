@@ -56,6 +56,9 @@ import com.kafkasl.phonewhisper.meeting.MeetingPanelActions
 import com.kafkasl.phonewhisper.meeting.MeetingPanelController
 import com.kafkasl.phonewhisper.meeting.MeetingPanelSessionCommand
 import com.kafkasl.phonewhisper.meeting.MeetingPanelStatus
+import com.kafkasl.phonewhisper.meeting.MeetingProgressSnapshot
+import com.kafkasl.phonewhisper.meeting.MeetingVoiceProgress
+import com.kafkasl.phonewhisper.meeting.MeetingVoiceState
 
 @RunWith(org.robolectric.RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "mdpi")
@@ -81,6 +84,36 @@ class OverlayServiceMeetingRobolectricTest {
         val sessionCalls: AtomicInteger,
         val microphoneCalls: AtomicInteger,
     )
+
+    private class MutableProgressMeetingSession : MeetingSession {
+        @Volatile
+        var snapshot = MeetingProgressSnapshot.EMPTY
+
+        override val closed = CompletableFuture<Unit>()
+        override val queuedAudioMs: Long get() = snapshot.queuedAudioMs
+        override val progress: MeetingProgressSnapshot get() = snapshot
+        override val voiceProgress = MeetingVoiceProgress(MeetingVoiceState.PREPARING, pendingAudioMs = 0L)
+
+        override fun acceptPcm16(buffer: ByteArray, length: Int): Boolean = true
+        override fun checkpoint(): CompletableFuture<Unit> = CompletableFuture.completedFuture(Unit)
+        override fun finish() = Unit
+        override fun cancel() { closed.complete(Unit) }
+
+        fun setPendingAudioMs(pendingAudioMs: Long) {
+            snapshot = MeetingProgressSnapshot(
+                capturedAudioMs = pendingAudioMs,
+                processedAudioMs = 0L,
+                pendingAudioMs = pendingAudioMs,
+                queuedAudioMs = pendingAudioMs,
+                inFlightAudioMs = 0L,
+                discardedAudioMs = 0L,
+                nativeProcessingMs = 0L,
+                inFlightProcessingMs = 0L,
+                processingCostRatio = null,
+                captureElapsedMs = 0L,
+            )
+        }
+    }
 
     private lateinit var context: Context
     private lateinit var serviceController: ServiceController<OverlayService>
@@ -243,6 +276,53 @@ class OverlayServiceMeetingRobolectricTest {
         val status = field<MeetingPanelStatus>(panel, "status")
         assertEquals("model availability must not replace the active recording phase", MeetingPanelStatus.Phase.LISTENING, status.phase)
         assertEquals("the write error remains attached to the active phase", "Sauvegarde impossible", status.saveError)
+    }
+
+    @Test
+    fun `live progress refresh stops while hidden resumes without a hypothesis and is cleared at finish and destroy`() {
+        openMeetingPanel()
+        val controller = requireNotNull(field<MeetingRecordingController?>(service, "meetingRecordingController"))
+        val session = MutableProgressMeetingSession().apply { setPendingAudioMs(3_000L) }
+        setField(controller, "nativeSession", session)
+        setMeetingState(controller, MeetingRecordingPhase.LISTENING)
+        invokeRenderMeetingState(controller.state)
+        val panel = requireNotNull(field<MeetingPanelController?>(service, "meetingPanelController"))
+        assertTrue("the status timer applies only to the displayed meeting panel", panel.view.isShown)
+        val mainLooper = Shadows.shadowOf(Looper.getMainLooper())
+
+        mainLooper.idleFor(500L, TimeUnit.MILLISECONDS)
+        assertTrue(requireNotNull(findTextContaining(panel.view, "3 s d’audio à traiter")).text.toString()
+            .contains("3 s d’audio à traiter"))
+
+        setMeetingState(controller, MeetingRecordingPhase.PAUSED)
+        invokeRenderMeetingState(controller.state)
+        val hide = requireNotNull(field<View?>(service, "livePanel")).findViewWithTag<View>("overlay-hide-panel")
+        hide.performClick()
+        assertFalse("hiding a paused panel stops the live status timer", panel.view.isShown)
+        mainLooper.idleFor(500L, TimeUnit.MILLISECONDS)
+        assertFalse(field<Boolean>(service, "meetingProgressRefreshPosted"))
+
+        session.setPendingAudioMs(5_000L)
+        setField(service, "panelHidden", false)
+        service.javaClass.getDeclaredMethod("setLivePreviewVisible", Boolean::class.javaPrimitiveType)
+            .apply { isAccessible = true }.invoke(service, true)
+        assertTrue(panel.view.isShown)
+        mainLooper.idleFor(500L, TimeUnit.MILLISECONDS)
+        val resumedStatus = findTextContaining(panel.view, "5 s d’audio à traiter")?.text?.toString()
+        assertTrue(
+            "showing the same paused session resumes status polling without a new hypothesis",
+            resumedStatus?.contains("5 s d’audio à traiter") == true,
+        )
+
+        setMeetingState(controller, MeetingRecordingPhase.FINISHED)
+        invokeRenderMeetingState(controller.state)
+        assertFalse("the ticker is removed when the meeting finishes", field<Boolean>(service, "meetingProgressRefreshPosted"))
+
+        setMeetingState(controller, MeetingRecordingPhase.LISTENING)
+        invokeRenderMeetingState(controller.state)
+        assertTrue(field<Boolean>(service, "meetingProgressRefreshPosted"))
+        serviceController.destroy()
+        assertFalse("service destruction removes the status callback", field<Boolean>(service, "meetingProgressRefreshPosted"))
     }
 
     @Test
@@ -920,6 +1000,12 @@ class OverlayServiceMeetingRobolectricTest {
     private fun setMeetingState(controller: MeetingRecordingController, phase: MeetingRecordingPhase) {
         setControllerPhase(controller, phase)
         setField(service, "meetingControllerState", controller.state)
+    }
+
+    private fun invokeRenderMeetingState(state: MeetingRecordingState) {
+        service.javaClass.getDeclaredMethod(
+            "renderMeetingState", MeetingRecordingState::class.java, MeetingModelStoreState::class.java,
+        ).apply { isAccessible = true }.invoke(service, state, field<MeetingModelStore>(service, "meetingModelStore").currentState)
     }
 
     private fun setServiceState(name: String) {

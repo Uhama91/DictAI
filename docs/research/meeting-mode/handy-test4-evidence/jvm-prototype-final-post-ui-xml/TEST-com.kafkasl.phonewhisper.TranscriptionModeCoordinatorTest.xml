@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.007">
+  <properties/>
+  <testcase name="a Dictation run can finish its in-flight load but a later run cannot steal it" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.001"/>
+  <testcase name="native close poison callback runs outside guard lock and reaches shared mode gate" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.001"/>
+  <testcase name="mode admission and run reservation serialize against each other" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.002"/>
+  <testcase name="queued listener notifications read the current snapshot even when executor order reverses" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="stale preload cannot publish after a mode generation change" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="listeners run outside state lock and one listener failure does not block others" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.001"/>
+  <testcase name="poison fails pending barriers and permanently rejects all admissions" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="meeting barrier remains pending while a rejected preload closes on its worker" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="a ticket arriving after its run was cancelled still blocks Meeting until native close" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.001"/>
+  <testcase name="current run validation checks active owner identity generation mode and poison" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="meeting readiness waits for old preload and for a resident engine close" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="resident close failure during replacement poisons a new owner without retrying native close" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.001"/>
+  <testcase name="late ResidentEngine load is closed on its loading worker rather than published" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="a run lease from another process coordinator is not accepted even when ids match" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="mode preference defaults safely and survives reopening" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <testcase name="a run keeps the mode locked until its idempotent safe close" classname="com.kafkasl.phonewhisper.TranscriptionModeCoordinatorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

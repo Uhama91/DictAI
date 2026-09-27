@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.DictationAsrEngineTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:35" hostname="MacBook-Pro-de-Ullie.local" time="0.022">
+  <properties/>
+  <testcase name="streaming cancel is delegated" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.006"/>
+  <testcase name="streaming empty maps no text and no error" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.0"/>
+  <testcase name="batch model invokes only batch loader" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.001"/>
+  <testcase name="streaming timeout maps expiration error" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.012"/>
+  <testcase name="streaming failure maps unavailable error" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.0"/>
+  <testcase name="batch finish delegates the complete PCM once" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.002"/>
+  <testcase name="missing selected backend returns null" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.0"/>
+  <testcase name="streaming success maps text" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.0"/>
+  <testcase name="streaming model invokes only streaming loader" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.001"/>
+  <testcase name="streaming cancel and await is delegated with its result" classname="com.kafkasl.phonewhisper.DictationAsrEngineTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

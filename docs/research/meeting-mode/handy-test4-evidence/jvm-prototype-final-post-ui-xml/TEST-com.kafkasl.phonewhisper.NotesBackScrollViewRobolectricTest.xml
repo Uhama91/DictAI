@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NotesBackScrollViewRobolectricTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:01" hostname="MacBook-Pro-de-Ullie.local" time="0.096">
+  <properties/>
+  <testcase name="shortOrLeftSwipeDoesNotNavigateOrActivateTheRow" classname="com.kafkasl.phonewhisper.NotesBackScrollViewRobolectricTest" time="0.043"/>
+  <testcase name="rightSwipeOnNotesRowReturnsWithoutActivatingTheNote" classname="com.kafkasl.phonewhisper.NotesBackScrollViewRobolectricTest" time="0.009"/>
+  <testcase name="verticalOrLeftIntentBeforeMovingRightCannotTurnIntoBackNavigation" classname="com.kafkasl.phonewhisper.NotesBackScrollViewRobolectricTest" time="0.021"/>
+  <testcase name="verticalMovementKeepsNativeScrollBehaviorAndCancelDoesNotNavigate" classname="com.kafkasl.phonewhisper.NotesBackScrollViewRobolectricTest" time="0.012"/>
+  <testcase name="fastRightReleaseWorksWithoutMoveEvenWhenTheNotesListIsEmpty" classname="com.kafkasl.phonewhisper.NotesBackScrollViewRobolectricTest" time="0.011"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

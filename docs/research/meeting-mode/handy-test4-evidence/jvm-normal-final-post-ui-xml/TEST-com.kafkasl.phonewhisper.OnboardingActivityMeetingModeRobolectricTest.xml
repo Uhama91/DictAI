@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OnboardingActivityMeetingModeRobolectricTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:49" hostname="MacBook-Pro-de-Ullie.local" time="0.601">
+  <properties/>
+  <testcase name="meetingOnboardingOffersBothModesAndOnlyInspectsTheInjectedMeetingModels" classname="com.kafkasl.phonewhisper.OnboardingActivityMeetingModeRobolectricTest" time="0.096"/>
+  <testcase name="xiaomiMeetingOnboardingDoesNotRequireRestrictedSettingsOrAccessibility" classname="com.kafkasl.phonewhisper.OnboardingActivityMeetingModeRobolectricTest" time="0.081"/>
+  <testcase name="externalModeChangeRefreshesOnboardingAndPreservesTheSelectedMode" classname="com.kafkasl.phonewhisper.OnboardingActivityMeetingModeRobolectricTest" time="0.201"/>
+  <testcase name="choosingDictationRestoresItsModelStepWithoutStartingAudio" classname="com.kafkasl.phonewhisper.OnboardingActivityMeetingModeRobolectricTest" time="0.103"/>
+  <testcase name="activeRunRefusesModeChangeAndKeepsDictationSelected" classname="com.kafkasl.phonewhisper.OnboardingActivityMeetingModeRobolectricTest" time="0.065"/>
+  <testcase name="finishingMeetingOnboardingArmsTheOverlayWithoutStartingARecording" classname="com.kafkasl.phonewhisper.OnboardingActivityMeetingModeRobolectricTest" time="0.055"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.MainActivityMeetingModeRobolectricTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:57" hostname="MacBook-Pro-de-Ullie.local" time="1.277">
+  <properties/>
+  <testcase name="modelProgressUpdatesTheSamePanelAndLateCallbackAfterDestroyCannotRender" classname="com.kafkasl.phonewhisper.MainActivityMeetingModeRobolectricTest" time="0.744"/>
+  <testcase name="meetingHomeResumeArmsTheVisibleOverlayWithoutStartingARecording" classname="com.kafkasl.phonewhisper.MainActivityMeetingModeRobolectricTest" time="0.083"/>
+  <testcase name="poisonedEngineShowsUnavailableBeforeRetainedRunRefusal" classname="com.kafkasl.phonewhisper.MainActivityMeetingModeRobolectricTest" time="0.086"/>
+  <testcase name="openingMeetingSettingsInspectsModelsWithoutDownloadingOrStartingAudio" classname="com.kafkasl.phonewhisper.MainActivityMeetingModeRobolectricTest" time="0.079"/>
+  <testcase name="selectingMeetingChangesTheProcessModeWithoutChangingTheDictationFormatOrStartingAudio" classname="com.kafkasl.phonewhisper.MainActivityMeetingModeRobolectricTest" time="0.091"/>
+  <testcase name="externalModeChangeRefreshesTheVisibleHomeSelection" classname="com.kafkasl.phonewhisper.MainActivityMeetingModeRobolectricTest" time="0.101"/>
+  <testcase name="activeDictationRunKeepsTheCurrentModeAndExplainsTheRefusal" classname="com.kafkasl.phonewhisper.MainActivityMeetingModeRobolectricTest" time="0.091"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

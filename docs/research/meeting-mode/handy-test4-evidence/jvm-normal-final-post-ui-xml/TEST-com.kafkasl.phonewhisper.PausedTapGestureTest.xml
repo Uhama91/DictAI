@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.PausedTapGestureTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:58" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="single paused tap resumes only after double tap window" classname="com.kafkasl.phonewhisper.PausedTapGestureTest" time="0.0"/>
+  <testcase name="drag invalidates pending resume" classname="com.kafkasl.phonewhisper.PausedTapGestureTest" time="0.0"/>
+  <testcase name="double paused tap resumes instead of cancelling the session" classname="com.kafkasl.phonewhisper.PausedTapGestureTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.FaithfulLayoutTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:35" hostname="MacBook-Pro-de-Ullie.local" time="0.019">
+  <properties/>
+  <testcase name="everyEmailPrefixKeepsWholeSourceWithEmojiQuotesAndNegation" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.006"/>
+  <testcase name="acceptsOnlyLayoutChanges" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.001"/>
+  <testcase name="transcriptControlTokenCannotClosePromptMessage" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.001"/>
+  <testcase name="rejectsInvalidOrUnboundedRequests" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.001"/>
+  <testcase name="quoteGrammarEscapesWithoutChangingSource" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.001"/>
+  <testcase name="shortAcknowledgmentBypassesAnUninterruptibleOlderJob" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.004"/>
+  <testcase name="spacesInsideNumbersMayNotRemoveDigits" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.0"/>
+  <testcase name="localFidelityValidationDoesNotRestrictCloudRewrite" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.0"/>
+  <testcase name="tinyEmailAndSingleWordListNeedNoModel" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.0"/>
+  <testcase name="everyListPrefixKeepsWholeSourceIncludingUngeneratedTail" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.004"/>
+  <testcase name="preservesNamesNegationQuotesAndCurrencyInEmail" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.001"/>
+  <testcase name="invalidStreamingPrefixIsNeverDisplayed" classname="com.kafkasl.phonewhisper.FaithfulLayoutTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

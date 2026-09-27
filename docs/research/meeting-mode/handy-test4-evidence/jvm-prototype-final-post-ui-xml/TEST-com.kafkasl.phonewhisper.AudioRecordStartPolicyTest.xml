@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.AudioRecordStartPolicyTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:41" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="recorder not recording after start is rejected" classname="com.kafkasl.phonewhisper.AudioRecordStartPolicyTest" time="0.001"/>
+  <testcase name="zero or negative buffer is rejected" classname="com.kafkasl.phonewhisper.AudioRecordStartPolicyTest" time="0.0"/>
+  <testcase name="positive buffer initialized recorder and recording state may start" classname="com.kafkasl.phonewhisper.AudioRecordStartPolicyTest" time="0.0"/>
+  <testcase name="uninitialized recorder is rejected" classname="com.kafkasl.phonewhisper.AudioRecordStartPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

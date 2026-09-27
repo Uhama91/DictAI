@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.SensitiveTargetPolicyTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:58" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="legacy fake controllers default to sensitive without requiring a new override" classname="com.kafkasl.phonewhisper.SensitiveTargetPolicyTest" time="0.001"/>
+  <testcase name="cloud target policy snapshots requested allowed and sensitive suppression states" classname="com.kafkasl.phonewhisper.SensitiveTargetPolicyTest" time="0.0"/>
+  <testcase name="password flag and text web visible and numeric password variations are sensitive" classname="com.kafkasl.phonewhisper.SensitiveTargetPolicyTest" time="0.0"/>
+  <testcase name="ordinary text email and numeric fields are not sensitive" classname="com.kafkasl.phonewhisper.SensitiveTargetPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

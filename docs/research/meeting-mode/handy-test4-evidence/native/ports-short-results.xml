@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest" tests="1" failures="0" errors="0" skipped="0" time="126.133" timestamp="2026-09-27T02:39:10" hostname="localhost">
+  <properties>
+    <property name="device" value="DictAI_Meeting_API36_20260925(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="handy_and_standalone_diarization_stream_together_without_losing_dictation_text" classname="com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest" time="124.391" />
+</testsuite>

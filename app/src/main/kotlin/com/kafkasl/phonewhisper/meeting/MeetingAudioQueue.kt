@@ -101,7 +101,14 @@ class MeetingAudioQueue(
         }
     }
 
-    fun offer(buffer: ByteArray, length: Int): OfferResult {
+    fun offer(buffer: ByteArray, length: Int): OfferResult = offer(buffer, length) {}
+
+    /**
+     * Internal admission hook used for content-free progress accounting. The callback runs under the
+     * queue lock after a successful commit and before waking the consumer; it must not do I/O or reenter
+     * this queue.
+     */
+    internal fun offer(buffer: ByteArray, length: Int, onAccepted: () -> Unit): OfferResult {
         require(length >= 0) { "length must not be negative" }
         require(length <= buffer.size) { "length must not exceed the buffer size" }
         require(length % 2 == 0) { "PCM16 data length must be even" }
@@ -112,7 +119,10 @@ class MeetingAudioQueue(
             }
             if (spoolFailed) return@withLock OfferResult.IO_ERROR
             if (spoolPreparing) return@withLock OfferResult.IO_ERROR
-            if (length == 0) return@withLock OfferResult.ACCEPTED
+            if (length == 0) {
+                onAccepted()
+                return@withLock OfferResult.ACCEPTED
+            }
 
             if (!spooling && length <= capacityBytes - memoryBytes) {
                 val copy = buffer.copyOf(length)
@@ -123,6 +133,7 @@ class MeetingAudioQueue(
                     markCancelledLocked()
                     return@withLock OfferResult.CLOSED
                 }
+                onAccepted()
                 signalConsumer()
                 return@withLock OfferResult.ACCEPTED
             }
@@ -137,6 +148,7 @@ class MeetingAudioQueue(
                     markCancelledLocked()
                     return@withLock OfferResult.CLOSED
                 }
+                onAccepted()
                 signalConsumer()
                 return@withLock OfferResult.ACCEPTED
             }
@@ -161,6 +173,7 @@ class MeetingAudioQueue(
                     markCancelledLocked()
                     OfferResult.CLOSED
                 } else {
+                    onAccepted()
                     signalConsumer()
                     OfferResult.ACCEPTED
                 }

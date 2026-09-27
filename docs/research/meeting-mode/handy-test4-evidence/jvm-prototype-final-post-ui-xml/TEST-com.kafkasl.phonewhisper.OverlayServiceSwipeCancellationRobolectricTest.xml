@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:09" hostname="MacBook-Pro-de-Ullie.local" time="0.905">
+  <properties/>
+  <testcase name="late outside event from an old menu cannot dismiss a replacement menu" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.054"/>
+  <testcase name="meeting wave fills the pill viewport and restores the dictation viewport" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.035"/>
+  <testcase name="right swipe in idle note draft preserves saved note and edits" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.064"/>
+  <testcase name="outside event away from the pill dismisses a folder menu" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.062"/>
+  <testcase name="same accessibility projection is applied to a recreated pill" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.063"/>
+  <testcase name="notes folder and unfiled content swipe returns to root without opening a note" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.182"/>
+  <testcase name="zero raw outside coordinates close a folder menu normally" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.068"/>
+  <testcase name="hold then movement remains a pill drag instead of cancelling" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.065"/>
+  <testcase name="active pill exposes an accessible Annuler action" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.043"/>
+  <testcase name="dedicated accessibility action cancels active transcription but standard focus actions do not" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.058"/>
+  <testcase name="quick right swipe during transcription cancels only the active run" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.075"/>
+  <testcase name="short left vertical and interrupted gestures never cancel transcription" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.035"/>
+  <testcase name="open folder describes navigation and restores active cancellation help when closed" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.049"/>
+  <testcase name="outside event over pill preserves folder back before the pill DOWN and UP" classname="com.kafkasl.phonewhisper.OverlayServiceSwipeCancellationRobolectricTest" time="0.052"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

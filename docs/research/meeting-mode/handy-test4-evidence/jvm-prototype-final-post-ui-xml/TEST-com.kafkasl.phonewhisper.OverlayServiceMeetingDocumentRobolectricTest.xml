@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayServiceMeetingDocumentRobolectricTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:04" hostname="MacBook-Pro-de-Ullie.local" time="0.258">
+  <properties/>
+  <testcase name="opening another note cannot replace a meeting document while its coordinator lease is held" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingDocumentRobolectricTest" time="0.14"/>
+  <testcase name="opening an unsupported meeting note keeps its fallback read only and does not rewrite it" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingDocumentRobolectricTest" time="0.05"/>
+  <testcase name="opening a finished structured note renders the edited participant without starting audio" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingDocumentRobolectricTest" time="0.068"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.DictationDoubleTapTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:35" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="tap_at_the_window_boundary_is_a_new_single_tap_that_rearms_the_detector" classname="com.kafkasl.phonewhisper.DictationDoubleTapTest" time="0.0"/>
+  <testcase name="second_tap_inside_the_existing_window_is_double_and_consumes_the_sequence" classname="com.kafkasl.phonewhisper.DictationDoubleTapTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

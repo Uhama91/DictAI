@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.FormatSwipeGestureTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:35" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="release immediately after opening leaves menu tappable without committing" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.001"/>
+  <testcase name="upward pull opens menu while keeping the current format selected" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.0"/>
+  <testcase name="overshooting the opening threshold on the first move still needs another move" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.0"/>
+  <testcase name="additional movement commits a bounded selection on release" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.0"/>
+  <testcase name="disabled gesture cannot open or commit" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.0"/>
+  <testcase name="selection can move down from the current item but never wraps" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.0"/>
+  <testcase name="release displacement after opening does not count as a selection move" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.0"/>
+  <testcase name="horizontal redirect and cancellation preserve the current format" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.0"/>
+  <testcase name="last format clamps when finger keeps moving upward" classname="com.kafkasl.phonewhisper.FormatSwipeGestureTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

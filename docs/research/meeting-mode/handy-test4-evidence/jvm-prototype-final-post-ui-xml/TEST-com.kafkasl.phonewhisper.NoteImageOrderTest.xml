@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NoteImageOrderTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:01" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="moving an image up crosses the preceding text block and preserves identity" classname="com.kafkasl.phonewhisper.NoteImageOrderTest" time="0.0"/>
+  <testcase name="moving at a boundary is a no op" classname="com.kafkasl.phonewhisper.NoteImageOrderTest" time="0.0"/>
+  <testcase name="moving across the following text block preserves every text character" classname="com.kafkasl.phonewhisper.NoteImageOrderTest" time="0.001"/>
+  <testcase name="moving down keeps unanchored images accessible" classname="com.kafkasl.phonewhisper.NoteImageOrderTest" time="0.0"/>
+  <testcase name="moving an unanchored image up materializes its marker without losing any image" classname="com.kafkasl.phonewhisper.NoteImageOrderTest" time="0.0"/>
+  <testcase name="moving a marker with only a preceding separator keeps one readable gap" classname="com.kafkasl.phonewhisper.NoteImageOrderTest" time="0.0"/>
+  <testcase name="reordering uses the current edited text rather than a stale persisted copy" classname="com.kafkasl.phonewhisper.NoteImageOrderTest" time="0.0"/>
+  <testcase name="share export follows the moved marker order" classname="com.kafkasl.phonewhisper.NoteImageOrderTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

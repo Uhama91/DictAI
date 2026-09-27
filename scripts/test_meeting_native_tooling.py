@@ -2,6 +2,7 @@ import hashlib
 import os
 import re
 import subprocess
+import tempfile
 import unittest
 import wave
 from pathlib import Path
@@ -20,6 +21,95 @@ def staged_sources(script: str) -> list[str]:
 
 
 class MeetingNativeToolingTest(unittest.TestCase):
+    def test_diar_thread_limit_patch_is_fail_closed_idempotent_and_scoped(self):
+        patch_path = SCRIPTS / "native/meeting-diar-cpu-threads.patch"
+        patch = patch_path.read_text()
+        patched_paths = re.findall(r"^diff --git a/(\S+) b/", patch, re.M)
+        self.assertEqual(
+            ["src/runtime/ggml/runtime.h", "src/runtime/ggml/session.cpp"],
+            patched_paths,
+        )
+        self.assertIn("+    int cpu_threads = 4;", patch)
+        self.assertIn("char* pe_bin_path = nullptr;\n+    int cpu_threads = 4;\n };", patch)
+        self.assertIn("-        if (!ggml_graph_compute_helper_async(sched.get(), cr.gf, 4))", patch)
+        self.assertIn(
+            "+        if (!ggml_graph_compute_helper_async(sched.get(), cr.gf, params.cpu_threads))",
+            patch,
+        )
+
+        for builder in ("build_meeting_android.sh", "build_meeting_jni.sh"):
+            script = (SCRIPTS / builder).read_text()
+            self.assertIn('THREAD_PATCH="$ROOT/scripts/native/meeting-diar-cpu-threads.patch"', script)
+            self.assertIn('"$PATCH_APPLIER" "$SOURCE" "$THREAD_PATCH"', script)
+
+        with tempfile.TemporaryDirectory(prefix="meeting-thread-patch-") as directory:
+            fixture = Path(directory)
+            runtime_file = fixture / "src/runtime/ggml/runtime.h"
+            session_file = fixture / "src/runtime/ggml/session.cpp"
+            runtime_file.parent.mkdir(parents=True, exist_ok=True)
+            session_file.parent.mkdir(parents=True, exist_ok=True)
+            runtime_file.write_text(
+                "// fixture padding\n" * 168 +
+                "    bool use_gpu = false;\n"
+                "    int gpu_device_idx = 0;\n"
+                "    char* pe_bin_path = nullptr;\n"
+                "};\n"
+                "\n"
+                "// Owns ggml backend handles shared by one or more Sessions.\n"
+            )
+            session_file.write_text(
+                "// fixture padding\n" * 907 +
+                "        }\n"
+                "\n"
+                "        auto _t2 = _clk::now();\n"
+                "        if (!ggml_graph_compute_helper_async(sched.get(), cr.gf, 4)) {\n"
+                "            GGMLF_LOG_ERROR(\"Failed to compute graph\\n\");\n"
+                "            throw std::runtime_error(\"failed to compute graph\");\n"
+                "        }\n"
+            )
+            applier = SCRIPTS / "native/apply-meeting-runtime-patch.sh"
+
+            first_apply = subprocess.run(
+                ["bash", str(applier), str(fixture), str(patch_path)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, first_apply.returncode, first_apply.stderr)
+            self.assertIn("PATCH_APPLIED", first_apply.stdout)
+            self.assertIn("int cpu_threads = 4;", runtime_file.read_text())
+            self.assertIn("params.cpu_threads", session_file.read_text())
+
+            second_apply = subprocess.run(
+                ["bash", str(applier), str(fixture), str(patch_path)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, second_apply.returncode, second_apply.stderr)
+            self.assertIn("PATCH_ALREADY_APPLIED", second_apply.stdout)
+
+            runtime_file.write_text(runtime_file.read_text().replace("cpu_threads = 4", "cpu_threads = 2"))
+            divergent_apply = subprocess.run(
+                ["bash", str(applier), str(fixture), str(patch_path)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(2, divergent_apply.returncode)
+            self.assertIn("refusing divergent state", divergent_apply.stderr)
+
+    def test_only_standalone_diarization_overrides_the_historical_four_thread_default(self):
+        diarization = (MEETING_CPP / "meeting_diarization_jni.cpp").read_text()
+        params_start = diarization.index("ggml_runtime::Params backend_params()")
+        params_end = diarization.index("struct DiarizationSession", params_start)
+        self.assertRegex(diarization[params_start:params_end], r"params\.cpu_threads\s*=\s*1\s*;")
+
+        meeting_asr = (MEETING_CPP / "meeting_jni.cpp").read_text()
+        self.assertNotIn("cpu_threads", meeting_asr)
+        handy_bridge = (ROOT / "app/src/main/cpp/transcribe_jni.cpp").read_text()
+        self.assertNotIn("cpu_threads", handy_bridge)
+
     def test_probe_builder_stages_every_source_used_by_jni_builder(self):
         jni_script = (SCRIPTS / "build_meeting_jni.sh").read_text()
         probe_script = (SCRIPTS / "build_meeting_android.sh").read_text()
@@ -27,6 +117,7 @@ class MeetingNativeToolingTest(unittest.TestCase):
         actual = staged_sources(probe_script)
         self.assertEqual(
             ["CMakeLists.txt", "meeting_probe.cpp", "meeting_jni.cpp",
+             "meeting_diarization_jni.cpp", "meeting_diarization_jni.h",
              "meeting_native_logic.cpp", "meeting_native_logic.h", "meeting_asr_config.h",
              "meeting_jni.exports"],
             expected,
@@ -58,6 +149,14 @@ class MeetingNativeToolingTest(unittest.TestCase):
         script = (SCRIPTS / "check_meeting_native.sh").read_text()
         self.assertIn("meeting-existing-runtime.manifest", script)
         self.assertNotIn('"$EXISTING_RUNTIME"/*.so', script)
+
+    def test_handy_bridge_builder_reuses_the_pinned_runtime_and_builds_only_jni(self):
+        script = (SCRIPTS / "build_transcribe_jni_bridge_android.sh").read_text()
+        self.assertIn("553f1099a2b3a5bc4421894be171f09960fc0f3a", script)
+        self.assertIn("e7878a83c00e70a11ac8bc05d6ba43685fb0edea865dcdd81f52e79442a5c4e4", script)
+        self.assertIn("cmake --build \"$build_dir\" --target transcribe_jni", script)
+        self.assertIsNone(re.search(r"--target\s+transcribe(?:\s|$)", script))
+        self.assertIn("16KiB", script)
 
     def test_native_log_gate_requires_the_validated_meeting_context_for_both_streams(self):
         script = (SCRIPTS / "check_meeting_native.sh").read_text()

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:59" hostname="MacBook-Pro-de-Ullie.local" time="0.011">
+  <properties/>
+  <testcase name="default capacity holds exactly ten seconds of pcm16 mono at sixteen kilohertz" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.001"/>
+  <testcase name="finish input returns without waiting for queue storage work" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.0"/>
+  <testcase name="offer copies only requested bytes and preserves fifo at exact capacity" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.0"/>
+  <testcase name="offer rejects negative oversized and odd pcm byte lengths" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.001"/>
+  <testcase name="zero length offer does not allocate a queued block and closed input rejects it" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.0"/>
+  <testcase name="concurrent offer and cancel leave no queued bytes" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.0"/>
+  <testcase name="finish input is idempotent and drains accepted blocks before returning null" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.0"/>
+  <testcase name="cancel wakes a blocked consumer and discards queued blocks even after finish" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.0"/>
+  <testcase name="disk spool preserves block fifo and drains before finished input" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.003"/>
+  <testcase name="disk capacity rejects new pcm and frees backlog budget as blocks are consumed" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.002"/>
+  <testcase name="spool io failure is explicit and cancel close purge the session directory" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.0"/>
+  <testcase name="orphan sweep skips an active locked spool and reclaims it after close" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.003"/>
+  <testcase name="failure to reclaim a consumed segment is reported instead of losing quota accounting" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioQueueTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

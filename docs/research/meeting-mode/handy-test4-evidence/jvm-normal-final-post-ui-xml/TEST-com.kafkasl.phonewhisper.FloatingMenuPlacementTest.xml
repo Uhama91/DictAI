@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.FloatingMenuPlacementTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:35" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="left swipe is recognized using rotated coordinates without becoming vertical shortcut" classname="com.kafkasl.phonewhisper.FloatingMenuPlacementTest" time="0.0"/>
+  <testcase name="format menu is above pill when space is available" classname="com.kafkasl.phonewhisper.FloatingMenuPlacementTest" time="0.0"/>
+  <testcase name="large menus shrink instead of covering the pill" classname="com.kafkasl.phonewhisper.FloatingMenuPlacementTest" time="0.0"/>
+  <testcase name="menus stay visible at corners and centered anchors" classname="com.kafkasl.phonewhisper.FloatingMenuPlacementTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -2,6 +2,7 @@ package com.kafkasl.phonewhisper.meeting
 
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.CopyOnWriteArrayList
@@ -59,6 +60,273 @@ class MeetingModelStoreTest {
         reopenedStore.refresh()
         awaitState(reopenedStore) { it is MeetingModelStoreState.Ready }
         assertEquals("refresh should reuse the verified package", 2, server.requestCount)
+    }
+
+    @Test
+    fun explicitDownloadCopiesAndVerifiesPrivateCandidatesWhileRefreshNeverConsultsThem() {
+        val asr = "Handy test bytes".toByteArray()
+        val diarization = "legacy diarization test bytes".toByteArray()
+        val privateFilesDirectory = temporaryFolder.newFolder("reuse-explicit")
+        val root = File(privateFilesDirectory, "meeting-models")
+        val candidates = candidateFiles(privateFilesDirectory, root, asr, diarization)
+        var providerCalls = 0
+        val provider = MeetingModelReuseCandidateProvider { _, _ ->
+            providerCalls += 1
+            listOf(candidates)
+        }
+        val store = newStore(root, catalog(asr, diarization, version = "v2-test"), candidateProvider = provider)
+
+        val refreshEvents = assertRefreshEndsMissing(store)
+        assertFalse("a refresh must not publish an uninstalled source pair", refreshEvents.any { it is MeetingModelStoreState.Ready })
+        assertEquals("refresh is inspection only", 0, providerCalls)
+        assertEquals(0, server.requestCount)
+
+        store.download()
+        val ready = awaitState(store) { it is MeetingModelStoreState.Ready } as MeetingModelStoreState.Ready
+
+        assertEquals(asr.toList(), ready.paths.asrFile.readBytes().toList())
+        assertEquals(diarization.toList(), ready.paths.diarizationFile.readBytes().toList())
+        assertEquals("explicit download reuses verified local files without HTTP", 0, server.requestCount)
+        assertEquals(1, providerCalls)
+        assertEquals(asr.toList(), requireNotNull(candidates.asrFile).readBytes().toList())
+        assertEquals(diarization.toList(), requireNotNull(candidates.diarizationFile).readBytes().toList())
+    }
+
+    @Test
+    fun sameSizeCorruptCandidateFallsBackToTheNormalVerifiedDownload() {
+        val asr = "Handy bytes".toByteArray()
+        val diarization = "diar bytes".toByteArray()
+        val corruptAsr = asr.copyOf().also { it[0] = (it[0] + 1).toByte() }
+        val privateFilesDirectory = temporaryFolder.newFolder("reuse-corrupt")
+        val root = File(privateFilesDirectory, "meeting-models")
+        val candidates = candidateFiles(privateFilesDirectory, root, corruptAsr, diarization)
+        enqueueBody(asr)
+        val store = newStore(
+            root,
+            catalog(asr, diarization, version = "v2-corrupt-fallback"),
+            candidateProvider = MeetingModelReuseCandidateProvider { _, _ -> listOf(candidates) },
+        )
+
+        store.download()
+        val ready = awaitState(store) { it is MeetingModelStoreState.Ready } as MeetingModelStoreState.Ready
+
+        assertEquals(asr.toList(), ready.paths.asrFile.readBytes().toList())
+        assertEquals(diarization.toList(), ready.paths.diarizationFile.readBytes().toList())
+        assertEquals("only the corrupt ASR artifact is fetched", 1, server.requestCount)
+        assertEquals("invalid sources are never modified", corruptAsr.toList(), requireNotNull(candidates.asrFile).readBytes().toList())
+        assertEquals(diarization.toList(), requireNotNull(candidates.diarizationFile).readBytes().toList())
+    }
+
+    @Test
+    fun externalSymlinkCandidateIsRejectedAndFallsBackWithoutPublishingIt() {
+        val asr = "Handy symlink target".toByteArray()
+        val diarization = "diar symlink target".toByteArray()
+        val privateFilesDirectory = temporaryFolder.newFolder("reuse-private")
+        val root = File(privateFilesDirectory, "meeting-models")
+        val inside = candidateFiles(privateFilesDirectory, root, asr, diarization)
+        val outsideDirectory = temporaryFolder.newFolder("reuse-outside")
+        val outsideAsr = File(outsideDirectory, "asr-outside.gguf").apply { writeBytes(asr) }
+        val link = File(privateFilesDirectory, "models/asr-link.gguf").apply { parentFile?.mkdirs() }
+        Files.createSymbolicLink(link.toPath(), outsideAsr.toPath())
+        enqueueBody(asr)
+        val store = newStore(
+            root,
+            catalog(asr, diarization, version = "v2-symlink"),
+            candidateProvider = MeetingModelReuseCandidateProvider { _, _ ->
+                listOf(MeetingModelReuseCandidates(link, inside.diarizationFile))
+            },
+        )
+
+        store.download()
+        val ready = awaitState(store) { it is MeetingModelStoreState.Ready } as MeetingModelStoreState.Ready
+
+        assertEquals(asr.toList(), ready.paths.asrFile.readBytes().toList())
+        assertEquals("only the rejected symlink artifact is downloaded", 1, server.requestCount)
+        assertEquals("the symlink target remains untouched", asr.toList(), outsideAsr.readBytes().toList())
+    }
+
+    @Test
+    fun handyCandidateIsReusedWhenLegacyDiarizationIsMissing() {
+        val asr = "Handy available locally".toByteArray()
+        val diarization = "diar fetched from server".toByteArray()
+        val privateFilesDirectory = temporaryFolder.newFolder("reuse-asr-only")
+        val root = File(privateFilesDirectory, "meeting-models")
+        val handyAsr = File(privateFilesDirectory, "models/handy/asr.gguf").apply {
+            parentFile?.mkdirs()
+            writeBytes(asr)
+        }
+        enqueueBody(diarization)
+        val store = newStore(
+            root,
+            catalog(asr, diarization, version = "v2-asr-only"),
+            candidateProvider = MeetingModelReuseCandidateProvider { _, _ ->
+                listOf(MeetingModelReuseCandidates(asrFile = handyAsr))
+            },
+        )
+
+        store.download()
+        val ready = awaitState(store) { it is MeetingModelStoreState.Ready } as MeetingModelStoreState.Ready
+
+        assertEquals(asr.toList(), ready.paths.asrFile.readBytes().toList())
+        assertEquals(diarization.toList(), ready.paths.diarizationFile.readBytes().toList())
+        assertEquals("only the missing diarization artifact is fetched", 1, server.requestCount)
+        assertEquals(asr.toList(), handyAsr.readBytes().toList())
+    }
+
+    @Test
+    fun legacyDiarizationCandidateIsReusedWhenHandyIsMissing() {
+        val asr = "Handy fetched from server".toByteArray()
+        val diarization = "legacy diar available locally".toByteArray()
+        val privateFilesDirectory = temporaryFolder.newFolder("reuse-diar-only")
+        val root = File(privateFilesDirectory, "meeting-models")
+        val oldDiarization = File(root, "legacy-package/diarization.gguf").apply {
+            parentFile?.mkdirs()
+            writeBytes(diarization)
+        }
+        enqueueBody(asr)
+        val store = newStore(
+            root,
+            catalog(asr, diarization, version = "v2-diar-only"),
+            candidateProvider = MeetingModelReuseCandidateProvider { _, _ ->
+                listOf(MeetingModelReuseCandidates(diarizationFile = oldDiarization))
+            },
+        )
+
+        store.download()
+        val ready = awaitState(store) { it is MeetingModelStoreState.Ready } as MeetingModelStoreState.Ready
+
+        assertEquals(asr.toList(), ready.paths.asrFile.readBytes().toList())
+        assertEquals(diarization.toList(), ready.paths.diarizationFile.readBytes().toList())
+        assertEquals("only the missing Handy ASR artifact is fetched", 1, server.requestCount)
+        assertEquals(diarization.toList(), oldDiarization.readBytes().toList())
+    }
+
+    @Test
+    fun privateReuseCreatesParentsForNestedArtifactPartFiles() {
+        val asr = "nested Handy model".toByteArray()
+        val diarization = "nested diarization model".toByteArray()
+        val privateFilesDirectory = temporaryFolder.newFolder("reuse-nested")
+        val root = File(privateFilesDirectory, "meeting-models")
+        val candidates = candidateFiles(privateFilesDirectory, root, asr, diarization)
+        val nestedCatalog = MeetingModelCatalog(
+            packageName = "meeting-nested",
+            version = "v2-test",
+            asr = MeetingModelArtifact(
+                id = "asr",
+                relativePath = "handy/asr.gguf",
+                url = server.url("/nested/asr.gguf").toString(),
+                sizeBytes = asr.size.toLong(),
+                sha256 = sha256(asr),
+            ),
+            diarization = MeetingModelArtifact(
+                id = "diarization",
+                relativePath = "diarization/segments/model.gguf",
+                url = server.url("/nested/diarization.gguf").toString(),
+                sizeBytes = diarization.size.toLong(),
+                sha256 = sha256(diarization),
+            ),
+        )
+        val store = newStore(
+            root,
+            nestedCatalog,
+            candidateProvider = MeetingModelReuseCandidateProvider { _, _ -> listOf(candidates) },
+        )
+
+        store.download()
+        val ready = awaitState(store) { it is MeetingModelStoreState.Ready } as MeetingModelStoreState.Ready
+
+        assertEquals(asr.toList(), ready.paths.asrFile.readBytes().toList())
+        assertEquals(diarization.toList(), ready.paths.diarizationFile.readBytes().toList())
+        assertEquals("nested private files are reused without network requests", 0, server.requestCount)
+    }
+
+    @Test
+    fun cancellationDuringCandidateCopyNeverPublishesReadyOrDeletesSourceFiles() {
+        val asr = ByteArray(16 * 1024) { (it % 127).toByte() }
+        val diarization = "private diar source".toByteArray()
+        val privateFilesDirectory = temporaryFolder.newFolder("reuse-cancel")
+        val root = File(privateFilesDirectory, "meeting-models")
+        val candidates = candidateFiles(privateFilesDirectory, root, asr, diarization)
+        val copyEntered = CountDownLatch(1)
+        val releaseCopy = CountDownLatch(1)
+        val stateAtCopy = AtomicReference<MeetingModelStoreState?>()
+        val storeReference = AtomicReference<MeetingModelStore?>()
+        val store = newStore(
+            root,
+            catalog(asr, diarization, version = "v2-cancel"),
+            candidateProvider = MeetingModelReuseCandidateProvider { _, _ -> listOf(candidates) },
+            reuseCopyCheckpoint = {
+                stateAtCopy.set(storeReference.get()?.currentState)
+                if (copyEntered.count > 0) {
+                    copyEntered.countDown()
+                    releaseCopy.await(5, TimeUnit.SECONDS)
+                }
+            },
+        )
+        storeReference.set(store)
+
+        try {
+            store.download()
+            assertTrue("candidate bytes reached the cancellable copy", copyEntered.await(5, TimeUnit.SECONDS))
+            store.cancelDownload()
+        } finally {
+            releaseCopy.countDown()
+        }
+
+        awaitState(store) { it is MeetingModelStoreState.Missing }
+        assertFalse("cancelled copying must not report a complete pair", store.currentState is MeetingModelStoreState.Ready)
+        assertEquals(
+            "copy must already be exposed as an explicitly cancellable download",
+            MeetingModelStoreState.Downloading(0L, catalog(asr, diarization, version = "v2-cancel").totalBytes),
+            stateAtCopy.get(),
+        )
+        assertEquals(0, server.requestCount)
+        assertEquals(asr.toList(), requireNotNull(candidates.asrFile).readBytes().toList())
+        assertEquals(diarization.toList(), requireNotNull(candidates.diarizationFile).readBytes().toList())
+        assertTrue(root.listFiles().orEmpty().none { it.name.startsWith(".meeting-models-op-") })
+        assertTrue(root.listFiles().orEmpty().none { store.catalog.isPackageDirectoryName(it.name) })
+    }
+
+    @Test
+    fun previousNemotronPackageIsNotReadyUnderV2AndExplicitUpgradeKeepsEverySource() {
+        val previousAsr = "old Nemotron ASR".toByteArray()
+        val diarization = "same old diarization".toByteArray()
+        val handyAsr = "new Handy Q8 model".toByteArray()
+        val privateFilesDirectory = temporaryFolder.newFolder("v1-to-v2")
+        val root = File(privateFilesDirectory, "meeting-models")
+        val oldCatalog = catalog(previousAsr, diarization, version = "v1-asr-nemotron-diar-v1")
+        val oldDirectory = File(root, oldCatalog.packageDirectoryName("a1b2c3d4")).apply { mkdirs() }
+        val oldAsrFile = File(oldDirectory, oldCatalog.asr.relativePath).apply { writeBytes(previousAsr) }
+        val oldDiarFile = File(oldDirectory, oldCatalog.diarization.relativePath).apply { writeBytes(diarization) }
+        val legacyReader = newStore(root, oldCatalog)
+        legacyReader.refresh()
+        val oldReady = awaitState(legacyReader) { it is MeetingModelStoreState.Ready } as MeetingModelStoreState.Ready
+        assertEquals(previousAsr.toList(), oldReady.paths.asrFile.readBytes().toList())
+
+        val handySource = File(privateFilesDirectory, "models/handy/asr.gguf").apply {
+            parentFile?.mkdirs()
+            writeBytes(handyAsr)
+        }
+        val targetCatalog = catalog(handyAsr, diarization, version = "v2-asr-handy-diar-v1")
+        val newStore = newStore(
+            root,
+            targetCatalog,
+            candidateProvider = MeetingModelReuseCandidateProvider { _, _ ->
+                listOf(MeetingModelReuseCandidates(handySource, oldDiarFile))
+            },
+        )
+
+        val events = assertRefreshEndsMissing(newStore)
+        assertFalse("a matching v1 Nemotron pair is not a v2 Handy package", events.any { it is MeetingModelStoreState.Ready })
+        newStore.download()
+        val ready = awaitState(newStore) { it is MeetingModelStoreState.Ready } as MeetingModelStoreState.Ready
+
+        assertEquals(handyAsr.toList(), ready.paths.asrFile.readBytes().toList())
+        assertEquals(diarization.toList(), ready.paths.diarizationFile.readBytes().toList())
+        assertEquals(previousAsr.toList(), oldAsrFile.readBytes().toList())
+        assertEquals(diarization.toList(), oldDiarFile.readBytes().toList())
+        assertEquals(handyAsr.toList(), handySource.readBytes().toList())
+        assertEquals(0, server.requestCount)
     }
 
     @Test
@@ -398,6 +666,8 @@ class MeetingModelStoreTest {
         catalog: MeetingModelCatalog,
         availableBytes: (File) -> Long = { Long.MAX_VALUE },
         spaceMarginBytes: Long = 0L,
+        candidateProvider: MeetingModelReuseCandidateProvider = MeetingModelReuseCandidateProvider { _, _ -> emptyList() },
+        reuseCopyCheckpoint: (Long) -> Unit = {},
         publishDirectory: (File, File) -> Unit = { source, destination ->
             java.nio.file.Files.move(
                 source.toPath(),
@@ -410,8 +680,27 @@ class MeetingModelStoreTest {
         catalog = catalog,
         availableBytes = availableBytes,
         spaceMarginBytes = spaceMarginBytes,
+        reuseCandidateProvider = candidateProvider,
+        reuseCopyCheckpoint = reuseCopyCheckpoint,
         publishDirectory = publishDirectory,
     ).also(stores::add)
+
+    private fun candidateFiles(
+        privateFilesDirectory: File,
+        storeDirectory: File,
+        asrBytes: ByteArray,
+        diarizationBytes: ByteArray,
+    ): MeetingModelReuseCandidates {
+        val asr = File(privateFilesDirectory, "models/test-source/asr.gguf").apply {
+            parentFile?.mkdirs()
+            writeBytes(asrBytes)
+        }
+        val diarization = File(storeDirectory, "legacy-source/diarization.gguf").apply {
+            parentFile?.mkdirs()
+            writeBytes(diarizationBytes)
+        }
+        return MeetingModelReuseCandidates(asr, diarization)
+    }
 
     private fun catalog(
         asrBytes: ByteArray,

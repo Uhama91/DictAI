@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.SimpleEmailLayoutTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.006">
+  <properties/>
+  <testcase name="longMailRemainsStructurableButProductionSendsItToGemma" classname="com.kafkasl.phonewhisper.SimpleEmailLayoutTest" time="0.003"/>
+  <testcase name="ambiguousOrQuotedClosingsAndExistingParagraphsRemainForGemma" classname="com.kafkasl.phonewhisper.SimpleEmailLayoutTest" time="0.0"/>
+  <testcase name="noPunctuationMailAndHonorificAreSupported" classname="com.kafkasl.phonewhisper.SimpleEmailLayoutTest" time="0.0"/>
+  <testcase name="constrainedAndUnsupportedLayoutsDoNotUseNewDirectPath" classname="com.kafkasl.phonewhisper.SimpleEmailLayoutTest" time="0.001"/>
+  <testcase name="bypassesEvenAnUnresponsiveObsoleteGenerationAndReportsNoNativeCall" classname="com.kafkasl.phonewhisper.SimpleEmailLayoutTest" time="0.001"/>
+  <testcase name="preservesNegationDigitsAccentsAndTechnicalPunctuationInEnglish" classname="com.kafkasl.phonewhisper.SimpleEmailLayoutTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

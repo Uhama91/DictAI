@@ -55,7 +55,7 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
 
         val captureDirectory = File(
             target.getExternalFilesDir(null) ?: target.filesDir,
-            "meeting-ui-fixtures-simulated",
+            "meeting-ui-fixtures-simulated-v2",
         ).apply { check(mkdirs() || isDirectory) }
         try {
             preferences.edit().putBoolean("onb_complete", true).putString("theme_mode", "light").commit()
@@ -105,6 +105,13 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
             harness = showScene(activeScenario, harness, "save-error")
             capture(instrumentation, captureDirectory, "07-live-save-error.png")
             harness = showScene(activeScenario, harness, "download-progress")
+            activeScenario.onActivity {
+                val expectedPackageSize = expectedModelPackageSizeLabel()
+                assertTrue(
+                    "catalog v2 fixture visibly shows the $expectedPackageSize maximum package size",
+                    findTextContaining(requireNotNull(harness).controller.view, expectedPackageSize) != null,
+                )
+            }
             capture(instrumentation, captureDirectory, "08-model-download-progress.png")
             harness = showScene(activeScenario, harness, "light")
             capture(instrumentation, captureDirectory, "09-manual-light-theme.png")
@@ -116,6 +123,7 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
                 activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             }
             assertTrue("Activity reaches landscape", awaitOrientation(activeScenario, Configuration.ORIENTATION_LANDSCAPE))
+            settleAfterOrientationChange(instrumentation)
             activeScenario.onActivity { activity ->
                 setFontScale(activity, initialFontScale)
                 harness = attachPanel(activity, "compact-landscape")
@@ -154,6 +162,119 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
                 assertTrue("large-font compact editor remains visible", editor.getGlobalVisibleRect(Rect()))
             }
             capture(instrumentation, captureDirectory, "12-landscape-compact-240x112-large-font.png")
+
+            activeScenario.onActivity { activity ->
+                setFontScale(activity, initialFontScale)
+                requireNotNull(harness).controller.dispose()
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+            assertTrue("Activity returns to portrait", awaitOrientation(activeScenario, Configuration.ORIENTATION_PORTRAIT))
+            settleAfterOrientationChange(instrumentation)
+            activeScenario.onActivity { activity -> harness = attachPanel(activity, "conversation-flow-normal") }
+            instrumentation.waitForIdleSync()
+            activeScenario.onActivity {
+                val active = requireNotNull(harness)
+                active.controller.view.recyclerView.scrollToPosition(0)
+                assertEquals(
+                    listOf("a-first", "a-continuation", "b-reply", "a-return", "uncertain"),
+                    (0 until active.controller.view.adapter.itemCount).mapNotNull {
+                        active.controller.view.adapter.rowAt(it)?.row?.turnId
+                    },
+                )
+                assertEquals(true, active.controller.view.adapter.rowAt(1)?.row?.showSpeakerHeading == false)
+                assertEquals(1_000L, active.controller.view.adapter.rowAt(0)?.row?.audioStartMs)
+                assertEquals(null, active.controller.view.adapter.rowAt(4)?.row?.audioStartMs)
+                assertEquals(
+                    "La prochaine étape sera de partager les résultats. ${noteImage(7).marker}",
+                    active.controller.view.adapter.rowAt(3)?.row?.body,
+                )
+                assertEquals(7, active.controller.view.adapter.rowAt(3)?.images?.singleOrNull()?.number)
+                active.controller.updateLiveProgress(
+                    progress(pendingAudioMs = 5_000L),
+                    MeetingVoiceProgress(MeetingVoiceState.ACTIVE, pendingAudioMs = 4_000L),
+                )
+                val status = findTextContaining(active.controller.view, "Écoute en cours")
+                assertTrue("normal fixture visibly shows the ASR backlog", status?.text?.contains("5 s d’audio à traiter") == true)
+                val title = (active.controller.view.getChildAt(0) as ViewGroup).getChildAt(0) as TextView
+                assertTrue(
+                    "normal fixture exposes voice backlog to accessibility",
+                    title.contentDescription?.contains("Voix : 4 s d’audio en attente") == true,
+                )
+                assertTrue(
+                    "normal portrait fixture starts with the beginning of the conversation visible",
+                    active.controller.view.recyclerView.findViewHolderForAdapterPosition(0) != null,
+                )
+            }
+            capture(instrumentation, captureDirectory, "13-conversation-aaba-normal-top-portrait-simulated.png")
+
+            activeScenario.onActivity {
+                val active = requireNotNull(harness)
+                active.controller.view.recyclerView.scrollToPosition(active.controller.view.adapter.itemCount - 1)
+            }
+            instrumentation.waitForIdleSync()
+            activeScenario.onActivity {
+                val active = requireNotNull(harness)
+                assertTrue(
+                    "normal portrait fixture reaches the end of the conversation",
+                    active.controller.view.recyclerView.findViewHolderForAdapterPosition(
+                        active.controller.view.adapter.itemCount - 1,
+                    ) != null,
+                )
+            }
+            capture(instrumentation, captureDirectory, "14-conversation-aaba-normal-bottom-portrait-simulated.png")
+
+            activeScenario.onActivity { activity ->
+                requireNotNull(harness).controller.dispose()
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
+            assertTrue("Activity returns to landscape", awaitOrientation(activeScenario, Configuration.ORIENTATION_LANDSCAPE))
+            settleAfterOrientationChange(instrumentation)
+            activeScenario.onActivity { activity -> harness = attachPanel(activity, "conversation-flow-compact") }
+            instrumentation.waitForIdleSync()
+            activeScenario.onActivity { activity ->
+                val active = requireNotNull(harness)
+                val density = activity.resources.displayMetrics.density
+                assertEquals((240 * density).toInt(), active.controller.view.width)
+                assertEquals((112 * density).toInt(), active.controller.view.height)
+                active.controller.updateLiveProgress(
+                    progress(pendingAudioMs = 5_000L),
+                    MeetingVoiceProgress(MeetingVoiceState.ACTIVE, pendingAudioMs = 4_000L),
+                )
+                active.controller.view.recyclerView.scrollToPosition(0)
+            }
+            instrumentation.waitForIdleSync()
+            capture(instrumentation, captureDirectory, "15-conversation-aaba-compact-top-backlog-simulated.png")
+            activeScenario.onActivity {
+                val active = requireNotNull(harness)
+                active.controller.updateLiveProgress(
+                    progress(pendingAudioMs = 0L),
+                    MeetingVoiceProgress(
+                        MeetingVoiceState.UNAVAILABLE,
+                        pendingAudioMs = 0L,
+                        unavailableReason = MeetingVoiceUnavailableReason.MODEL_LOAD_FAILED,
+                    ),
+                )
+                assertTrue(
+                    "compact fixture visibly distinguishes unavailable voice identification",
+                    findTextContaining(active.controller.view, "Voix indisponibles") != null,
+                )
+                val title = (active.controller.view.getChildAt(0) as ViewGroup).getChildAt(0) as TextView
+                assertTrue(
+                    "compact fixture keeps the full voice failure available to accessibility",
+                    title.contentDescription?.contains("Identification des voix indisponible") == true,
+                )
+            }
+            capture(instrumentation, captureDirectory, "16-conversation-aaba-compact-voices-unavailable-simulated.png")
+            activeScenario.onActivity { activity ->
+                val active = requireNotNull(harness)
+                active.controller.updateLiveProgress(
+                    progress(pendingAudioMs = 5_000L),
+                    MeetingVoiceProgress(MeetingVoiceState.ACTIVE, pendingAudioMs = 4_000L),
+                )
+                active.controller.view.recyclerView.scrollToPosition(active.controller.view.adapter.itemCount - 1)
+            }
+            instrumentation.waitForIdleSync()
+            capture(instrumentation, captureDirectory, "17-conversation-aaba-compact-bottom-simulated.png")
         } finally {
             scenario?.onActivity { activity ->
                 harness?.dialogs?.dismissAll()
@@ -220,7 +341,7 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
         )
         controller = MeetingPanelController(activity, dialogs, actions)
         val root = FrameLayout(activity).apply { setBackgroundColor(ThemeTokens.palette(activity).bg) }
-        val panelLayout = if (scene == "compact-landscape") {
+        val panelLayout = if (scene == "compact-landscape" || scene == "conversation-flow-compact") {
             FrameLayout.LayoutParams(dp(activity, 240), dp(activity, 112), Gravity.TOP or Gravity.START).apply {
                 leftMargin = dp(activity, 24)
                 topMargin = dp(activity, 24)
@@ -263,7 +384,7 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
                 MeetingPanelStatus(
                     phase = MeetingPanelStatus.Phase.DOWNLOADING,
                     progressPercent = 63,
-                    modelSize = "849 Mo",
+                    modelSize = expectedModelPackageSizeLabel(),
                 ),
             )
             "compact-landscape" -> FixtureState(
@@ -276,8 +397,96 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
                     saveError = "Sauvegarde à réessayer",
                 ),
             )
+            "conversation-flow-normal", "conversation-flow-compact" -> FixtureState(
+                conversationFlowDocument(),
+                listOf(noteImage(7)),
+                MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING),
+            )
             else -> FixtureState(base, emptyList(), MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING))
         }
+    }
+
+    private fun conversationFlowDocument() = MeetingDocument(
+        sessionId = "fixture-conversation-flow-2026-09-27",
+        runId = "fixture-conversation-flow-run",
+        participants = listOf(
+            MeetingParticipant("profile-a", ordinal = 1, channel = 1, name = "Sophie"),
+            MeetingParticipant("profile-b", ordinal = 2, channel = 2, name = "Karim Benali"),
+        ),
+        turns = listOf(
+            MeetingTurn(
+                id = "a-continuation",
+                utteranceId = 2L,
+                startMs = 1_600L,
+                endMs = 2_050L,
+                recognizedText = "La décision sera prise après la vérification.",
+                automaticParticipantId = "profile-a",
+                attributionStable = true,
+                timingKnown = true,
+            ),
+            MeetingTurn(
+                id = "b-reply",
+                utteranceId = 3L,
+                startMs = 2_400L,
+                endMs = 2_900L,
+                recognizedText = "Je confirme, nous gardons ce point à l’ordre du jour.",
+                automaticParticipantId = "profile-b",
+                attributionStable = true,
+                timingKnown = true,
+            ),
+            MeetingTurn(
+                id = "a-return",
+                utteranceId = 4L,
+                startMs = 3_300L,
+                endMs = 3_900L,
+                recognizedText = "La prochaine étape sera de partager les résultats.",
+                editedText = "La prochaine étape sera de partager les résultats. ${noteImage(7).marker}",
+                automaticParticipantId = null,
+                manualParticipantId = "profile-a",
+                hasManualAttribution = true,
+                attributionStable = true,
+                timingKnown = true,
+            ),
+            MeetingTurn(
+                id = "a-first",
+                utteranceId = 1L,
+                startMs = 1_000L,
+                endMs = 1_450L,
+                recognizedText = "Nous avons avancé sur la préparation.",
+                automaticParticipantId = "profile-a",
+                attributionStable = true,
+                timingKnown = true,
+            ),
+            MeetingTurn(
+                id = "uncertain",
+                utteranceId = 5L,
+                startMs = 0L,
+                endMs = 0L,
+                recognizedText = "Passage à attribuer après la reprise.",
+                automaticParticipantId = null,
+                attributionStable = false,
+                timingKnown = false,
+            ),
+        ),
+    )
+
+    private fun progress(pendingAudioMs: Long) = MeetingProgressSnapshot(
+        capturedAudioMs = pendingAudioMs,
+        processedAudioMs = 0L,
+        pendingAudioMs = pendingAudioMs,
+        queuedAudioMs = pendingAudioMs,
+        inFlightAudioMs = 0L,
+        discardedAudioMs = 0L,
+        nativeProcessingMs = 0L,
+        inFlightProcessingMs = 0L,
+        processingCostRatio = null,
+        captureElapsedMs = 0L,
+    )
+
+    private fun expectedModelPackageSizeLabel(): String {
+        val packageBytes = MeetingModelCatalog.production.totalBytes
+        val packageMegabytes = (packageBytes + 999_999L) / 1_000_000L
+        return "$packageMegabytes Mo"
     }
 
     private fun fixtureDocument() = MeetingDocument(
@@ -329,6 +538,12 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
         return false
     }
 
+    private fun settleAfterOrientationChange(instrumentation: android.app.Instrumentation) {
+        instrumentation.waitForIdleSync()
+        SystemClock.sleep(800)
+        instrumentation.waitForIdleSync()
+    }
+
     @Suppress("DEPRECATION")
     private fun setFontScale(activity: MainActivity, fontScale: Float) {
         val updated = Configuration(activity.resources.configuration).apply { this.fontScale = fontScale }
@@ -364,6 +579,13 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
         if (root is TextView && root.text.toString() == expected) return root
         if (root !is ViewGroup) return null
         for (index in 0 until root.childCount) findText(root.getChildAt(index), expected)?.let { return it }
+        return null
+    }
+
+    private fun findTextContaining(root: View, expected: String): TextView? {
+        if (root is TextView && expected in root.text.toString()) return root
+        if (root !is ViewGroup) return null
+        for (index in 0 until root.childCount) findTextContaining(root.getChildAt(index), expected)?.let { return it }
         return null
     }
 

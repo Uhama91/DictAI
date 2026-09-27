@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" tests="41" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:13" hostname="MacBook-Pro-de-Ullie.local" time="0.01">
+  <properties/>
+  <testcase name="wordlessFallbackKeepsEachEditAndAddsContinuationOnlyAfterTheLastAnchor" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.002"/>
+  <testcase name="attachedTerminalPunctuationAlignsToTheRevisedSentenceBoundary" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.002"/>
+  <testcase name="editedAndManuallyAssignedTimedTurnBecomingUntimedPrefixDoesNotDuplicateText" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="internalGapRepeatedWordAndTokenMismatchKeepTheWholeTranscriptUnattributed" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="unalignableFallbackKeepsTheEditAndExposesAnUnresolvedDiagnostic" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="provisionalUnknownChannelCanBecomeKnownWithoutChangingTurnIdentity" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.001"/>
+  <testcase name="anIntentionallyEmptyWordlessEditStaysEmptyAcrossRepeatedTerminalPunctuation" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="latePunctuationUpdatesAnUneditedTurnWithoutDuplicatingIt" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="removedUneditedWordGroupIsRemovedFromTheDocument" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="correctionSurvivesRevisionAndNewWordsContinueAfterItsAnchor" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="editedWordlessTranscriptAlignsTextWithoutInventingSpeakerAttribution" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="ambiguousWordlessFallbackPreservesEditAndReportsUnresolvedAlignment" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="wordlessFallbackDistributesTextAcrossUneditedTurnsWithoutDuplication" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.001"/>
+  <testcase name="ambiguousManualOnlyFallbackPreservesTheOtherSpeakersVisibleBody" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="anOlderUtteranceCanReceiveANewerTagRevisionWhileStaleEventsAreIgnored" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="wordlessEditDoesNotAbsorbContinuationAssignedToAnotherSpeaker" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="manualUnknownAndManualParticipantOverrideAutomaticAttributions" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="turnIdsRemainUniqueWhenAnAnchorMovesAndSameTimeChannelsAreBorn" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="changedTerminalMarkDoesNotBecomeAContinuationOfTheEditedPeriod" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="wordlessRepeatedFinalKeepsOnlyTheEditedTerminalPeriod" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.001"/>
+  <testcase name="editedAndManuallyAssignedUntimedSuffixMovesToItsNewWordTimingWithoutDuplication" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="zeroOneTwoThreeAndReturningSpeakerCreateStableSpeakerTurns" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="manualAttributionSurvivesSpeakerBoundaryChangeWithoutTextEdit" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="changedSpeakerBoundaryInsideAnEditedTurnKeepsOneUnconfirmedTurn" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="invalidWordTimesKeepTranscriptVisibleWithoutSpeakerAttribution" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="wordlessRevisionKeepsARealContinuationAfterTheProtectedTerminalPeriod" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="partialWordTimingsKeepUntimedTranscriptEdgesUnattributed" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="finalWithoutWordsKeepsAnExistingManualEdit" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.001"/>
+  <testcase name="lexicalContinuationAfterTheProtectedPunctuationRemainsAfterTheEdit" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="androidPunctuationFixtureKeepsTheEditedTerminalPeriodWithoutTheWordInsertedBeforeIt" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="ambiguousMixedFallbackKeepsUneditedBodyOnceAndStoresRawTextOnEditedTurn" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="aLateEndingWordPreventsTheWholeGroupFromBeingMarkedStableOrIgnored" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="wordlessEditCanContinueWhenTimedWordsArriveLater" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.001"/>
+  <testcase name="deletingTheWholeTurnCannotBeUndoneByANewerFinalOrDuplicateFinal" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="twoEditedTurnsKeepSeparateIdsWhenSpeakerSegmentationMerges" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="missingTerminalMarkKeepsTheEditAndReportsUnresolvedAlignment" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="partialWordRevisionPreservesEdgeAndTimedEditsAndManualAssignments" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="uneditedUnknownTurnSplitsWhenSpeakerChannelsBecomeKnown" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="removedFillerBeforeTheAnchorDoesNotDropEditedContinuation" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <testcase name="wordlessLaterUtteranceFollowsEarlierAudioEvenWhenItsRevisionArrivesLate" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.001"/>
+  <testcase name="transcriptWithoutWordsRemainsVisibleAsUnconfirmed" classname="com.kafkasl.phonewhisper.meeting.MeetingTranscriptReducerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

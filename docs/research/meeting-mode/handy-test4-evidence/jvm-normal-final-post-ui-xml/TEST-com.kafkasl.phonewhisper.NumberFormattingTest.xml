@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.NumberFormattingTest" tests="20" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:49" hostname="MacBook-Pro-de-Ullie.local" time="0.208">
+  <properties/>
+  <testcase name="unchangedKeepsEveryCharacterWithoutInitializingAndroidIcu" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.079"/>
+  <testcase name="enumerationCanUseTwoCompletePrecedingNumbers" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.014"/>
+  <testcase name="articlesOrdinalsNamesAndWordFragmentsArePreserved" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.006"/>
+  <testcase name="cardinal256StillRespectsIdentifierVocabularyAndNameGuards" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.002"/>
+  <testcase name="simpleMessageDoesNotInitializeIcuAndVocabularyIsProtected" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.004"/>
+  <testcase name="rangeEvidenceMustUseCompleteNumericEndpoints" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.009"/>
+  <testcase name="longProseWithArticlesDoesNotBecomeAnEnumeration" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.034"/>
+  <testcase name="explicitCountingRangesDisambiguateFrenchOne" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.008"/>
+  <testcase name="numericIdentifiersPhonesUrlsAndDatesArePreserved" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.001"/>
+  <testcase name="twoHundredFiftySixAcceptsSupportedSpacesHyphensAndSentenceCase" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.006"/>
+  <testcase name="enumerationEvidenceCannotUseProtectedIdentifiersOrNames" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.004"/>
+  <testcase name="punctuationAndNonNumberSpacingAreUnchanged" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.003"/>
+  <testcase name="rangesDoNotTurnArticlesNamesOrProtectedEvidenceIntoNumbers" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.004"/>
+  <testcase name="commonCardinalsRoundTripInBothLanguages" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.008"/>
+  <testcase name="explicitEnumerationDisambiguatesOneWithoutChangingArticles" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.007"/>
+  <testcase name="itemNumbersAreNotSensitiveIdentifiers" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.006"/>
+  <testcase name="frenchCommonCardinalsAndDecimalsBecomeDigits" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.003"/>
+  <testcase name="digitsBecomeLocalWordsWithoutChangingDecimalPrecision" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.001"/>
+  <testcase name="invalidOrUnsupportedNumberPhrasesAreNotPartiallyConverted" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.006"/>
+  <testcase name="englishCommonCardinalsAndDecimalsBecomeDigits" classname="com.kafkasl.phonewhisper.NumberFormattingTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

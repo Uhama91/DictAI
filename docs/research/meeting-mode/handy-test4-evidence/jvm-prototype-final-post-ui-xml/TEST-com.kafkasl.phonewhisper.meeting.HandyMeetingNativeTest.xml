@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="rejects_invalid_pcm_lengths_and_token_windows_before_native_dispatch" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeTest" time="0.001"/>
+  <testcase name="keeps_utf8_transcript_authoritative_and_returns_the_requested_raw_token_window" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeTest" time="0.0"/>
+  <testcase name="open_rethrows_begin_failure_unchanged_when_native_release_succeeds" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeTest" time="0.0"/>
+  <testcase name="open_exposes_both_begin_and_cleanup_failures_when_native_release_is_uncertain" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeTest" time="0.0"/>
+  <testcase name="finish_returns_the_final_snapshot_and_close_releases_the_shared_session_once" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingNativeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

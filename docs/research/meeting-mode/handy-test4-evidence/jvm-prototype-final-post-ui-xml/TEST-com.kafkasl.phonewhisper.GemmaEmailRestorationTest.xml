@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:47" hostname="MacBook-Pro-de-Ullie.local" time="0.049">
+  <properties/>
+  <testcase name="truncationAndLargeDeletionsAreNotRepaired" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.001"/>
+  <testcase name="uncertainParagraphBoundariesAndPartialClosingsAreRejected" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.001"/>
+  <testcase name="omittedNegationCannotDisappearFromAnAcceptedMail" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.001"/>
+  <testcase name="digitsTechnicalPartsAndQuotedFragmentsAreNotInferred" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.002"/>
+  <testcase name="englishEmailRestoresAnOmissionWhilePreservingNumbersNamesAndNegation" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.001"/>
+  <testcase name="aSparseOmissionInsideTheBodyRestoresTheOriginalWordsAndPunctuation" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.001"/>
+  <testcase name="everyAcceptedSingleWordDeletionReconstructsTheWholeSource" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.037"/>
+  <testcase name="reproducedLongMailRestoresNormallyBeforeTheClosing" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.001"/>
+  <testcase name="repairedEmailGoesThroughNormalFinalizationWithoutAnotherGeneration" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.002"/>
+  <testcase name="inventionsSubstitutionsAndReorderingRemainRejected" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.001"/>
+  <testcase name="repeatedWordsMustHaveAnUnambiguousAlignment" classname="com.kafkasl.phonewhisper.GemmaEmailRestorationTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

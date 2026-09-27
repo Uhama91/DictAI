@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.ModelDownloaderTest" tests="20" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:48" hostname="MacBook-Pro-de-Ullie.local" time="0.068">
+  <properties/>
+  <testcase name="direct publication verifies size and SHA before atomically exposing the GGUF" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.005"/>
+  <testcase name="catalog pins the compact Nemotron Q6 GGUF direct artifact" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="rejects a corrupted bz2 archive" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.009"/>
+  <testcase name="catalog contains exactly the four supported models in product order" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="catalog pins the Handy Nemotron Q8 GGUF direct artifact" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="downloader marks progress as direct only when an artifact is direct" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="runtime labels distinguish GGUF quantizations and ONNX runtime" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.001"/>
+  <testcase name="extracts model assets while skipping readme and test wav files" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.033"/>
+  <testcase name="whole percent publisher publishes large progress jumps without filling gaps" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="rejects path traversal" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.003"/>
+  <testcase name="reports monotone extraction progress at whole percent boundaries" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.014"/>
+  <testcase name="whole percent publisher suppresses repeated percentages" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="maps installation progress monotonically across download and extraction" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="direct download maps its complete range to installation progress" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="retired selection reconciles to first installed current model" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="retired selection is cleared when no current model is installed" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="rejects traversal into a sibling whose path shares the output prefix" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.003"/>
+  <testcase name="direct download progress is monotone and bounded" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="whole percent publisher emits start and final completion once" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <testcase name="whole percent publisher bounds and never regresses" classname="com.kafkasl.phonewhisper.ModelDownloaderTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" tests="22" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:02" hostname="MacBook-Pro-de-Ullie.local" time="0.003">
+  <properties/>
+  <testcase name="horizontal resize toward pill keeps opposite edge and height on the left" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.001"/>
+  <testcase name="diagonal move from a left contact does not teleport across an already aligned axis" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="diagonal move from a top contact does not teleport across an already aligned axis" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="large horizontal move from left stops at pill without shrinking or slipping above it" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="large move from right to fully beyond pill stops on the original side" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="right side resize trigger stops at right pill without becoming a top strip" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.001"/>
+  <testcase name="diagonal move stops at first contact instead of crossing the pill" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="pointer reservation shrinks its strip on a tiny viewport" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="corner resize enforces readable size and viewport fractions" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="left side resize trigger keeps x and height at the screen edge" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="standard panel keeps readable minimum when a side has room" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="horizontal resize toward pill keeps opposite edge and height on the right" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="rectangle survives rotation through normalized persistence and rebounds" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="large move whose target is fully beyond pill still stops on the original side" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="pointer edge always faces the independently moved pill" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="drag clamps panel inside viewport and keeps it away from pill" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="moving back from the horizontal boundary responds immediately" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="keyboard viewport is used for height and reset returns standard" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="large panel shrinks to a free side when full size would hide the pill" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="pointer reservation keeps the envelope inside the viewport" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <testcase name="large horizontal move from right stops at pill without shrinking or slipping below it" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.001"/>
+  <testcase name="standard reduced rectangle is bounded by screen and avoids pill" classname="com.kafkasl.phonewhisper.OverlayPanelGeometryTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

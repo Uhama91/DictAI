@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:27" hostname="MacBook-Pro-de-Ullie.local" time="2.093">
+  <properties/>
+  <testcase name="unknown meeting payload remains byte exact through rename and folder changes" classname="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" time="1.959"/>
+  <testcase name="legacy note json remains readable and round trips folder metadata" classname="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" time="0.024"/>
+  <testcase name="stored v1 meeting reopens from structure instead of stale fallback text" classname="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" time="0.033"/>
+  <testcase name="failed meeting commit restores the exact prior serialized note" classname="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" time="0.018"/>
+  <testcase name="flat note writes continue to use apply instead of commit" classname="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" time="0.016"/>
+  <testcase name="failed rollback is attached to the original meeting commit failure" classname="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" time="0.016"/>
+  <testcase name="failed first meeting commit removes the newly written note" classname="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" time="0.012"/>
+  <testcase name="a note referencing a missing folder is normalized to sans dossier" classname="com.kafkasl.phonewhisper.AndroidTranscriptNoteStorageTest" time="0.014"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

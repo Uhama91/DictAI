@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.DictationPreviewPublicationGateTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:47" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="non_recording_preview_is_rejected_even_for_the_current_run" classname="com.kafkasl.phonewhisper.DictationPreviewPublicationGateTest" time="0.0"/>
+  <testcase name="cancelled_preview_is_rejected_even_if_the_run_still_looks_recording" classname="com.kafkasl.phonewhisper.DictationPreviewPublicationGateTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

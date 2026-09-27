@@ -1,0 +1,27 @@
+{
+  "androidTest": {
+    "aligned16KiB": true,
+    "identity": "package: name='com.uhama.whisperpin.meetingtest.test' versionCode='' versionName='' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'",
+    "path": "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
+    "runner": "androidx.test.runner.AndroidJUnitRunner",
+    "sha256": "d6db33d57fccbc6313eb0b045398fef5d0df6f4cab5621f07e8a4a55320951c6",
+    "signedV2": true,
+    "signerCertificateSha256": "6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539",
+    "sizeBytes": 2349855,
+    "targetPackage": "com.uhama.whisperpin.meetingtest"
+  },
+  "application": {
+    "aligned16KiB": true,
+    "handyModelMetadataEmbedded": true,
+    "identity": "package: name='com.uhama.whisperpin.meetingtest' versionCode='38' versionName='0.9.6-dictai-meeting-test4' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'",
+    "meetingJniSha256": "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546",
+    "modelWeightsBundled": false,
+    "path": "app/build/reports/meeting/conversation-2026-09-27/test4-compact-fix/dictai-meeting-test4-compact-fix.apk",
+    "sha256": "0ad1d9dd283a2d33edf6e42b19db6d1cfcc0e3a332c234bd1dec8ab1d74d0732",
+    "signedV2": true,
+    "signerCertificateSha256": "6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539",
+    "sizeBytes": 93938974,
+    "test4NoticeEmbedded": true,
+    "transcribeJniSha256": "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b"
+  }
+}

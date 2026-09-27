@@ -9,6 +9,8 @@ SPM_SOURCE="$CACHE/source/sentencepiece"
 SPM_PREFIX="$CACHE/deps/sentencepiece"
 BUILD="$CACHE/build/android-arm64"
 MODELS="$CACHE/models"
+THREAD_PATCH="$ROOT/scripts/native/meeting-diar-cpu-threads.patch"
+PATCH_APPLIER="$ROOT/scripts/native/apply-meeting-runtime-patch.sh"
 NDK="${ANDROID_SDK_ROOT:-/Users/ulliemaillot/Library/Android/sdk}/ndk/28.1.13356709"
 [[ -d "$NDK" ]] || NDK="/Users/ulliemaillot/Library/Android/sdk/ndk/28.1.13356709"
 NEMO_REV=97a15afa5caa9bce5baaa86c1184103877af4101
@@ -85,14 +87,16 @@ verify_cached_model "$MODELS/$ASR_FILE" "$ASR_SIZE" "$ASR_SHA"
 verify_cached_model "$MODELS/$DIAR_FILE" "$DIAR_SIZE" "$DIAR_SHA"
 
 mkdir -p "$STAGING"
-for source_file in CMakeLists.txt meeting_probe.cpp meeting_jni.cpp meeting_native_logic.cpp \
-    meeting_native_logic.h meeting_asr_config.h meeting_jni.exports; do
+for source_file in CMakeLists.txt meeting_probe.cpp meeting_jni.cpp meeting_diarization_jni.cpp \
+    meeting_diarization_jni.h meeting_native_logic.cpp meeting_native_logic.h \
+    meeting_asr_config.h meeting_jni.exports; do
     install -m 0644 "$ROOT/app/src/main/cpp/meeting/$source_file" "$STAGING/$source_file"
 done
 grep -Fq 'add_library(nemo_speech_asr STATIC ${ASR_SOURCES})' "$SOURCE/src/asr/CMakeLists.txt" || {
     printf 'ERROR: the pinned Android source patch did not make ASR static\n' >&2
     exit 2
 }
+"$PATCH_APPLIER" "$SOURCE" "$THREAD_PATCH"
 
 # CMake reads the same pinned API/dependency cache as T1. The only requested target is the new JNI library.
 cmake -S "$SOURCE" -B "$BUILD"

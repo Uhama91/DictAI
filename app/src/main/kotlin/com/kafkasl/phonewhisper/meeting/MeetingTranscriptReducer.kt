@@ -199,6 +199,7 @@ class MeetingTranscriptReducer(
                 recognizedText = edge.text,
                 automaticParticipantId = null,
                 attributionStable = false,
+                timingKnown = false,
             ),
             identityWords = emptyList(),
         )
@@ -224,6 +225,7 @@ class MeetingTranscriptReducer(
             automaticParticipantId = null,
             editedText = editedText,
             attributionStable = false,
+            timingKnown = false,
         )
     }
 
@@ -448,6 +450,7 @@ class MeetingTranscriptReducer(
                 automaticParticipantId = participantId,
                 editedText = editedText,
                 attributionStable = attributionStable,
+                timingKnown = true,
             )
             state.identityWords = assignedWords
             protectedResults += state
@@ -491,6 +494,7 @@ class MeetingTranscriptReducer(
             automaticParticipantId = participantId,
             editedText = null,
             attributionStable = attributionStable,
+            timingKnown = true,
         )
         state.identityWords = group.toList()
     }
@@ -523,6 +527,7 @@ class MeetingTranscriptReducer(
                     recognizedText = transcript,
                     automaticParticipantId = null,
                     attributionStable = false,
+                    timingKnown = false,
                 ),
                 identityWords = emptyList(),
             )
@@ -571,6 +576,7 @@ class MeetingTranscriptReducer(
                     automaticParticipantId = null,
                     editedText = state.editBaseText ?: state.turn.editedText,
                     attributionStable = false,
+                    timingKnown = false,
                 )
                 if (state.editAnchor != null) {
                     addDiagnostic(hypothesis.utteranceId, state.turn.id, MeetingEditAlignmentStatus.UNRESOLVED)
@@ -596,6 +602,7 @@ class MeetingTranscriptReducer(
                 automaticParticipantId = null,
                 editedText = editedText,
                 attributionStable = false,
+                timingKnown = false,
             )
         }
     }
@@ -669,6 +676,7 @@ class MeetingTranscriptReducer(
                 recognizedText = joinWords(group),
                 automaticParticipantId = participantId,
                 attributionStable = stable,
+                timingKnown = true,
             ),
             identityWords = group.toList(),
         )

@@ -43,7 +43,8 @@ object MeetingDocumentJson {
                     .put("manualParticipantId", turn.manualParticipantId.jsonValue())
                     .put("hasManualAttribution", turn.hasManualAttribution)
                     .put("editedText", turn.editedText.jsonValue())
-                    .put("attributionStable", turn.attributionStable),
+                    .put("attributionStable", turn.attributionStable)
+                    .put("timingKnown", turn.timingKnown),
             )
         }
 
@@ -108,6 +109,9 @@ object MeetingDocumentJson {
             require(turn.startMs >= 0) { "Turn start time must not be negative" }
             require(turn.endMs >= 0) { "Turn end time must not be negative" }
             require(turn.endMs >= turn.startMs) { "Turn end time must not precede start time" }
+            require(!turn.timingKnown || turn.endMs > turn.startMs) {
+                "Known audio timing must cover a positive interval"
+            }
             require(turn.automaticParticipantId == null || turn.automaticParticipantId in participantIds) {
                 "Automatic participant must exist"
             }
@@ -147,6 +151,7 @@ object MeetingDocumentJson {
                     hasManualAttribution = value.requiredBoolean("hasManualAttribution"),
                     editedText = value.requiredNullableString("editedText"),
                     attributionStable = value.requiredBoolean("attributionStable"),
+                    timingKnown = value.optionalBoolean("timingKnown", default = false),
                 ),
             )
         }
@@ -168,6 +173,10 @@ object MeetingDocumentJson {
 
     private fun JSONObject.requiredBoolean(key: String): Boolean =
         requiredValue(key) as? Boolean ?: throw IllegalArgumentException("$key must be a boolean")
+
+    private fun JSONObject.optionalBoolean(key: String, default: Boolean): Boolean =
+        if (!has(key)) default else get(key) as? Boolean
+            ?: throw IllegalArgumentException("$key must be a boolean")
 
     private fun JSONObject.requiredInt(key: String): Int = requiredInteger(key).intValueExact()
 

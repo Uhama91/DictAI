@@ -1,0 +1,16 @@
+Provenance: transcription of the successful final lines returned by the
+`functions.exec` Gradle session on 2026-09-27. The complete build output was
+not redirected to a raw log file; this excerpt is not presented as one.
+
+Command:
+JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home' \
+  ./gradlew :app:assembleDebugAndroidTest --no-daemon \
+  -Pkotlin.incremental=false -PmeetingPrototype=true
+
+Observed final output:
+> Task :app:packageDebugAndroidTest
+> Task :app:createDebugAndroidTestApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleDebugAndroidTest
+
+BUILD SUCCESSFUL in 40s
+48 actionable tasks: 6 executed, 42 up-to-date

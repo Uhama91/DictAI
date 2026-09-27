@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" tests="19" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:11" hostname="MacBook-Pro-de-Ullie.local" time="0.367">
+  <properties/>
+  <testcase name="listenerCallbacksRunOutsideTheStateLockAndExceptionsCannotStopWork" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.015"/>
+  <testcase name="publicationFailurePreservesTheOldPackageAndDoesNotExposeFilesystemDetails" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.014"/>
+  <testcase name="previousNemotronPackageIsNotReadyUnderV2AndExplicitUpgradeKeepsEverySource" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.006"/>
+  <testcase name="insufficientSpaceStopsBeforeAnyRequest" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.002"/>
+  <testcase name="cancellationDuringCandidateCopyNeverPublishesReadyOrDeletesSourceFiles" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.003"/>
+  <testcase name="handyCandidateIsReusedWhenLegacyDiarizationIsMissing" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.007"/>
+  <testcase name="downloadPublishesReadyOnlyAfterBothFilesAreVerified" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.008"/>
+  <testcase name="legacyDiarizationCandidateIsReusedWhenHandyIsMissing" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.006"/>
+  <testcase name="refreshRejectsSameSizeHashCorruptionAndMissingModelFile" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.008"/>
+  <testcase name="missingSecondFileFailsAndCleansOnlyItsOwnStagingDirectory" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.007"/>
+  <testcase name="externalSymlinkCandidateIsRejectedAndFallsBackWithoutPublishingIt" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.007"/>
+  <testcase name="cancellationClosesBlockedRequestAndALaterDownloadCanSucceed" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.01"/>
+  <testcase name="privateReuseCreatesParentsForNestedArtifactPartFiles" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.005"/>
+  <testcase name="sameSizeCorruptCandidateFallsBackToTheNormalVerifiedDownload" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.008"/>
+  <testcase name="explicitDownloadCopiesAndVerifiesPrivateCandidatesWhileRefreshNeverConsultsThem" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.003"/>
+  <testcase name="concurrentDownloadCommandsCreateOnlyOnePairOfRequests" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.213"/>
+  <testcase name="truncationWrongShaAndOversizedResponsesNeverBecomeReady" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.016"/>
+  <testcase name="failedNewVersionKeepsPreviouslyPublishedPackageIntact" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.017"/>
+  <testcase name="cancellationAfterAtomicRenameSuppressesReadyAndRefreshCanAdoptThePackage" classname="com.kafkasl.phonewhisper.meeting.MeetingModelStoreTest" time="0.011"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[sept. 27, 2026 5:27:11 AM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+AVERTISSEMENT: MockWebServer[51382] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>

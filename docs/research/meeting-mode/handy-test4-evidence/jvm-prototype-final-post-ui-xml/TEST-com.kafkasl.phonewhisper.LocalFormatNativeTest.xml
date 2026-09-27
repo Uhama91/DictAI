@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.LocalFormatNativeTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:48" hostname="MacBook-Pro-de-Ullie.local" time="0.002">
+  <properties/>
+  <testcase name="closedOrInvalidBudgetGenerationNeverReportsNativeStart" classname="com.kafkasl.phonewhisper.LocalFormatNativeTest" time="0.001"/>
+  <testcase name="nativeStartImmediatelyFollowsTheCancellationGuardAndPrecedesBindings" classname="com.kafkasl.phonewhisper.LocalFormatNativeTest" time="0.001"/>
+  <testcase name="bindingsFailureStillCountsAsNativeInvocationAndClearsCancellationOwnership" classname="com.kafkasl.phonewhisper.LocalFormatNativeTest" time="0.0"/>
+  <testcase name="cancelledGenerationNeverReportsNativeStart" classname="com.kafkasl.phonewhisper.LocalFormatNativeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

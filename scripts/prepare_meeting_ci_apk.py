@@ -19,11 +19,13 @@ from pathlib import Path
 
 
 APPLICATION_ID = "com.uhama.whisperpin.meetingtest"
-VERSION_CODE = 37
-VERSION_NAME = "0.9.6-dictai-meeting-test3"
+VERSION_CODE = 38
+VERSION_NAME = "0.9.6-dictai-meeting-test4"
 ABI = "arm64-v8a"
 MEETING_LIBRARY = "lib/arm64-v8a/libdictai_meeting.so"
-MEETING_LIBRARY_SHA256 = "3a7c06e33a052996aa5aa637bfb8bd79f523a6b96c81da0aceb1af7ec2cb9bcc"
+MEETING_LIBRARY_SHA256 = "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546"
+TRANSCRIBE_JNI_LIBRARY = "lib/arm64-v8a/libtranscribe_jni.so"
+TRANSCRIBE_JNI_SHA256 = "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b"
 HISTORICAL_LIBRARIES = frozenset(
     {
         "libggml-base.so",
@@ -137,8 +139,8 @@ def _is_model_weight(path: str) -> bool:
     )
 
 
-def verify_apk(apk_path: Path, badging_output: str) -> tuple[ApkIdentity, str, int, str]:
-    """Check the APK payload and return identity, APK hash, size, and engine hash."""
+def verify_apk(apk_path: Path, badging_output: str) -> tuple[ApkIdentity, str, int, str, str]:
+    """Check APK identity and payload; return APK, meeting JNI, and transcribe JNI hashes."""
     identity = parse_badging(badging_output)
     try:
         with zipfile.ZipFile(apk_path) as apk:
@@ -168,6 +170,11 @@ def verify_apk(apk_path: Path, badging_output: str) -> tuple[ApkIdentity, str, i
                 raise VerificationError(
                     f"SHA-256 mismatch for {MEETING_LIBRARY}: {engine_sha}"
                 )
+            transcribe_jni_sha = sha256_bytes(apk.read(TRANSCRIBE_JNI_LIBRARY))
+            if transcribe_jni_sha != TRANSCRIBE_JNI_SHA256:
+                raise VerificationError(
+                    f"SHA-256 mismatch for {TRANSCRIBE_JNI_LIBRARY}: {transcribe_jni_sha}"
+                )
     except VerificationError:
         raise
     except (OSError, zipfile.BadZipFile, zipfile.LargeZipFile) as error:
@@ -175,7 +182,7 @@ def verify_apk(apk_path: Path, badging_output: str) -> tuple[ApkIdentity, str, i
 
     with apk_path.open("rb") as stream:
         apk_sha = hashlib.file_digest(stream, "sha256").hexdigest()
-    return identity, apk_sha, apk_path.stat().st_size, engine_sha
+    return identity, apk_sha, apk_path.stat().st_size, engine_sha, transcribe_jni_sha
 
 
 def read_badging(apk_path: Path, aapt: str) -> str:
@@ -220,6 +227,7 @@ def stage_artifact(
     apk_sha: str,
     size_bytes: int,
     engine_sha: str,
+    transcribe_jni_sha: str,
     commit: str,
 ) -> None:
     if output_dir.exists():
@@ -237,6 +245,7 @@ def stage_artifact(
             "sizeBytes": size_bytes,
             "sha256": apk_sha,
             "meetingEngineSha256": engine_sha,
+            "transcribeBridgeSha256": transcribe_jni_sha,
             "ciCommit": commit,
         }
         (staging / "metadata.json").write_text(
@@ -263,9 +272,18 @@ def main(argv: list[str] | None = None) -> int:
         if not args.apk.is_file():
             raise VerificationError(f"APK does not exist: {args.apk}")
         badging = read_badging(args.apk, aapt)
-        identity, apk_sha, size_bytes, engine_sha = verify_apk(args.apk, badging)
+        identity, apk_sha, size_bytes, engine_sha, transcribe_jni_sha = verify_apk(args.apk, badging)
         commit = resolve_commit(args.commit_sha, repository)
-        stage_artifact(args.apk, args.output_dir, identity, apk_sha, size_bytes, engine_sha, commit)
+        stage_artifact(
+            args.apk,
+            args.output_dir,
+            identity,
+            apk_sha,
+            size_bytes,
+            engine_sha,
+            transcribe_jni_sha,
+            commit,
+        )
     except VerificationError as error:
         print(f"Meeting APK verification failed: {error}", file=sys.stderr)
         return 1
@@ -275,7 +293,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"Verified {identity.applicationId} {identity.versionName}: "
-        f"{size_bytes} bytes, SHA256={apk_sha}; staged at {args.output_dir}"
+        f"{size_bytes} bytes, APK SHA256={apk_sha}, meeting JNI SHA256={engine_sha}, "
+        f"transcribe JNI SHA256={transcribe_jni_sha}; staged at {args.output_dir}"
     )
     return 0
 

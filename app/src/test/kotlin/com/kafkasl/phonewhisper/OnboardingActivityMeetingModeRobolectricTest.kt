@@ -25,6 +25,7 @@ import org.robolectric.shadows.ShadowToast
 import org.robolectric.shadows.ShadowSettings
 import org.robolectric.Shadows.shadowOf
 import android.os.Looper
+import com.kafkasl.phonewhisper.meeting.MeetingModelCatalog
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -73,9 +74,10 @@ class OnboardingActivityMeetingModeRobolectricTest {
         assertNull("Réunion onboarding must not require the Dictée model", textView(activity, "Modèle de transcription (FR/EN)"))
         assertNull("Réunion onboarding must not require accessibility", textView(activity, "Service d'accessibilité"))
         assertNotNull("meeting setup must show its model installation", textView(activity, "Modèles Réunion"))
+        val expectedMaximumMegabytes = (MeetingModelCatalog.production.totalBytes + 999_999L) / 1_000_000L
         assertTrue("the meeting model package size is visible", allViews(activity.window.decorView)
             .filterIsInstance<TextView>()
-            .any { it.text.toString().contains("849") && it.text.toString().contains("Mo") })
+            .any { it.text.toString().contains("Jusqu’à $expectedMaximumMegabytes Mo") })
         assertNotNull("accessibility remains described as optional", allViews(activity.window.decorView)
             .filterIsInstance<TextView>()
             .firstOrNull { it.text.toString().contains("captures d’écran") })

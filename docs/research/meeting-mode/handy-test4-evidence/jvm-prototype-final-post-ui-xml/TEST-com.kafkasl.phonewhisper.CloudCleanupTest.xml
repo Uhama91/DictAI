@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.CloudCleanupTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:45" hostname="MacBook-Pro-de-Ullie.local" time="0.236">
+  <properties/>
+  <testcase name="OpenRouter model preferences migrate only when the new value is absent" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.001"/>
+  <testcase name="OpenRouter sends bearer auth strict structured output and required parameters" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.135"/>
+  <testcase name="AES GCM encryption lets the cipher generate the IV required by AndroidKeyStore" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.002"/>
+  <testcase name="cancelling an in-flight cleanup aborts the okhttp call" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.009"/>
+  <testcase name="reasoning is disabled only for catalogue models that support it" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.016"/>
+  <testcase name="blank credential and oversize transcript make no request" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.0"/>
+  <testcase name="selected formatting instructions travel with the cleanup request" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.003"/>
+  <testcase name="default cloud client uses bounded connection and long call timeouts" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.0"/>
+  <testcase name="plaintext OpenRouter credential is retained until encrypted save succeeds" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.001"/>
+  <testcase name="network malformed and implausible cleanup outcomes retain local ASR text" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.065"/>
+  <testcase name="French and English map to the native and cleanup locales" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.0"/>
+  <testcase name="OpenRouter catalogue contains only the five verified structured-output models" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.0"/>
+  <testcase name="dynamic output budget covers short medium and maximum transcripts" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.0"/>
+  <testcase name="AES GCM codec has random IVs and rejects tampering" classname="com.kafkasl.phonewhisper.CloudCleanupTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[sept. 27, 2026 5:26:45 AM okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+AVERTISSEMENT: MockWebServer[51311] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>

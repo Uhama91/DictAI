@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingNativeTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:12" hostname="MacBook-Pro-de-Ullie.local" time="0.002">
+  <properties/>
+  <testcase name="publicFacadeConstructionDoesNotLoadNativeLibrary" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeTest" time="0.001"/>
+  <testcase name="acceptsPcm16AndReturnsNativeUpdates" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeTest" time="0.001"/>
+  <testcase name="jniFacadeDefersNativeLoadingUntilFirstOperation" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeTest" time="0.0"/>
+  <testcase name="rejectsInvalidHandlesAndPcmBoundsBeforeCallingNative" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeTest" time="0.0"/>
+  <testcase name="closeWithNonPositiveHandleIsIdempotentAndDoesNotLoadNativeLibrary" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest" tests="1" failures="1" errors="0" skipped="0" time="316.623" timestamp="2026-09-27T02:53:27" hostname="localhost">
+  <properties>
+    <property name="device" value="DictAI_Meeting_API36_20260925(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="compares_handy_and_diarization_on_sustained_sixty_four_second_stream" classname="com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest" time="314.018">
+    <failure>java.lang.AssertionError: background diarization worker must drain the bounded queue
+at org.junit.Assert.fail(Assert.java:89)
+at org.junit.Assert.assertTrue(Assert.java:42)
+at com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest.runHandyWithDiarization(MeetingStreamingPortsInstrumentedTest.kt:333)
+at com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest.compares_handy_and_diarization_on_sustained_sixty_four_second_stream(MeetingStreamingPortsInstrumentedTest.kt:106)
+</failure>
+  </testcase>
+</testsuite>

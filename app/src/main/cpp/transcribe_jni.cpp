@@ -1,13 +1,16 @@
 #include <jni.h>
 
 #include <atomic>
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "transcribe.h"
 
@@ -15,6 +18,9 @@ namespace {
 
 constexpr char kBindingsClass[] = "com/kafkasl/phonewhisper/TranscribeCppNative$JniBindings";
 constexpr char kNativeExceptionClass[] = "com/kafkasl/phonewhisper/TranscribeCppNativeException";
+constexpr char kHandyTokenWindowClass[] = "com/kafkasl/phonewhisper/meeting/HandyTokenWindow";
+constexpr std::size_t kMaxPcmBytes = 320000; // 10 seconds at mono 16 kHz PCM16.
+constexpr jint kMaxTokenWindow = 8192;
 
 struct NativeSession {
     std::mutex mutex;
@@ -267,6 +273,221 @@ jobjectArray native_feed(JNIEnv * env, jobject, jlong handle, jfloatArray sample
     }
 }
 
+void native_accept_pcm16(JNIEnv * env, jobject, jlong handle, jbyteArray bytes, jint length_bytes) {
+    try {
+        if (bytes == nullptr) {
+            throw_exception(env, "java/lang/IllegalArgumentException", "PCM16 buffer must not be null");
+            return;
+        }
+        const jsize capacity = env->GetArrayLength(bytes);
+        if (length_bytes <= 0 || (length_bytes % 2) != 0 || length_bytes > capacity ||
+            static_cast<std::size_t>(length_bytes) > kMaxPcmBytes) {
+            throw_exception(env, "java/lang/IllegalArgumentException", "PCM16 byte length is invalid or exceeds 10 seconds");
+            return;
+        }
+
+        const auto native_session = acquire_session(env, handle);
+        if (native_session == nullptr) return;
+        std::lock_guard<std::mutex> lock(native_session->mutex);
+        if (!ensure_open(env, native_session)) return;
+
+        const std::size_t sample_count = static_cast<std::size_t>(length_bytes) / 2;
+        std::vector<float> pcm(sample_count);
+        jbyte * raw = env->GetByteArrayElements(bytes, nullptr);
+        if (raw == nullptr) return;
+        for (std::size_t i = 0; i < sample_count; ++i) {
+            const auto low = static_cast<std::uint8_t>(raw[i * 2]);
+            const auto high = static_cast<std::uint8_t>(raw[i * 2 + 1]);
+            const auto sample_bits = static_cast<std::uint16_t>(low | (static_cast<std::uint16_t>(high) << 8));
+            const auto sample = static_cast<std::int16_t>(sample_bits);
+            pcm[i] = static_cast<float>(sample) / 32768.0f;
+        }
+        env->ReleaseByteArrayElements(bytes, raw, JNI_ABORT);
+
+        transcribe_stream_update update;
+        transcribe_stream_update_init(&update);
+        const transcribe_status status = transcribe_stream_feed(
+            native_session->session,
+            pcm.data(),
+            pcm.size(),
+            &update
+        );
+        if (status != TRANSCRIBE_OK) throw_native_error(env, "transcribe_stream_feed", status);
+    } catch (const std::bad_alloc &) {
+        throw_exception(env, "java/lang/OutOfMemoryError", "Could not allocate PCM16 conversion buffer");
+    } catch (const std::exception & error) {
+        throw_exception(env, "java/lang/RuntimeException", error.what());
+    } catch (...) {
+        throw_exception(env, "java/lang/RuntimeException", "Unexpected native transcribe.cpp failure");
+    }
+}
+
+bool validate_token_window(JNIEnv * env, jint first_token_index, jint max_tokens) {
+    if (first_token_index < 0 || max_tokens < 0 || max_tokens > kMaxTokenWindow) {
+        throw_exception(env, "java/lang/IllegalArgumentException", "Token window bounds are invalid");
+        return false;
+    }
+    return true;
+}
+
+jobject copy_token_snapshot(JNIEnv * env, transcribe_session * session,
+                            jint requested_first, jint max_tokens, bool finalize) {
+    if (!validate_token_window(env, requested_first, max_tokens)) return nullptr;
+    if (finalize) {
+        transcribe_stream_update update;
+        transcribe_stream_update_init(&update);
+        const transcribe_status status = transcribe_stream_finalize(session, &update);
+        if (status != TRANSCRIBE_OK) {
+            throw_native_error(env, "transcribe_stream_finalize", status);
+            return nullptr;
+        }
+    }
+
+    transcribe_stream_text text;
+    transcribe_stream_text_init(&text);
+    transcribe_status status = transcribe_stream_get_text(session, &text);
+    if (status != TRANSCRIBE_OK) {
+        throw_native_error(env, "transcribe_stream_get_text", status);
+        return nullptr;
+    }
+    if (text.full_text_bytes > static_cast<uint64_t>(std::numeric_limits<jsize>::max())) {
+        throw_exception(env, "java/lang/OutOfMemoryError", "Handy transcript exceeds JNI array limits");
+        return nullptr;
+    }
+    if (text.full_text_bytes > 0 && text.full_text == nullptr) {
+        throw_exception(env, "java/lang/IllegalStateException", "Handy returned a missing transcript buffer");
+        return nullptr;
+    }
+    std::vector<jbyte> full_text(static_cast<std::size_t>(text.full_text_bytes));
+    if (!full_text.empty() && text.full_text != nullptr) {
+        std::copy_n(reinterpret_cast<const jbyte *>(text.full_text), full_text.size(), full_text.begin());
+    }
+
+    const int raw_token_count = transcribe_n_tokens(session);
+    if (raw_token_count < 0) {
+        throw_exception(env, "java/lang/IllegalStateException", "Handy returned a negative token count");
+        return nullptr;
+    }
+    const jint total_tokens = static_cast<jint>(raw_token_count);
+    const jint first_token = std::min(requested_first, total_tokens);
+    const int raw_committed_count = transcribe_stream_n_committed_tokens(session);
+    const jint committed_tokens = std::clamp(raw_committed_count, 0, raw_token_count);
+    const jint copied_count = std::min(max_tokens, total_tokens - first_token);
+
+    std::vector<jbyte> token_bytes;
+    std::vector<jint> token_byte_ends;
+    std::vector<jlong> token_starts;
+    std::vector<jlong> token_ends;
+    token_byte_ends.reserve(static_cast<std::size_t>(copied_count));
+    token_starts.reserve(static_cast<std::size_t>(copied_count));
+    token_ends.reserve(static_cast<std::size_t>(copied_count));
+    for (jint offset = 0; offset < copied_count; ++offset) {
+        transcribe_token token;
+        transcribe_token_init(&token);
+        status = transcribe_get_token(session, first_token + offset, &token);
+        if (status != TRANSCRIBE_OK) {
+            throw_native_error(env, "transcribe_get_token", status);
+            return nullptr;
+        }
+        const std::size_t token_size = token.text == nullptr ? 0 : std::strlen(token.text);
+        if (token_size > static_cast<std::size_t>(std::numeric_limits<jsize>::max()) - token_bytes.size()) {
+            throw_exception(env, "java/lang/OutOfMemoryError", "Handy token window exceeds JNI array limits");
+            return nullptr;
+        }
+        if (token_size > 0) {
+            const auto * token_data = reinterpret_cast<const jbyte *>(token.text);
+            token_bytes.insert(token_bytes.end(), token_data, token_data + token_size);
+        }
+        token_byte_ends.push_back(static_cast<jint>(token_bytes.size()));
+        token_starts.push_back(static_cast<jlong>(token.t0_ms));
+        token_ends.push_back(static_cast<jlong>(token.t1_ms));
+    }
+
+    const jsize full_size = static_cast<jsize>(full_text.size());
+    const jsize token_size = static_cast<jsize>(token_bytes.size());
+    const jsize row_count = static_cast<jsize>(copied_count);
+    jbyteArray full_array = env->NewByteArray(full_size);
+    if (full_array == nullptr) return nullptr;
+    jbyteArray token_array = env->NewByteArray(token_size);
+    if (token_array == nullptr) return nullptr;
+    jintArray byte_ends_array = env->NewIntArray(row_count);
+    if (byte_ends_array == nullptr) return nullptr;
+    jlongArray starts_array = env->NewLongArray(row_count);
+    if (starts_array == nullptr) return nullptr;
+    jlongArray ends_array = env->NewLongArray(row_count);
+    if (ends_array == nullptr) return nullptr;
+    if (full_size > 0) env->SetByteArrayRegion(full_array, 0, full_size, full_text.data());
+    if (env->ExceptionCheck()) return nullptr;
+    if (token_size > 0) env->SetByteArrayRegion(token_array, 0, token_size, token_bytes.data());
+    if (env->ExceptionCheck()) return nullptr;
+    if (row_count > 0) {
+        env->SetIntArrayRegion(byte_ends_array, 0, row_count, token_byte_ends.data());
+        if (env->ExceptionCheck()) return nullptr;
+        env->SetLongArrayRegion(starts_array, 0, row_count, token_starts.data());
+        if (env->ExceptionCheck()) return nullptr;
+        env->SetLongArrayRegion(ends_array, 0, row_count, token_ends.data());
+        if (env->ExceptionCheck()) return nullptr;
+    }
+
+    jclass window_class = env->FindClass(kHandyTokenWindowClass);
+    if (window_class == nullptr) return nullptr;
+    const jmethodID constructor = env->GetMethodID(window_class, "<init>", "([BIII[B[I[J[J)V");
+    if (constructor == nullptr) {
+        env->DeleteLocalRef(window_class);
+        return nullptr;
+    }
+    jobject result = env->NewObject(window_class, constructor, full_array, first_token,
+                                    total_tokens, committed_tokens, token_array,
+                                    byte_ends_array, starts_array, ends_array);
+    env->DeleteLocalRef(window_class);
+    env->DeleteLocalRef(full_array);
+    env->DeleteLocalRef(token_array);
+    env->DeleteLocalRef(byte_ends_array);
+    env->DeleteLocalRef(starts_array);
+    env->DeleteLocalRef(ends_array);
+    return result;
+}
+
+jobject native_token_snapshot(JNIEnv * env, jobject, jlong handle, jint first_token_index,
+                              jint max_tokens) {
+    try {
+        const auto native_session = acquire_session(env, handle);
+        if (native_session == nullptr) return nullptr;
+        std::lock_guard<std::mutex> lock(native_session->mutex);
+        if (!ensure_open(env, native_session)) return nullptr;
+        return copy_token_snapshot(env, native_session->session, first_token_index, max_tokens, false);
+    } catch (const std::bad_alloc &) {
+        throw_exception(env, "java/lang/OutOfMemoryError", "Could not allocate Handy token snapshot");
+        return nullptr;
+    } catch (const std::exception & error) {
+        throw_exception(env, "java/lang/RuntimeException", error.what());
+        return nullptr;
+    } catch (...) {
+        throw_exception(env, "java/lang/RuntimeException", "Unexpected native transcribe.cpp failure");
+        return nullptr;
+    }
+}
+
+jobject native_finish_token_snapshot(JNIEnv * env, jobject, jlong handle, jint first_token_index,
+                                     jint max_tokens) {
+    try {
+        const auto native_session = acquire_session(env, handle);
+        if (native_session == nullptr) return nullptr;
+        std::lock_guard<std::mutex> lock(native_session->mutex);
+        if (!ensure_open(env, native_session)) return nullptr;
+        return copy_token_snapshot(env, native_session->session, first_token_index, max_tokens, true);
+    } catch (const std::bad_alloc &) {
+        throw_exception(env, "java/lang/OutOfMemoryError", "Could not allocate Handy token snapshot");
+        return nullptr;
+    } catch (const std::exception & error) {
+        throw_exception(env, "java/lang/RuntimeException", error.what());
+        return nullptr;
+    } catch (...) {
+        throw_exception(env, "java/lang/RuntimeException", "Unexpected native transcribe.cpp failure");
+        return nullptr;
+    }
+}
+
 jobjectArray native_get_text(JNIEnv * env, jobject, jlong handle) {
     try {
         const auto native_session = acquire_session(env, handle);
@@ -356,6 +577,9 @@ const JNINativeMethod kMethods[] = {
     {const_cast<char *>("open"), const_cast<char *>("(Ljava/lang/String;)J"), reinterpret_cast<void *>(native_open)},
     {const_cast<char *>("begin"), const_cast<char *>("(JLjava/lang/String;)V"), reinterpret_cast<void *>(native_begin)},
     {const_cast<char *>("feed"), const_cast<char *>("(J[F)[Ljava/lang/String;"), reinterpret_cast<void *>(native_feed)},
+    {const_cast<char *>("acceptPcm16"), const_cast<char *>("(J[BI)V"), reinterpret_cast<void *>(native_accept_pcm16)},
+    {const_cast<char *>("tokenSnapshot"), const_cast<char *>("(JII)Lcom/kafkasl/phonewhisper/meeting/HandyTokenWindow;"), reinterpret_cast<void *>(native_token_snapshot)},
+    {const_cast<char *>("finishTokenSnapshot"), const_cast<char *>("(JII)Lcom/kafkasl/phonewhisper/meeting/HandyTokenWindow;"), reinterpret_cast<void *>(native_finish_token_snapshot)},
     {const_cast<char *>("getText"), const_cast<char *>("(J)[Ljava/lang/String;"), reinterpret_cast<void *>(native_get_text)},
     {const_cast<char *>("finish"), const_cast<char *>("(J)[Ljava/lang/String;"), reinterpret_cast<void *>(native_finish)},
     {const_cast<char *>("reset"), const_cast<char *>("(J)V"), reinterpret_cast<void *>(native_reset)},

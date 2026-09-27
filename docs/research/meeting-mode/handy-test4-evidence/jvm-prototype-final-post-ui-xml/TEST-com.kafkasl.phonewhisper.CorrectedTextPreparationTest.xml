@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.CorrectedTextPreparationTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:46" hostname="MacBook-Pro-de-Ullie.local" time="0.014">
+  <properties/>
+  <testcase name="quotationsMentionsTechnicalTokensAndVocabularyStayVerbatim" classname="com.kafkasl.phonewhisper.CorrectedTextPreparationTest" time="0.003"/>
+  <testcase name="otherFormatsAreUnchangedAndTextCleanupPreferenceIsIndependent" classname="com.kafkasl.phonewhisper.CorrectedTextPreparationTest" time="0.0"/>
+  <testcase name="modelFailureStillPublishesThePreparedSource" classname="com.kafkasl.phonewhisper.CorrectedTextPreparationTest" time="0.006"/>
+  <testcase name="repeatedFillersPunctuationParagraphsAndEnglishStayWellFormed" classname="com.kafkasl.phonewhisper.CorrectedTextPreparationTest" time="0.001"/>
+  <testcase name="onlyActualManualSpansAreKeptWhileOtherFillersAreRemoved" classname="com.kafkasl.phonewhisper.CorrectedTextPreparationTest" time="0.001"/>
+  <testcase name="hesitationRemovalDoesNotDependOnWhatTheModelChoosesToCopy" classname="com.kafkasl.phonewhisper.CorrectedTextPreparationTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

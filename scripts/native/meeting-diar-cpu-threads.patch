@@ -1,0 +1,23 @@
+diff --git a/src/runtime/ggml/runtime.h b/src/runtime/ggml/runtime.h
+--- a/src/runtime/ggml/runtime.h
++++ b/src/runtime/ggml/runtime.h
+@@ -169,6 +169,7 @@
+     bool use_gpu = false;
+     int gpu_device_idx = 0;
+     char* pe_bin_path = nullptr;
++    int cpu_threads = 4;
+ };
+ 
+ // Owns ggml backend handles shared by one or more Sessions.
+diff --git a/src/runtime/ggml/session.cpp b/src/runtime/ggml/session.cpp
+--- a/src/runtime/ggml/session.cpp
++++ b/src/runtime/ggml/session.cpp
+@@ -908,7 +908,7 @@
+         }
+ 
+         auto _t2 = _clk::now();
+-        if (!ggml_graph_compute_helper_async(sched.get(), cr.gf, 4)) {
++        if (!ggml_graph_compute_helper_async(sched.get(), cr.gf, params.cpu_threads)) {
+             GGMLF_LOG_ERROR("Failed to compute graph\n");
+             throw std::runtime_error("failed to compute graph");
+         }

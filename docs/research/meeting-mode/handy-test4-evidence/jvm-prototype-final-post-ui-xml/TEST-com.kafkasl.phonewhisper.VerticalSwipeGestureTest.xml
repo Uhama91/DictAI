@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="downward pause accepts descent and rejects ascent" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="small upward adjustment does not select formats" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="diagonal horizontal and downward drags do not select formats" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.001"/>
+  <testcase name="deliberate upward flick selects only once on release" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="disabled surfaces cannot trigger shortcut" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="initial finger jitter does not prevent a flick" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="preview follows pull and retract" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="new touch resets previous rejection" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="pull can stay at destination without expiring" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="redirecting sideways or downward cannot steal a drag" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="distance scales with density" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="final coordinates suffice with sparse move events" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <testcase name="hold cancellation and additional pointers disable shortcut" classname="com.kafkasl.phonewhisper.VerticalSwipeGestureTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

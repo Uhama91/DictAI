@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.DictationRunCompletionGateTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:47" hostname="MacBook-Pro-de-Ullie.local" time="0.26">
+  <properties/>
+  <testcase name="raw_recording_teardown_returns_without_an_unstarted_worker" classname="com.kafkasl.phonewhisper.DictationRunCompletionGateTest" time="0.0"/>
+  <testcase name="teardown_waits_for_a_started_worker_even_when_the_reader_was_present" classname="com.kafkasl.phonewhisper.DictationRunCompletionGateTest" time="0.26"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

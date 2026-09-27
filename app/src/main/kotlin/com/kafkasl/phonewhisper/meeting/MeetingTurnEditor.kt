@@ -71,18 +71,6 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
     internal fun setCompact(value: Boolean) {
         if (compact == value) return
         compact = value
-        orientation = if (compact) HORIZONTAL else VERTICAL
-        if (compact) {
-            labelView.layoutParams = LayoutParams(dp(48), LayoutParams.MATCH_PARENT)
-            contentColumn.layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
-            labelView.maxLines = 1
-            labelView.ellipsize = android.text.TextUtils.TruncateAt.END
-        } else {
-            labelView.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(48))
-            contentColumn.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-            labelView.maxLines = 2
-            labelView.ellipsize = null
-        }
         updateSpeakerLabel()
         requestLayout()
     }
@@ -110,7 +98,8 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
         labelView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
         labelView.setTextColor(palette.inkMuted)
         labelView.setPadding(dp(8), 0, dp(8), 0)
-        labelView.minHeight = dp(48)
+        labelView.minHeight = 0
+        labelView.gravity = android.view.Gravity.CENTER_VERTICAL
         labelView.isFocusable = true
         labelView.isClickable = true
         bodyHost.minimumHeight = dp(48)
@@ -123,7 +112,6 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
         val turnId = newEntry.turnId
         val label = row?.label
         updateSpeakerLabel(label)
-        labelView.visibility = if (label == null) View.GONE else View.VISIBLE
         labelView.setOnClickListener {
             val current = entry?.takeIf { it.row?.label != null } ?: return@setOnClickListener
             current.turnId?.let { id -> callbacks?.assign(id) }
@@ -161,6 +149,10 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
         entry = null
         callbacks = null
         labelView.visibility = View.GONE
+        labelView.text = ""
+        labelView.contentDescription = null
+        labelView.isFocusable = false
+        labelView.isClickable = false
         editableView?.visibility = View.GONE
         readOnlyView?.visibility = View.GONE
         imageActions.visibility = View.GONE
@@ -300,10 +292,77 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
     }
 
     private fun updateSpeakerLabel(label: String? = entry?.row?.label) {
-        labelView.text = if (!compact || label.isNullOrBlank()) label.orEmpty() else {
-            compactSpeakerLabel(label)
+        val row = entry?.row
+        val audioTime = row?.audioStartMs?.let(::formatAudioTime)
+        val showHeading = label != null && (row?.showSpeakerHeading != false || audioTime == null)
+        val displayedName = label?.takeIf { showHeading }
+        val inlineContinuation = !compact && label != null && !showHeading && audioTime != null
+        val visibleText = when {
+            compact && displayedName != null && audioTime != null ->
+                "${compactSpeakerLabel(displayedName)}\n$audioTime"
+            compact && displayedName != null -> compactSpeakerLabel(displayedName)
+            compact && audioTime != null -> audioTime
+            displayedName != null && audioTime != null -> "$displayedName · $audioTime"
+            displayedName != null -> displayedName
+            audioTime != null -> audioTime
+            else -> label.orEmpty()
         }
-        labelView.contentDescription = label?.let { "Attribuer la prise de parole : $it" }
+        labelView.text = visibleText
+        labelView.contentDescription = when {
+            label != null && audioTime != null -> "Attribuer la prise de parole : $label; repère audio $audioTime"
+            label != null -> "Attribuer la prise de parole : $label"
+            audioTime != null -> "Repère audio $audioTime"
+            else -> null
+        }
+        labelView.isFocusable = label != null || audioTime != null
+        labelView.isClickable = label != null
+        labelView.visibility = if (label != null || audioTime != null) View.VISIBLE else View.GONE
+
+        orientation = if (compact || inlineContinuation) HORIZONTAL else VERTICAL
+        when {
+            compact -> {
+                labelView.layoutParams = LayoutParams(dp(76), LayoutParams.MATCH_PARENT)
+                contentColumn.layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+                labelView.minHeight = 0
+                labelView.maxLines = 2
+                labelView.ellipsize = android.text.TextUtils.TruncateAt.END
+                labelView.gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                labelView.setPadding(dp(8), dp(4), dp(8), 0)
+            }
+            inlineContinuation -> {
+                // The label remains the attribution action, now in a separate horizontal
+                // gutter so its 48 dp target does not overlap the editable transcript.
+                labelView.layoutParams = LayoutParams(dp(56), LayoutParams.MATCH_PARENT)
+                contentColumn.layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+                labelView.minHeight = dp(48)
+                labelView.maxLines = 1
+                labelView.ellipsize = android.text.TextUtils.TruncateAt.END
+                labelView.gravity = android.view.Gravity.CENTER
+                labelView.setPadding(dp(4), 0, dp(4), 0)
+            }
+            else -> {
+                val fullHeader = label != null && displayedName != null || audioTime == null
+                labelView.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, if (fullHeader) dp(48) else dp(24))
+                contentColumn.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+                labelView.minHeight = if (fullHeader) dp(48) else 0
+                labelView.maxLines = 2
+                labelView.ellipsize = null
+                labelView.gravity = android.view.Gravity.CENTER_VERTICAL
+                labelView.setPadding(dp(8), 0, dp(8), 0)
+            }
+        }
+    }
+
+    private fun formatAudioTime(audioMs: Long): String {
+        val totalSeconds = audioMs.coerceAtLeast(0L) / 1_000L
+        val hours = totalSeconds / 3_600L
+        val minutes = (totalSeconds / 60L) % 60L
+        val seconds = totalSeconds % 60L
+        return if (hours > 0L) {
+            String.format(java.util.Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format(java.util.Locale.ROOT, "%d:%02d", totalSeconds / 60L, seconds)
+        }
     }
 
     private fun compactSpeakerLabel(label: String): String {

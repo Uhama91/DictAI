@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" tests="20" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:53" hostname="MacBook-Pro-de-Ullie.local" time="1.827">
+  <properties/>
+  <testcase name="screenshot action reserves a meeting anchored batch without starting native work" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.12"/>
+  <testcase name="document actions are refused while the real controller is preparing or pausing" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.082"/>
+  <testcase name="copy of an empty projection leaves the clipboard unchanged and reports no text" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.066"/>
+  <testcase name="export of a known meeting publishes an intentional empty edit without opening an empty export" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.075"/>
+  <testcase name="accepted batch for another session cannot replace its draft or note" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.054"/>
+  <testcase name="screenshot freezes the selected body before pausing a live meeting" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.149"/>
+  <testcase name="a known meeting remains copyable when the poisoned coordinator stays in Dictation" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.069"/>
+  <testcase name="moving an image after a selected passage updates only structured bodies and saves" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.199"/>
+  <testcase name="accepted batch after service recreation recovers the structured draft without opening a session" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.059"/>
+  <testcase name="copy uses the live structured projection and omits an ignored participant" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.073"/>
+  <testcase name="export of an empty new meeting does not create a note or an export panel" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.065"/>
+  <testcase name="accepted photo batch is delivered into the structured meeting document" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.093"/>
+  <testcase name="removing an image saves structured marker changes before deleting its files" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.106"/>
+  <testcase name="copy does not run when the controller leaves a stable phase before its flush barrier" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.073"/>
+  <testcase name="photo on an empty saved meeting flushes a documentary turn and launches the real camera activity" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.081"/>
+  <testcase name="late image removal callback after mode switch keeps the transferred attachment" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.114"/>
+  <testcase name="accepted invalid meeting reservation can be cancelled without images and preserves accepted files" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.065"/>
+  <testcase name="retry persists an image move already applied before the first draft write failed" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.127"/>
+  <testcase name="export saves the structured projection and opens the real export panel with its images" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.1"/>
+  <testcase name="accepted batch after service recreation falls back to the matching structured note" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingMediaRobolectricTest" time="0.055"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

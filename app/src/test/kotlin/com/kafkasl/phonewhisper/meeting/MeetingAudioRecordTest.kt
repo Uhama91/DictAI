@@ -16,6 +16,30 @@ import org.junit.Test
 
 class MeetingAudioRecordTest {
     @Test
+    fun `default read requests one 20 millisecond PCM block`() {
+        val recorder = FakeRecorder(blockFirstRead = true)
+        val microphone = MeetingAudioRecord(
+            readinessCheck = { true },
+            recorderFactory = MeetingAudioRecorderFactory { _, _ -> recorder },
+        ).create()
+
+        assertTrue(microphone.start({ _, _ -> true }, {}))
+        assertTrue(recorder.readEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        assertEquals(640, recorder.maxRequestedBytes.get())
+
+        val stopped = microphone.stopAndJoin()
+        recorder.allowBlockedReadToReturn.countDown()
+        stopped.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+    }
+
+    @Test
+    fun `hardware buffer keeps a floor and scales with device and read block`() {
+        assertEquals(6_400, meetingAudioRecordBufferSize(minBufferBytes = 1_280, blockBytes = 640))
+        assertEquals(12_000, meetingAudioRecordBufferSize(minBufferBytes = 12_000, blockBytes = 640))
+        assertEquals(8_192, meetingAudioRecordBufferSize(minBufferBytes = 1_280, blockBytes = 4_096))
+    }
+
+    @Test
     fun `permission and service readiness are rechecked before recorder creation`() {
         val ready = AtomicBoolean(true)
         val factoryCalls = AtomicInteger()

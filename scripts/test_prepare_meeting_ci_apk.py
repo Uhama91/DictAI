@@ -17,6 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "prepare_meeting_ci_apk.py"
 MEETING_LIBRARY = ROOT / "app" / "src" / "main" / "jniLibs" / "arm64-v8a" / "libdictai_meeting.so"
+TRANSCRIBE_JNI_LIBRARY = ROOT / "app" / "src" / "main" / "jniLibs" / "arm64-v8a" / "libtranscribe_jni.so"
+EXPECTED_MEETING_LIBRARY_SHA256 = "83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546"
+EXPECTED_TRANSCRIBE_JNI_SHA256 = "68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b"
 MEETING_ASSETS = tuple(
     "assets/licenses/meeting/" + name
     for name in (
@@ -45,13 +48,13 @@ HISTORICAL_LIBRARIES = (
     "libtranscribe_jni.so",
 )
 BADGING = (
-    "package: name='com.uhama.whisperpin.meetingtest' versionCode='37' "
-    "versionName='0.9.6-dictai-meeting-test3' platformBuildVersionName='14'\n"
+    "package: name='com.uhama.whisperpin.meetingtest' versionCode='38' "
+    "versionName='0.9.6-dictai-meeting-test4' platformBuildVersionName='14'\n"
     "native-code: 'arm64-v8a'\n"
 )
 OLD_MEETING_BADGING = (
-    "package: name='com.uhama.whisperpin.meetingtest' versionCode='36' "
-    "versionName='0.9.6-dictai-meeting-test2' platformBuildVersionName='14'\n"
+    "package: name='com.uhama.whisperpin.meetingtest' versionCode='37' "
+    "versionName='0.9.6-dictai-meeting-test3' platformBuildVersionName='14'\n"
     "native-code: 'arm64-v8a'\n"
 )
 
@@ -75,6 +78,7 @@ def required_entries() -> dict[str, bytes]:
     entries.update({f"lib/arm64-v8a/{name}": b"historical native library" for name in HISTORICAL_LIBRARIES})
     entries.update({name: b"meeting license fixture" for name in MEETING_ASSETS})
     entries["lib/arm64-v8a/libdictai_meeting.so"] = MEETING_LIBRARY.read_bytes()
+    entries["lib/arm64-v8a/libtranscribe_jni.so"] = TRANSCRIBE_JNI_LIBRARY.read_bytes()
     return entries
 
 
@@ -142,19 +146,22 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
         self.assertEqual((self.output / "SHA256SUMS").read_text(), f"{apk_sha}  dictai-meeting-test.apk\n")
         metadata = json.loads((self.output / "metadata.json").read_text())
         self.assertEqual(metadata["applicationId"], "com.uhama.whisperpin.meetingtest")
-        self.assertEqual(metadata["versionCode"], 37)
-        self.assertEqual(metadata["versionName"], "0.9.6-dictai-meeting-test3")
+        self.assertEqual(metadata["versionCode"], 38)
+        self.assertEqual(metadata["versionName"], "0.9.6-dictai-meeting-test4")
         self.assertEqual(metadata["abi"], "arm64-v8a")
         self.assertEqual(metadata["sizeBytes"], self.apk.stat().st_size)
         self.assertEqual(metadata["sha256"], apk_sha)
-        self.assertEqual(metadata["meetingEngineSha256"], hashlib.sha256(MEETING_LIBRARY.read_bytes()).hexdigest())
+        self.assertEqual(metadata["meetingEngineSha256"], EXPECTED_MEETING_LIBRARY_SHA256)
+        self.assertEqual(metadata["transcribeBridgeSha256"], EXPECTED_TRANSCRIBE_JNI_SHA256)
+        self.assertEqual(hashlib.sha256(MEETING_LIBRARY.read_bytes()).hexdigest(), EXPECTED_MEETING_LIBRARY_SHA256)
+        self.assertEqual(hashlib.sha256(TRANSCRIBE_JNI_LIBRARY.read_bytes()).hexdigest(), EXPECTED_TRANSCRIBE_JNI_SHA256)
         self.assertEqual(metadata["ciCommit"], "0123456789abcdef" * 2 + "01234567")
 
     def test_rejects_non_meeting_identity_or_abi(self) -> None:
         write_apk(self.apk)
         bad_badging = (
             (BADGING.replace("com.uhama.whisperpin.meetingtest", "com.uhama.whisperpin"), "applicationId"),
-            (BADGING.replace("versionCode='37'", "versionCode='34'"), "versionCode"),
+            (BADGING.replace("versionCode='38'", "versionCode='34'"), "versionCode"),
             (BADGING.replace("0.9.6-dictai-meeting-test", "0.9.6-debug"), "versionName"),
             (BADGING.replace("arm64-v8a", "x86_64"), "arm64-v8a"),
         )
@@ -173,10 +180,11 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
 
         self.assert_rejected(result, "versionCode")
 
-    def test_gradle_keeps_regular_variant_at_35_and_advances_meeting_prototype(self) -> None:
+    def test_gradle_pins_meeting_test4_and_keeps_regular_variants_at_35(self) -> None:
         gradle = (ROOT / "app" / "build.gradle.kts").read_text()
-        self.assertIn("versionCode = if (meetingPrototype) 37 else 35", gradle)
-        self.assertIn('meetingPrototype -> "0.9.6-dictai-meeting-test3"', gradle)
+        self.assertIn("versionCode = if (meetingPrototype) 38 else 35", gradle)
+        self.assertIn('meetingPrototype -> "0.9.6-dictai-meeting-test4"', gradle)
+        self.assertIn("else 35", gradle)
 
     def test_rejects_missing_meeting_notice_and_historical_library(self) -> None:
         for missing in (MEETING_ASSETS[0], "lib/arm64-v8a/libonnxruntime.so"):
@@ -208,6 +216,15 @@ class PrepareMeetingCiApkTest(unittest.TestCase):
         result = self.run_prepare()
 
         self.assert_rejected(result, "libdictai_meeting.so")
+
+    def test_rejects_modified_transcribe_jni_bridge(self) -> None:
+        entries = required_entries()
+        entries["lib/arm64-v8a/libtranscribe_jni.so"] += b"modified"
+        write_apk(self.apk, entries)
+
+        result = self.run_prepare()
+
+        self.assert_rejected(result, "lib/arm64-v8a/libtranscribe_jni.so")
 
     def test_rejects_embedded_full_or_partial_model_weights(self) -> None:
         for name in ("assets/models/meeting.gguf", "assets/cache/asr.litertlm.partial"):

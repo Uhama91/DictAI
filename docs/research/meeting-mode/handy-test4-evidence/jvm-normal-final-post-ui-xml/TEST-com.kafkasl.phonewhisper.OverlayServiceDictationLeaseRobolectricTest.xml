@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayServiceDictationLeaseRobolectricTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:51" hostname="MacBook-Pro-de-Ullie.local" time="0.747">
+  <properties/>
+  <testcase name="poison during pause prevents reopening the Dictation microphone" classname="com.kafkasl.phonewhisper.OverlayServiceDictationLeaseRobolectricTest" time="0.128"/>
+  <testcase name="real Dictation start keeps one lease and one ASR session through pause and resume" classname="com.kafkasl.phonewhisper.OverlayServiceDictationLeaseRobolectricTest" time="0.076"/>
+  <testcase name="Dictation lease remains held until cancellation exits and AudioRecord is released" classname="com.kafkasl.phonewhisper.OverlayServiceDictationLeaseRobolectricTest" time="0.068"/>
+  <testcase name="service destruction holds the run lease through delayed resident ASR close without main callbacks" classname="com.kafkasl.phonewhisper.OverlayServiceDictationLeaseRobolectricTest" time="0.085"/>
+  <testcase name="closed resident is not restarted through a stale service engine field" classname="com.kafkasl.phonewhisper.OverlayServiceDictationLeaseRobolectricTest" time="0.065"/>
+  <testcase name="destroy waits for failed resume recorder release before closing resident ASR" classname="com.kafkasl.phonewhisper.OverlayServiceDictationLeaseRobolectricTest" time="0.325"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

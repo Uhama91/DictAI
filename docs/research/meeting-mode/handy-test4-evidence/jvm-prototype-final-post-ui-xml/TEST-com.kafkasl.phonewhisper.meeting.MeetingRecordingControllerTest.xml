@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" tests="42" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:13" hostname="MacBook-Pro-de-Ullie.local" time="0.28">
+  <properties/>
+  <testcase name="finishFromPauseAppliesFinalCallbacksBeforeOneDurablePublish" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.021"/>
+  <testcase name="leaseInvalidatedAfterNativeOpenPreventsMicrophoneStart" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="rejectedPcmStopsCaptureAndFinalizesOnlyAlreadyAcceptedBlocks" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.008"/>
+  <testcase name="destroyingDuringReservationCancelsStartAndReleasesLateLease" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="finishingWithoutSpeechPublishesAStillAttachedImageNote" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="finishingAnActuallyEmptySessionDoesNotPublishAnEmptyNote" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="cancelDuringFinalDraftFlushCompletesWithoutPublishingTheNote" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="nativeFailureCompletesPauseWaitingForCheckpoint" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="cancelDuringNotePublicationCancelsLatePublicationAndKeepsDraft" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="microphoneStartsOnlyAfterReservationAndNativeReady" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="nativeFailureStopsRecorderAndWaitsForBothNativeCloseAndRecorderStop" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.008"/>
+  <testcase name="nativeCloseDuringMicrophoneFactoryCreationWaitsForCreatedRecorderCleanup" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="flushDraftCapturesFocusAndWaitsForWriterWithoutFinishingOrPublishingNote" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="unexpectedNativeCloseDuringListeningStopsRecorderBeforeReleasingLease" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="ensureDocumentTurnIsIdempotentStableAndDoesNotRestartLiveAsr" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="finalNotePublicationFailureKeepsDocumentAndExplicitRetryPublishesIt" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="resumeRechecksLeaseUsabilityBeforeCreatingANewRecorder" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.015"/>
+  <testcase name="missingOrDownloadingModelsDoNotQueueAnAutomaticStartAfterAvailabilityChanges" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="finishingAnExistingNoteAfterDeletingAllSpeechPublishesTheEmptyEdit" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="savedNoteLookupFailureCanBeRetriedAfterNativeFinishWithoutRestartingCapture" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="unconfirmedNativeClosePoisonsRuntimeWithoutReleasingItsLease" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="microphoneFailureStopsCaptureWithoutLoggingItsPrivateMessage" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="repeatedPauseAndFinishDuringStopDoNotDuplicateNativeTransitionsOrQueueResume" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="leaseAlreadyStaleWhenGrantedNeverOpensNativeOrMicrophone" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="destroyResolvesPendingFinishFutureAndWaitsForNativeClose" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="cancellingPendingReservationReleasesALateLeaseWithoutStartingAudio" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="finalDraftSaveFailureKeepsDocumentAndExplicitRetryClearsError" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="destructionInvalidatesUiCallbacksButLeaseReleaseWaitsForNativeCloseAndIgnoresMainQueue" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="cancelBeforeNativeReadyCompletesPendingStartAndClosesOpenedSession" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="focusIsFlushedBeforeAsrMutationAndFilterDoesNotRestartTheSession" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="cancelAfterAudioQueueFailureOverridesFinishAndKeepsTheDraft" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="destroyAfterGrantButBeforeNativeReadyNeverStartsMicrophone" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="cancelDuringPauseStopsTheMicrophoneAndResolvesThePauseFuture" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="finishThrowFallsBackToOneNativeCancel" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="failedMicrophoneReleasePoisonsLeaseAndPreservesDraftDuringDestroy" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="restoredDocumentCanBeEditedButNeverStartsAnotherAsrSession" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="safePreparationFailureCanBeRetriedWithANewReservation" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="resumeUsesTheSameNativeSessionAndCreatesANewRecorder" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="leaseInvalidatedBetweenReadyAndMicrophoneStartCancelsNativeExactlyOnce" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <testcase name="cancelAfterFinishCancelsNativeWorkAndDoesNotPublishTheEditedDraft" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.007"/>
+  <testcase name="restoredLibraryNoteWithoutDraftKeepsEditsAndImageMarkersWithoutStartingAsr" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.006"/>
+  <testcase name="pauseStopsAndJoinsBeforeCheckpointAndPostsItsContinuationBehindUpdates" classname="com.kafkasl.phonewhisper.meeting.MeetingRecordingControllerTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

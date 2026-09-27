@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingDocumentJsonTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.044">
+  <properties/>
+  <testcase name="missing payload is an old note and future versions preserve raw json" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentJsonTest" time="0.008"/>
+  <testcase name="encode rejects documents outside the version one invariants" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentJsonTest" time="0.007"/>
+  <testcase name="decode rejects invalid session profiles turns timestamps and references" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentJsonTest" time="0.008"/>
+  <testcase name="malformed or invalid version payload remains intact as invalid" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentJsonTest" time="0.007"/>
+  <testcase name="legacy turns have unknown timing while new turns preserve aligned timing" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentJsonTest" time="0.007"/>
+  <testcase name="round trip preserves profile order identity text edits and attribution states" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentJsonTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

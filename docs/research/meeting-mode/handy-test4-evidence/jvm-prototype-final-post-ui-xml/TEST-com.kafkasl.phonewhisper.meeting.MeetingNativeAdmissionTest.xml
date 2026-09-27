@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:12" hostname="MacBook-Pro-de-Ullie.local" time="0.01">
+  <properties/>
+  <testcase name="waits for coordinator readiness resident close and formatter close" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.003"/>
+  <testcase name="can finish resident barriers before the formatter barrier" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.0"/>
+  <testcase name="reserves the meeting run before asking owners to close" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.0"/>
+  <testcase name="lease completion permits another thread to cancel without waiting on adapter lock" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.0"/>
+  <testcase name="uncertain formatter close poisons the process and keeps the meeting run" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.001"/>
+  <testcase name="cancellation after formatter grant releases it only after remaining barriers" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.0"/>
+  <testcase name="cancellation after grant does not release the lease" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.0"/>
+  <testcase name="formatter close refusal without an existing global poison is treated as uncertain" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.0"/>
+  <testcase name="cancellation waits for all close barriers then releases safe reservations" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.001"/>
+  <testcase name="a rejected mode reservation does not close or reserve either engine" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.0"/>
+  <testcase name="uncertain resident close poisons the process and retains both reservations" classname="com.kafkasl.phonewhisper.meeting.MeetingNativeAdmissionTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

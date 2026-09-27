@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.GemmaModelStoreTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:47" hostname="MacBook-Pro-de-Ullie.local" time="0.135">
+  <properties/>
+  <testcase name="server full response to range safely replaces partial bytes" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.024"/>
+  <testcase name="cancel during verification keeps complete bytes and retry needs no request" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.008"/>
+  <testcase name="wrong range total is rejected even when start matches" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.012"/>
+  <testcase name="cancelled operation and server failures reveal no private url" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.007"/>
+  <testcase name="recreated store resumes cancelled transfer with exact range and etag" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.016"/>
+  <testcase name="partial transfer without strong etag restarts safely" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.009"/>
+  <testcase name="wrong hash is never published and a retry downloads a clean copy" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.013"/>
+  <testcase name="wrong advertised size and encoded response are rejected" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.007"/>
+  <testcase name="already installed model avoids network and hashing progress" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.006"/>
+  <testcase name="mismatched etag on partial response is rejected before append" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.008"/>
+  <testcase name="verified download is installed and incomplete receipt is rejected" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.008"/>
+  <testcase name="wrong content range cannot append or publish" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.009"/>
+  <testcase name="changed installed size or mtime invalidates lightweight receipt" classname="com.kafkasl.phonewhisper.GemmaModelStoreTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

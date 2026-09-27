@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "meeting_asr_config.h"
+#include "meeting_diarization_jni.h"
 #include "meeting_native_logic.h"
 #include "recognizer.h"
 
@@ -602,5 +603,7 @@ JNI_OnLoad(JavaVM* vm, void*) {
     const jint result = env->RegisterNatives(
         bindings, native_methods, static_cast<jint>(sizeof(native_methods) / sizeof(native_methods[0])));
     env->DeleteLocalRef(bindings);
-    return result == JNI_OK ? JNI_VERSION_1_6 : JNI_ERR;
+    if (result != JNI_OK) return JNI_ERR;
+    if (dictai::meeting::register_diarization_natives(env) != JNI_OK) return JNI_ERR;
+    return JNI_VERSION_1_6;
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.DiarizationNativeTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:59" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="preserves_absolute_frame_origin_and_probability_rows_from_bounded_snapshot" classname="com.kafkasl.phonewhisper.meeting.DiarizationNativeTest" time="0.001"/>
+  <testcase name="rejects_malformed_pcm_and_unbounded_frame_requests_before_native_dispatch" classname="com.kafkasl.phonewhisper.meeting.DiarizationNativeTest" time="0.0"/>
+  <testcase name="finish_and_close_release_the_standalone_worker_idempotently" classname="com.kafkasl.phonewhisper.meeting.DiarizationNativeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

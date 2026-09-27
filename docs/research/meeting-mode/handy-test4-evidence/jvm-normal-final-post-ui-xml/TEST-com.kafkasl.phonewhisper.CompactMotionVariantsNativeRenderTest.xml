@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.CompactMotionVariantsNativeRenderTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:33" hostname="MacBook-Pro-de-Ullie.local" time="1.214">
+  <properties/>
+  <testcase name="writesSynchronizedNativeVividRestoredHeightAtRealPillSizeAndZoom" classname="com.kafkasl.phonewhisper.CompactMotionVariantsNativeRenderTest" time="1.214"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

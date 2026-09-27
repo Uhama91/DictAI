@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.TranscriptNotesTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.073">
+  <properties/>
+  <testcase name="manual rename survives dictation updates" classname="com.kafkasl.phonewhisper.TranscriptNotesTest" time="0.014"/>
+  <testcase name="local titles ignore empty lines and cap long prose" classname="com.kafkasl.phonewhisper.TranscriptNotesTest" time="0.009"/>
+  <testcase name="meeting note uses session id and title from visible speech rather than label or image markers" classname="com.kafkasl.phonewhisper.TranscriptNotesTest" time="0.009"/>
+  <testcase name="recent notes sort first and deleting one preserves others" classname="com.kafkasl.phonewhisper.TranscriptNotesTest" time="0.008"/>
+  <testcase name="session collision opaque payload and failed commit never overwrite the cached note" classname="com.kafkasl.phonewhisper.TranscriptNotesTest" time="0.01"/>
+  <testcase name="new manual note can be reopened and keeps exact text" classname="com.kafkasl.phonewhisper.TranscriptNotesTest" time="0.007"/>
+  <testcase name="meeting updates preserve manual title folder and images while flat edits are refused" classname="com.kafkasl.phonewhisper.TranscriptNotesTest" time="0.009"/>
+  <testcase name="folder stays available when note migration fails and can be retried" classname="com.kafkasl.phonewhisper.TranscriptNotesTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:36" hostname="MacBook-Pro-de-Ullie.local" time="0.059">
+  <properties/>
+  <testcase name="default_finalization_timeout_is_30_seconds" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.0"/>
+  <testcase name="finalization_waits_until_session_ownership_is_released" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.051"/>
+  <testcase name="gguf_uses_native_committed_and_tentative_without_synthetic_silence_and_finishes_with_full_text" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.001"/>
+  <testcase name="cancellation_after_finish_begins_suppresses_final_text_and_finish_exits_promptly" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.001"/>
+  <testcase name="finalization_with_a_valid_blank_result_is_empty_not_failure" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.0"/>
+  <testcase name="gguf_resets_after_stream_initialization_failure_before_reusing_the_preloaded_model" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.002"/>
+  <testcase name="pause_resume_keeps_one_native_stream_and_only_final_stop_finalizes_it" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.0"/>
+  <testcase name="finalization_failure_never_converts_a_live_preview_into_a_success" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.001"/>
+  <testcase name="finish_adds_exactly_400ms_of_silence_then_returns_the_complete_single_stream_result" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.0"/>
+  <testcase name="supports_only_nemotron_streaming_models" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.0"/>
+  <testcase name="finalization_timeout_is_structured_and_does_not_return_text" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.002"/>
+  <testcase name="each stream snapshots its selected language without reopening the recognizer" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.0"/>
+  <testcase name="gguf_resets_after_finish_and_cancel_so_the_preloaded_model_is_reusable_then_closes_once" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.001"/>
+  <testcase name="timeout_wins_before_its_cancellation_can_publish_cancelled" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.0"/>
+  <testcase name="nemotron_uses_the_documented_80_feature_dimensions_at_16khz" classname="com.kafkasl.phonewhisper.LiveStreamingTranscriberTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

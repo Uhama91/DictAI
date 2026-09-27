@@ -1,0 +1,21 @@
+Provenance: faithful transcription of the final read-only emulator-state
+queries returned by `functions.exec` on 2026-09-27 after the clean fixture
+runner and after restoring `RECORD_AUDIO` to its pre-run denied state. No ADB
+mutation or test was run after these queries.
+
+Observed package permission excerpt:
+143:    User 0: ceDataInode=737821 deDataInode=98375 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+159:        android.permission.RECORD_AUDIO: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+173:        android.permission.RECORD_AUDIO: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+
+Observed app-op, timeout, user, and service output:
+SYSTEM_ALERT_WINDOW: default; time=+5m56s572ms ago; rejectTime=+2m28s756ms ago; duration=+112ms
+No operations.
+Default mode: default
+2147483647
+60000
+0
+ACTIVITY MANAGER SERVICES (dumpsys activity services)
+  (nothing)
+
+The two timeout values are user 0 then user 10; the reported current user is 0.

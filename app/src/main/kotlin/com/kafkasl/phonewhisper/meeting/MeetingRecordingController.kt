@@ -77,6 +77,14 @@ internal class MeetingRecordingController private constructor(
     val state: MeetingRecordingState
         get() = currentState
 
+    /** Cached, content-free session counters for status-only UI refreshes. */
+    val progressSnapshot: MeetingProgressSnapshot
+        get() = nativeSession?.progress ?: MeetingProgressSnapshot.EMPTY
+
+    /** Non-blocking cached voice-attribution status for status-only UI refreshes. */
+    val voiceProgress: MeetingVoiceProgress
+        get() = nativeSession?.voiceProgress ?: MeetingVoiceProgress.EMPTY
+
     companion object {
         private const val NATIVE_COMMAND_NONE = 0
         private const val NATIVE_COMMAND_FINISH = 1

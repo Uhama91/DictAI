@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.HandyMeetingBridgeEngineInstrumentedTest" tests="1" failures="0" errors="0" skipped="0" time="59.007" timestamp="2026-09-27T02:56:24" hostname="localhost">
+  <properties>
+    <property name="device" value="DictAI_Meeting_API36_20260925(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="handy_bridge_through_engine_publishes_live_text_and_preserves_final_projection" classname="com.kafkasl.phonewhisper.meeting.HandyMeetingBridgeEngineInstrumentedTest" time="57.492" />
+</testsuite>

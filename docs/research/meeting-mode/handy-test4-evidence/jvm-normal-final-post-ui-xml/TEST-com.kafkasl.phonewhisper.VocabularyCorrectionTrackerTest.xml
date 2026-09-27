@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" tests="25" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:59" hostname="MacBook-Pro-de-Ullie.local" time="0.004">
+  <properties/>
+  <testcase name="anUnrelatedEditCannotReuseAnOldSelection" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.003"/>
+  <testcase name="ordinaryTypingIsIgnoredAndSpellingEditsUseTheWholeWord" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="abandonedDeletionNotReusedLater" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="aPhraseCanBeErasedOneLetterAtATimeAndReplaced" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="afDeletedLetterByLetterThenReplacedByCafInPause" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="deletionThenTypingLearnsFullSettledWord" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="casingSupportedButEmptyAndRuleSyntaxRejected" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="compositionAndDebounceSuppressPartialReplacement" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="dismissOrExpiryResetDoesNotReofferAfterSpeech" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="resetPreventsRecognitionFromBecomingCorrection" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="deletingAnExistingNameOnlyNeverOffersAnEmptyReplacement" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="gboardStableCompositionMayBeConfirmedWithoutTypingASpace" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="insertingMissingCAtTheBeginningDoesNotRequireMovingCaretToTheEnd" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="imeCollapsedSelectionStillRemembersTheExplicitDeletedPhrase" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="reversedSelectionAndPhrasesSupported" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="ordinaryLetterByLetterTypingDoesNotTeachIntermediatePrefixes" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="leavingDeletionPositionCancelsLearning" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="gboardCanReplaceTheWholeComposingRegionForOneMissingLetter" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="selectedReplacementKeepsSourceAndTargetInOrder" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="activeSelectionHidesSuggestionButCaretInsideTheCorrectionDoesNot" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="deletionAloneNeverSuggests" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="tentativeSpeechCanBeRevisedWhileTheOfferIsPending" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="streamingAppendRetainsButRewriteCancelsCorrection" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="staleSuggestionCannotConsumeNewCorrection" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <testcase name="deletionFollowedOnlyBySpeechDoesNotLearnTheContinuation" classname="com.kafkasl.phonewhisper.VocabularyCorrectionTrackerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

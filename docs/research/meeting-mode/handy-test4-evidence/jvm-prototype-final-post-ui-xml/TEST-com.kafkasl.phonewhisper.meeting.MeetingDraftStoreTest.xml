@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:11" hostname="MacBook-Pro-de-Ullie.local" time="0.078">
+  <properties/>
+  <testcase name="clear explicitly removes protected payload and allows a new draft" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.015"/>
+  <testcase name="read io failures propagate instead of becoming absent" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.006"/>
+  <testcase name="atomic file backup restores previous draft after interrupted write" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.009"/>
+  <testcase name="invalid document is rejected before changing an existing draft" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.008"/>
+  <testcase name="load reports absent only when no draft exists" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.007"/>
+  <testcase name="silent atomic finish failure is reported and preserves previous draft" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.009"/>
+  <testcase name="orphaned first write temp is absent and does not block a later save" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.009"/>
+  <testcase name="unsupported and corrupt payloads cannot be overwritten by save" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.007"/>
+  <testcase name="save and load round trip a complete meeting document" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftStoreTest" time="0.008"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

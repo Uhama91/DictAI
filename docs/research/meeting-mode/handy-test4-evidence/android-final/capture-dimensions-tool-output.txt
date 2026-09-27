@@ -1,0 +1,51 @@
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/01-three-voices-return.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/02-homonyms-native-dialog.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/03-long-rename-native-dialog.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/04-renamed-homonyms.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/05-ignored-voice-image-action.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/06-focused-edit-field.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/07-live-save-error.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/08-model-download-progress.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/09-manual-light-theme.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/10-manual-dark-theme.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/11-landscape-compact-240x112-normal-font.png
+  pixelWidth: 2400
+  pixelHeight: 1080
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/12-landscape-compact-240x112-large-font.png
+  pixelWidth: 2400
+  pixelHeight: 1080
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/13-conversation-aaba-normal-top-portrait-simulated.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/14-conversation-aaba-normal-bottom-portrait-simulated.png
+  pixelWidth: 1080
+  pixelHeight: 2400
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/15-conversation-aaba-compact-top-backlog-simulated.png
+  pixelWidth: 2400
+  pixelHeight: 1080
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/16-conversation-aaba-compact-voices-unavailable-simulated.png
+  pixelWidth: 2400
+  pixelHeight: 1080
+/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/handy-test4/final-panel-fixture-v3-clean/17-conversation-aaba-compact-bottom-simulated.png
+  pixelWidth: 2400
+  pixelHeight: 1080

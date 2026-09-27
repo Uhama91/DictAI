@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingDocumentEditorTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.046">
+  <properties/>
+  <testcase name="restored document preserves identity and ignores matching late ASR" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentEditorTest" time="0.01"/>
+  <testcase name="assignment validates references and explicit unknown remains manual" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentEditorTest" time="0.011"/>
+  <testcase name="restore supports empty edit normalized homonyms and raw text despite filter" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentEditorTest" time="0.011"/>
+  <testcase name="live finish rejects late ASR while document edits remain available" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentEditorTest" time="0.006"/>
+  <testcase name="document turn is stable reserved at zero and remains before speech" classname="com.kafkasl.phonewhisper.meeting.MeetingDocumentEditorTest" time="0.008"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

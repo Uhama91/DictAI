@@ -2,6 +2,7 @@ package com.kafkasl.phonewhisper.meeting
 
 import java.io.File
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.locks.ReentrantLock
 
 interface MeetingSession : AutoCloseable {
     fun acceptPcm16(buffer: ByteArray, length: Int): Boolean
@@ -12,9 +13,13 @@ interface MeetingSession : AutoCloseable {
 
     val closed: CompletableFuture<Unit>
     val queuedAudioMs: Long
+    val progress: MeetingProgressSnapshot
+        get() = MeetingProgressSnapshot.EMPTY
+    val voiceProgress: MeetingVoiceProgress
+        get() = MeetingVoiceProgress.EMPTY
 }
 
-/** Client callbacks run on the session worker; keep them nonblocking. */
+/** Client callbacks run on the session worker or the native listener's thread; keep them nonblocking. */
 class MeetingEngine internal constructor(
     private val asrPath: String,
     private val diarPath: String,
@@ -23,6 +28,9 @@ class MeetingEngine internal constructor(
     private val spoolRoot: File? = null,
     private val spoolCapacityBytes: Long = 0L,
     private val spoolSegmentTargetBytes: Int = MeetingAudioQueue.DEFAULT_SEGMENT_BYTES,
+    private val monotonicClockNanos: () -> Long = System::nanoTime,
+    /** Test observation seam; production callers leave this null. */
+    private val onSessionClosingForTest: (() -> Unit)? = null,
 ) {
     private val engineLock = Any()
     private var activeSession: SessionImpl? = null
@@ -37,7 +45,7 @@ class MeetingEngine internal constructor(
     constructor(
         asrPath: String,
         diarPath: String,
-        native: MeetingNativeBridge = JniMeetingNative(),
+        native: MeetingNativeBridge = HandyMeetingNativeBridge(),
     ) : this(asrPath, diarPath, native, MeetingAudioQueue.DEFAULT_CAPACITY_BYTES)
 
     /** Production constructor: audio backlog is private to the app and lives only in cacheDir. */
@@ -45,7 +53,7 @@ class MeetingEngine internal constructor(
         asrPath: String,
         diarPath: String,
         cacheDir: File,
-        native: MeetingNativeBridge = JniMeetingNative(),
+        native: MeetingNativeBridge = HandyMeetingNativeBridge(),
     ) : this(
         asrPath,
         diarPath,
@@ -101,12 +109,16 @@ class MeetingEngine internal constructor(
     ) : MeetingSession {
         private val stateLock = Any()
         private val offerOrderLock = Any()
+        private val nativeControlLock = Any()
+        private val publicationLock = ReentrantLock()
+        private val publicationsDrained = publicationLock.newCondition()
         private val queue = MeetingAudioQueue(
             capacityBytes = queueCapacityBytes,
             spoolRoot = spoolRoot,
             spoolCapacityBytes = spoolCapacityBytes,
             segmentTargetBytes = spoolSegmentTargetBytes,
         )
+        private val progressTracker = MeetingProgressTracker(monotonicClockNanos)
         private val worker = Thread({ runWorker() }, WORKER_NAME).apply { isDaemon = true }
 
         override val closed = CompletableFuture<Unit>()
@@ -121,10 +133,34 @@ class MeetingEngine internal constructor(
         private var pendingOffers = 0
         private var acceptedBlockCount = 0L
         private var processedBlockCount = 0L
+        private var activeNativeHandle: Long? = null
+        private var nativeCancelRequested = false
+        private var activePublications = 0
         private val pendingCheckpoints = mutableListOf<CheckpointBarrier>()
+        @Volatile
+        private var lastVoiceProgress = MeetingVoiceProgress.EMPTY
 
         override val queuedAudioMs: Long
-            get() = queue.queuedBytes.toLong() / BYTES_PER_MILLISECOND
+            get() = progressTracker.snapshot().queuedAudioMs
+
+        override val progress: MeetingProgressSnapshot
+            get() = progressTracker.snapshot()
+
+        override val voiceProgress: MeetingVoiceProgress
+            get() {
+                val handle = synchronized(stateLock) {
+                    activeNativeHandle.takeUnless { closing || closed.isDone }
+                }
+                if (handle != null) {
+                    try {
+                        // Bridge contract: this reads its own volatile/cache snapshot; it must never enter JNI.
+                        lastVoiceProgress = native.voiceProgress(handle)
+                    } catch (_: Throwable) {
+                        // Keep the most recent valid snapshot if an optional progress source fails.
+                    }
+                }
+                return lastVoiceProgress
+            }
 
         fun launch() {
             try {
@@ -157,7 +193,7 @@ class MeetingEngine internal constructor(
                 }
                 if (!admitted) return@synchronized false
 
-                val result = queue.offer(buffer, length)
+                val result = queue.offer(buffer, length) { progressTracker.accepted(length) }
                 var accepted = false
                 var queueError: String? = null
                 var shouldFinishInput = false
@@ -228,13 +264,24 @@ class MeetingEngine internal constructor(
         }
 
         override fun cancel() {
-            synchronized(stateLock) {
+            val (checkpoints, nativeHandleToCancel) = synchronized(stateLock) {
                 if (closed.isDone) return
                 cancelRequested = true
                 ready = false
                 queue.cancel()
-                pendingCheckpoints.map { it.future }.also { pendingCheckpoints.clear() }
-            }.also(::failCheckpoints)
+                val handleToCancel = activeNativeHandle?.takeIf {
+                    !closing && !nativeCancelRequested
+                }?.also { nativeCancelRequested = true }
+                val checkpoints = pendingCheckpoints.map { it.future }
+                pendingCheckpoints.clear()
+                checkpoints to handleToCancel
+            }
+            progressTracker.abandonWaiting()
+            nativeHandleToCancel?.let { handle ->
+                signalNativeCancel(handle)
+                refreshVoiceProgress(handle)
+            }
+            failCheckpoints(checkpoints)
         }
 
         override fun close() = cancel()
@@ -246,6 +293,21 @@ class MeetingEngine internal constructor(
                 val openedHandle = native.open(asrPath, diarPath, language)
                 if (openedHandle <= 0L) throw IllegalStateException("Invalid native meeting handle")
                 handle = openedHandle
+                refreshVoiceProgress(openedHandle)
+                val cancelAfterOpen = synchronized(stateLock) {
+                    activeNativeHandle = openedHandle
+                    if (cancelRequested && !nativeCancelRequested) {
+                        nativeCancelRequested = true
+                        openedHandle
+                    } else {
+                        null
+                    }
+                }
+                cancelAfterOpen?.let { cancelledHandle ->
+                    signalNativeCancel(cancelledHandle)
+                    refreshVoiceProgress(cancelledHandle)
+                }
+                native.setUpdateListener(openedHandle) { update -> publish(update) }
                 queue.prepareSpool()
                 announceReady()
 
@@ -253,21 +315,41 @@ class MeetingEngine internal constructor(
                     if (isStopping()) break
                     val pcm = queue.take() ?: break
                     if (!beginNativeOperation()) break
-                    publish(native.acceptPcm16(openedHandle, pcm, pcm.size))
+                    if (!progressTracker.beginNative(pcm.size)) break
+                    val updates = try {
+                        native.acceptPcm16(openedHandle, pcm, pcm.size)
+                    } catch (failure: Throwable) {
+                        refreshVoiceProgress(openedHandle)
+                        progressTracker.completeNative(pcm.size, succeeded = false)
+                        throw failure
+                    }
+                    refreshVoiceProgress(openedHandle)
+                    progressTracker.completeNative(pcm.size, succeeded = true)
+                    publish(updates)
                     markBlockProcessed()
                 }
 
                 if (beginNativeFinish()) {
                     publish(native.finish(openedHandle))
+                    refreshVoiceProgress(openedHandle)
                 }
             } catch (failure: MeetingAudioSpoolException) {
                 reportFailure(AUDIO_SPOOL_IO_ERROR)
+            } catch (failure: MeetingNativeCleanupUncertainException) {
+                closeFailed = true
+                reportFailure()
             } catch (_: Throwable) {
                 reportFailure()
             } finally {
+                handle?.let(::refreshVoiceProgress)
                 beginClosing()
                 val handleToClose = handle
                 if (handleToClose != null) {
+                    try {
+                        native.setUpdateListener(handleToClose, null)
+                    } catch (_: Throwable) {
+                        // A failed detach must not prevent the native lease from being closed.
+                    }
                     try {
                         native.close(handleToClose)
                     } catch (_: Throwable) {
@@ -299,23 +381,65 @@ class MeetingEngine internal constructor(
         }
 
         private fun publish(updates: List<MeetingNativeUpdate>) {
-            for (update in updates) {
-                val admitted = synchronized(stateLock) {
-                    !cancelRequested && !failed && !closing && !closed.isDone
+            updates.forEach(::publish)
+        }
+
+        private fun publish(update: MeetingNativeUpdate) {
+            publicationLock.lock()
+            val admitted = try {
+                val canPublish = synchronized(stateLock) {
+                    ready && !cancelRequested && !failed && !closing && !closed.isDone
                 }
-                if (admitted) {
-                    val hypothesis = MeetingHypothesis(
-                        runId = runId,
-                        utteranceId = update.utteranceId,
-                        revision = update.revision,
-                        words = update.words.toList(),
-                        transcript = update.transcript,
-                        isFinal = update.isFinal,
-                        stableSpeakerThroughMs = update.stableSpeakerThroughMs,
-                        audioProcessedMs = update.audioProcessedMs,
-                    )
-                    runCallback { onUpdate(hypothesis) }
+                if (canPublish) activePublications += 1
+                canPublish
+            } finally {
+                publicationLock.unlock()
+            }
+            if (!admitted) return
+
+            try {
+                val hypothesis = MeetingHypothesis(
+                    runId = runId,
+                    utteranceId = update.utteranceId,
+                    revision = update.revision,
+                    words = update.words.toList(),
+                    transcript = update.transcript,
+                    isFinal = update.isFinal,
+                    stableSpeakerThroughMs = update.stableSpeakerThroughMs,
+                    audioProcessedMs = update.audioProcessedMs,
+                )
+                runCallback { onUpdate(hypothesis) }
+            } finally {
+                publicationLock.lock()
+                try {
+                    activePublications -= 1
+                    if (activePublications == 0) publicationsDrained.signalAll()
+                } finally {
+                    publicationLock.unlock()
                 }
+            }
+        }
+
+        private fun signalNativeCancel(handle: Long) {
+            synchronized(nativeControlLock) {
+                val shouldSignal = synchronized(stateLock) {
+                    activeNativeHandle == handle && cancelRequested && !closing && !closed.isDone
+                }
+                if (shouldSignal) {
+                    try {
+                        native.requestCancel(handle)
+                    } catch (_: Throwable) {
+                        // Cancellation must stay available even if a bridge cannot signal its worker.
+                    }
+                }
+            }
+        }
+
+        private fun refreshVoiceProgress(handle: Long) {
+            try {
+                lastVoiceProgress = native.voiceProgress(handle)
+            } catch (_: Throwable) {
+                // Optional progress never affects ASR or native-resource ownership.
             }
         }
 
@@ -346,6 +470,7 @@ class MeetingEngine internal constructor(
                 }
                 shouldDeliver to pending
             }
+            progressTracker.abandonWaiting()
             failCheckpoints(barriers)
             if (admitted) runCallback { onFailure(message) }
         }
@@ -367,9 +492,24 @@ class MeetingEngine internal constructor(
         private fun checkpointFailure() = IllegalStateException(FAILURE_MESSAGE)
 
         private fun beginClosing() {
-            synchronized(stateLock) {
-                closing = true
-                ready = false
+            synchronized(nativeControlLock) {
+                synchronized(stateLock) {
+                    closing = true
+                    ready = false
+                }
+            }
+            try {
+                onSessionClosingForTest?.invoke()
+            } catch (_: Throwable) {
+                // A test observer must never short-circuit native lease release.
+            }
+            publicationLock.lock()
+            try {
+                while (activePublications > 0) {
+                    publicationsDrained.awaitUninterruptibly()
+                }
+            } finally {
+                publicationLock.unlock()
             }
         }
 

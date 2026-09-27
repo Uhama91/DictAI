@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.003">
+  <properties/>
+  <testcase name="default read requests one 20 millisecond PCM block" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.001"/>
+  <testcase name="stop before start permanently refuses without creating a recorder" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.001"/>
+  <testcase name="stop during recorder startup waits for rollback and starts no reader" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.0"/>
+  <testcase name="invalid recorder is released and start is refused" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.0"/>
+  <testcase name="hardware buffer keeps a floor and scales with device and read block" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.0"/>
+  <testcase name="permission and service readiness are rechecked before recorder creation" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.0"/>
+  <testcase name="a refused PCM block stops the reader and reports a constant failure" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.001"/>
+  <testcase name="release uncertainty fails stop future with no native detail" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.0"/>
+  <testcase name="stop is idempotent asynchronous and completes only after read exits and release" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.0"/>
+  <testcase name="failed stop does not release recorder until blocked read has exited" classname="com.kafkasl.phonewhisper.meeting.MeetingAudioRecordTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

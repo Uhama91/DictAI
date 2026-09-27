@@ -11,7 +11,7 @@ set_target_properties(meeting_probe PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-add_library(dictai_meeting SHARED meeting_jni.cpp meeting_native_logic.cpp)
+add_library(dictai_meeting SHARED meeting_jni.cpp meeting_diarization_jni.cpp meeting_native_logic.cpp)
 target_compile_features(dictai_meeting PRIVATE cxx_std_17)
 target_compile_options(dictai_meeting PRIVATE -fvisibility=hidden -fvisibility-inlines-hidden)
 target_link_options(dictai_meeting PRIVATE

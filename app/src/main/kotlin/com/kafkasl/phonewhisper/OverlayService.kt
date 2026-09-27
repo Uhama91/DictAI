@@ -253,6 +253,14 @@ class OverlayService : Service() {
         const val ACTION_THEME_CHANGED = "com.uhama.whisperpin.THEME_CHANGED"
         private const val DOUBLE_TAP_MS = 280L
         private const val RECORD_STOP_TIMEOUT_MS = 1_000L
+        private const val MEETING_PROGRESS_REFRESH_INTERVAL_MS = 500L
+        private val LIVE_MEETING_PROGRESS_PHASES = setOf(
+            MeetingRecordingPhase.PREPARING,
+            MeetingRecordingPhase.LISTENING,
+            MeetingRecordingPhase.PAUSING,
+            MeetingRecordingPhase.PAUSED,
+            MeetingRecordingPhase.FINALIZING,
+        )
         private const val MEETING_NOTE_PUBLICATION_MAX_FLUSH_ATTEMPTS = 3
         private val meetingTestFactoryLock = Any()
         private var pendingMeetingTestFactory: ((OverlayService) -> MeetingTestOverrides?)? = null
@@ -581,6 +589,25 @@ class OverlayService : Service() {
         val removedImageIds: Set<String> = emptySet(),
     )
     private val main = Handler(Looper.getMainLooper())
+    private var meetingProgressRefreshPosted = false
+    private val meetingProgressRefresh = object : Runnable {
+        override fun run() {
+            meetingProgressRefreshPosted = false
+            val controller = meetingRecordingController
+            val panel = meetingPanelController
+            val phase = controller?.state?.phase
+            if (!meetingSurfaceOpen || panel == null || controller == null ||
+                !panel.view.isShown ||
+                meetingReplacementOperation?.controller === controller || phase == null ||
+                phase !in LIVE_MEETING_PROGRESS_PHASES
+            ) {
+                stopMeetingProgressRefresh()
+                return
+            }
+            panel.updateLiveProgress(controller.progressSnapshot, controller.voiceProgress)
+            scheduleMeetingProgressRefresh()
+        }
+    }
     private val tapCoordinator = DictationTapGestureCoordinator(DOUBLE_TAP_MS)
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -2520,16 +2547,23 @@ class OverlayService : Service() {
     private fun setLivePreviewVisible(requested: Boolean) {
         val show = requested && !panelHidden && !captureWindowsHidden
         val panel = livePanel ?: return
-        if (livePreviewVisible == show && panel.visibility == if (show) View.VISIBLE else View.GONE) return
+        if (livePreviewVisible == show && panel.visibility == if (show) View.VISIBLE else View.GONE) {
+            synchronizeMeetingProgressRefreshForCurrentState()
+            return
+        }
         livePreviewVisible = show
         panel.visibility = if (show) View.VISIBLE else View.GONE
         if (!show) {
             cancelPanelTransition()
             releaseTranscriptFocus()
+            synchronizeMeetingProgressRefreshForCurrentState()
             return
         }
 
-        val panelParams = liveParams ?: return
+        val panelParams = liveParams ?: run {
+            synchronizeMeetingProgressRefreshForCurrentState()
+            return
+        }
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         if (!livePanelAdded) {
             try {
@@ -2539,10 +2573,16 @@ class OverlayService : Service() {
                 Log.w(TAG, "add live panel echec: ${e.javaClass.simpleName}")
                 livePreviewVisible = false
                 panel.visibility = View.GONE
+                synchronizeMeetingProgressRefreshForCurrentState()
                 return
             }
         }
-        positionLivePanel(currentAnchor ?: return)
+        val anchor = currentAnchor ?: run {
+            synchronizeMeetingProgressRefreshForCurrentState()
+            return
+        }
+        positionLivePanel(anchor)
+        synchronizeMeetingProgressRefreshForCurrentState()
     }
 
     private fun releaseTranscriptFocus() {
@@ -6489,6 +6529,7 @@ class OverlayService : Service() {
     }
 
     private fun restoreDictationPanelAfterMeeting() {
+        stopMeetingProgressRefresh()
         cancelMeetingNotePublication()
         meetingPanelController?.let { controller ->
             (controller.view.parent as? ViewGroup)?.removeView(controller.view)
@@ -7770,6 +7811,35 @@ class OverlayService : Service() {
         wave?.setMeetingCaptureActive(state.captureActive)
         updatePillAccessibilityProjection(meetingPillAccessibilityDescription())
         updateNotif()
+        synchronizeMeetingProgressRefresh(state.phase)
+    }
+
+    private fun synchronizeMeetingProgressRefresh(phase: MeetingRecordingPhase) {
+        if (meetingSurfaceOpen && phase in LIVE_MEETING_PROGRESS_PHASES &&
+            meetingReplacementOperation?.controller !== meetingRecordingController &&
+            meetingPanelController?.view?.isShown == true
+        ) {
+            scheduleMeetingProgressRefresh()
+        } else {
+            stopMeetingProgressRefresh()
+        }
+    }
+
+    private fun synchronizeMeetingProgressRefreshForCurrentState() {
+        val phase = meetingRecordingController?.state?.phase
+        if (phase == null) stopMeetingProgressRefresh()
+        else synchronizeMeetingProgressRefresh(phase)
+    }
+
+    private fun scheduleMeetingProgressRefresh() {
+        if (meetingProgressRefreshPosted) return
+        meetingProgressRefreshPosted = true
+        main.postDelayed(meetingProgressRefresh, MEETING_PROGRESS_REFRESH_INTERVAL_MS)
+    }
+
+    private fun stopMeetingProgressRefresh() {
+        if (meetingProgressRefreshPosted) main.removeCallbacks(meetingProgressRefresh)
+        meetingProgressRefreshPosted = false
     }
 
     private fun meetingModelSizeLabel(): String =
@@ -7826,6 +7896,7 @@ class OverlayService : Service() {
     }
 
     private fun destroyMeetingResources() {
+        stopMeetingProgressRefresh()
         meetingOpenGeneration += 1
         meetingReplacementGeneration += 1
         meetingImageRecoveryRequest?.cancel()

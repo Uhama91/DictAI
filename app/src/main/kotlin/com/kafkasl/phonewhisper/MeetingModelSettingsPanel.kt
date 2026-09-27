@@ -18,7 +18,7 @@ internal class MeetingModelSettingsPanel(
     companion object {
         const val PANEL_TAG = "meeting_model_settings_panel"
         const val STATUS_TAG = "meeting_model_settings_status"
-        const val DOWNLOAD_LABEL = "Télécharger les modèles Réunion"
+        const val DOWNLOAD_LABEL = "Préparer les modèles Réunion"
     }
 
     private val palette = ThemeTokens.palette(context)
@@ -40,7 +40,7 @@ internal class MeetingModelSettingsPanel(
         setOnClickListener { store.download() }
     }
     private val cancel = MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-        text = "Annuler le téléchargement"
+        text = "Annuler la préparation"
         minimumHeight = ThemeTokens.dp(context, 48)
         visibility = View.GONE
         setOnClickListener { store.cancelDownload() }
@@ -78,7 +78,7 @@ internal class MeetingModelSettingsPanel(
         })
         val totalMb = (store.catalog.totalBytes + 999_999L) / 1_000_000L
         addView(TextView(context).apply {
-            text = "Transcription et suivi des voix · environ $totalMb Mo"
+            text = "Jusqu’à $totalMb Mo · Les fichiers déjà présents sont réutilisés."
             textSize = 14f
             setTextColor(palette.inkMuted)
             setPadding(0, ThemeTokens.dp(context, 3), 0, ThemeTokens.dp(context, 4))
@@ -131,7 +131,7 @@ internal class MeetingModelSettingsPanel(
                 val percent = if (state.totalBytes > 0L) {
                     ((state.bytesDownloaded * 100L) / state.totalBytes).toInt().coerceIn(0, 100)
                 } else 0
-                status.text = "Téléchargement des modèles Réunion · $percent %"
+                status.text = "Préparation des modèles Réunion · $percent %"
                 progress.isIndeterminate = false
                 progress.progress = percent
                 progress.visibility = View.VISIBLE

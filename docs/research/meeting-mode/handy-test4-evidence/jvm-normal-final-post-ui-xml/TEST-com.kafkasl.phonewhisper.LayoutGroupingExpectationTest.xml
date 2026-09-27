@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.LayoutGroupingExpectationTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:36" hostname="MacBook-Pro-de-Ullie.local" time="0.002">
+  <properties/>
+  <testcase name="englishEmailAllowsSentenceParagraphsButKeepsNegationTogether" classname="com.kafkasl.phonewhisper.LayoutGroupingExpectationTest" time="0.001"/>
+  <testcase name="modifierCannotBecomeAnIndependentItem" classname="com.kafkasl.phonewhisper.LayoutGroupingExpectationTest" time="0.0"/>
+  <testcase name="actionListKeepsEachActionAndItsQuantityTogether" classname="com.kafkasl.phonewhisper.LayoutGroupingExpectationTest" time="0.0"/>
+  <testcase name="shortAcknowledgmentStaysInOnePart" classname="com.kafkasl.phonewhisper.LayoutGroupingExpectationTest" time="0.001"/>
+  <testcase name="faithfulShoppingMonoblockFailsWhileSixItemsPass" classname="com.kafkasl.phonewhisper.LayoutGroupingExpectationTest" time="0.0"/>
+  <testcase name="emailChecksGreetingClosingAndIntactSignatureWithoutScoringBodyStyle" classname="com.kafkasl.phonewhisper.LayoutGroupingExpectationTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

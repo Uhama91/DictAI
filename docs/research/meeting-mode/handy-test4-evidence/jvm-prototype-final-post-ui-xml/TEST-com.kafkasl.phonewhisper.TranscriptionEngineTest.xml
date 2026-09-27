@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.TranscriptionEngineTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.0">
+  <properties/>
+  <testcase name="resident_engine_closes_the_previous_engine_before_opening_the_next_one_and_reuses_it" classname="com.kafkasl.phonewhisper.TranscriptionEngineTest" time="0.0"/>
+  <testcase name="pcm16ToFloat_convertsKnownSamples" classname="com.kafkasl.phonewhisper.TranscriptionEngineTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

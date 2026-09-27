@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.ThemeModeTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:10" hostname="MacBook-Pro-de-Ullie.local" time="0.002">
+  <properties/>
+  <testcase name="theme preference survives reopening without changing another preference" classname="com.kafkasl.phonewhisper.ThemeModeTest" time="0.001"/>
+  <testcase name="delegate mode maps explicit appearance choices" classname="com.kafkasl.phonewhisper.ThemeModeTest" time="0.0"/>
+  <testcase name="explicit appearance wins over either system appearance" classname="com.kafkasl.phonewhisper.ThemeModeTest" time="0.0"/>
+  <testcase name="preference values round trip to the three supported modes" classname="com.kafkasl.phonewhisper.ThemeModeTest" time="0.0"/>
+  <testcase name="unknown or missing preference follows the system" classname="com.kafkasl.phonewhisper.ThemeModeTest" time="0.0"/>
+  <testcase name="light and dark text roles meet normal text contrast" classname="com.kafkasl.phonewhisper.ThemeModeTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

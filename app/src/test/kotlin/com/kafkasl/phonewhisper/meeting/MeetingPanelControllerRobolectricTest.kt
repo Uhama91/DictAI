@@ -89,6 +89,406 @@ class MeetingPanelControllerRobolectricTest {
     }
 
     @Test
+    fun lateRevisionKeepsAudioOrderedRowsAndPreservesManualIdentityEditAndImage() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val sophie = MeetingParticipant("person-a", ordinal = 1, channel = 1, name = "Sophie")
+        val karim = MeetingParticipant("person-b", ordinal = 2, channel = 2, name = "Karim")
+        val turns = listOf(
+            MeetingTurn(
+                id = "turn-a-early",
+                utteranceId = 1,
+                startMs = 1_000,
+                endMs = 1_220,
+                recognizedText = "On commence.",
+                automaticParticipantId = sophie.id,
+                attributionStable = true,
+            ),
+            MeetingTurn(
+                id = "turn-b-reply",
+                utteranceId = 2,
+                startMs = 2_600,
+                endMs = 2_880,
+                recognizedText = "Je réponds.",
+                automaticParticipantId = karim.id,
+                attributionStable = true,
+            ),
+            MeetingTurn(
+                id = "turn-a-late",
+                utteranceId = 3,
+                startMs = 1_800,
+                endMs = 2_300,
+                recognizedText = "La version automatique.",
+                automaticParticipantId = karim.id,
+                manualParticipantId = sophie.id,
+                hasManualAttribution = true,
+                editedText = "La version retouchée. [[Image 7]]",
+                attributionStable = true,
+            ),
+        ).map(::withKnownAudioTiming)
+        val firstSnapshot = MeetingDocument(
+            sessionId = "session-timeline",
+            runId = "run-timeline",
+            participants = listOf(sophie, karim),
+            turns = turns,
+        )
+        val image = noteImage(7)
+        val host = TestDialogHost()
+        val controller = MeetingPanelController(
+            activity,
+            host,
+        )
+        activity.setContentView(controller.view)
+        controller.render(firstSnapshot, listOf(image))
+        layout(activity, controller.view)
+
+        assertEquals(
+            "audio chronology is visible even when the snapshot arrived in utterance order",
+            listOf("turn-a-early", "turn-a-late", "turn-b-reply"),
+            (0 until 3).map { controller.view.adapter.rowAt(it)?.turnId },
+        )
+        assertEquals(
+            listOf(true, false, true),
+            (0 until 3).map { controller.view.adapter.rowAt(it)?.row?.showSpeakerHeading },
+        )
+        val lateEditor = editor(controller, "turn-a-late")
+        assertTrue("the human edit remains visible", lateEditor.text.contains("La version retouchée."))
+        assertTrue("the image marker remains an inline image", lateEditor.text.contains('\uFFFC'))
+        assertEquals(sophie.id, controller.view.adapter.rowAt(1)?.row?.participantId)
+        assertEquals("turn-a-late", controller.view.adapter.rowAt(1)?.stableKey?.removePrefix("turn:"))
+        val continuationAttributionAction = descendants(controller.view)
+            .filterIsInstance<TextView>()
+            .single { it.text.toString() == "0:01" && it.contentDescription?.toString()?.contains("Sophie") == true }
+        assertTrue("the compact timestamp keeps the speaker name accessible", continuationAttributionAction.isFocusable)
+        assertTrue("the continuation still exposes attribution", continuationAttributionAction.performClick())
+        assertEquals("Attribuer la prise de parole", host.choiceRequests.last().request.title)
+        assertTrue(
+            "the attribution dialog still offers the visible speaker",
+            host.choiceRequests.last().request.choices.any { it.label.startsWith("Sophie") },
+        )
+        lateEditor.requestFocus()
+        lateEditor.setSelection(5)
+        val caretBeforeAttributionRevision = lateEditor.selectionStart
+
+        val revisedTurns = turns.map { turn ->
+            when (turn.id) {
+                "turn-a-late" -> turn.copy(
+                    recognizedText = "Une révision tardive plus longue.",
+                    manualParticipantId = karim.id,
+                )
+                "turn-b-reply" -> turn.copy(recognizedText = "Réponse révisée.")
+                else -> turn
+            }
+        }
+        controller.render(firstSnapshot.copy(turns = revisedTurns), listOf(image))
+        layout(activity, controller.view)
+
+        assertEquals(
+            "a late text revision does not move turns away from their audio positions",
+            listOf("turn-a-early", "turn-a-late", "turn-b-reply"),
+            (0 until 3).map { controller.view.adapter.rowAt(it)?.turnId },
+        )
+        assertSame("the same turn identity keeps its editor", lateEditor, editor(controller, "turn-a-late"))
+        assertEquals("the user's cursor stays in the stable turn", caretBeforeAttributionRevision, lateEditor.selectionStart)
+        assertTrue("the late automatic revision cannot overwrite the human edit", lateEditor.text.contains("La version retouchée."))
+        assertTrue("the image stays attached to the edited turn", lateEditor.text.contains('\uFFFC'))
+        assertEquals(karim.id, controller.view.adapter.rowAt(1)?.row?.participantId)
+        assertEquals(
+            "a late identity change breaks the Sophie group and joins Karim's continuation",
+            listOf(true, true, false),
+            (0 until 3).map { controller.view.adapter.rowAt(it)?.row?.showSpeakerHeading },
+        )
+        assertEquals("turn-a-late", controller.view.adapter.rowAt(1)?.turnId)
+
+        controller.view.recyclerView.scrollToPosition(2)
+        layout(activity, controller.view, heightDp = 120)
+        val compactContinuationTime = descendants(controller.view)
+            .filterIsInstance<TextView>()
+            .single { it.text.toString() == "0:02" && it.contentDescription?.toString()?.contains("Karim") == true }
+        assertTrue("audio time remains readable in the compact panel", compactContinuationTime.isShown)
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
+    fun continuationKeepsSpeakerAccessibleAndUsesLessVerticalSpaceThanANewHeading() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val sophie = MeetingParticipant("person-a", ordinal = 1, channel = 1, name = "Sophie")
+        val document = MeetingDocument(
+            sessionId = "session-compact-rows",
+            runId = "run-compact-rows",
+            participants = listOf(sophie),
+            turns = listOf(
+                MeetingTurn(
+                    id = "first-line",
+                    utteranceId = 1,
+                    startMs = 1_000,
+                    endMs = 1_120,
+                    recognizedText = "Petite phrase.",
+                    automaticParticipantId = sophie.id,
+                    attributionStable = true,
+                    timingKnown = true,
+                ),
+                MeetingTurn(
+                    id = "continued-line",
+                    utteranceId = 2,
+                    startMs = 1_250,
+                    endMs = 1_370,
+                    recognizedText = "Petite phrase.",
+                    automaticParticipantId = sophie.id,
+                    attributionStable = true,
+                    timingKnown = true,
+                ),
+            ),
+        )
+        val controller = MeetingPanelController(activity, TestDialogHost())
+        activity.setContentView(controller.view)
+        controller.render(document)
+        layout(activity, controller.view)
+
+        val first = requireNotNull(controller.view.findTurnEditor("first-line"))
+        val continued = requireNotNull(controller.view.findTurnEditor("continued-line"))
+        assertEquals("Sophie", controller.view.adapter.rowAt(0)?.row?.label)
+        assertEquals("Sophie", controller.view.adapter.rowAt(1)?.row?.label)
+        assertTrue(controller.view.adapter.rowAt(0)?.row?.showSpeakerHeading == true)
+        assertFalse(controller.view.adapter.rowAt(1)?.row?.showSpeakerHeading == true)
+        val continuationTime = descendants(continued)
+            .filterIsInstance<TextView>()
+            .single { it.text.toString() == "0:01" }
+        assertTrue(continuationTime.contentDescription?.toString()?.contains("Sophie") == true)
+        assertTrue(continuationTime.isFocusable)
+
+        val expectedHeaderSavings = (24 * activity.resources.displayMetrics.density).toInt()
+        assertTrue(
+            "the continued line shows its timestamp without reserving another 48 dp speaker heading",
+            first.height - continued.height >= expectedHeaderSavings,
+        )
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
+    fun continuationAttributionTargetIsAtLeast48DpWithoutAddingAnotherHeaderRow() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val sophie = MeetingParticipant("person-a", ordinal = 1, channel = 1, name = "Sophie")
+        val document = MeetingDocument(
+            sessionId = "session-continuation-target",
+            runId = "run-continuation-target",
+            participants = listOf(sophie),
+            turns = listOf(
+                MeetingTurn(
+                    id = "first-line",
+                    utteranceId = 1,
+                    startMs = 1_000,
+                    endMs = 1_120,
+                    recognizedText = "Première phrase.",
+                    automaticParticipantId = sophie.id,
+                    attributionStable = true,
+                    timingKnown = true,
+                ),
+                MeetingTurn(
+                    id = "continued-line",
+                    utteranceId = 2,
+                    startMs = 1_250,
+                    endMs = 1_370,
+                    recognizedText = "La suite.",
+                    automaticParticipantId = sophie.id,
+                    attributionStable = true,
+                    timingKnown = true,
+                ),
+            ),
+        )
+        val controller = MeetingPanelController(activity, TestDialogHost())
+        activity.setContentView(controller.view)
+        controller.render(document)
+        layout(activity, controller.view)
+
+        val first = requireNotNull(controller.view.findTurnEditor("first-line"))
+        val continuation = requireNotNull(controller.view.findTurnEditor("continued-line"))
+        val firstTarget = descendants(first).filterIsInstance<TextView>()
+            .single { it.contentDescription?.toString()?.contains("Attribuer la prise de parole : Sophie") == true }
+        val continuationTarget = descendants(continuation).filterIsInstance<TextView>()
+            .single { it.contentDescription?.toString()?.contains("Attribuer la prise de parole : Sophie") == true }
+        val density = activity.resources.displayMetrics.density
+
+        assertTrue("continuation attribution has a reliable 48 dp touch target", continuationTarget.height >= (48 * density).toInt())
+        assertTrue("the timestamp remains exposed on the attribution action", continuationTarget.contentDescription.toString().contains("0:01"))
+        assertTrue("continuation still saves vertical space", first.height - continuation.height >= (24 * density).toInt())
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
+    fun liveProgressUpdatesOnlyTheHeaderAndPreservesAnActivelyEditedTurn() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val edits = mutableListOf<Pair<String, String>>()
+        val controller = MeetingPanelController(
+            activity,
+            TestDialogHost(),
+            MeetingPanelActions(edit = { id, text -> edits += id to text }),
+        )
+        val document = documentWithLongTurn("Texte déjà retouché")
+        activity.setContentView(controller.view)
+        controller.render(document, status = MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING))
+        layout(activity, controller.view)
+
+        val editor = editor(controller, "long-turn")
+        editor.requestFocus()
+        editor.setSelection(5)
+        val textBeforeTick = editor.text.toString()
+        val selectionBeforeTick = editor.selectionStart
+        val rowsBeforeTick = controller.view.adapter.itemCount
+
+        controller.updateLiveProgress(
+            progress(pendingAudioMs = 3_000L),
+            MeetingVoiceProgress.EMPTY,
+        )
+
+        assertSame("a progress tick does not replace the editor", editor, editor(controller, "long-turn"))
+        assertEquals(textBeforeTick, editor.text.toString())
+        assertEquals(selectionBeforeTick, editor.selectionStart)
+        assertEquals(rowsBeforeTick, controller.view.adapter.itemCount)
+        assertTrue("a progress tick does not publish or overwrite the human edit", edits.isEmpty())
+        assertEquals(
+            "Écoute en cours · 3 s d’audio à traiter",
+            statusText(controller),
+        )
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
+    fun liveProgressThresholdAndVoiceStatesAreClearWithoutChangingMeetingPhase() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val controller = MeetingPanelController(activity, TestDialogHost())
+        activity.setContentView(controller.view)
+        controller.render(
+            documentWithLongTurn("Paroles"),
+            status = MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING),
+        )
+
+        controller.updateLiveProgress(progress(pendingAudioMs = 2_999L), MeetingVoiceProgress.EMPTY)
+        assertEquals("Écoute en cours", statusText(controller))
+
+        controller.updateLiveProgress(
+            progress(pendingAudioMs = 3_000L),
+            MeetingVoiceProgress(MeetingVoiceState.PREPARING, pendingAudioMs = 0L),
+        )
+        assertEquals(
+            "Écoute en cours · 3 s d’audio à traiter · Préparation des voix",
+            statusText(controller),
+        )
+        assertTrue("backlog detail keeps the listening phase", statusText(controller).startsWith("Écoute en cours"))
+
+        controller.updateLiveProgress(
+            progress(pendingAudioMs = 3_000L),
+            MeetingVoiceProgress(MeetingVoiceState.ACTIVE, pendingAudioMs = 3_000L),
+        )
+        assertTrue("voice backlog is described separately from the ASR backlog", statusText(controller).contains("Voix : 3 s d’audio en attente"))
+
+        controller.updateLiveProgress(
+            progress(pendingAudioMs = 0L),
+            MeetingVoiceProgress(MeetingVoiceState.UNAVAILABLE, 0L, MeetingVoiceUnavailableReason.MODEL_LOAD_FAILED),
+        )
+        assertEquals("Écoute en cours · Identification des voix indisponible", statusText(controller))
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
+    fun compactHeaderKeepsTheLivePhaseAndAVisibleBacklogOrVoiceAvailabilityDetail() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val controller = MeetingPanelController(activity, TestDialogHost())
+        val root = FrameLayout(activity)
+        root.addView(controller.view, FrameLayout.LayoutParams(
+            (360 * activity.resources.displayMetrics.density).toInt(),
+            (120 * activity.resources.displayMetrics.density).toInt(),
+        ))
+        activity.setContentView(root)
+        controller.render(
+            documentWithLongTurn("Paroles"),
+            status = MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING),
+        )
+        layoutContainer(root, 360, 120)
+
+        controller.updateLiveProgress(progress(pendingAudioMs = 30_000L), MeetingVoiceProgress.EMPTY)
+        layoutContainer(root, 360, 120)
+        val title = statusTitle(controller)
+        assertEquals("compact layout keeps the current meeting phase on its first line", "Écoute en cours", title.text.toString().substringBefore('\n'))
+        assertTrue("compact layout visibly reports the ASR backlog", title.text.toString().contains("30 s d’audio à traiter"))
+        assertEquals("the compact title has room for a phase and one detail line", 2, title.maxLines)
+
+        controller.updateLiveProgress(
+            progress(pendingAudioMs = 30_000L),
+            MeetingVoiceProgress(MeetingVoiceState.UNAVAILABLE, 0L, MeetingVoiceUnavailableReason.MODEL_LOAD_FAILED),
+        )
+        layoutContainer(root, 360, 120)
+        assertEquals(
+            "compact layout gives a real voice failure its own concise visible summary",
+            "Écoute en cours\nVoix indisponibles",
+            title.text.toString(),
+        )
+        assertTrue(
+            "the full ASR backlog and voice failure remain available to accessibility",
+            title.contentDescription.toString().contains("30 s d’audio à traiter · Identification des voix indisponible"),
+        )
+        assertTrue("unavailable voice identification does not replace the listening phase", title.text.toString().startsWith("Écoute en cours\n"))
+
+        controller.updateLiveProgress(
+            progress(pendingAudioMs = 30_000L),
+            MeetingVoiceProgress(MeetingVoiceState.UNAVAILABLE, 0L, MeetingVoiceUnavailableReason.CANCELLED),
+        )
+        layoutContainer(root, 360, 120)
+        assertEquals("live cancellation has a concise compact summary", "Écoute en cours\nVoix interrompues", title.text.toString())
+        assertTrue(
+            "the full interrupted voice state remains accessible",
+            title.contentDescription.toString().contains("Identification des voix interrompue"),
+        )
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
+    fun normalStatusRowWrapsLiveDetailsAcrossTwoLinesAndKeepsFullAccessibleDescription() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val controller = MeetingPanelController(activity, TestDialogHost())
+        activity.setContentView(controller.view)
+        controller.render(
+            documentWithLongTurn("Paroles"),
+            status = MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING),
+        )
+        layout(activity, controller.view, widthDp = 240, heightDp = 640)
+
+        controller.updateLiveProgress(
+            progress(pendingAudioMs = 30_000L),
+            MeetingVoiceProgress(MeetingVoiceState.ACTIVE, pendingAudioMs = 30_000L),
+        )
+        layout(activity, controller.view, widthDp = 240, heightDp = 640)
+
+        val status = statusView(controller)
+        assertEquals("the normal status can show its phase and two live details", 2, status.maxLines)
+        val statusLayout = requireNotNull(status.layout)
+        assertEquals("the live phase and details use two visible lines", 2, statusLayout.lineCount)
+        assertTrue("neither visible line is truncated", (0 until statusLayout.lineCount).all { statusLayout.getEllipsisCount(it) == 0 })
+        assertTrue("the complete ASR and voice details remain available to accessibility", statusTitle(controller).contentDescription.toString().contains("30 s d’audio à traiter · Voix : 30 s d’audio en attente"))
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
     fun participantChoicesDisambiguateHomonymsAndRenameCapturedIdentity() {
         val activityController = Robolectric.buildActivity(Activity::class.java).setup()
         val activity = activityController.get()
@@ -347,6 +747,54 @@ class MeetingPanelControllerRobolectricTest {
         assertNotNull("the attached image still has its dedicated action", imageAction)
         imageAction!!.performClick()
         assertEquals(listOf(null to 4), opened)
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
+    fun compactLongTurnKeepsSpeakerAndAudioTimeVisibleAtLargeFont() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val configuration = Configuration(activity.resources.configuration).apply { fontScale = 1.35f }
+        activity.resources.updateConfiguration(configuration, activity.resources.displayMetrics)
+        val base = documentWithLongTurn(List(100) { "Une décision détaillée doit rester lisible." }.joinToString(" "))
+        val document = base.copy(
+            turns = base.turns.map { turn ->
+                turn.copy(startMs = 12_000L, endMs = 18_000L, timingKnown = true)
+            },
+        )
+        val controller = MeetingPanelController(activity, TestDialogHost())
+        controller.render(document)
+        val root = FrameLayout(activity)
+        root.addView(controller.view, FrameLayout.LayoutParams(240, 112))
+        activity.setContentView(root)
+        layoutContainer(root, 240, 112)
+        controller.view.recyclerView.scrollToPosition(0)
+        ShadowLooper.idleMainLooper()
+
+        val label = descendants(controller.view).filterIsInstance<TextView>()
+            .single { it.contentDescription?.toString()?.contains("Attribuer la prise de parole : Sophie") == true }
+        assertEquals("compact attribution keeps both its speaker and audio cue", "S\n0:12", label.text.toString())
+        val visibleBounds = Rect()
+        assertTrue("the attribution target remains on screen", label.getGlobalVisibleRect(visibleBounds))
+        val location = IntArray(2)
+        label.getLocationOnScreen(location)
+        val textLayout = requireNotNull(label.layout)
+        assertEquals("the speaker and timestamp occupy separate lines", 2, textLayout.lineCount)
+        val firstBaseline = location[1] + label.baseline
+        val secondBaseline = firstBaseline + textLayout.getLineBaseline(1) - textLayout.getLineBaseline(0)
+        val fontMetrics = label.paint.fontMetrics
+        val speakerLineTop = firstBaseline + fontMetrics.top
+        val timestampLineBottom = secondBaseline + fontMetrics.bottom
+        assertTrue(
+            "the speaker name is visible in the compact viewport",
+            speakerLineTop >= visibleBounds.top && firstBaseline + fontMetrics.bottom <= visibleBounds.bottom,
+        )
+        assertTrue(
+            "the audio timestamp is visible in the compact viewport",
+            secondBaseline + fontMetrics.top >= visibleBounds.top && timestampLineBottom <= visibleBounds.bottom,
+        )
 
         controller.dispose()
         activityController.pause().stop().destroy()
@@ -756,6 +1204,32 @@ class MeetingPanelControllerRobolectricTest {
         return null
     }
 
+    private fun statusText(controller: MeetingPanelController): String = descendants(controller.view)
+        .filterIsInstance<TextView>()
+        .single { it.text.toString().startsWith("Écoute en cours") }
+        .text
+        .toString()
+
+    private fun statusView(controller: MeetingPanelController): TextView = descendants(controller.view)
+        .filterIsInstance<TextView>()
+        .single { it.text.toString().startsWith("Écoute en cours") }
+
+    private fun statusTitle(controller: MeetingPanelController): TextView =
+        (controller.view.getChildAt(0) as LinearLayout).getChildAt(0) as TextView
+
+    private fun progress(pendingAudioMs: Long) = MeetingProgressSnapshot(
+        capturedAudioMs = pendingAudioMs,
+        processedAudioMs = 0L,
+        pendingAudioMs = pendingAudioMs,
+        queuedAudioMs = pendingAudioMs,
+        inFlightAudioMs = 0L,
+        discardedAudioMs = 0L,
+        nativeProcessingMs = 0L,
+        inFlightProcessingMs = 0L,
+        processingCostRatio = null,
+        captureElapsedMs = 0L,
+    )
+
     private fun exact(size: Int) = View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY)
 
     private fun descendants(root: View): List<View> = buildList {
@@ -771,6 +1245,8 @@ class MeetingPanelControllerRobolectricTest {
         width = 640,
         height = 480,
     )
+
+    private fun withKnownAudioTiming(turn: MeetingTurn): MeetingTurn = turn.copy(timingKnown = true)
 
     private fun documentWithLongTurn(text: String): MeetingDocument {
         val participant = MeetingParticipant("long-profile", 1, 1, name = "Sophie")

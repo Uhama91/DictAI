@@ -55,6 +55,7 @@ internal data class MeetingPanelActions(
 internal data class MeetingPanelStatus(
     val phase: Phase = Phase.READY,
     val detail: String? = null,
+    val compactSummary: String? = null,
     val progressPercent: Int? = null,
     val modelSize: String? = null,
     val saveError: String? = null,
@@ -89,6 +90,9 @@ internal class MeetingPanelController(
     private var disposed = false
     private var document: MeetingDocument? = null
     private var status = MeetingPanelStatus()
+    private var baseStatus = MeetingPanelStatus()
+    private var liveProgress: MeetingProgressSnapshot? = null
+    private var liveVoiceProgress: MeetingVoiceProgress? = null
     private var pendingRender: RenderRequest? = null
     private var pendingRenderPosted = false
 
@@ -147,6 +151,21 @@ internal class MeetingPanelController(
     fun flushFocusedEdit(): Boolean {
         if (disposed) return false
         return view.focusedTurnEditor()?.flushFocusedEdit() ?: false
+    }
+
+    /** Updates only the status header; it never projects rows or touches the draft/editor. */
+    fun updateLiveProgress(
+        progress: MeetingProgressSnapshot,
+        voiceProgress: MeetingVoiceProgress,
+    ) {
+        if (disposed) return
+        check(Looper.myLooper() == Looper.getMainLooper()) { "Meeting progress rendering must run on the main thread" }
+        liveProgress = progress
+        liveVoiceProgress = voiceProgress
+        val updatedStatus = statusWithLiveProgress(baseStatus, progress, voiceProgress)
+        if (status == updatedStatus) return
+        status = updatedStatus
+        view.updateStatus(updatedStatus)
     }
 
     fun captureAnchor(): MeetingPanelAnchor? {
@@ -213,8 +232,15 @@ internal class MeetingPanelController(
     private fun applyRender(request: RenderRequest) {
         if (disposed) return
         document = request.document
-        status = request.status
-        view.updateHeader(request.document, request.status)
+        baseStatus = request.status
+        if (!isLivePhase(baseStatus.phase)) {
+            liveProgress = null
+            liveVoiceProgress = null
+        }
+        status = if (isLivePhase(baseStatus.phase) && liveProgress != null && liveVoiceProgress != null) {
+            statusWithLiveProgress(baseStatus, requireNotNull(liveProgress), requireNotNull(liveVoiceProgress))
+        } else baseStatus
+        view.updateHeader(request.document, status)
 
         val byNumber = request.images.distinctBy { it.number }.associateBy { it.number }
         val emittedNumbers = mutableSetOf<Int>()
@@ -380,6 +406,50 @@ internal class MeetingPanelController(
         if (!disposed) actions.sessionCommand(command)
     }
 
+    private fun statusWithLiveProgress(
+        base: MeetingPanelStatus,
+        progress: MeetingProgressSnapshot,
+        voices: MeetingVoiceProgress,
+    ): MeetingPanelStatus {
+        if (!isLivePhase(base.phase)) return base
+        val details = buildList {
+            base.detail?.takeIf(String::isNotBlank)?.let(::add)
+            if (progress.pendingAudioMs >= LIVE_BACKLOG_THRESHOLD_MS) {
+                add("${ceilSeconds(progress.pendingAudioMs)} s d’audio à traiter")
+            }
+            when (voices.state) {
+                MeetingVoiceState.PREPARING -> add("Préparation des voix")
+                MeetingVoiceState.ACTIVE -> if (voices.pendingAudioMs >= LIVE_BACKLOG_THRESHOLD_MS) {
+                    add("Voix : ${ceilSeconds(voices.pendingAudioMs)} s d’audio en attente")
+                }
+                MeetingVoiceState.UNAVAILABLE -> when (voices.unavailableReason) {
+                    MeetingVoiceUnavailableReason.UNSUPPORTED_BRIDGE, null -> Unit
+                    MeetingVoiceUnavailableReason.CANCELLED -> add("Identification des voix interrompue")
+                    MeetingVoiceUnavailableReason.MODEL_LOAD_FAILED,
+                    MeetingVoiceUnavailableReason.STORAGE_ERROR,
+                    MeetingVoiceUnavailableReason.PROCESSING_FAILED -> add("Identification des voix indisponible")
+                    MeetingVoiceUnavailableReason.BACKLOG_LIMIT -> add("Retard des voix : file saturée")
+                }
+            }
+        }.distinct()
+        val compactSummary = when (voices.state) {
+            MeetingVoiceState.UNAVAILABLE -> when (voices.unavailableReason) {
+                null, MeetingVoiceUnavailableReason.UNSUPPORTED_BRIDGE -> null
+                MeetingVoiceUnavailableReason.CANCELLED -> "Voix interrompues"
+                else -> "Voix indisponibles"
+            }
+            MeetingVoiceState.PREPARING, MeetingVoiceState.ACTIVE -> null
+        }
+        return base.copy(
+            detail = details.takeIf { it.isNotEmpty() }?.joinToString(" · "),
+            compactSummary = compactSummary,
+        )
+    }
+
+    private fun isLivePhase(phase: MeetingPanelStatus.Phase): Boolean = phase in LIVE_PHASES
+
+    private fun ceilSeconds(audioMs: Long): Long = (audioMs + 999L) / 1_000L
+
     private fun showChoices(
         title: String,
         choices: List<MeetingPanelChoice>,
@@ -426,6 +496,14 @@ internal class MeetingPanelController(
     }
 
     private companion object {
+        const val LIVE_BACKLOG_THRESHOLD_MS = 3_000L
+        val LIVE_PHASES = setOf(
+            MeetingPanelStatus.Phase.LOADING,
+            MeetingPanelStatus.Phase.LISTENING,
+            MeetingPanelStatus.Phase.PAUSING,
+            MeetingPanelStatus.Phase.PAUSED,
+            MeetingPanelStatus.Phase.FINALIZING,
+        )
         const val UNKNOWN_PARTICIPANT_ID = "participant:unknown"
         const val PROFILE_RENAME = "profile:rename"
         const val PROFILE_TOGGLE_IGNORED = "profile:toggle-ignored"

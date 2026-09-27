@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.BrandLogoTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:29" hostname="MacBook-Pro-de-Ullie.local" time="3.316">
+  <properties/>
+  <testcase name="brandMarkUsesRepeatedCompactLoopsAcrossItsViewport" classname="com.kafkasl.phonewhisper.BrandLogoTest" time="3.209"/>
+  <testcase name="wordmarkReservesTheCapitalIOverhangInWrapContentMeasurement" classname="com.kafkasl.phonewhisper.BrandLogoTest" time="0.107"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

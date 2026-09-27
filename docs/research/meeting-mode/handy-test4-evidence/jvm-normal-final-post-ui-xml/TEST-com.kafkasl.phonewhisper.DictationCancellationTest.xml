@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.DictationCancellationTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:35" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="cancellation_prevents_a_late_publication" classname="com.kafkasl.phonewhisper.DictationCancellationTest" time="0.001"/>
+  <testcase name="cancellation_runs_each_registered_action_once_and_is_idempotent" classname="com.kafkasl.phonewhisper.DictationCancellationTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayServiceGestureRobolectricTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:51" hostname="MacBook-Pro-de-Ullie.local" time="0.479">
+  <properties/>
+  <testcase name="pill drag listener stops at visible custom panel and keeps panel and pill size" classname="com.kafkasl.phonewhisper.OverlayServiceGestureRobolectricTest" time="0.085"/>
+  <testcase name="multiple upward moves only open the common menu until a mode is tapped" classname="com.kafkasl.phonewhisper.OverlayServiceGestureRobolectricTest" time="0.094"/>
+  <testcase name="cancelled reveal dismisses menu without changing the selected format" classname="com.kafkasl.phonewhisper.OverlayServiceGestureRobolectricTest" time="0.07"/>
+  <testcase name="quick down up reveal leaves the common menu open and touchable" classname="com.kafkasl.phonewhisper.OverlayServiceGestureRobolectricTest" time="0.075"/>
+  <testcase name="short reveal keeps the menu touchable for a normal tap" classname="com.kafkasl.phonewhisper.OverlayServiceGestureRobolectricTest" time="0.055"/>
+  <testcase name="reduced panel exposes independent move and resize targets" classname="com.kafkasl.phonewhisper.OverlayServiceGestureRobolectricTest" time="0.053"/>
+  <testcase name="panel move listener keeps the accepted boundary and responds to the next reverse delta" classname="com.kafkasl.phonewhisper.OverlayServiceGestureRobolectricTest" time="0.047"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

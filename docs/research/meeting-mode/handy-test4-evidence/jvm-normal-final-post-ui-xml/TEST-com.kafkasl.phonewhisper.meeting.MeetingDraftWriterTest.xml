@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.meeting.MeetingDraftWriterTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:59" hostname="MacBook-Pro-de-Ullie.local" time="0.002">
+  <properties/>
+  <testcase name="retirement after failed close shuts worker and permanently rejects old owner" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftWriterTest" time="0.001"/>
+  <testcase name="failed close rejects mutations retains snapshot and retries only on explicit close" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftWriterTest" time="0.0"/>
+  <testcase name="persistent failure does not retry automatically and explicit flush retries retained snapshot" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftWriterTest" time="0.001"/>
+  <testcase name="close during a blocked write flushes captured state before releasing worker" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftWriterTest" time="0.0"/>
+  <testcase name="retirement is rejected before failed close or while final write is active" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftWriterTest" time="0.0"/>
+  <testcase name="continuous mutations keep first deadline and save latest snapshot" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftWriterTest" time="0.0"/>
+  <testcase name="flush waits for latest generation after an active write and coalesces pending snapshots" classname="com.kafkasl.phonewhisper.meeting.MeetingDraftWriterTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

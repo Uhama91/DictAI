@@ -1,0 +1,58 @@
+09-27 04:48:11.376 11555 11572 I TestRunner: run started: 1 tests
+09-27 04:48:11.380 11555 11572 I TestRunner: started: compares_handy_and_diarization_on_sustained_sixty_four_second_stream(com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest)
+09-27 04:48:32.597 11555 11572 I MeetingPorts: phase=sustained-handy-only progressAudioMs=10000 elapsedMs=12315
+09-27 04:48:45.728 11555 11572 I MeetingPorts: phase=sustained-handy-only progressAudioMs=20000 elapsedMs=25446
+09-27 04:48:58.016 11555 11572 I MeetingPorts: phase=sustained-handy-only progressAudioMs=30000 elapsedMs=37735
+09-27 04:49:11.031 11555 11572 I MeetingPorts: phase=sustained-handy-only progressAudioMs=40000 elapsedMs=50750
+09-27 04:49:23.368 11555 11572 I MeetingPorts: phase=sustained-handy-only progressAudioMs=50000 elapsedMs=63087
+09-27 04:49:35.730 11555 11572 I MeetingPorts: phase=sustained-handy-only progressAudioMs=60000 elapsedMs=75449
+09-27 04:49:41.622 11555 11572 I MeetingPorts: phase=sustained-handy-only openMs=3715 firstTextMs=2419 feedCallMs=78754 snapshotCallMs=745 snapshotCount=3196 maxAsrLagMs=16643 sourceFeedWallMs=80446 handyFinalMs=81030 audioMs=63901 closeMs=213 pssAfterOpenKb=1208878 pssAfterStreamKb=1237449 pssAfterCloseKb=65247 tokenCount=329 committedTokens=329 validTimedTokens=329 transcript="Bonjour, ouvrons la réunion de la semaine, je propose jeudi matin pour le suivi d'accord merci, nous reprenons jeudi bonjour, ouvrons la réunion de la semaine, je propose jeudi matin pour le suivi, nous reprenons jeudi bonjour, ouvrons la réunion de la semaine, je propose jeudi matin pour le suivi d'accord, je prépare la synthèse merci, nous reprenons jeudi bonjour, ouvrons la réunion de la semaine. Je propose jeudi matin pour le suivi d'accord, je prépare la synthèse merci, nous reprenons jeudi bonjour, ouvrons la réunion de la semaine, je propose jeudi matin pour le suivi d'accord, je prépare la synthèse merci, nous reprenons jeudi."
+09-27 04:50:02.455 11555 11572 I MeetingPorts: phase=sustained-handy-plus-diar progressAudioMs=10000 elapsedMs=14233 diarProcessedBytes=168960 backlogMs=4720 queueDepth=235 maxQueueDepth=261
+09-27 04:50:16.763 11555 11572 I MeetingPorts: phase=sustained-handy-plus-diar progressAudioMs=20000 elapsedMs=28542 diarProcessedBytes=235520 backlogMs=12640 queueDepth=631 maxQueueDepth=631
+09-27 04:50:30.606 11555 11572 I MeetingPorts: phase=sustained-handy-plus-diar progressAudioMs=30000 elapsedMs=42385 diarProcessedBytes=302080 backlogMs=20560 queueDepth=1027 maxQueueDepth=1031
+09-27 04:50:45.009 11555 11572 I MeetingPorts: phase=sustained-handy-plus-diar progressAudioMs=40000 elapsedMs=56788 diarProcessedBytes=335360 backlogMs=29520 queueDepth=1475 maxQueueDepth=1475
+09-27 04:50:59.038 11555 11572 I MeetingPorts: phase=sustained-handy-plus-diar progressAudioMs=50000 elapsedMs=70816 diarProcessedBytes=368640 backlogMs=38480 queueDepth=1923 maxQueueDepth=1923
+09-27 04:51:13.000 11555 11572 I MeetingPorts: phase=sustained-handy-plus-diar progressAudioMs=60000 elapsedMs=84778 diarProcessedBytes=435200 backlogMs=46400 queueDepth=2319 maxQueueDepth=2335
+09-27 04:53:25.238 11555 11572 E TestRunner: failed: compares_handy_and_diarization_on_sustained_sixty_four_second_stream(com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest)
+09-27 04:53:25.305 11555 11572 E TestRunner: ----- begin exception -----
+09-27 04:53:25.305 11555 11572 E TestRunner: java.lang.AssertionError: background diarization worker must drain the bounded queue
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.Assert.fail(Assert.java:89)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.Assert.assertTrue(Assert.java:42)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest.runHandyWithDiarization(MeetingStreamingPortsInstrumentedTest.kt:333)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest.compares_handy_and_diarization_on_sustained_sixty_four_second_stream(MeetingStreamingPortsInstrumentedTest.kt:106)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at java.lang.reflect.Method.invoke(Native Method)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.BlockJUnit4ClassRunner$1.evaluate(BlockJUnit4ClassRunner.java:100)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:366)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:103)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:63)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$4.run(ParentRunner.java:331)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:79)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:329)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner.access$100(ParentRunner.java:66)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:293)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner.run(ParentRunner.java:413)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at androidx.test.ext.junit.runners.AndroidJUnit4.run(AndroidJUnit4.java:162)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.Suite.runChild(Suite.java:128)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.Suite.runChild(Suite.java:27)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$4.run(ParentRunner.java:331)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:79)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:329)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner.access$100(ParentRunner.java:66)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:293)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runners.ParentRunner.run(ParentRunner.java:413)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runner.JUnitCore.run(JUnitCore.java:137)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at org.junit.runner.JUnitCore.run(JUnitCore.java:115)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at androidx.test.internal.runner.TestExecutor.execute(TestExecutor.java:68)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at androidx.test.internal.runner.TestExecutor.execute(TestExecutor.java:59)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at androidx.test.runner.AndroidJUnitRunner.onStart(AndroidJUnitRunner.java:463)
+09-27 04:53:25.305 11555 11572 E TestRunner: 	at android.app.Instrumentation$InstrumentationThread.run(Instrumentation.java:2597)
+09-27 04:53:25.305 11555 11572 E TestRunner: ----- end exception -----
+09-27 04:53:25.327 11555 11572 I TestRunner: finished: compares_handy_and_diarization_on_sustained_sixty_four_second_stream(com.kafkasl.phonewhisper.meeting.MeetingStreamingPortsInstrumentedTest)
+09-27 04:53:25.420 11555 11572 I TestRunner: run finished: 1 tests, 1 failed, 0 ignored

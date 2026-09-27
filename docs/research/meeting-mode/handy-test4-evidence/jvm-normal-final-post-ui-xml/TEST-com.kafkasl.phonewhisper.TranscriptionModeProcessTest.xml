@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.TranscriptionModeProcessTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:59" hostname="MacBook-Pro-de-Ullie.local" time="0.02">
+  <properties/>
+  <testcase name="process singleton reads application preference once and poison survives new accessors" classname="com.kafkasl.phonewhisper.TranscriptionModeProcessTest" time="0.02"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

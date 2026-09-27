@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayServiceMeetingLifecycleRobolectricTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:52" hostname="MacBook-Pro-de-Ullie.local" time="0.586">
+  <properties/>
+  <testcase name="service destruction retains the lease until reader and native close both finish" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingLifecycleRobolectricTest" time="0.091"/>
+  <testcase name="right swipe cancels a meeting during finalization and preserves its transcript draft" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingLifecycleRobolectricTest" time="0.101"/>
+  <testcase name="pause and resume keep the same native session and meeting lease" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingLifecycleRobolectricTest" time="0.394"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -3,7 +3,9 @@ package com.kafkasl.phonewhisper.meeting
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.fail
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -46,6 +48,7 @@ class MeetingDocumentJsonTest {
                     hasManualAttribution = true,
                     editedText = null,
                     attributionStable = true,
+                    timingKnown = true,
                 ),
             ),
             finished = true,
@@ -63,6 +66,33 @@ class MeetingDocumentJsonTest {
 
         val raw = """ { "schemaVersion": 7, "future": { "keep": [1, true] } } """
         assertEquals(MeetingDocumentRead.Unsupported(version = 7, raw = raw), MeetingDocumentJson.decode(raw))
+    }
+
+    @Test
+    fun `legacy turns have unknown timing while new turns preserve aligned timing`() {
+        val legacyPayload = documentJson(
+            turns = arrayOf(turnJson(id = "legacy", startMs = 0, endMs = 900)),
+        )
+        val legacy = (MeetingDocumentJson.decode(legacyPayload) as MeetingDocumentRead.Ready)
+            .document.turns.single()
+        assertFalse("older documents must not turn fallback bounds into timestamps", legacy.timingKnown)
+
+        val alignedPayload = documentJson(
+            turns = arrayOf(
+                turnJson(id = "aligned", startMs = 240, endMs = 410).put("timingKnown", true),
+            ),
+        )
+        val aligned = (MeetingDocumentJson.decode(alignedPayload) as MeetingDocumentRead.Ready)
+            .document.turns.single()
+        assertTrue(aligned.timingKnown)
+        val alignedDocument = MeetingDocument(
+            sessionId = "session",
+            runId = "run",
+            turns = listOf(aligned),
+        )
+        assertEquals(MeetingDocumentRead.Ready(alignedDocument), MeetingDocumentJson.decode(
+            MeetingDocumentJson.encode(alignedDocument),
+        ))
     }
 
     @Test
@@ -99,6 +129,7 @@ class MeetingDocumentJsonTest {
             documentJson(turns = arrayOf(turnJson(id = "negative-start", startMs = -1, endMs = 1))),
             documentJson(turns = arrayOf(turnJson(id = "negative-end", startMs = 0, endMs = -1))),
             documentJson(turns = arrayOf(turnJson(id = "reversed", startMs = 9, endMs = 8))),
+            documentJson(turns = arrayOf(turnJson(id = "known-empty-time", startMs = 0, endMs = 0).put("timingKnown", true))),
             documentJson(turns = arrayOf(turnJson(id = "dangling-auto", startMs = 0, endMs = 1, automaticId = "missing"))),
             documentJson(participants = arrayOf(first), turns = arrayOf(
                 turnJson(id = "dangling-manual", startMs = 0, endMs = 1, manualId = "missing", manual = true),
@@ -119,6 +150,7 @@ class MeetingDocumentJsonTest {
             valid.copy(runId = "\t"),
             valid.copy(participants = listOf(MeetingParticipant("p", 1, 9))),
             valid.copy(turns = listOf(MeetingTurn("t", 1, 2, 1, "text", null))),
+            valid.copy(turns = listOf(MeetingTurn("t-known-empty", 1, 0, 0, "text", null, timingKnown = true))),
         )
 
         invalid.forEach { document ->

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.GemmaFormattingTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:47" hostname="MacBook-Pro-de-Ullie.local" time="0.005">
+  <properties/>
+  <testcase name="nativeRolesReceiveRawDictationAndOneFixedInstructionLanguage" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.0"/>
+  <testcase name="emailAddsPunctuationAndPreservesRecipientAndSignature" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.001"/>
+  <testcase name="quotationBoundariesMustStayAroundTheSameWords" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.0"/>
+  <testcase name="bulletMarkersAreNormalizedButUnmarkedProseIsNotAList" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.0"/>
+  <testcase name="projectsSourceSpellingEvenWhenModelChangesCaseOrApostropheTypography" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.0"/>
+  <testcase name="englishEmailPreservesEveryWordAndNeverTranslates" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.001"/>
+  <testcase name="freeStreamingNeverDisplaysIncompleteOrChangedWords" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.001"/>
+  <testcase name="technicalPunctuationAndSymbolsCannotBeSilentlyChanged" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.001"/>
+  <testcase name="heldOutFrenchListsRetainQuantitiesAndComplements" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.0"/>
+  <testcase name="rejectsAdditionsDeletionsReorderingNamesAndNumberChanges" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.0"/>
+  <testcase name="cannotBreakAnAddressDecimalOrCompoundAcrossLines" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.001"/>
+  <testcase name="tinyAcknowledgementsKeepTheDirectPathAndLegacyRemainsStrict" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.0"/>
+  <testcase name="heldOutEnglishListsKeepCompoundsAndNegation" classname="com.kafkasl.phonewhisper.GemmaFormattingTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

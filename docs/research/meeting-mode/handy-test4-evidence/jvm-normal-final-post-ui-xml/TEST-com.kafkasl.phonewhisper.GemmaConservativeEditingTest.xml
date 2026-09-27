@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:35" hostname="MacBook-Pro-de-Ullie.local" time="0.038">
+  <properties/>
+  <testcase name="restoresSparseOrdinaryOmissionsAndCliticWithoutRejectingCompoundSpelling" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.004"/>
+  <testcase name="preservesQuotedSpellingAndPersonalNamesWhileCapitalizingTheBody" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <testcase name="actualHostOmissionsAreRestoredWithoutLeavingASentenceCapitalAfterDonc" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.01"/>
+  <testcase name="sparseOmissionCanStillBeRestoredAlongsideAnAgreementCorrection" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <testcase name="acceptsLimitedSpellingInFrenchAndEnglish" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <testcase name="negationsNamesNumbersConditionsAndTechnicalTokensRemainProtected" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.002"/>
+  <testcase name="removesFillersFalseStartsAndAdjacentWordOrPhraseRepetitions" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <testcase name="paragraphMeasureExcludesTheGreetingAndSignature" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <testcase name="protectsQuotesVocabularyEmphasisAndReflexives" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <testcase name="doesNotAcceptNewContentParaphraseTruncationOrQuestionsAnsweredByTheModel" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.0"/>
+  <testcase name="realPhoneOutputRejectedIn084IsAcceptedWithoutRestoringTheSpellingMistake" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.013"/>
+  <testcase name="editedGenerationIsNotPublishedWhileStillStreaming" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <testcase name="phoneGrammarCorrectionCanBePublishedWithBodyParagraphsAndCapitalization" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <testcase name="explicitCorrectedTextUsesGemmaWithTenSecondsForLongInputs" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.0"/>
+  <testcase name="keepsTheChosenNumberPresentationForAnExactlyEquivalentCardinal" classname="com.kafkasl.phonewhisper.GemmaConservativeEditingTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -37,6 +37,7 @@ data class MeetingTurn(
     val hasManualAttribution: Boolean = false,
     val editedText: String? = null,
     val attributionStable: Boolean = false,
+    val timingKnown: Boolean = false,
 )
 
 data class MeetingDocument(

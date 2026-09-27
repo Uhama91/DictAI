@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.MeetingPillInteractionTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:00" hostname="MacBook-Pro-de-Ullie.local" time="0.001">
+  <properties/>
+  <testcase name="anOpenDialogSuppressesEveryGestureIntent" classname="com.kafkasl.phonewhisper.MeetingPillInteractionTest" time="0.001"/>
+  <testcase name="tapMapsStableMeetingPhasesToOneExplicitCommand" classname="com.kafkasl.phonewhisper.MeetingPillInteractionTest" time="0.0"/>
+  <testcase name="rightSwipeCancelsOnlyAnActiveOrPreparingMeeting" classname="com.kafkasl.phonewhisper.MeetingPillInteractionTest" time="0.0"/>
+  <testcase name="finishedOrRestoredNoteIsSavedOnlyWhenItHasContent" classname="com.kafkasl.phonewhisper.MeetingPillInteractionTest" time="0.0"/>
+  <testcase name="downwardGesturePausesByHintAndOnlyOffersFinishAfterPause" classname="com.kafkasl.phonewhisper.MeetingPillInteractionTest" time="0.0"/>
+  <testcase name="upwardGestureOpensModeMenuOnlyOutsideTransitions" classname="com.kafkasl.phonewhisper.MeetingPillInteractionTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

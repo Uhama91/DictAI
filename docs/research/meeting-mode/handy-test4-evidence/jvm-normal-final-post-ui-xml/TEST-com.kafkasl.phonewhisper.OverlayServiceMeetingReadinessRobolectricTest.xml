@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayServiceMeetingReadinessRobolectricTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:25:55" hostname="MacBook-Pro-de-Ullie.local" time="0.119">
+  <properties/>
+  <testcase name="ready package recheck can refuse once then pill admits start only on a second tap" classname="com.kafkasl.phonewhisper.OverlayServiceMeetingReadinessRobolectricTest" time="0.119"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[System.logW: A resource was acquired at attached stack trace but never released. See java.io.Closeable for information on avoiding resource leaks.
+java.lang.Throwable: Explicit termination method 'close' not called
+	at dalvik.system.CloseGuard.$$robo$$dalvik_system_CloseGuard$openWithCallSite(CloseGuard.java:288)
+	at dalvik.system.CloseGuard.openWithCallSite(CloseGuard.java)
+	at dalvik.system.CloseGuard.$$robo$$dalvik_system_CloseGuard$open(CloseGuard.java:257)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(Unknown Source)
+	at java.base/java.lang.reflect.Method.invoke(Unknown Source)
+	at org.robolectric.shadows.ShadowCloseGuard$CloseGuardReflector$$Reflector67.open(Unknown Source)
+	at org.robolectric.shadows.ShadowCloseGuard.open(ShadowCloseGuard.java:38)
+	at dalvik.system.CloseGuard.open(CloseGuard.java)
+	at android.graphics.pdf.PdfDocument.$$robo$$android_graphics_pdf_PdfDocument$__constructor__(PdfDocument.java:94)
+	at android.graphics.pdf.PdfDocument.<init>(PdfDocument.java:92)
+	at com.kafkasl.phonewhisper.NotePdfExport.write(NotePdfExport.kt:19)
+	at com.kafkasl.phonewhisper.OverlayExportController.generate(OverlayExportController.kt:116)
+	at com.kafkasl.phonewhisper.OverlayExportController.prepare$lambda$0(OverlayExportController.kt:85)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.base/java.lang.Thread.run(Unknown Source)
+
+]]></system-err>
+</testsuite>

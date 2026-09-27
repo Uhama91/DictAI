@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.OverlayCornerHandlesDiagnosticTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:27:02" hostname="MacBook-Pro-de-Ullie.local" time="0.414">
+  <properties/>
+  <testcase name="standard note panel keeps corner targets apart and renders the note rows" classname="com.kafkasl.phonewhisper.OverlayCornerHandlesDiagnosticTest" time="0.261"/>
+  <testcase name="corner targets shrink below minimum then disappear and reappear after the keyboard leaves" classname="com.kafkasl.phonewhisper.OverlayCornerHandlesDiagnosticTest" time="0.076"/>
+  <testcase name="minimum reduced panel gives each vertical corner pair a distinct touch band" classname="com.kafkasl.phonewhisper.OverlayCornerHandlesDiagnosticTest" time="0.077"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

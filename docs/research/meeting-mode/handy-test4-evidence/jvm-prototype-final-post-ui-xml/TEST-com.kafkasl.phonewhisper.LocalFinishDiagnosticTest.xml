@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-27T03:26:48" hostname="MacBook-Pro-de-Ullie.local" time="0.056">
+  <properties/>
+  <testcase name="fidelityAndExactVocabularyRejectionsAreDistinguishable" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.002"/>
+  <testcase name="legacyBackendDoesNotPretendItEnteredNativeCode" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.001"/>
+  <testcase name="generatedThenCachedResultRetainsItsActualNativeInvocation" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.0"/>
+  <testcase name="unchangedEmailIsAnAcceptedResultRatherThanAnAssumedFallback" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.001"/>
+  <testcase name="emptyOrClosedFinishRecordsNoBackendCall" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.0"/>
+  <testcase name="directAcknowledgmentNeverClaimsNativeGeneration" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.0"/>
+  <testcase name="queuedFinalRequestIsIdentifiedBeforeCancellingTheObsoleteDraft" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.0"/>
+  <testcase name="timeoutSnapshotPrecedesCancellationAndSurvivesLateNativeStartAndResult" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.026"/>
+  <testcase name="closingAnAwaitedFinishReportsCancellation" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.001"/>
+  <testcase name="interruptionIsReportedAndTheInterruptFlagIsRestored" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.0"/>
+  <testcase name="emptyBackendAndThrownBackendHaveDifferentOutcomesWithoutExceptionText" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.0"/>
+  <testcase name="timeoutAfterNativeStartedReportsThatInvocation" classname="com.kafkasl.phonewhisper.LocalFinishDiagnosticTest" time="0.024"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

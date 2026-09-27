@@ -1,0 +1,5 @@
+ro.serialno=EMULATOR36X1X9X0
+ro.build.version.release=16
+ro.build.version.sdk=36
+ro.product.cpu.abi=arm64-v8a
+ro.build.fingerprint=google/sdk_gphone64_arm64/emu64a:16/BE2A.250530.026.D1/13818094:user/release-keys
