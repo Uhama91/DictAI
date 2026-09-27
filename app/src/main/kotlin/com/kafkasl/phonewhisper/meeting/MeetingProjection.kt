@@ -24,11 +24,14 @@ object MeetingProjection {
         val participantsById = document.participants.associateBy { it.id }
         return buildList {
             var previousGroupableTurn: MeetingTurn? = null
+            var previousPendingTurn: MeetingTurn? = null
             for (turn in turnsInAudioOrder(document.turns)) {
                 val body = turn.editedText ?: turn.recognizedText
                 val isManual = turn.hasManualAttribution
                 val isUnassignedDocumentTurn = turn.utteranceId == 0L && !isManual
                 val isStable = !isUnassignedDocumentTurn && (turn.attributionStable || isManual)
+                val isPendingWithoutChannel = !isUnassignedDocumentTurn && !isManual && !isStable &&
+                    turn.automaticParticipantId == null
                 val participantId = when {
                     isUnassignedDocumentTurn -> null
                     isManual -> turn.manualParticipantId
@@ -73,6 +76,7 @@ object MeetingProjection {
                         )
                     }
                     previousGroupableTurn = null
+                    previousPendingTurn = null
                     continue
                 }
 
@@ -92,7 +96,8 @@ object MeetingProjection {
                         current = turn,
                         currentParticipantId = participantId,
                         currentIsStable = isStable,
-                    ))
+                    )) &&
+                    !(isPendingWithoutChannel && canContinuePendingHeading(previousPendingTurn, turn))
                 add(
                     Row(
                         turnId = turn.id,
@@ -109,6 +114,7 @@ object MeetingProjection {
                 previousGroupableTurn = turn.takeIf {
                     body.hasVisibleContent() && it.hasKnownAudioInterval() && isStable && participantId != null
                 }
+                previousPendingTurn = turn.takeIf { isPendingWithoutChannel && body.hasVisibleContent() }
             }
         }
     }
@@ -145,6 +151,16 @@ object MeetingProjection {
         if (previousParticipantId != currentParticipantId) return false
         return current.startMs - previous.endMs <= CONTINUATION_GAP_MS
     }
+
+    private fun canContinuePendingHeading(previous: MeetingTurn?, current: MeetingTurn): Boolean =
+        previous != null &&
+            previous.utteranceId == current.utteranceId &&
+            previous.automaticParticipantId == null &&
+            current.automaticParticipantId == null &&
+            !previous.hasManualAttribution &&
+            !current.hasManualAttribution &&
+            !previous.attributionStable &&
+            !current.attributionStable
 
     private fun turnsInAudioOrder(turns: List<MeetingTurn>): List<MeetingTurn> {
         val ordered = ArrayList<MeetingTurn>(turns.size)

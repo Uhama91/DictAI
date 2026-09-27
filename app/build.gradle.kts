@@ -25,9 +25,9 @@ android {
         minSdk = 30
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
-        versionCode = if (meetingPrototype) 39 else 35
+        versionCode = if (meetingPrototype) 40 else 35
         versionName = when {
-            meetingPrototype -> "0.9.6-dictai-meeting-test5"
+            meetingPrototype -> "0.9.6-dictai-meeting-test6"
             localFormatPrototype -> "0.9.6-dictai-gemma-test"
             else -> "0.9.6-dictai"
         }

@@ -56,7 +56,6 @@ class HandyMeetingBridgeEngineInstrumentedTest {
             asrPath = handyModel.absolutePath,
             diarPath = diarModel.absolutePath,
             cacheDir = instrumentation.targetContext.cacheDir,
-            native = HandyMeetingNativeBridge(),
         )
         val readyStartNanos = SystemClock.elapsedRealtimeNanos()
         val session = engine.start(

@@ -244,12 +244,24 @@ internal class MeetingPanelController(
 
         val byNumber = request.images.distinctBy { it.number }.associateBy { it.number }
         val emittedNumbers = mutableSetOf<Int>()
+        val turnsById = request.document.turns.associateBy(MeetingTurn::id)
+        val focusedTurnId = view.focusedTurnEditor()?.entry?.turnId
         val entries = MeetingProjection.rows(
             request.document,
             imageNumbers = byNumber.keys,
             keepEmptyTurns = true,
         ).asSequence()
-            .filter { it.editableSpeech || it.body.isNotBlank() }
+            .filter { row ->
+                if (row.body.isNotBlank()) {
+                    true
+                } else if (!row.editableSpeech) {
+                    false
+                } else {
+                    val turn = turnsById[row.turnId] ?: return@filter false
+                    row.turnId == focusedTurnId || turn.utteranceId == 0L ||
+                        turn.editedText != null || turn.hasManualAttribution
+                }
+            }
             .map { row ->
                 val rowImages = NoteImageMarkers.numbers(row.body).distinct().mapNotNull { number ->
                     byNumber[number]?.takeIf { emittedNumbers.add(number) }

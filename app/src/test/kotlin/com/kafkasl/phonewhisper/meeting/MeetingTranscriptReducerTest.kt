@@ -894,6 +894,123 @@ class MeetingTranscriptReducerTest {
     }
 
     @Test
+    fun provisionalUntimedSuffixRejoinsBeforeLateSpeakerBoundariesArrive() {
+        val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
+        reducer.apply(
+            hypothesis(
+                utteranceId = 29,
+                revision = 1,
+                words = listOf(word("bonjour", 100, 150, 0)),
+                transcript = "bonjour les",
+                stableThrough = 0,
+                processedMs = 500,
+            ),
+        )
+        val firstSnapshot = reducer.snapshot().turns
+        val originalTimedId = firstSnapshot.first().id
+        assertEquals(listOf("bonjour", "les"), firstSnapshot.map { it.recognizedText })
+        assertEquals("bonjour les", firstSnapshot.joinToString(" ") { it.recognizedText })
+
+        reducer.apply(
+            hypothesis(
+                utteranceId = 29,
+                revision = 2,
+                words = listOf(
+                    word("bonjour", 100, 150, 0),
+                    word("les", 150, 200, 0),
+                    word("amis", 200, 250, 0),
+                ),
+                transcript = "bonjour les amis",
+                stableThrough = 0,
+                processedMs = 500,
+            ),
+        )
+        val provisional = reducer.snapshot().turns
+        assertEquals(listOf("bonjour les amis"), provisional.map { it.recognizedText })
+        assertEquals("bonjour les amis", provisional.joinToString(" ") { it.recognizedText })
+        assertEquals(originalTimedId, provisional.single().id)
+        assertNull(provisional.single().automaticParticipantId)
+        assertFalse(provisional.single().attributionStable)
+
+        reducer.apply(
+            hypothesis(
+                utteranceId = 29,
+                revision = 3,
+                words = listOf(
+                    word("bonjour", 100, 150, 1),
+                    word("les", 150, 200, 1),
+                    word("amis", 200, 250, 2),
+                ),
+                transcript = "bonjour les amis",
+                stableThrough = 500,
+                processedMs = 500,
+            ),
+        )
+
+        val attributed = reducer.snapshot().turns
+        assertEquals(listOf("bonjour les", "amis"), attributed.map { it.recognizedText })
+        assertEquals("bonjour les amis", attributed.joinToString(" ") { it.recognizedText })
+        assertEquals(originalTimedId, attributed.first().id)
+        assertEquals("meeting-a:participant:1", attributed.first().automaticParticipantId)
+        assertEquals("meeting-a:participant:2", attributed.last().automaticParticipantId)
+        assertTrue(attributed.all { it.attributionStable })
+    }
+
+    @Test
+    fun clearedProvisionalSuffixCannotBlockAttributionAfterRepeatedWordFallback() {
+        val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
+        reducer.apply(
+            hypothesis(
+                utteranceId = 30,
+                revision = 1,
+                words = listOf(word("bonjour", 100, 150, 0)),
+                transcript = "bonjour les",
+                stableThrough = 0,
+                processedMs = 500,
+            ),
+        )
+        val firstSnapshot = reducer.snapshot().turns
+        val originalTimedId = firstSnapshot.first().id
+        val provisionalSuffixId = firstSnapshot.last().id
+
+        reducer.apply(
+            hypothesis(
+                utteranceId = 30,
+                revision = 2,
+                words = listOf(word("bonjour", 100, 150, 0)),
+                transcript = "bonjour bonjour",
+                stableThrough = 0,
+                processedMs = 500,
+            ),
+        )
+        val ambiguousFallback = reducer.snapshot().turns
+        assertEquals(listOf("bonjour bonjour", ""), ambiguousFallback.map { it.recognizedText })
+        assertEquals(provisionalSuffixId, ambiguousFallback.last().id)
+
+        reducer.apply(
+            hypothesis(
+                utteranceId = 30,
+                revision = 3,
+                words = listOf(
+                    word("bonjour", 100, 150, 1),
+                    word("bonjour", 200, 250, 2),
+                ),
+                transcript = "bonjour bonjour",
+                stableThrough = 500,
+                processedMs = 500,
+            ),
+        )
+
+        val attributed = reducer.snapshot().turns
+        assertEquals(listOf("bonjour", "bonjour"), attributed.map { it.recognizedText })
+        assertEquals("bonjour bonjour", attributed.joinToString(" ") { it.recognizedText })
+        assertEquals(originalTimedId, attributed.first().id)
+        assertEquals("meeting-a:participant:1", attributed.first().automaticParticipantId)
+        assertEquals("meeting-a:participant:2", attributed.last().automaticParticipantId)
+        assertTrue(attributed.all { it.attributionStable })
+    }
+
+    @Test
     fun removedUneditedWordGroupIsRemovedFromTheDocument() {
         val reducer = MeetingTranscriptReducer("meeting-a", RUN_ID)
         reducer.apply(

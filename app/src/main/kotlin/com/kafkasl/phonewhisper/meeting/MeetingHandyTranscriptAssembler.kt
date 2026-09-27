@@ -93,6 +93,11 @@ internal class MeetingHandyTranscriptAssembler(
     val retainedChunkCount: Int
         get() = chunks.size
 
+    /** Sticky signal that the bounded voice-revision window had to drop an unexamined chunk. */
+    @Volatile
+    var attributionRetentionExhausted: Boolean = false
+        private set
+
     @Synchronized
     fun update(
         window: HandyTokenWindow,
@@ -134,7 +139,7 @@ internal class MeetingHandyTranscriptAssembler(
         val firstRetainedGroup = (groupCount - maxRetainedChunks).coerceAtLeast(0)
         evictedBeforeGroupIndex = maxOf(evictedBeforeGroupIndex, firstRetainedGroup.toLong())
         val safeAudioEnd = latestAudioProcessedMs
-        val ageCutoff = (safeAudioEnd - maxRetainedAudioMs).coerceAtLeast(0L)
+        val retentionCutoff = revisionRetentionCutoffMs()
         val updated = mutableListOf<MeetingNativeUpdate>()
 
         val groupsToProcess = sortedSetOf<Int>()
@@ -177,9 +182,14 @@ internal class MeetingHandyTranscriptAssembler(
             val groupAudioEnd = rawWords.filterNotNull().maxOfOrNull { it.endMs }
                 ?: old?.retainedAudioEndMs
                 ?: if (groupIndex == groupCount - 1) safeAudioEnd else 0L
-            val outsideAudioWindow = groupAudioEnd < ageCutoff && groupIndex != groupCount - 1
+            val outsideAudioWindow = groupAudioEnd < retentionCutoff &&
+                groupIndex != groupCount - 1 &&
+                !hasUnexaminedDiarization(rawWords)
             val outsideChunkWindow = groupIndex < firstRetainedGroup
             if (old != null && (outsideAudioWindow || outsideChunkWindow)) {
+                if (outsideChunkWindow && hasUnexaminedDiarization(rawWords)) {
+                    attributionRetentionExhausted = true
+                }
                 chunks.remove(utteranceId)
                 evictedBeforeGroupIndex = maxOf(evictedBeforeGroupIndex, groupIndex.toLong() + 1L)
                 continue
@@ -218,6 +228,9 @@ internal class MeetingHandyTranscriptAssembler(
             state.retainedAudioEndMs = groupAudioEnd
             updated += state.toNativeUpdate()
             if (outsideAudioWindow || outsideChunkWindow) {
+                if (outsideChunkWindow && hasUnexaminedDiarization(state.rawWords)) {
+                    attributionRetentionExhausted = true
+                }
                 chunks.remove(utteranceId)
                 evictedBeforeGroupIndex = maxOf(evictedBeforeGroupIndex, groupIndex.toLong() + 1L)
             } else {
@@ -230,21 +243,43 @@ internal class MeetingHandyTranscriptAssembler(
         val expiredIds = chunks.entries.filter { (id, state) ->
             val groupIndex = (id - 1L).coerceAtLeast(0L)
             val outsideChunkLimit = groupIndex < firstRetainedGroup
-            val outsideAudioWindow = state.retainedAudioEndMs < ageCutoff && groupIndex != groupCount.toLong() - 1L
+            val outsideAudioWindow = state.retainedAudioEndMs < retentionCutoff &&
+                groupIndex != groupCount.toLong() - 1L &&
+                !hasUnexaminedDiarization(state.rawWords)
             outsideChunkLimit || outsideAudioWindow
         }.map { it.key }
         expiredIds.forEach { id ->
+            val state = chunks[id] ?: return@forEach
+            val groupIndex = (id - 1L).coerceAtLeast(0L)
+            if (groupIndex < firstRetainedGroup && hasUnexaminedDiarization(state.rawWords)) {
+                attributionRetentionExhausted = true
+            }
             chunks.remove(id)
             evictedBeforeGroupIndex = maxOf(evictedBeforeGroupIndex, id)
         }
         while (chunks.size > maxRetainedChunks) {
             val oldestId = chunks.keys.first()
+            val oldestState = chunks[oldestId]
+            if (oldestState != null && hasUnexaminedDiarization(oldestState.rawWords)) {
+                attributionRetentionExhausted = true
+            }
             chunks.remove(oldestId)
             evictedBeforeGroupIndex = maxOf(evictedBeforeGroupIndex, oldestId)
         }
         recordCheckpoint(window, decodedFullText.completeByteCount)
         rememberSnapshot(window, isFinal)
         return updated
+    }
+
+    /** Keeps a revision margin behind both Handy and the diarization stable frontier. */
+    private fun revisionRetentionCutoffMs(): Long {
+        val progressedThroughMs = minOf(latestAudioProcessedMs, stableThroughMs(latestDiarization))
+        return (progressedThroughMs - maxRetainedAudioMs).coerceAtLeast(0L)
+    }
+
+    private fun hasUnexaminedDiarization(words: List<MeetingWord?>): Boolean {
+        val stableThrough = stableThroughMs(latestDiarization)
+        return words.any { word -> word == null || word.endMs > stableThrough }
     }
 
     /** Skips full-history decoding only for a byte-for-byte unchanged, already time-eligible snapshot. */
@@ -267,13 +302,15 @@ internal class MeetingHandyTranscriptAssembler(
             previous.tokenEndsMs.contentEquals(window.tokenEndsMs)
     }
 
-    /** Preserve age-based revision retention even when an unchanged snapshot takes the fast path. */
+    /** Preserve revision retention even when an unchanged snapshot takes the fast path. */
     private fun purgeExpiredChunksWithoutRescanningTranscript() {
-        val ageCutoff = (latestAudioProcessedMs - maxRetainedAudioMs).coerceAtLeast(0L)
+        val retentionCutoff = revisionRetentionCutoffMs()
         val activeGroupIndex = nextUnpublishedGroupIndex - 1L
         val expiredIds = chunks.entries.filter { (id, state) ->
             val groupIndex = (id - 1L).coerceAtLeast(0L)
-            groupIndex != activeGroupIndex && state.retainedAudioEndMs < ageCutoff
+            groupIndex != activeGroupIndex &&
+                state.retainedAudioEndMs < retentionCutoff &&
+                !hasUnexaminedDiarization(state.rawWords)
         }.map { it.key }
         expiredIds.forEach { id ->
             chunks.remove(id)
@@ -325,6 +362,7 @@ internal class MeetingHandyTranscriptAssembler(
             state.words = revisedWords
             updates += state.toNativeUpdate()
         }
+        purgeExpiredChunksWithoutRescanningTranscript()
         return updates
     }
 

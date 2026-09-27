@@ -63,6 +63,8 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
     private var suppressTextWatcher = false
     private var notifyingAction = false
     private var lastEmittedText: String? = null
+    private var boundTurnId: String? = null
+    private var voluntaryAnchorTurnId: String? = null
 
     internal var entry: MeetingPanelEntry? = null
         private set
@@ -177,6 +179,10 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
     }
 
     private fun bindEditable(turnId: String, projection: TranscriptImageProjection, label: String?) {
+        if (boundTurnId != turnId) {
+            boundTurnId = turnId
+            voluntaryAnchorTurnId = null
+        }
         removeReadOnlyView()
         val editor = editableView ?: createEditor().also {
             editableView = it
@@ -188,7 +194,13 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
         editor.setTextColor(palette.ink)
         editor.setHintTextColor(palette.inkMuted)
         editor.canEdit = { entry?.row?.editableSpeech == true }
-        editor.acquireWindow = { callbacks?.acquireWindow() }
+        editor.acquireWindow = {
+            if (voluntaryAnchorTurnId != turnId) {
+                voluntaryAnchorTurnId = turnId
+                publishCurrentText(editor, force = true)
+            }
+            callbacks?.acquireWindow()
+        }
         editor.finishEditing = { callbacks?.finishEditing() }
         val selectionStart = editor.selectionStart.takeIf { editor.hasFocus() }
         val selectionEnd = editor.selectionEnd.takeIf { editor.hasFocus() }
@@ -225,12 +237,12 @@ internal class MeetingTurnEditor(context: Context) : LinearLayout(context) {
         })
     }
 
-    private fun publishCurrentText(editor: OverlayTranscriptEditor) {
+    private fun publishCurrentText(editor: OverlayTranscriptEditor, force: Boolean = false) {
         val current = entry ?: return
         val turnId = current.turnId ?: return
         if (current.row?.editableSpeech != true) return
         val serialized = imageRenderer.read(editor).serializedNoteText()
-        if (serialized == lastEmittedText) return
+        if (!force && serialized == lastEmittedText) return
         lastEmittedText = serialized
         val owner = callbacks ?: return
         notifyingAction = true

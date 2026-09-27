@@ -89,6 +89,218 @@ class MeetingPanelControllerRobolectricTest {
     }
 
     @Test
+    fun revisionGeneratedEmptyRowsAreHiddenWhileIntentionalAndFocusedEditorsRemain() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val turns = listOf(
+            MeetingTurn("revision-empty", 1, 0, 0, "", null),
+            MeetingTurn("voluntary-empty", 2, 0, 0, "Texte automatique", null, editedText = ""),
+            MeetingTurn("manual-empty", 3, 0, 0, "", null, hasManualAttribution = true),
+            MeetingTurn("document-empty", 0, 0, 0, "", null),
+            MeetingTurn("active-editor", 4, 100, 200, "brouillon", null),
+        )
+        val document = MeetingDocument(
+            sessionId = "session-empty-rows",
+            runId = "run-empty-rows",
+            turns = turns,
+        )
+        val controller = MeetingPanelController(activity, TestDialogHost())
+        activity.setContentView(controller.view)
+        controller.render(document)
+        layout(activity, controller.view)
+
+        assertEquals(
+            listOf("voluntary-empty", "manual-empty", "document-empty", "active-editor"),
+            (0 until controller.view.adapter.itemCount).mapNotNull { controller.view.adapter.rowAt(it)?.turnId },
+        )
+
+        val activeEditor = editor(controller, "active-editor")
+        activeEditor.requestFocus()
+        assertTrue("the live editor has focus before its text is revised", activeEditor.isFocused)
+        controller.render(
+            document.copy(turns = turns.map { turn ->
+                if (turn.id == "active-editor") turn.copy(recognizedText = "") else turn
+            }),
+        )
+        layout(activity, controller.view)
+
+        assertSame("an active empty editor keeps its view identity", activeEditor, editor(controller, "active-editor"))
+        assertTrue("the blank live editor keeps focus", activeEditor.isFocused)
+        assertEquals("", activeEditor.text.toString())
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
+    fun focusedUntimedSuffixIsAnchoredOnEditingAndRetainsFirstInputAfterTimedRevision() {
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        val reducer = MeetingTranscriptReducer("session-focused-suffix", "run-focused-suffix")
+        reducer.apply(
+            MeetingHypothesis(
+                runId = "run-focused-suffix",
+                utteranceId = 91L,
+                revision = 1,
+                words = listOf(MeetingWord("Bonjour", 100L, 180L, channel = 0)),
+                transcript = "Bonjour les",
+                isFinal = false,
+                stableSpeakerThroughMs = 0L,
+                audioProcessedMs = 500L,
+            ),
+        )
+        val initial = reducer.snapshot()
+        val suffixTurnId = initial.turns.last().id
+        assertEquals(listOf("Bonjour", "les"), initial.turns.map { it.recognizedText })
+
+        var voluntaryEditCallbacks = 0
+        lateinit var controller: MeetingPanelController
+        controller = MeetingPanelController(
+            activity,
+            TestDialogHost(),
+            MeetingPanelActions(edit = { turnId, text ->
+                voluntaryEditCallbacks++
+                reducer.edit(turnId, text)
+                controller.render(reducer.snapshot())
+            }),
+        )
+        activity.setContentView(controller.view)
+        controller.render(initial)
+        layout(activity, controller.view)
+
+        val suffixEditor = editor(controller, suffixTurnId)
+        suffixEditor.requestFocus()
+        suffixEditor.setSelection(1)
+        assertTrue("programmatic focus reaches the untimed suffix", suffixEditor.isFocused)
+        assertEquals("programmatic focus alone does not publish an edit", 0, voluntaryEditCallbacks)
+        assertEquals(
+            "rendering and programmatic focus alone do not create an edit anchor",
+            null,
+            reducer.snapshot().turns.first { it.id == suffixTurnId }.editedText,
+        )
+
+        suffixEditor.beginEditing()
+        assertEquals(
+            "entering voluntary editing anchors the displayed text before a revision",
+            "les",
+            reducer.snapshot().turns.first { it.id == suffixTurnId }.editedText,
+        )
+        assertEquals("the first explicit acquisition publishes one anchor", 1, voluntaryEditCallbacks)
+        ShadowLooper.idleMainLooper()
+        assertSame("a synchronous state publication waits until its callback returns", suffixEditor, editor(controller, suffixTurnId))
+        assertTrue("the current passage stays focused after its publication is rendered", suffixEditor.isFocused)
+        suffixEditor.beginEditing()
+        assertEquals("later ACTION_DOWN events do not republish the same anchor", 1, voluntaryEditCallbacks)
+
+        reducer.apply(
+            MeetingHypothesis(
+                runId = "run-focused-suffix",
+                utteranceId = 91L,
+                revision = 2,
+                words = listOf(
+                    MeetingWord("Bonjour", 100L, 180L, channel = 0),
+                    MeetingWord("les", 220L, 300L, channel = 0),
+                    MeetingWord("amis", 340L, 420L, channel = 0),
+                ),
+                transcript = "Bonjour les amis",
+                isFinal = false,
+                stableSpeakerThroughMs = 0L,
+                audioProcessedMs = 500L,
+            ),
+        )
+        val revised = reducer.snapshot()
+        assertTrue("the focused provisional passage keeps its stable ID", revised.turns.any { it.id == suffixTurnId })
+        assertEquals(
+            "the revision retains every recognized word without duplication",
+            "Bonjour les amis",
+            revised.turns.joinToString(" ") { it.recognizedText },
+        )
+
+        controller.render(revised)
+        layout(activity, controller.view)
+        ShadowLooper.idleMainLooper()
+
+        val activeEditor = controller.view.focusedTurnEditor()?.speechEditor
+        assertNotNull("reconciliation leaves the edited passage focused in the visible panel", activeEditor)
+        val restoredEditor = requireNotNull(activeEditor)
+        assertTrue("the focused editor remains visible", restoredEditor.isShown)
+        assertEquals("meeting-editor:$suffixTurnId", restoredEditor.tag)
+        assertTrue("the caret stays within the restored text", restoredEditor.selectionStart in 0..restoredEditor.length())
+
+        reducer.apply(
+            MeetingHypothesis(
+                runId = "run-focused-suffix",
+                utteranceId = 91L,
+                revision = 3,
+                words = listOf(
+                    MeetingWord("Bonjour", 100L, 180L, channel = 1),
+                    MeetingWord("les", 220L, 300L, channel = 2),
+                    MeetingWord("amis", 340L, 420L, channel = 1),
+                ),
+                transcript = "Bonjour les amis",
+                isFinal = false,
+                stableSpeakerThroughMs = 0L,
+                audioProcessedMs = 500L,
+            ),
+        )
+        val speakerRevised = reducer.snapshot()
+        val mixedSpeakerPassage = speakerRevised.turns.first { it.id == suffixTurnId }
+        assertEquals("late speaker boundaries preserve the edited passage text", "les amis", mixedSpeakerPassage.recognizedText)
+        assertEquals("a protected passage spanning channels 2 and 1 stays unattributed", null, mixedSpeakerPassage.automaticParticipantId)
+        assertEquals("late speaker boundaries do not duplicate words", "Bonjour les amis", speakerRevised.turns.joinToString(" ") { it.recognizedText })
+        assertEquals(
+            listOf(1),
+            speakerRevised.turns.mapNotNull { turn ->
+                speakerRevised.participants.firstOrNull { it.id == turn.automaticParticipantId }?.channel
+            },
+        )
+        controller.render(speakerRevised)
+        layout(activity, controller.view)
+        ShadowLooper.idleMainLooper()
+        assertTrue("late attribution does not move focus from the edited passage", restoredEditor.isFocused)
+        assertEquals("meeting-editor:$suffixTurnId", restoredEditor.tag)
+
+        restoredEditor.text.insert(restoredEditor.selectionStart, "X")
+        assertTrue(
+            "the first post-revision input is recorded on the focused passage",
+            reducer.snapshot().turns.first { it.id == suffixTurnId }.editedText?.contains("X") == true,
+        )
+
+        reducer.apply(
+            MeetingHypothesis(
+                runId = "run-focused-suffix",
+                utteranceId = 91L,
+                revision = 4,
+                words = listOf(
+                    MeetingWord("Bonjour", 100L, 180L, channel = 1),
+                    MeetingWord("les", 220L, 300L, channel = 2),
+                    MeetingWord("amis", 340L, 420L, channel = 2),
+                ),
+                transcript = "Bonjour les amis",
+                isFinal = false,
+                stableSpeakerThroughMs = 0L,
+                audioProcessedMs = 500L,
+            ),
+        )
+        val homogeneousRevised = reducer.snapshot()
+        val homogeneousPassage = homogeneousRevised.turns.first { it.id == suffixTurnId }
+        assertEquals("the same protected passage remains intact", "les amis", homogeneousPassage.recognizedText)
+        assertEquals("the homogeneous late revision attributes that passage to channel 2", "session-focused-suffix:participant:2", homogeneousPassage.automaticParticipantId)
+        assertEquals("homogeneous late attribution keeps the entire transcript once", "Bonjour les amis", homogeneousRevised.turns.joinToString(" ") { it.recognizedText })
+        assertTrue("homogeneous late attribution retains the first edit", homogeneousPassage.editedText?.contains("X") == true)
+
+        controller.render(homogeneousRevised)
+        layout(activity, controller.view)
+        ShadowLooper.idleMainLooper()
+        assertTrue("homogeneous attribution preserves the active editing field", restoredEditor.isFocused)
+        assertEquals("meeting-editor:$suffixTurnId", restoredEditor.tag)
+        assertTrue("the editor still displays the first typed character", restoredEditor.text.contains("X"))
+
+        controller.dispose()
+        activityController.pause().stop().destroy()
+    }
+
+    @Test
     fun lateRevisionKeepsAudioOrderedRowsAndPreservesManualIdentityEditAndImage() {
         val activityController = Robolectric.buildActivity(Activity::class.java).setup()
         val activity = activityController.get()

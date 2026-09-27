@@ -55,6 +55,106 @@ class MeetingProjectionTest {
     }
 
     @Test
+    fun adjacentUnknownTurnsSharePendingHeadingWithoutHidingKnownChannelBoundaries() {
+        val sophie = MeetingParticipant("p-sophie", ordinal = 1, channel = 1, name = "Sophie")
+        val karim = MeetingParticipant("p-karim", ordinal = 2, channel = 2, name = "Karim")
+        val document = document(
+            listOf(sophie, karim),
+            listOf(
+                MeetingTurn(
+                    id = "pending-first",
+                    utteranceId = 70,
+                    startMs = 100,
+                    endMs = 180,
+                    recognizedText = "bonjour",
+                    automaticParticipantId = null,
+                    timingKnown = true,
+                ),
+                MeetingTurn(
+                    id = "pending-continuation",
+                    utteranceId = 70,
+                    startMs = 180,
+                    endMs = 260,
+                    recognizedText = "les amis",
+                    automaticParticipantId = null,
+                    timingKnown = true,
+                ),
+                MeetingTurn(
+                    id = "known-channel-one-pending",
+                    utteranceId = 71,
+                    startMs = 300,
+                    endMs = 380,
+                    recognizedText = "oui",
+                    automaticParticipantId = sophie.id,
+                    attributionStable = false,
+                    timingKnown = true,
+                ),
+                MeetingTurn(
+                    id = "known-channel-two-pending",
+                    utteranceId = 71,
+                    startMs = 400,
+                    endMs = 480,
+                    recognizedText = "non",
+                    automaticParticipantId = karim.id,
+                    attributionStable = false,
+                    timingKnown = true,
+                ),
+            ),
+        )
+
+        val rows = MeetingProjection.rows(document)
+
+        assertEquals(
+            listOf("pending-first", "pending-continuation", "known-channel-one-pending", "known-channel-two-pending"),
+            rows.map { it.turnId },
+        )
+        assertEquals(
+            listOf(
+                "Intervenant à confirmer",
+                "Intervenant à confirmer",
+                "Intervenant à confirmer",
+                "Intervenant à confirmer",
+            ),
+            rows.map { it.label },
+        )
+        assertEquals(listOf(true, false, true, true), rows.map { it.showSpeakerHeading })
+        assertEquals(listOf(null, null, null, null), rows.map { it.participantId })
+    }
+
+    @Test
+    fun emptyUnknownPlaceholderDoesNotHideTheFirstVisiblePendingHeading() {
+        val document = document(
+            emptyList(),
+            listOf(
+                MeetingTurn(
+                    id = "empty-placeholder",
+                    utteranceId = 72,
+                    startMs = 100,
+                    endMs = 150,
+                    recognizedText = "",
+                    automaticParticipantId = null,
+                    timingKnown = true,
+                ),
+                MeetingTurn(
+                    id = "first-visible-pending",
+                    utteranceId = 72,
+                    startMs = 150,
+                    endMs = 200,
+                    recognizedText = "bonjour",
+                    automaticParticipantId = null,
+                    timingKnown = true,
+                ),
+            ),
+        )
+
+        val rows = MeetingProjection.rows(document, keepEmptyTurns = true)
+
+        assertEquals(listOf("empty-placeholder", "first-visible-pending"), rows.map { it.turnId })
+        assertEquals(listOf("", "bonjour"), rows.map { it.body })
+        assertEquals(listOf(true, true), rows.map { it.showSpeakerHeading })
+    }
+
+    @Test
     fun filtersIgnoredStableAndManuallyAssignedTurns() {
         val profiles = MeetingParticipants("meeting-a")
         val ignored = requireNotNull(profiles.observe(3))

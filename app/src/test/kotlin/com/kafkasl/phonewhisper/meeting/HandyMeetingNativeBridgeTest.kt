@@ -1,10 +1,13 @@
 package com.kafkasl.phonewhisper.meeting
 
 import java.util.Collections
+import java.io.File
+import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -216,6 +219,143 @@ class HandyMeetingNativeBridgeTest {
             diarAcceptRelease.countDown()
             bridge.requestCancel(handle)
             bridge.close(handle)
+        }
+    }
+
+    @Test
+    fun diarization_keeps_more_than_two_minutes_while_handy_publishes_and_preserves_pcm_order() {
+        val diarAcceptEntered = CountDownLatch(1)
+        val diarAcceptRelease = CountDownLatch(1)
+        val diar = RecordingDiarization(
+            acceptEntered = diarAcceptEntered,
+            acceptRelease = diarAcceptRelease,
+        )
+        val handy = RecordingHandy(window("Salut."))
+        val spoolRoot = Files.createTempDirectory("meeting-bridge-diarization-spool").toFile()
+        val transferredBlocks = AtomicInteger()
+        val bridge = bridge(
+            handy = handy,
+            diarization = diar,
+            maxDiarizationQueueBytes = 120 * 32_000,
+            diarizationSpoolRoot = spoolRoot,
+            onDiarizationBlockTransferredForTest = { transferredBlocks.incrementAndGet() },
+        )
+        val handle = bridge.open("handy", "diar", "fr")
+        val updates = Collections.synchronizedList(mutableListOf<MeetingNativeUpdate>())
+        val finalTextPublished = CountDownLatch(1)
+        val finishReturned = CountDownLatch(1)
+        val blocks = (0 until 13).map { blockIndex ->
+            ByteArray(MeetingEngine.MAX_PCM_BYTES) { byteIndex ->
+                (blockIndex * 29 + byteIndex * 31).toByte()
+            }
+        }
+
+        bridge.setUpdateListener(handle) { update ->
+            updates += update
+            if (update.isFinal) finalTextPublished.countDown()
+        }
+        try {
+            blocks.forEachIndexed { index, block ->
+                acceptCapturedPcm(bridge, handle, block)
+                if (index == 0) {
+                    assertTrue(diarAcceptEntered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                }
+                val expectedTransfers = index + 1
+                assertTrue(
+                    "capture may advance only after the independent spool worker has transferred the previous block",
+                    awaitCondition(TIMEOUT_SECONDS, TimeUnit.SECONDS) {
+                        transferredBlocks.get() >= expectedTransfers
+                    },
+                )
+            }
+
+            assertEquals("Handy keeps publishing while the voice call is stalled", 13, handy.acceptCount.get())
+            assertEquals(
+                "two minutes of captured PCM must remain admitted while voices are slow",
+                MeetingVoiceState.ACTIVE,
+                bridge.voiceProgress(handle).state,
+            )
+
+            Thread({
+                bridge.finish(handle)
+                finishReturned.countDown()
+            }, "meeting-test-long-diar-drain").start()
+            assertTrue("final Handy text is published before the slow voice drain", finalTextPublished.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            assertEquals("finish still waits for the voice worker", 1L, finishReturned.count)
+
+            diarAcceptRelease.countDown()
+            assertTrue("finish completes after all delayed voices are drained", finishReturned.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+
+            val deliveredPcm = synchronized(diar.acceptedPcmBlocks) { diar.acceptedPcmBlocks.toList() }
+            assertEquals("every ten-second block reaches the diarizer", blocks.size, deliveredPcm.size)
+            blocks.indices.forEach { index -> assertArrayEquals(blocks[index], deliveredPcm[index]) }
+
+            val finalText = updates.first { it.isFinal }
+            assertEquals("the Handy source timeline is based on all captured samples", 130_000L, finalText.audioProcessedMs)
+            assertEquals(0L, finalText.words.single().startMs)
+            assertEquals(20L, finalText.words.single().endMs)
+            assertTrue(updates.all { it.audioProcessedMs <= 130_000L && it.stableSpeakerThroughMs <= 130_000L })
+            assertTrue(
+                "the delayed voice result is a revision of the original Handy word",
+                updates.any { update -> update.revision > finalText.revision && update.words.single().channel == 1 },
+            )
+        } finally {
+            diarAcceptRelease.countDown()
+            bridge.close(handle)
+            spoolRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun spool_write_failure_after_readiness_disables_only_voice_and_keeps_handy_text() {
+        repeat(10) { iteration ->
+            val spoolRoot = Files.createTempDirectory("meeting-bridge-diarization-io-error").toFile()
+            val handy = RecordingHandy(window("Bonjour."))
+            val bridge = bridge(
+                handy = handy,
+                diarization = RecordingDiarization(),
+                diarizationSpoolRoot = spoolRoot,
+            )
+            val handle = bridge.open("handy", "diar", "fr")
+            val updates = Collections.synchronizedList(mutableListOf<MeetingNativeUpdate>())
+            bridge.setUpdateListener(handle, updates::add)
+
+            try {
+                bridge.awaitCaptureReady(handle)
+                val spoolSession = spoolRoot.listFiles().orEmpty()
+                    .single { it.isDirectory && it.name.startsWith("session-") }
+                assertTrue("iteration $iteration: remove the prepared session directory", spoolSession.deleteRecursively())
+                assertFalse("iteration $iteration: spool directory must be absent before the write", spoolSession.exists())
+
+                val firstBlock = ByteArray(MeetingEngine.MAX_PCM_BYTES) { it.toByte() }
+                bridge.onPcmCaptured(handle, firstBlock, firstBlock.size)
+                bridge.acceptPcm16(handle, firstBlock, firstBlock.size)
+                val storageFailureReported = awaitCondition(TIMEOUT_SECONDS, TimeUnit.SECONDS) {
+                    bridge.voiceProgress(handle).unavailableReason == MeetingVoiceUnavailableReason.STORAGE_ERROR
+                }
+                assertTrue(
+                    "iteration $iteration: storage failure must stay voice-only; actual=" + bridge.voiceProgress(handle),
+                    storageFailureReported,
+                )
+
+                val secondBlock = ByteArray(MeetingEngine.MAX_PCM_BYTES) { (it + 1).toByte() }
+                bridge.onPcmCaptured(handle, secondBlock, secondBlock.size)
+                bridge.acceptPcm16(handle, secondBlock, secondBlock.size)
+                bridge.finish(handle)
+
+                assertEquals("iteration $iteration: Handy accepts audio after the voice spool fails", 2, handy.acceptCount.get())
+                assertEquals(MeetingVoiceUnavailableReason.STORAGE_ERROR, bridge.voiceProgress(handle).unavailableReason)
+                val finalText = updates.last { it.isFinal }
+                assertEquals(20_000L, finalText.audioProcessedMs)
+                assertEquals("Bonjour.", finalText.transcript)
+            } finally {
+                bridge.close(handle)
+                assertTrue(
+                    "iteration $iteration: bridge close must reclaim the private spool session",
+                    spoolRoot.listFiles().orEmpty().none { it.isDirectory && it.name.startsWith("session-") },
+                )
+                spoolRoot.deleteRecursively()
+            }
         }
     }
 
@@ -493,6 +633,8 @@ class HandyMeetingNativeBridgeTest {
         handy: RecordingHandy,
         diarization: DiarizationSessionPort = RecordingDiarization(),
         maxDiarizationQueueBytes: Int = 64_000,
+        diarizationSpoolRoot: File? = null,
+        onDiarizationBlockTransferredForTest: (() -> Unit)? = null,
         handyFactory: (String, String) -> HandyAsrPort = { _, _ -> handy },
         openDiarization: (() -> DiarizationSessionPort)? = null,
         workerFactory: (Runnable, String) -> Thread = { runnable, name ->
@@ -504,6 +646,8 @@ class HandyMeetingNativeBridgeTest {
         maxDiarizationQueueBytes = maxDiarizationQueueBytes,
         setDiarWorkerBackgroundPriority = {},
         workerFactory = workerFactory,
+        diarizationSpoolRoot = diarizationSpoolRoot,
+        onDiarizationBlockTransferredForTest = onDiarizationBlockTransferredForTest,
     )
 
     private fun acceptCapturedPcm(

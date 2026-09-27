@@ -11,6 +11,7 @@ import android.os.SystemClock
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -35,6 +36,157 @@ import org.junit.runner.RunWith
 /** Captures native Android layouts of the real meeting panel using synthetic UI-only data. */
 @RunWith(AndroidJUnit4::class)
 class MeetingPanelNativeFixtureCaptureAndroidTest {
+    @Test
+    fun capturesDelayedAttributionStatesForVisualReview() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val target = instrumentation.targetContext
+        assertTrue("captures run only in the isolated meeting prototype", BuildConfig.MEETING_PROTOTYPE)
+        assertEquals("com.uhama.whisperpin.meetingtest", target.packageName)
+
+        val preferences = target.getSharedPreferences("whisperpin", Context.MODE_PRIVATE)
+        val hadOnboardingValue = preferences.contains("onb_complete")
+        val oldOnboardingValue = preferences.getBoolean("onb_complete", false)
+        val hadThemeValue = preferences.contains("theme_mode")
+        val oldThemeValue = preferences.getString("theme_mode", null)
+        val hadMicrophonePermission = target.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        var scenario: ActivityScenario<MainActivity>? = null
+        var harness: PanelHarness? = null
+        val captureDirectory = File(
+            target.getExternalFilesDir(null) ?: target.filesDir,
+            "meeting-ui-fixtures-delayed-attribution",
+        ).apply { check(mkdirs() || isDirectory) }
+
+        try {
+            preferences.edit().putBoolean("onb_complete", true).putString("theme_mode", "light").commit()
+            grantMicrophonePermission(target)
+
+            val sessionId = "fixture-delayed-attribution-2026-09-27"
+            val runId = "fixture-delayed-attribution-run"
+            val utteranceId = 91L
+            val transcript = "Bonjour les amis nous reprenons la réunion je confirme cette version je partage la synthèse"
+            val reducer = MeetingTranscriptReducer(sessionId, runId)
+            reducer.apply(
+                MeetingHypothesis(
+                    runId = runId,
+                    utteranceId = utteranceId,
+                    revision = 1,
+                    words = listOf(MeetingWord("Bonjour", 100L, 180L, channel = 0)),
+                    transcript = "Bonjour les",
+                    isFinal = false,
+                    stableSpeakerThroughMs = 0L,
+                    audioProcessedMs = 500L,
+                ),
+            )
+            val initial = reducer.snapshot()
+            assertEquals(listOf("Bonjour", "les"), initial.turns.map { it.recognizedText })
+            reducer.apply(
+                MeetingHypothesis(
+                    runId = runId,
+                    utteranceId = utteranceId,
+                    revision = 2,
+                    words = timedWords(transcript) { 0 },
+                    transcript = transcript,
+                    isFinal = false,
+                    stableSpeakerThroughMs = 0L,
+                    audioProcessedMs = 2_000L,
+                ),
+            )
+            val provisional = reducer.snapshot()
+            val provisionalText = provisional.turns.joinToString(" ") { it.recognizedText }
+            assertEquals(listOf(transcript), provisional.turns.map { it.recognizedText })
+
+            val activeScenario = ActivityScenario.launch(MainActivity::class.java)
+            scenario = activeScenario
+            activeScenario.onActivity { activity ->
+                harness = attachPanel(
+                    activity,
+                    "delayed-provisional",
+                    FixtureState(
+                        document = provisional,
+                        images = emptyList(),
+                        status = MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING),
+                    ),
+                )
+            }
+            capture(instrumentation, captureDirectory, "01-provisional-continuous-unknown.png")
+
+            reducer.apply(
+                MeetingHypothesis(
+                    runId = runId,
+                    utteranceId = utteranceId,
+                    revision = 3,
+                    words = timedWords(transcript) { index ->
+                        when (index) {
+                            in 0..6 -> 1
+                            in 7..10 -> 2
+                            else -> 1
+                        }
+                    },
+                    transcript = transcript,
+                    isFinal = false,
+                    stableSpeakerThroughMs = 2_000L,
+                    audioProcessedMs = 2_000L,
+                ),
+            )
+            reducer.rename("$sessionId:participant:1", "Sophie")
+            reducer.rename("$sessionId:participant:2", "Karim")
+            val revised = reducer.snapshot()
+            val revisedText = revised.turns.joinToString(" ") { it.recognizedText }
+            assertEquals("a late speaker revision preserves the complete text", provisionalText, revisedText)
+            assertEquals(
+                listOf("Sophie", "Karim", "Sophie"),
+                revised.turns.map { turn ->
+                    revised.participants.single { it.id == turn.automaticParticipantId }.name
+                },
+            )
+            activeScenario.onActivity {
+                val active = requireNotNull(harness)
+                active.controller.render(
+                    revised,
+                    emptyList(),
+                    MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING),
+                )
+            }
+            capture(instrumentation, captureDirectory, "02-revised-voice-aaba.png")
+
+            harness = showScene(activeScenario, harness, "delayed-active-edit")
+            activeScenario.onActivity { activity ->
+                val editor = requireNotNull(
+                    activity.window.decorView.findViewWithTag<OverlayTranscriptEditor>("meeting-editor:edit-draft"),
+                )
+                editor.beginEditing()
+                editor.setSelection((editor.length() / 2).coerceAtLeast(0))
+                (activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+                    .showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT)
+            }
+            assertTrue("the keyboard settles on the active editor", awaitImeVisible(activeScenario))
+            activeScenario.onActivity { activity ->
+                val editor = requireNotNull(
+                    activity.window.decorView.findViewWithTag<OverlayTranscriptEditor>("meeting-editor:edit-draft"),
+                )
+                assertTrue("the text field remains focused", editor.isFocused)
+                assertTrue("the text field is in edit mode", editor.isEditing)
+                editor.setSelection((editor.length() / 2).coerceAtLeast(0))
+            }
+            instrumentation.waitForIdleSync()
+            SystemClock.sleep(200)
+            capture(instrumentation, captureDirectory, "03-active-edit-preserved.png")
+        } finally {
+            scenario?.onActivity { activity ->
+                harness?.dialogs?.dismissAll()
+                harness?.controller?.dispose()
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+            scenario?.close()
+            preferences.edit().apply {
+                if (hadOnboardingValue) putBoolean("onb_complete", oldOnboardingValue) else remove("onb_complete")
+                if (hadThemeValue) putString("theme_mode", oldThemeValue) else remove("theme_mode")
+            }.commit()
+            if (!hadMicrophonePermission) revokeMicrophonePermission(target)
+        }
+    }
+
     @Test
     fun capturesMeetingPanelStatesWithoutLoadingModelsOrUsingAudio() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -310,12 +462,16 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
         return requireNotNull(next)
     }
 
-    private fun attachPanel(activity: MainActivity, scene: String): PanelHarness {
+    private fun attachPanel(
+        activity: MainActivity,
+        scene: String,
+        overrideState: FixtureState? = null,
+    ): PanelHarness {
         val themeValue = if (scene == "dark") "dark" else "light"
         activity.getSharedPreferences("whisperpin", Context.MODE_PRIVATE).edit()
             .putString("theme_mode", themeValue)
             .commit()
-        val state = fixtureState(scene)
+        val state = overrideState ?: fixtureState(scene)
         val dialogs = FixtureDialogHost(activity)
         lateinit var controller: MeetingPanelController
         fun renderUpdatedState() = controller.render(state.document, state.images, state.status)
@@ -386,6 +542,27 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
                     progressPercent = 63,
                     modelSize = expectedModelPackageSizeLabel(),
                 ),
+            )
+            "delayed-active-edit" -> FixtureState(
+                MeetingDocument(
+                    sessionId = "fixture-delayed-active-edit-2026-09-27",
+                    runId = "fixture-delayed-active-edit-run",
+                    participants = emptyList(),
+                    turns = listOf(
+                        MeetingTurn(
+                            id = "edit-draft",
+                            utteranceId = 93L,
+                            startMs = 2_200L,
+                            endMs = 2_700L,
+                            recognizedText = "Cette phrase reste en cours de correction.",
+                            automaticParticipantId = null,
+                            attributionStable = false,
+                            timingKnown = true,
+                        ),
+                    ),
+                ),
+                emptyList(),
+                MeetingPanelStatus(phase = MeetingPanelStatus.Phase.LISTENING),
             )
             "compact-landscape" -> FixtureState(
                 base.copy(turns = listOf(base.turns.first().copy(
@@ -483,6 +660,17 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
         captureElapsedMs = 0L,
     )
 
+    private fun timedWords(transcript: String, channelForWord: (Int) -> Int): List<MeetingWord> =
+        transcript.split(' ').mapIndexed { index, word ->
+            val startMs = 100L + index * 120L
+            MeetingWord(
+                text = word,
+                startMs = startMs,
+                endMs = startMs + 80L,
+                channel = channelForWord(index),
+            )
+        }
+
     private fun expectedModelPackageSizeLabel(): String {
         val packageBytes = MeetingModelCatalog.production.totalBytes
         val packageMegabytes = (packageBytes + 999_999L) / 1_000_000L
@@ -534,6 +722,22 @@ class MeetingPanelNativeFixtureCaptureAndroidTest {
             scenario.onActivity { orientation = it.resources.configuration.orientation }
             if (orientation == expected) return true
             SystemClock.sleep(100)
+        }
+        return false
+    }
+
+    private fun awaitImeVisible(scenario: ActivityScenario<MainActivity>): Boolean {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        // The emulator's first Gboard render can be slow while it initializes keyboard views.
+        val deadline = SystemClock.uptimeMillis() + 15_000L
+        while (SystemClock.uptimeMillis() < deadline) {
+            instrumentation.waitForIdleSync()
+            var visible = false
+            scenario.onActivity { activity ->
+                visible = activity.window.decorView.rootWindowInsets?.isVisible(WindowInsets.Type.ime()) == true
+            }
+            if (visible) return true
+            SystemClock.sleep(100L)
         }
         return false
     }

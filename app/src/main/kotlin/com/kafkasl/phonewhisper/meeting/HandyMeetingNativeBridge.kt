@@ -2,6 +2,7 @@ package com.kafkasl.phonewhisper.meeting
 
 import android.os.Process
 import java.io.Closeable
+import java.io.File
 import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -45,6 +46,10 @@ internal class HandyMeetingNativeBridge(
             priority = Thread.MIN_PRIORITY
         }
     },
+    private val diarizationSpoolRoot: File? = null,
+    private val diarizationSpoolCapacityBytes: Long = MeetingAudioQueue.MAX_SPOOL_BYTES,
+    /** Test observation seam for deterministic proof that PCM reached the independent spool worker. */
+    private val onDiarizationBlockTransferredForTest: (() -> Unit)? = null,
 ) : MeetingNativeBridge {
     private val nextHandle = AtomicLong(1L)
     private val sessions = ConcurrentHashMap<Long, HybridSession>()
@@ -52,6 +57,9 @@ internal class HandyMeetingNativeBridge(
     init {
         require(maxDiarizationQueueBytes > 0 && maxDiarizationQueueBytes % PCM_SAMPLE_BYTES == 0) {
             "maxDiarizationQueueBytes must allow complete PCM16 samples"
+        }
+        require(diarizationSpoolRoot == null || diarizationSpoolCapacityBytes > 0L) {
+            "diarizationSpoolCapacityBytes must be positive when a spool root is configured"
         }
     }
 
@@ -126,6 +134,16 @@ internal class HandyMeetingNativeBridge(
         private val asrLock = Any()
         private val callbackDepth = ThreadLocal.withInitial { 0 }
         private val diarQueue = ArrayDeque<ByteArray>()
+        private val diarizationBacklog = diarizationSpoolRoot?.let { root ->
+            MeetingDiarizationBacklog(
+                spoolRoot = root,
+                spoolCapacityBytes = diarizationSpoolCapacityBytes,
+                memoryCapacityBytes = MeetingAudioQueue.DEFAULT_MEMORY_CAPACITY_BYTES,
+                ingressCapacityBytes = MeetingEngine.MAX_PCM_BYTES,
+                onBlockTransferredForTest = onDiarizationBlockTransferredForTest,
+                onFailure = ::onDiarizationBacklogFailure,
+            )
+        }
         private val assembler = MeetingHandyTranscriptAssembler(
             maxRetainedAudioMs = MAX_REVISED_AUDIO_MS,
             maxRetainedChunks = MAX_REVISED_CHUNKS,
@@ -183,6 +201,7 @@ internal class HandyMeetingNativeBridge(
                 val window = handy.snapshot(assembler.nextSnapshotFirstTokenIndex, MAX_HANDY_TOKEN_WINDOW)
                 assembler.update(window, audioProcessedMs, isFinal = false)
             }
+            noteAsrProgressAndRetention()
             publish(asrUpdates)
             // All asynchronous transcript and voice revisions use the listener to avoid duplicates.
             return emptyList()
@@ -221,6 +240,34 @@ internal class HandyMeetingNativeBridge(
                     changed.signalAll()
                     return
                 }
+                val backlog = diarizationBacklog
+                if (backlog != null) {
+                    when (backlog.offer(buffer, length)) {
+                        MeetingDiarizationBacklog.OfferResult.ACCEPTED -> {
+                            admittedDiarBytes += length.toLong()
+                            refreshVoiceProgressLocked()
+                            changed.signalAll()
+                        }
+                        MeetingDiarizationBacklog.OfferResult.BACKLOG_LIMIT -> {
+                            setUnavailableLocked(MeetingVoiceUnavailableReason.BACKLOG_LIMIT)
+                            changed.signalAll()
+                        }
+                        MeetingDiarizationBacklog.OfferResult.CLOSED -> {
+                            if (!cancelRequested && !closing && !bridgeClosed && unavailableReason == null) {
+                                val reason = when (backlog.failureKind) {
+                                    MeetingDiarizationBacklogException.Kind.BACKLOG_LIMIT ->
+                                        MeetingVoiceUnavailableReason.BACKLOG_LIMIT
+                                    MeetingDiarizationBacklogException.Kind.STORAGE_ERROR ->
+                                        MeetingVoiceUnavailableReason.STORAGE_ERROR
+                                    null -> MeetingVoiceUnavailableReason.PROCESSING_FAILED
+                                }
+                                setUnavailableLocked(reason)
+                                changed.signalAll()
+                            }
+                        }
+                    }
+                    return
+                }
                 val backlogBytes = queuedDiarBytes.toLong() + inFlightDiarBytes
                 if (backlogBytes + length > maxDiarizationQueueBytes) {
                     setUnavailableLocked(MeetingVoiceUnavailableReason.BACKLOG_LIMIT)
@@ -256,6 +303,7 @@ internal class HandyMeetingNativeBridge(
                 assembler.update(window, bytesToAudioMs(acceptedAsrBytes), isFinal = true)
             }
             // Publish the authoritative final ASR text before waiting for the slower voice worker.
+            noteAsrProgressAndRetention()
             publish(finalUpdates)
             lock.withLock {
                 if (!cancelRequested && !closing && !bridgeClosed && unavailableReason == null &&
@@ -265,6 +313,7 @@ internal class HandyMeetingNativeBridge(
                     changed.signalAll()
                 } else if (!cancelRequested && !closing && !bridgeClosed && unavailableReason == null) {
                     finishRequested = true
+                    diarizationBacklog?.finishInput()
                     changed.signalAll()
                 }
             }
@@ -327,6 +376,8 @@ internal class HandyMeetingNativeBridge(
                 } catch (_: Throwable) {
                     // Priority is best-effort; a platform limitation must not disable ASR or diarization.
                 }
+                diarizationBacklog?.prepare()
+                if (shouldStopWorker()) return
                 diarization = diarizationFactory(diarPath)
                 val admitted = lock.withLock {
                     if (cancelRequested || closing || bridgeClosed || unavailableReason != null) {
@@ -344,30 +395,63 @@ internal class HandyMeetingNativeBridge(
                 while (!done) {
                     var block: ByteArray? = null
                     var finalize = false
-                    val exit = lock.withLock {
-                        while (diarQueue.isEmpty() && !finishRequested && !cancelRequested && !closing &&
-                            unavailableReason == null
-                        ) {
-                            changed.await()
+                    val backlog = diarizationBacklog
+                    val exit = if (backlog == null) {
+                        lock.withLock {
+                            while (diarQueue.isEmpty() && !finishRequested && !cancelRequested && !closing &&
+                                unavailableReason == null
+                            ) {
+                                changed.await()
+                            }
+                            when {
+                                cancelRequested || closing || bridgeClosed || unavailableReason != null -> true
+                                diarQueue.isNotEmpty() -> {
+                                    block = diarQueue.removeFirst()
+                                    queuedDiarBytes -= requireNotNull(block).size
+                                    inFlightDiarBytes = requireNotNull(block).size
+                                    refreshVoiceProgressLocked()
+                                    false
+                                }
+                                finishRequested -> {
+                                    finalize = true
+                                    true
+                                }
+                                else -> true
+                            }
                         }
-                        when {
-                            cancelRequested || closing || bridgeClosed || unavailableReason != null -> true
-                            diarQueue.isNotEmpty() -> {
-                                block = diarQueue.removeFirst()
-                                queuedDiarBytes -= requireNotNull(block).size
-                                inFlightDiarBytes = requireNotNull(block).size
-                                refreshVoiceProgressLocked()
-                                false
+                    } else {
+                        val next = backlog.take()
+                        if (next != null) {
+                            val admitted = lock.withLock {
+                                if (cancelRequested || closing || bridgeClosed || unavailableReason != null) {
+                                    false
+                                } else {
+                                    block = next
+                                    inFlightDiarBytes = next.size
+                                    refreshVoiceProgressLocked()
+                                    true
+                                }
                             }
-                            finishRequested -> {
-                                finalize = true
-                                true
+                            !admitted
+                        } else {
+                            lock.withLock {
+                                when {
+                                    cancelRequested || closing || bridgeClosed || unavailableReason != null -> true
+                                    finishRequested -> {
+                                        finalize = true
+                                        true
+                                    }
+                                    else -> true
+                                }
                             }
-                            else -> true
                         }
                     }
                     if (block != null) {
                         val pcm = requireNotNull(block)
+                        if (!awaitDiarizationHeadroom(pcm.size)) {
+                            done = true
+                            continue
+                        }
                         diarization.acceptPcm16(pcm, pcm.size)
                         val processedAudioMs = lock.withLock {
                             inFlightDiarBytes = 0
@@ -395,6 +479,8 @@ internal class HandyMeetingNativeBridge(
                     if (unavailableReason == null) setUnavailableLocked(MeetingVoiceUnavailableReason.PROCESSING_FAILED)
                     changed.signalAll()
                 }
+            } catch (failure: MeetingDiarizationBacklogException) {
+                onDiarizationBacklogFailure(failure)
             } catch (_: Throwable) {
                 lock.withLock {
                     if (unavailableReason == null) {
@@ -410,6 +496,12 @@ internal class HandyMeetingNativeBridge(
                     diarization?.close()
                 } catch (failure: Throwable) {
                     diarCloseFailure = failure
+                }
+                try {
+                    diarizationBacklog?.close()
+                } catch (failure: Throwable) {
+                    val existing = diarCloseFailure
+                    if (existing == null) diarCloseFailure = failure else existing.addSuppressed(failure)
                 }
                 lock.withLock {
                     inFlightDiarBytes = 0
@@ -429,6 +521,38 @@ internal class HandyMeetingNativeBridge(
                 true
             } else {
                 false
+            }
+        }
+
+        private fun awaitDiarizationHeadroom(nextBlockBytes: Int): Boolean {
+            var interrupted = false
+            lock.lock()
+            try {
+                while (processedDiarBytes + nextBlockBytes >
+                    acceptedAsrBytes + MAX_DIARIZATION_AHEAD_BYTES &&
+                    !cancelRequested && !closing && !bridgeClosed && unavailableReason == null
+                ) {
+                    try {
+                        changed.await()
+                    } catch (_: InterruptedException) {
+                        interrupted = true
+                    }
+                }
+                return !cancelRequested && !closing && !bridgeClosed && unavailableReason == null
+            } finally {
+                lock.unlock()
+                if (interrupted) Thread.currentThread().interrupt()
+            }
+        }
+
+        private fun noteAsrProgressAndRetention() {
+            lock.withLock {
+                if (assembler.attributionRetentionExhausted) {
+                    if (!cancelRequested && !closing && !bridgeClosed && unavailableReason == null) {
+                        setUnavailableLocked(MeetingVoiceUnavailableReason.BACKLOG_LIMIT)
+                    }
+                }
+                changed.signalAll()
             }
         }
 
@@ -562,7 +686,23 @@ internal class HandyMeetingNativeBridge(
             diarState = MeetingVoiceState.UNAVAILABLE
             diarQueue.clear()
             queuedDiarBytes = 0
+            diarizationBacklog?.cancel()
             refreshVoiceProgressLocked()
+        }
+
+        private fun onDiarizationBacklogFailure(failure: MeetingDiarizationBacklogException) {
+            lock.withLock {
+                if (!cancelRequested && !closing && !bridgeClosed && unavailableReason == null) {
+                    val reason = when (failure.kind) {
+                        MeetingDiarizationBacklogException.Kind.STORAGE_ERROR ->
+                            MeetingVoiceUnavailableReason.STORAGE_ERROR
+                        MeetingDiarizationBacklogException.Kind.BACKLOG_LIMIT ->
+                            MeetingVoiceUnavailableReason.BACKLOG_LIMIT
+                    }
+                    setUnavailableLocked(reason)
+                }
+                changed.signalAll()
+            }
         }
 
         private fun refreshVoiceProgressLocked() {
@@ -608,6 +748,7 @@ internal class HandyMeetingNativeBridge(
         const val LIVE_SNAPSHOT_INTERVAL_MS = 500L
         const val MAX_HANDY_TOKEN_WINDOW = 8_192
         const val MAX_DIARIZATION_BACKLOG_BYTES = 120 * 32_000
+        const val MAX_DIARIZATION_AHEAD_BYTES = 60 * 32_000L
         const val MAX_REVISED_AUDIO_MS = 120_000L
         const val MAX_REVISED_CHUNKS = 256
 

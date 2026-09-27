@@ -29,7 +29,9 @@ class MeetingTranscriptReducer(
         } else {
             val alignment = alignTimedWordsToTranscript(validWords, hypothesis.transcript)
             val unresolvedConsumedEdge = alignment?.hasUnmatchedEdges == false && existing.any { state ->
-                state.identityWords.isEmpty() && !untimedTextAnchorMatchesWords(state, validWords, hypothesis.transcript)
+                state.identityWords.isEmpty() &&
+                    (state.editAnchor != null || state.turn.hasManualAttribution) &&
+                    !untimedTextAnchorMatchesWords(state, validWords, hypothesis.transcript)
             }
             val protectedTimedTextBecameUntimed = alignment?.hasUnmatchedEdges == true && existing.any { state ->
                 state.identityWords.isNotEmpty() &&
@@ -331,8 +333,7 @@ class MeetingTranscriptReducer(
             ).locateTextWords(words, revisedTranscript = hypothesis.transcript)
         }
         val protectedStates = states.filter { state ->
-            state.editAnchor != null || state.turn.hasManualAttribution ||
-                untimedTextAlignments[state]?.isAligned == true
+            state.editAnchor != null || state.turn.hasManualAttribution
         }
         val editTextAlignments = alignTextAnchors(
             protectedStates.filter { it.editAnchor != null },

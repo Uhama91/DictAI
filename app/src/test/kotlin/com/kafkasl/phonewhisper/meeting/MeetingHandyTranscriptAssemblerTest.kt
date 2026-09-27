@@ -6,6 +6,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MeetingHandyTranscriptAssemblerTest {
+    private data class TurnAssignment(
+        val text: String,
+        val participantId: String?,
+        val startMs: Long,
+        val endMs: Long,
+        val timingKnown: Boolean,
+    )
+
     @Test
     fun preserves_utf8_apostrophes_and_punctuation_while_aligning_lexical_timing() {
         val nativeParts = listOf(
@@ -258,11 +266,11 @@ class MeetingHandyTranscriptAssemblerTest {
     }
 
     @Test
-    fun audio_time_only_changes_do_not_emit_revisions_and_old_chunks_are_not_resurrected() {
+    fun diarization_progress_controls_retention_after_an_unchanged_handy_snapshot() {
         val assembler = MeetingHandyTranscriptAssembler(
             maxWordsPerChunk = 1,
             maxRetainedAudioMs = 50L,
-            maxRetainedChunks = 2,
+            maxRetainedChunks = 8,
         )
         val firstParts = listOf("one".toByteArray(), " ".toByteArray(), "two".toByteArray(), " ".toByteArray(), "three".toByteArray())
         val firstTimes = listOf(0L to 10L, 10L to 11L, 10L to 20L, 20L to 21L, 20L to 30L)
@@ -271,9 +279,27 @@ class MeetingHandyTranscriptAssemblerTest {
         val reducer = MeetingTranscriptReducer("retention", "run")
         initial.forEach { reducer.apply(it.asHypothesis("run")) }
         assertEquals("one two three", reducer.snapshot().turns.joinToString(" ") { it.recognizedText })
-        assertTrue(assembler.retainedChunkCount <= 2)
+        assertEquals(3, assembler.retainedChunkCount)
+        assertFalse(assembler.attributionRetentionExhausted)
 
         assertTrue(assembler.update(window("one two three", firstParts, firstTimes), audioProcessedMs = 200L, isFinal = true).isEmpty())
+        assertEquals("audio progress alone must not outrun unadvanced diarization", 3, assembler.retainedChunkCount)
+
+        val firstVoiceWindow = probabilityDiarization(
+            rows = List(3) { floatArrayOf(0.0f, 0.0f) },
+            stableFrameCount = 3L,
+        )
+        assertTrue(assembler.reviseDiarization(firstVoiceWindow, audioProcessedMs = 200L).isEmpty())
+        assertEquals("examined but unknown words retain the normal revision margin", 3, assembler.retainedChunkCount)
+
+        val voicePastRetention = probabilityDiarization(
+            rows = List(10) { floatArrayOf(0.0f, 0.0f) },
+            stableFrameCount = 10L,
+        )
+        assertTrue(assembler.reviseDiarization(voicePastRetention, audioProcessedMs = 200L).isEmpty())
+        assertEquals(1, assembler.retainedChunkCount)
+        assertTrue(assembler.update(window("one two three", firstParts, firstTimes), audioProcessedMs = 210L, isFinal = true).isEmpty())
+
         val extendedParts = firstParts + listOf(" ".toByteArray(), "four".toByteArray())
         val extendedTimes = firstTimes + listOf(30L to 31L, 30L to 40L)
         val current = assembler.update(window("one two three four", extendedParts, extendedTimes), audioProcessedMs = 210L, isFinal = true)
@@ -281,6 +307,127 @@ class MeetingHandyTranscriptAssemblerTest {
         assertEquals(listOf(4L), current.map { it.utteranceId })
         assertEquals(1, assembler.retainedChunkCount)
         assertTrue(assembler.update(window("one two three four", extendedParts, extendedTimes), audioProcessedMs = 220L, isFinal = true).isEmpty())
+    }
+
+    @Test
+    fun chunk_limit_reports_unexamined_voice_loss_without_dropping_new_hypotheses() {
+        val assembler = MeetingHandyTranscriptAssembler(
+            maxWordsPerChunk = 1,
+            maxRetainedAudioMs = 50L,
+            maxRetainedChunks = 2,
+        )
+        val parts = listOf(
+            "one".toByteArray(), " ".toByteArray(),
+            "two".toByteArray(), " ".toByteArray(),
+            "three".toByteArray(), " ".toByteArray(),
+            "four".toByteArray(),
+        )
+        val times = listOf(
+            0L to 10L, 10L to 11L,
+            11L to 20L, 20L to 21L,
+            21L to 30L, 30L to 31L,
+            31L to 40L,
+        )
+
+        val updates = assembler.update(
+            window("one two three four", parts, times),
+            audioProcessedMs = 40L,
+            isFinal = true,
+        )
+
+        assertEquals(listOf(1L, 2L, 3L, 4L), updates.map { it.utteranceId })
+        assertEquals(listOf("one", "two", "three", "four"), updates.map { it.transcript.trim() })
+        assertEquals(listOf(10L, 20L, 30L, 40L), updates.map { it.words.single().endMs })
+        assertTrue(assembler.retainedChunkCount <= 2)
+        assertTrue(assembler.attributionRetentionExhausted)
+        assertTrue(assembler.update(window("one two three four", parts, times), audioProcessedMs = 41L, isFinal = true).isEmpty())
+        assertTrue("the backlog failure signal is sticky", assembler.attributionRetentionExhausted)
+    }
+
+    @Test
+    fun live_handy_updates_match_final_speakers_when_the_same_voice_window_arrives_late() {
+        val fullVoiceWindow = probabilityDiarization(
+            rows = List(12_016) { frame ->
+                when (frame) {
+                    0, 1, 4, 5, 12_012, 12_013 -> floatArrayOf(0.9f, 0.1f)
+                    2, 3, 12_010, 12_011, 12_014, 12_015 -> floatArrayOf(0.1f, 0.9f)
+                    else -> floatArrayOf(0.0f, 0.0f)
+                }
+            },
+            stableFrameCount = 12_016L,
+        )
+
+        fun finalAssignments(deliverVoiceBeforeLongHandyAdvance: Boolean): List<TurnAssignment> {
+            val assembler = MeetingHandyTranscriptAssembler(maxWordsPerChunk = 2)
+            val reducer = MeetingTranscriptReducer("live-late-voice", "run")
+            val firstParts = listOf("alpha".toByteArray(), " ".toByteArray(), "bravo".toByteArray())
+            val firstTimes = listOf(0L to 20L, 20L to 21L, 21L to 40L)
+
+            assembler.update(
+                window("alpha bravo", firstParts, firstTimes),
+                audioProcessedMs = 45L,
+                isFinal = false,
+            ).forEach { reducer.apply(it.asHypothesis("run")) }
+
+            val middleParts = firstParts + listOf(" ".toByteArray(), "charlie".toByteArray())
+            val middleTimes = firstTimes + listOf(40L to 41L, 41L to 60L)
+            assembler.update(
+                window("alpha bravo charlie", middleParts, middleTimes),
+                audioProcessedMs = 65L,
+                isFinal = false,
+            ).forEach { reducer.apply(it.asHypothesis("run")) }
+
+            if (deliverVoiceBeforeLongHandyAdvance) {
+                assembler.reviseDiarization(fullVoiceWindow, audioProcessedMs = 65L)
+                    .forEach { reducer.apply(it.asHypothesis("run")) }
+            }
+
+            val finalParts = middleParts + listOf(
+                " ".toByteArray(), "delta".toByteArray(),
+                " ".toByteArray(), "echo".toByteArray(),
+                " ".toByteArray(), "foxtrot".toByteArray(),
+            )
+            val finalTimes = middleTimes + listOf(
+                60L to 61L, 120_100L to 120_120L,
+                120_120L to 120_121L, 120_121L to 120_140L,
+                120_140L to 120_141L, 120_141L to 120_160L,
+            )
+            assembler.update(
+                window("alpha bravo charlie delta echo foxtrot", finalParts, finalTimes),
+                audioProcessedMs = 120_160L,
+                isFinal = true,
+            ).forEach { reducer.apply(it.asHypothesis("run")) }
+
+            if (!deliverVoiceBeforeLongHandyAdvance) {
+                assembler.reviseDiarization(fullVoiceWindow, audioProcessedMs = 120_160L)
+                    .forEach { reducer.apply(it.asHypothesis("run")) }
+            }
+
+            return reducer.snapshot().turns.map { turn ->
+                TurnAssignment(
+                    text = turn.recognizedText,
+                    participantId = turn.automaticParticipantId,
+                    startMs = turn.startMs,
+                    endMs = turn.endMs,
+                    timingKnown = turn.timingKnown,
+                )
+            }
+        }
+
+        val expected = listOf(
+            TurnAssignment("alpha", "live-late-voice:participant:1", 0L, 20L, true),
+            TurnAssignment("bravo", "live-late-voice:participant:2", 21L, 40L, true),
+            TurnAssignment("charlie", "live-late-voice:participant:1", 41L, 60L, true),
+            TurnAssignment("delta", "live-late-voice:participant:2", 120_100L, 120_120L, true),
+            TurnAssignment("echo", "live-late-voice:participant:1", 120_121L, 120_140L, true),
+            TurnAssignment("foxtrot", "live-late-voice:participant:2", 120_141L, 120_160L, true),
+        )
+        val fastVoice = finalAssignments(deliverVoiceBeforeLongHandyAdvance = true)
+        val delayedVoice = finalAssignments(deliverVoiceBeforeLongHandyAdvance = false)
+
+        assertEquals(expected, fastVoice)
+        assertEquals(expected, delayedVoice)
+        assertEquals(fastVoice, delayedVoice)
     }
 
     @Test
@@ -510,6 +657,86 @@ class MeetingHandyTranscriptAssemblerTest {
         assertEquals("Bonjour", updatedTurn.recognizedText)
         assertEquals(originalTurn.id, updatedTurn.id)
         assertEquals("Bonjour, modifié.", updatedTurn.editedText)
+        assertEquals(1, revision.words.single().channel)
+    }
+
+    @Test
+    fun delayed_diarization_revises_the_original_phrase_after_audio_advances_past_retention() {
+        val retainedAudioMs = 50L
+        val assembler = MeetingHandyTranscriptAssembler(
+            maxWordsPerChunk = 1,
+            maxRetainedAudioMs = retainedAudioMs,
+        )
+        val initial = assembler.update(
+            window("Bonjour", listOf("Bonjour".toByteArray()), listOf(0L to 20L)),
+            audioProcessedMs = 30L,
+            isFinal = true,
+        ).single()
+
+        // The test compresses production's 120,000 ms retention window to 50 ms.
+        // At that 2,400:1 scale, 300 test ms after this word represents 12 minutes.
+        val laterHandy = assembler.update(
+            window(
+                fullText = "Bonjour suite",
+                parts = listOf("Bonjour".toByteArray(), " ".toByteArray(), "suite".toByteArray()),
+                times = listOf(0L to 20L, 20L to 21L, 300L to 320L),
+            ),
+            audioProcessedMs = 320L,
+            isFinal = true,
+        )
+        assertTrue(laterHandy.any { it.utteranceId == 2L })
+
+        val delayedVoice = probabilityDiarization(
+            rows = List(2) { floatArrayOf(0.9f, 0.1f) },
+            stableFrameCount = 2L,
+        )
+        val revisions = assembler.reviseDiarization(delayedVoice, audioProcessedMs = 320L)
+
+        assertEquals(listOf(initial.utteranceId), revisions.map { it.utteranceId })
+        val revision = revisions.single()
+        assertTrue(revision.revision > initial.revision)
+        assertEquals("Bonjour", revision.transcript.trim())
+        assertEquals("Bonjour", revision.words.single().text)
+        assertEquals(initial.words.single().startMs, revision.words.single().startMs)
+        assertEquals(initial.words.single().endMs, revision.words.single().endMs)
+        assertEquals(1, revision.words.single().channel)
+    }
+
+    @Test
+    fun unchanged_snapshot_fast_path_retains_an_unexamined_phrase_for_late_diarization() {
+        val assembler = MeetingHandyTranscriptAssembler(
+            maxWordsPerChunk = 1,
+            maxRetainedAudioMs = 100L,
+        )
+        val initial = assembler.update(
+            window("Bonjour", listOf("Bonjour".toByteArray()), listOf(0L to 20L)),
+            audioProcessedMs = 30L,
+            isFinal = true,
+        ).single()
+        val advancedSnapshot = window(
+            fullText = "Bonjour suite",
+            parts = listOf("Bonjour".toByteArray(), " ".toByteArray(), "suite".toByteArray()),
+            times = listOf(0L to 20L, 20L to 21L, 60L to 90L),
+        )
+        assembler.update(advancedSnapshot, audioProcessedMs = 95L, isFinal = true)
+
+        // Advancing only audio time takes the unchanged-snapshot fast path.
+        // With a 100 ms / 120 s scale, this cursor is 216 s after the first phrase.
+        assertTrue(assembler.update(advancedSnapshot, audioProcessedMs = 200L, isFinal = true).isEmpty())
+
+        val delayedVoice = probabilityDiarization(
+            rows = List(2) { floatArrayOf(0.9f, 0.1f) },
+            stableFrameCount = 2L,
+        )
+        val revisions = assembler.reviseDiarization(delayedVoice, audioProcessedMs = 200L)
+
+        assertEquals(listOf(initial.utteranceId), revisions.map { it.utteranceId })
+        val revision = revisions.single()
+        assertTrue(revision.revision > initial.revision)
+        assertEquals("Bonjour", revision.transcript.trim())
+        assertEquals("Bonjour", revision.words.single().text)
+        assertEquals(initial.words.single().startMs, revision.words.single().startMs)
+        assertEquals(initial.words.single().endMs, revision.words.single().endMs)
         assertEquals(1, revision.words.single().channel)
     }
 

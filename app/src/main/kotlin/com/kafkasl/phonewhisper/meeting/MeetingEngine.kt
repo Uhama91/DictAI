@@ -53,7 +53,9 @@ class MeetingEngine internal constructor(
         asrPath: String,
         diarPath: String,
         cacheDir: File,
-        native: MeetingNativeBridge = HandyMeetingNativeBridge(),
+        native: MeetingNativeBridge = HandyMeetingNativeBridge(
+            diarizationSpoolRoot = File(cacheDir, AUDIO_SPOOL_DIRECTORY),
+        ),
     ) : this(
         asrPath,
         diarPath,

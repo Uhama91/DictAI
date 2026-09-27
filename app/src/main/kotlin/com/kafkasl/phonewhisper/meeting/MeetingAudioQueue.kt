@@ -50,7 +50,7 @@ class MeetingAudioQueue(
     private var closed = false
     private var spoolFailed = false
     private var spoolPreparing = false
-    private var spoolPreparationFailure: Throwable? = null
+    private var spoolPreparationError: Throwable? = null
     private var spooling = false
     private var bytesQueued = 0
     private var memoryBytes = 0
@@ -63,6 +63,10 @@ class MeetingAudioQueue(
 
     val spooledBytesQueued: Long
         get() = if (cancellationRequested.get()) 0L else lock.withLock { diskBytesQueued }
+
+    /** Reports setup errors because prepareSpool deliberately records them for existing callers. */
+    internal val spoolPreparationFailure: Throwable?
+        get() = lock.withLock { spoolPreparationError }
 
     val isCancelled: Boolean
         get() = cancellationRequested.get()
@@ -87,7 +91,7 @@ class MeetingAudioQueue(
                 true
             } else {
                 spool = prepared
-                spoolPreparationFailure = preparationFailure
+                spoolPreparationError = preparationFailure
                 signalConsumer()
                 false
             }
@@ -308,7 +312,7 @@ class MeetingAudioQueue(
         }
         if (segment == null) {
             val activeSpool = spool ?: run {
-                spoolPreparationFailure?.let { throw MeetingAudioSpoolException(it) }
+                spoolPreparationError?.let { throw MeetingAudioSpoolException(it) }
                 MeetingAudioSpool(requireNotNull(spoolRoot)).also { spool = it }
             }
             val file = activeSpool.createSegment()
