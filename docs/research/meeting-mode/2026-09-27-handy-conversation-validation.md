@@ -175,7 +175,23 @@ La première exécution [GitHub Actions 36292940843](https://github.com/Uhama91/
 
 Après correction, les 29 tests de `OverlayServiceMeetingRobolectricTest` passent en variante normale (8,375 s) et prototype (8,159 s). Les deux revues complémentaires acceptent ce changement de test seul. Les sources de production, les JNI et les fixtures Android restent identiques ; leurs contrôles précédents ne sont pas relancés. Le manifeste et les traces du correctif CI sont archivés séparément dans `handy-test4-evidence/`.
 
-La livraison GitHub Actions exige encore de contrôler l’artefact reconstruit sur le commit corrigé. L’empreinte locale ne doit pas être présentée comme celle de cet artefact CI.
+### Livraison GitHub Actions vérifiée
+
+L’exécution corrigée [36293735948](https://github.com/Uhama91/DictAI/actions/runs/36293735948) réussit sur `30d66dfa00f394745f56626745059bc970adce3d`. Les tests JVM, les deux assemblages APK, les contrôles natifs et la préparation du paquet Réunion passent. L’[artefact `dictai-meeting-test`](https://github.com/Uhama91/DictAI/actions/runs/36293735948/artifacts/10922798022), ID `10922798022`, a été téléchargé et contrôlé directement.
+
+| Propriété de l’APK distribué | Valeur |
+| --- | --- |
+| Application | `com.uhama.whisperpin.meetingtest` |
+| Version | `0.9.6-dictai-meeting-test4`, code 38 |
+| Taille | 93 164 926 octets |
+| SHA-256 | `bca6f0ee7c233e1b58c0566bd17845d4fb7e357fe12bf8ecaf2b94217b3a37a7` |
+| Certificat de signature | `6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539` |
+
+La signature v2, l’alignement ZIP à 16 Kio et les 13 bibliothèques ARM64 alignées à 16 Kio sont vérifiés sur le fichier téléchargé. Les JNI correspondent aux empreintes testées `83a19a5794a020bd56e60212136261141e776f2cc24e22d0151f73dec2c0a546` et `68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b`. Aucun poids de modèle n’est embarqué. L’empreinte de cet APK CI diffère de celle de la compilation locale et reste consignée séparément.
+
+L’APK, les métadonnées, les journaux GitHub et le rapport des contrôles sont conservés localement dans `app/build/reports/meeting/conversation-2026-09-27/ci-36293735948/`. Le manifeste corrigé des 61 fichiers porte le SHA-256 `8361acd797f0fb38a98bf33b1dba5bd5e16d3a535c515d11cd50b07b26ea5f49` ; seule l’attente du test JVM diffère de l’état initial revu.
+
+Après installation, ouvrir **Réglages Réunion → Préparer les modèles Réunion**. Le téléchargement peut atteindre 859 Mo si les fichiers compatibles sont absents de l’espace privé de cette application. Cette livraison reste expérimentale : le succès CI ne transforme pas l’échec prolongé de diarisation en réussite et ne valide pas la latence, les identités ou la tenue d’une conversation naturelle sur Poco F7.
 
 ### Lecture du microphone
 
