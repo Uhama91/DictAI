@@ -102,7 +102,15 @@ Les passes complètes finales comptent chacune 1 140 tests, sans échec ni test 
 
 Les deux variantes réussissent `assembleDebug` et `assembleDebugAndroidTest`. Le prototype local vérifié est `com.uhama.whisperpin.meetingtest`, version 41, `0.9.6-dictai-meeting-test7`, ARM64, 93 197 694 octets. Son SHA-256 est `3cac3d2626dce21d4d7f2c951c7404c2cc42c8cac53711691d63324d115fc2d3`. La signature v2 et l’alignement ZIP à 16 Kio passent ; le certificat conserve l’empreinte `6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539`. Les empreintes natives vérifiées sont `4067084ca70b18906ff478d429652adc3dccb8c5f40e60715d6599564cadd248` pour le moteur de réunion et `68b2733aaa6638ffe03254e5f6719eefc78e49e9272aeeb3fc5961f2ef446b5b` pour le pont Handy inchangé.
 
-Cette identité décrit le build local du contenu candidat, avant son commit. L’artefact produit par Actions doit être vérifié séparément après publication.
+Cette identité décrit le build local du contenu candidat, avant son commit. L’artefact produit par Actions a ensuite été vérifié séparément, comme indiqué ci-dessous.
+
+## Publication GitHub Actions vérifiée
+
+Le [run 36337242721](https://github.com/Uhama91/DictAI/actions/runs/36337242721) termine en succès sur le commit `50c29490348c62a0be8336d70315f4503c1d9268`. Il produit un unique artefact `dictai-meeting-test`, ID `10937443534`, disponible depuis [la page de téléchargement](https://github.com/Uhama91/DictAI/actions/runs/36337242721/artifacts/10937443534). L’archive annoncée par GitHub fait 93 198 710 octets, avec le digest `sha256:edd3addbbacc5c9965d23ee84e296cf8e925ec615c5fb258c1ee4f9ffa2f99e1`.
+
+L’APK téléchargé fait 93 197 694 octets et son SHA-256 `3cac3d2626dce21d4d7f2c951c7404c2cc42c8cac53711691d63324d115fc2d3` correspond au fichier `SHA256SUMS`, aux métadonnées et à l’APK local. `ciCommit` désigne le commit exact du run. L’identité Android est `com.uhama.whisperpin.meetingtest`, version 41/test7, ARM64. La signature v2, le certificat inchangé, l’alignement ZIP à 16 Kio et les deux empreintes natives épinglées ont été vérifiés sur ce fichier téléchargé.
+
+Preuves locales : `app/build/reports/meeting/cpu-comparison/test7/ci-download-36337242721/dictai-meeting-test/`. La publication est validée ; les performances et la qualité d’attribution sur le Poco F7 restent à mesurer physiquement.
 
 ## Preuves locales
 
