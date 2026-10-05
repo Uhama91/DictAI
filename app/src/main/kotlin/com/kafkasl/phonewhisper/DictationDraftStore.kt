@@ -103,7 +103,8 @@ internal class DictationDraftStore(context: Context) {
             .putString("captures", encode(DraftImageContext.move(captures(), previous, text))).apply()
     }
     fun clear() {
-        captures().forEach { imageStore.delete(it.id) }
-        prefs.edit().clear().apply()
+        val images = captures().map { it.id }
+        check(prefs.edit().clear().commit()) { "Brouillon non effacé" }
+        images.forEach { imageStore.deleteIfUnreferenced(it) }
     }
 }

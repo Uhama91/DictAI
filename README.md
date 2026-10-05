@@ -104,8 +104,12 @@ selected formatting instructions, and any configured vocabulary or protected
 spellings directly from the device to OpenRouter, using your own API key. Audio
 is not sent for this cleanup step.
 
-DictAI has no project backend, accounts, analytics, or uploaded-recording
-collection. See the full [privacy policy](PRIVACY.md).
+An optional Google account synchronizes vocabulary, shared preferences, personal
+formats, saved folders, notes, and their images through Supabase. DictAI remains
+usable locally without an account. API keys, unfinished drafts, audio, model
+installations, permissions, and overlay positions stay on the device.
+See the full [privacy policy](PRIVACY.md) and the
+[account setup and validation guide](docs/research/account-sync/README.md).
 
 
 ## Local models

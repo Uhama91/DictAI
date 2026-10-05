@@ -7,5 +7,6 @@ class DictAIApp : Application() {
     override fun onCreate() {
         super.onCreate()
         ThemeModeController.apply(this)
+        PreferenceSyncCoordinator.get(this).initialize()
     }
 }

@@ -33,11 +33,18 @@ class MainActivity : AppCompatActivity() {
     private var gemmaSubtitle: TextView? = null
     private var screen = Screen.HOME
     private var contentScroll: ScrollView? = null
+    private val synchronizedData = { renderScreen(contentScroll?.scrollY ?: 0) }
 
     private val palette: ThemePalette
         get() = ThemeTokens.palette(this)
 
+    override fun onStart() {
+        super.onStart()
+        PreferenceSyncCoordinator.get(this).observeData(synchronizedData)
+    }
+
     override fun onStop() {
+        PreferenceSyncCoordinator.get(this).unobserveData(synchronizedData)
         gemmaDownload?.close()
         gemmaDownload = null
         localFormatBenchmark?.cancel()
@@ -361,6 +368,10 @@ class MainActivity : AppCompatActivity() {
         val root = vertical(0, 0)
         root.addView(navigationHeader("Préférences"))
         root.addView(buildAppearanceCard())
+        root.addView(sectionHeader("Mes appareils"))
+        root.addView(settingsRow("Compte et synchronisation", "Partager vocabulaire, préférences, dossiers et notes") {
+            startActivity(Intent(this, AccountSyncActivity::class.java))
+        })
         root.addView(sectionHeader("Installation"))
 
         root.addView(settingsRow("Assistant d'installation", "Configurer et vérifier les permissions") {
@@ -683,6 +694,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        PreferenceSyncCoordinator.get(this).requestSync()
         if (android.provider.Settings.canDrawOverlays(this)) {
             startForegroundService(
                 Intent(this, OverlayService::class.java)
@@ -694,8 +706,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showVocabularyDialog() {
+        val originalRaw = Vocabulary.getRaw(this)
         val field = EditText(this).apply {
-            setText(Vocabulary.getRaw(this@MainActivity))
+            setText(originalRaw)
             isSingleLine = false
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
             minLines = 5
@@ -709,7 +722,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Une correction par ligne, au format « entendu => voulu ».")
             .setView(field)
             .setPositiveButton("Enregistrer") { _, _ ->
-                Vocabulary.setRaw(this, field.text.toString())
+                Vocabulary.setRaw(this, SyncVocabulary.reconcileEdit(originalRaw, field.text.toString(), Vocabulary.getRaw(this)))
                 toast("Vocabulaire enregistré")
             }
             .setNegativeButton("Annuler", null)

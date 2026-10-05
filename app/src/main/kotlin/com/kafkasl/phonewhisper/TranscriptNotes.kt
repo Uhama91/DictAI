@@ -55,6 +55,16 @@ internal class TranscriptNotes(
 
     fun get(id: String?) = cached[id]
 
+    /** Refresh saved collections after an account merge without changing an open editor. */
+    fun reloadFromStorage() {
+        val folders = storage.allFolders().associateBy { it.id }
+        val notes = storage.all().associateBy { it.id }
+        cachedFolders.clear()
+        cachedFolders.putAll(folders)
+        cached.clear()
+        cached.putAll(notes)
+    }
+
     fun folders(): List<NoteFolder> = cachedFolders.values
         .sortedWith(compareBy<NoteFolder> { it.createdAt }.thenBy { it.name.lowercase() }.thenBy { it.id })
 

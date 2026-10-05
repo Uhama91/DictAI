@@ -1,4 +1,5 @@
 // Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -6,6 +7,10 @@ plugins {
 }
 
 val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true"
+val syncClient = Properties().apply { file("sync-client.properties").inputStream().use { load(it) } }
+val syncSupabaseUrl = providers.gradleProperty("dictaiSupabaseUrl").orElse(providers.environmentVariable("DICTAI_SUPABASE_URL")).orElse(syncClient.getProperty("url", ""))
+val syncPublishableKey = providers.gradleProperty("dictaiSupabasePublishableKey").orElse(providers.environmentVariable("DICTAI_SUPABASE_PUBLISHABLE_KEY")).orElse(syncClient.getProperty("publishableKey", ""))
+fun quotedConfig(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
 
 android {
     namespace = "com.kafkasl.phonewhisper"
@@ -24,6 +29,8 @@ android {
         minSdk = 30
         targetSdk = 34
         buildConfigField("boolean", "LOCAL_FORMAT_PROTOTYPE", localFormatPrototype.toString())
+        buildConfigField("String", "SYNC_SUPABASE_URL", quotedConfig(syncSupabaseUrl.get()))
+        buildConfigField("String", "SYNC_SUPABASE_PUBLISHABLE_KEY", quotedConfig(syncPublishableKey.get()))
         versionCode = 35
         versionName = if (localFormatPrototype) "0.9.6-dictai-gemma-test" else "0.9.6-dictai"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -62,6 +69,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("org.apache.commons:commons-compress:1.27.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")

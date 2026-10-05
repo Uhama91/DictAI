@@ -35,12 +35,32 @@ request the note-capture feature.
 DictAI is not designed to monitor browsing, collect screen content for
 analytics, or perform background automation.
 
-## Data collection
+## Optional account and device synchronization
 
-I do not run a backend for DictAI and do not collect user accounts, analytics,
-crash reports, or uploaded recordings. Dictation drafts and notes remain in the
-app's local storage. Captures stay local unless you explicitly save them to
-Photos or export or share them.
+DictAI works locally without an account. If you choose to sign in with Google,
+Supabase Auth hosts your account identifier and email address. Supabase hosts
+your vocabulary, shared preferences, personal formats, saved folders, notes,
+and the original images attached to those notes so your devices can retrieve
+them. Existing saved content on a device is included when that device connects.
+
+Database policies isolate each user's rows. Images use a private storage bucket
+and authenticated downloads. Network exchanges use HTTPS. Account credentials
+are encrypted on the device using AndroidKeyStore; API keys, audio recordings,
+unfinished dictation drafts, model installations, permissions, and overlay
+positions are excluded from account synchronization. Hosted content is not
+end-to-end encrypted; the hosting operator can administer the stored content.
+
+Signing out stops exchanges on that device and removes its session. It retains
+local notes and preferences, and does not delete the hosted account or content.
+Deleted items are retained as synchronization tombstones, and older device
+replicas or private image objects can retain previous content. For hosted
+account deletion, contact the project maintainer through the repository link
+below. Client-side account deletion and automatic image-retention cleanup are
+not included in this initial version.
+
+DictAI does not collect analytics, crash reports, or uploaded audio recordings.
+Without account synchronization, notes and captures remain local unless you
+explicitly export, save, or share them.
 
 OpenRouter and the model provider selected through it may process the transcript
 text, selected formatting instructions, and configured vocabulary or protected

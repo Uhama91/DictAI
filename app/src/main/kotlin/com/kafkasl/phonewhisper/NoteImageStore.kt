@@ -138,6 +138,43 @@ internal class NoteImageStore(context: Context) {
     }
     fun delete(id: String) { file(id).delete(); thumbnail(id).delete(); cameraFile(id).delete() }
 
+    /** Saved conflict copies, draft anchors and pending capture receipts can share one original. */
+    fun deleteIfUnreferenced(id: String): Boolean {
+        require(NoteImage.validId(id))
+        val referenced = try {
+            fun imageId(item: JSONObject): String = item.get("id") as? String ?: error("Invalid image reference")
+            fun images(array: JSONArray): Boolean = (0 until array.length()).any { index -> imageId(array.getJSONObject(index)) == id }
+            val saved = appContext.getSharedPreferences("transcript_notes", Context.MODE_PRIVATE).all.values.any { raw ->
+                require(raw is String)
+                BoundedSyncJson.check(raw)
+                val note = JSONObject(raw)
+                note.has("images") && images(note.getJSONArray("images"))
+            }
+            val draftRaw = appContext.getSharedPreferences("dictation_draft", Context.MODE_PRIVATE).getString("captures", null)
+            val draft = draftRaw?.let { raw ->
+                BoundedSyncJson.check(raw)
+                val records = JSONArray(raw)
+                (0 until records.length()).any { index ->
+                    val capture = records.getJSONObject(index)
+                    imageId(capture) == id || capture.has("image") && imageId(capture.getJSONObject("image")) == id
+                }
+            } ?: false
+            val pending = prefs.getString("pending", null)?.let { raw ->
+                BoundedSyncJson.check(raw)
+                val receipt = JSONObject(raw)
+                imageId(receipt) == id || receipt.has("image") && imageId(receipt.getJSONObject("image")) == id ||
+                    receipt.has("images") && images(receipt.getJSONArray("images"))
+            } ?: false
+            saved || draft || pending
+        } catch (_: Exception) {
+            // A corrupt receipt cannot establish that an original is unused. Leave it recoverable.
+            true
+        }
+        if (referenced) return false
+        delete(id)
+        return true
+    }
+
     /** Called on a worker, never the audio or UI thread. ImageDecoder also applies EXIF orientation. */
     fun importCamera(id: String, kind: NoteImageKind? = null) {
         val input = cameraFile(id)

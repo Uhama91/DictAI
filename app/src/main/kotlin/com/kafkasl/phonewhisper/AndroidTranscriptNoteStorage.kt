@@ -48,6 +48,6 @@ internal class AndroidTranscriptNoteStorage(context: Context) : TranscriptNoteSt
     override fun remove(id: String) {
         val old = all().firstOrNull { it.id == id }
         prefs.edit().remove(id).apply()
-        old?.images?.forEach { imageStore.delete(it.id) }
+        old?.images?.forEach { imageStore.deleteIfUnreferenced(it.id) }
     }
 }

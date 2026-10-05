@@ -1,0 +1,13 @@
+{
+  "branch": "codex/device-preferences-sync",
+  "tests": {
+    "tests": 713,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "build": "assembleDebug passed; signature and ELF/ZIP 16 KB alignment verified",
+  "hosted_sql": "both migrations deployed; two temporary account sessions and private JPEG checks passed",
+  "google": "policy consent and OAuth client creation pending",
+  "physical_devices": "not connected"
+}

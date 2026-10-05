@@ -18,3 +18,6 @@ app/src/localFormatPrototype/assets/local-format/*.part
 
 # CI download staging
 dist/
+
+# Local Supabase CLI metadata
+supabase/.temp/

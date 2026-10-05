@@ -271,6 +271,20 @@ class OverlayService : Service() {
     private var recoveredDraft: String? = null
     private val notes by lazy { TranscriptNotes(AndroidTranscriptNoteStorage(this)) }
     private var activeNoteId: String? = null
+    private var notesMenuVisible = false
+    private var refreshingSyncedNotesMenu = false
+    private val synchronizedData = {
+        notes.reloadFromStorage()
+        val replacement = draftStore.noteId
+        if (activeNoteId != replacement && replacement != null && notes.get(replacement) != null) {
+            activeNoteId = replacement
+        }
+        refreshNoteImages()
+        if (notesMenuVisible && floatingMenu != null) {
+            refreshingSyncedNotesMenu = true
+            try { showNotesOverlay(notesView) } finally { refreshingSyncedNotesMenu = false }
+        }
+    }
     private sealed class NotesView {
         data object Root : NotesView()
         data object Unfiled : NotesView()
@@ -394,6 +408,7 @@ class OverlayService : Service() {
         refreshNoteImages()
         ensureLocalLoaded()
         warmLocalFormatter()
+        PreferenceSyncCoordinator.get(this).observeData(synchronizedData)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -4293,6 +4308,7 @@ class OverlayService : Service() {
     )
 
     private fun dismissFloatingMenu() {
+        notesMenuVisible = false
         floatingMenu?.let { runCatching { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } }
         floatingMenu = null
         formatMenuRows = emptyList()
@@ -4376,6 +4392,7 @@ class OverlayService : Service() {
     }
 
     private fun showNotesOverlay(view: NotesView = NotesView.Root) {
+        if (!refreshingSyncedNotesMenu) PreferenceSyncCoordinator.get(this).requestSync()
         if (hasImageCaptureInFlight()) { toast("Terminez l’ajout des images en attente."); return }
         val actualView = when (view) {
             is NotesView.Folder -> if (notes.getFolder(view.id) == null) NotesView.Root else view
@@ -4431,6 +4448,7 @@ class OverlayService : Service() {
             is NotesView.Folder -> notes.getFolder(actualView.id)?.name ?: "Mes notes"
         }
         showFloatingMenu(title, entries)
+        notesMenuVisible = floatingMenu != null
         maybePromptFolderChoice()
     }
 
@@ -4790,6 +4808,7 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        PreferenceSyncCoordinator.get(this).unobserveData(synchronizedData)
         invalidateNoteInsertion()
         resetVocabularyLearning()
         cancelPanelTransition()
