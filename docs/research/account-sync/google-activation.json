@@ -1,0 +1,16 @@
+{
+  "google_provider_enabled": true,
+  "public_settings_verified": true,
+  "authorize_pkce_redirect": "302 to accounts.google.com with expected client and callback",
+  "scopes": [
+    "email",
+    "openid",
+    "profile"
+  ],
+  "email_provider_enabled": false,
+  "anonymous_provider_enabled": false,
+  "native_callback_allowlist_preserved": true,
+  "google_signin_completed": false,
+  "verified_on": "2026-10-06",
+  "google_browser_preflight": "account chooser reached, expected Supabase domain; no account selected"
+}

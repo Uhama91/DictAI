@@ -34,9 +34,9 @@
 3. [x] Transport : `SupabasePreferenceTransport.kt` et tests HTTP avec MockWebServer. Vérifier la pagination complète, les UUID, les limites et l’absence de jetons dans les URL.
 4. [x] Compte : client Auth PKCE, session chiffrée et tests du retour OAuth, du renouvellement et des erreurs. Un code reçu sans vérificateur doit être refusé avant tout HTTP.
 5. [x] Coordination et interface : observation des préférences, WorkManager, écran de compte et intégration aux préférences. Tester le refus des réponses après déconnexion, puis produire et inspecter les rendus natifs.
-6. [ ] Hébergement : migration PostgreSQL, test RLS à deux utilisateurs et guide de configuration Google/Supabase. La connexion réelle reste désactivée tant que les valeurs publiques ne sont pas configurées.
+6. [x] Hébergement : migrations PostgreSQL, test RLS à deux utilisateurs et configuration Google/Supabase. Client Web créé, scopes d’identité déclarés et fournisseur Google actif ; redirection OAuth PKCE vers Google vérifiée.
 7. [x] Vérification finale : suite JVM/Robolectric complète, APK, revue indépendante et compte rendu avec captures. Indiquer explicitement l’état du déploiement et des essais physiques.
 
 ## État de livraison
 
-713 tests JVM/Robolectric et APK vérifiés. Les deux migrations et le bucket privé sont déployés sur le projet dédié Paris, avec isolation réelle entre deux sessions Auth. La marque Google attend l’acceptation de son règlement puis la confirmation de création du client OAuth. Le parcours Google de l’APK et les essais physiques restent à réaliser après activation.
+714 tests JVM/Robolectric et APK du 6 octobre 2026 vérifiés. Les deux migrations et le bucket privé sont déployés sur le projet dédié Paris, avec isolation réelle entre deux sessions Auth. Le client Google et son fournisseur Supabase sont actifs ; les scopes se limitent à l’identité. La redirection OAuth PKCE vers le client et le retour attendus est vérifiée. Le retour de connexion dans l’APK et les essais physiques sur deux appareils restent à réaliser.

@@ -43,6 +43,7 @@ internal class SupabaseAccountAuth(private val baseUrl: HttpUrl, private val pub
     }
     fun authorizeUrl(attempt: AccountOAuthAttempt): HttpUrl = baseUrl.newBuilder()
         .addPathSegments("auth/v1/authorize").addQueryParameter("provider", "google")
+        .addQueryParameter("scopes", "openid")
         .addQueryParameter("redirect_to", CALLBACK + "?flow=" + attempt.state)
         .addQueryParameter("code_challenge", challenge(attempt.verifier))
         .addQueryParameter("code_challenge_method", "s256").addQueryParameter("prompt", "select_account").build()

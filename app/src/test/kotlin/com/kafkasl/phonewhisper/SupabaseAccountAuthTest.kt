@@ -36,6 +36,11 @@ class SupabaseAccountAuthTest {
         assertTrue(url.queryParameter("redirect_to")!!.startsWith(SupabaseAccountAuth.CALLBACK + "?flow="))
         assertFalse(url.toString().contains(first.verifier))
     }
+    @Test fun authorizationRequestsOpenIdWithoutAdditionalGoogleScopes() {
+        val url = auth.authorizeUrl(attempt)
+        assertEquals(listOf("openid"), url.queryParameterValues("scopes"))
+        assertEquals(0, server.requestCount)
+    }
     @Test fun callbackAcceptsOnlyPendingFlowOnExactCallback() {
         assertEquals("code", auth.callbackCode("${SupabaseAccountAuth.CALLBACK}?flow=${attempt.state}&code=code", attempt, 1100))
         listOf(
