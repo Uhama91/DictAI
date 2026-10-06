@@ -1,0 +1,21 @@
+{
+  "run_id": 37414940318,
+  "apk": "dictai-debug.apk",
+  "bytes": 90329468,
+  "sha256": "4f5d7579dd1521bfbd61740ac84d2c2d6bc2b65e2b93362aa17516259849f62d",
+  "checksum": "PASS",
+  "identity": "com.uhama.whisperpin / 35 / 0.9.6-dictai",
+  "signature": "PASS; certificate matches local preview",
+  "elf_alignment": "All 12 native libraries have 16 KB ELF alignment, are stored, and are allowed.",
+  "zip_16kb_alignment": "PASS",
+  "supabase_public_config": "PASS",
+  "google_openid_code": "present",
+  "private_credentials": "none detected",
+  "physical_sync": "not tested",
+  "run_url": "https://github.com/Uhama91/DictAI/actions/runs/37414940318",
+  "artifact_id": 11389979602,
+  "artifact_url": "https://github.com/Uhama91/DictAI/actions/runs/37414940318/artifacts/11389979602",
+  "source_commit": "be76744ede58efaf8028b24ff923d4cc854ba4d5",
+  "workflow_conclusion": "success",
+  "verified_on": "2026-10-06"
+}
