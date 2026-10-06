@@ -1,0 +1,30 @@
+{
+  "verified_on": "2026-10-06",
+  "device": "isolated Android 36 ARM64 emulator",
+  "physical_tablet": "not connected; installed version unconfirmed",
+  "baseline": "official Gemma3 release 35863131841 / code 41 / same certificate",
+  "reproduction": "INSTALL_FAILED_VERSION_DOWNGRADE: update code 35 is older than current 41",
+  "update": "PASS; adb install -r, no uninstall, code 42 / 0.9.13-dictai",
+  "data_retention": "PASS; note, folder, original JPEG, vocabulary and marker preserved through update and app launch",
+  "fixture_hashes_before": {
+    "shared_prefs/transcript_notes.xml": "2423037fe9b21c5306a9394d7ef7aa2bf8d490e9e7bb31ae432047099884584e",
+    "shared_prefs/transcript_note_folders.xml": "3f8d0d59bc5fea4d71d4cfdc8e337efada79788e2285ba9198af01891ee7b459",
+    "shared_prefs/whisperpin.xml": "b0b795c504c9acab9f33d8edac10134131609917828209bcbdc97ea20610a9f6",
+    "files/note_images/eb32b095-77b4-40c5-b988-2918d8db5403.jpg": "dec819703d3e749cbf4cf407f65b11ad1313153cca9b1e67cdf6795626cc9845"
+  },
+  "fixture_hashes_after_install": {
+    "shared_prefs/transcript_notes.xml": "2423037fe9b21c5306a9394d7ef7aa2bf8d490e9e7bb31ae432047099884584e",
+    "shared_prefs/transcript_note_folders.xml": "3f8d0d59bc5fea4d71d4cfdc8e337efada79788e2285ba9198af01891ee7b459",
+    "shared_prefs/whisperpin.xml": "b0b795c504c9acab9f33d8edac10134131609917828209bcbdc97ea20610a9f6",
+    "files/note_images/eb32b095-77b4-40c5-b988-2918d8db5403.jpg": "dec819703d3e749cbf4cf407f65b11ad1313153cca9b1e67cdf6795626cc9845"
+  },
+  "app_launch": "PASS; MainActivity Status: ok, no package crash",
+  "local_tests": {
+    "tests": 714,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "local_apk_sha256": "c00ed8aa7f2c13cb1a65dfb1f0e49ab8ad58512bc6185bdf0c4b7aa0d7ae3350",
+  "scope": "Versioning fix for account-sync build; experimental Gemma3 pilot behavior is not added to the normal build."
+}
