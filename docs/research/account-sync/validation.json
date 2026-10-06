@@ -10,6 +10,9 @@
   "hosted_sql": "both migrations deployed; two temporary account sessions and private JPEG checks passed",
   "google": "provider active; PKCE redirect and Google account chooser verified; app sign-in and physical devices pending",
   "physical_devices": "not connected",
-  "apk": "dictai-device-sync-preview-2026-10-06.apk",
-  "verified_on": "2026-10-06"
+  "apk": "dictai-actions-37532917271/dictai-debug.apk",
+  "verified_on": "2026-10-06",
+  "initial_preview_apk": "dictai-device-sync-preview-2026-10-06.apk",
+  "apk_version": "0.9.13-dictai / code 42",
+  "update_install": "PASS; isolated Android 36 ARM64, existing note/folder/JPEG/vocabulary preserved"
 }

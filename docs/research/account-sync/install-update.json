@@ -25,6 +25,10 @@
     "errors": 0,
     "skipped": 0
   },
-  "local_apk_sha256": "c00ed8aa7f2c13cb1a65dfb1f0e49ab8ad58512bc6185bdf0c4b7aa0d7ae3350",
+  "actions_apk_sha256": "6e9bcd7b881232dc92bd0fd811856979878df77ccd1ef34d21ef427f561e8d08",
+  "actions_run_id": 37532917271,
+  "actions_artifact_id": 11445437796,
+  "source_commit": "25b1e533fc58b1888114c619e6598402ba5989b2",
+  "actions_conclusion": "success",
   "scope": "Versioning fix for account-sync build; experimental Gemma3 pilot behavior is not added to the normal build."
 }
