@@ -80,7 +80,9 @@ class AccountSyncActivityTest {
             val bitmap = Bitmap.createBitmap(390, 844, Bitmap.Config.ARGB_8888)
             try {
                 root.draw(Canvas(bitmap))
-                File("build/robolectric-renders/account-entry.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                File("build/robolectric-renders/account-entry.png").apply { parentFile!!.mkdirs() }.outputStream().use {
+                    assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                }
             } finally { bitmap.recycle() }
         } finally {
             controller.destroy()
