@@ -296,6 +296,7 @@ class OverlayService : Service() {
     private val noteInsertionGate = NoteInsertionGate()
     private var noteInsertionDialog: AlertDialog? = null
     private var noteInsertButton: TextView? = null
+    private var noteBackButton: TextView? = null
     private var noteDoneButton: TextView? = null
     private val imageStore by lazy { NoteImageStore(this) }
     private val imageBlockRenderer by lazy { TranscriptImageBlockRenderer(this) }
@@ -1012,7 +1013,7 @@ class OverlayService : Service() {
                 val saved = saveNoteWithCaptures(text)
                 run.afterCompletion = {
                     toast("Note enregistrée : ${saved.title}")
-                    showNotesOverlay()
+                    showSavedNoteLocation(saved)
                 }
                 completeRunOnMain(run)
             }
@@ -1126,7 +1127,7 @@ class OverlayService : Service() {
                     if (destination != NoteInteractionPolicy.Destination.MESSAGE) {
                         val saved = saveNoteWithCaptures(outText ?: rawTranscriptText())
                         run.afterCompletion = {
-                            if (destination == NoteInteractionPolicy.Destination.NOTE_LIST) showNotesOverlay()
+                            if (destination == NoteInteractionPolicy.Destination.NOTE_LIST) showSavedNoteLocation(saved)
                             else {
                                 openNote(saved)
                                 if (destination == NoteInteractionPolicy.Destination.NOTE_EXPORT)
@@ -1468,7 +1469,7 @@ class OverlayService : Service() {
                     }
                 }
             }
-            listOfNotNull(noteInsertButton, noteDoneButton).forEach { it.setTextColor(colors.green) }
+            listOfNotNull(noteBackButton, noteInsertButton, noteDoneButton).forEach { it.setTextColor(colors.green) }
 
             mediaButtons.forEach { button ->
                 button.imageTintList = ColorStateList.valueOf(colors.ink)
@@ -2146,8 +2147,10 @@ class OverlayService : Service() {
             contentDescription = "Format choisi : $formatLabel"
         }
         noteInsertButton?.visibility = if (inNote) View.VISIBLE else View.GONE
+        noteBackButton?.visibility = if (inNote) View.VISIBLE else View.GONE
         noteDoneButton?.visibility = if (inNote) View.VISIBLE else View.GONE
-        listOfNotNull(noteInsertButton, noteDoneButton).forEach {
+        noteBackButton?.contentDescription = "Retour aux notes en conservant les modifications"
+        listOfNotNull(noteBackButton, noteInsertButton, noteDoneButton).forEach {
             it.isEnabled = isTranscriptEditable()
             it.alpha = if (it.isEnabled) 1f else .45f
         }
@@ -2585,7 +2588,23 @@ class OverlayService : Service() {
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> tailFollower?.resized() }
         }
         tailFollower = TranscriptTailFollower(liveView, scroll, editing = { liveView.isEditing }) { state == State.RECORDING && activeRun != null }
-        val panelBody = FrameLayout(this).apply {
+        val panelBody = object : FrameLayout(this) {
+            private val backGesture = RightSwipeBackGesture(this@OverlayService)
+            override fun dispatchTouchEvent(event: MotionEvent): Boolean = backGesture.dispatch(
+                event,
+                canBegin = {
+                    purpose == DictationPurpose.NOTE && exportPanel == null && !liveView.hasSelection() &&
+                        event.y >= scroll.top && event.y < scroll.bottom &&
+                        event.x >= scroll.left && event.x < scroll.right &&
+                        panelResizeHandles.values.none { handle ->
+                            handle.visibility == View.VISIBLE && event.x >= handle.left && event.x < handle.right &&
+                                event.y >= handle.top && event.y < handle.bottom
+                        }
+                },
+                dispatchToChildren = { super.dispatchTouchEvent(it) },
+                goBack = ::archiveOrShowNotes,
+            )
+        }.apply {
             background = GradientDrawable().apply {
                 cornerRadius = 24 * dp
                 setColor(overlayPalette.surface)
@@ -2736,6 +2755,7 @@ class OverlayService : Service() {
                 leftMargin = (3 * dp).toInt(); rightMargin = (3 * dp).toInt()
             })
         }
+        noteBackButton = editorAction("‹ Retour", ::archiveOrShowNotes)
         noteInsertButton = editorAction("Insérer…", ::requestNoteInsertion)
         noteDoneButton = editorAction("Terminer", ::archiveOrShowNotes)
         editorActionsRow = editorActions
@@ -4062,7 +4082,7 @@ class OverlayService : Service() {
                 runCatching { editor.setSelection(start, end) }
             }
         }
-        if (resume.fromNotesMenu) showNotesOverlay()
+        if (resume.fromNotesMenu) showNotesOverlay(notesView)
     }
 
     /** Explicit note action promotes the draft's images and inserts their positional references. */
@@ -4163,10 +4183,20 @@ class OverlayService : Service() {
             run.resumeAfterPause = false
             if (state != State.PAUSING) stopRec()
         } else if (recoveredDraft != null) {
-            saveNoteWithCaptures(rawTranscriptText())
+            val saved = saveNoteWithCaptures(rawTranscriptText())
             clearOpenDraft()
-            showNotesOverlay()
+            showSavedNoteLocation(saved)
         } else showNotesOverlay()
+    }
+
+    private fun showSavedNoteLocation(note: TranscriptNote) {
+        showNotesOverlay(noteListLocation(notes.get(note.id) ?: note))
+    }
+
+    private fun noteListLocation(note: TranscriptNote): NotesView = when {
+        note.folderId != null -> NotesView.Folder(note.folderId)
+        notesView == NotesView.Unfiled -> NotesView.Unfiled
+        else -> NotesView.Root
     }
 
     private fun openNote(note: TranscriptNote) {
@@ -4175,6 +4205,7 @@ class OverlayService : Service() {
         releaseTranscriptFocus()
         resetVocabularyLearning()
         dismissFloatingMenu()
+        notesView = noteListLocation(note)
         purpose = DictationPurpose.NOTE
         draftStore.purpose = purpose
         activeNoteId = note.id
@@ -4318,14 +4349,22 @@ class OverlayService : Service() {
         formatMenuSwipeMode = false
     }
 
-    private fun showFloatingMenu(title: String, entries: List<MenuEntry>, above: Boolean = false) {
+    private fun showFloatingMenu(title: String, entries: List<MenuEntry>, above: Boolean = false, goBack: (() -> Unit)? = null) {
         dismissFloatingMenu()
         releaseTranscriptFocus()
         val dp = resources.displayMetrics.density
         val screen = screenRect()
         val width = minOf((320 * dp).toInt(), screen.width)
         val height = minOf(((entries.sumOf { if (it.metadata != null) 144 else 64 }.coerceAtLeast(64) + 56) * dp).toInt(), (screen.height * .65f).toInt())
-        val root = LinearLayout(this).apply {
+        val root = object : LinearLayout(this) {
+            private val backGesture = RightSwipeBackGesture(this@OverlayService)
+            override fun dispatchTouchEvent(event: MotionEvent): Boolean = backGesture.dispatch(
+                event,
+                canBegin = { goBack != null },
+                dispatchToChildren = { super.dispatchTouchEvent(it) },
+                goBack = { goBack?.invoke() },
+            )
+        }.apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply { cornerRadius = 24 * dp; setColor(overlayPalette.surface); setStroke(dp.toInt().coerceAtLeast(1), overlayPalette.stroke) }
             setPadding((6 * dp).toInt(), 0, (6 * dp).toInt(), (6 * dp).toInt())
@@ -4447,7 +4486,9 @@ class OverlayService : Service() {
             NotesView.Unfiled -> "Sans dossier"
             is NotesView.Folder -> notes.getFolder(actualView.id)?.name ?: "Mes notes"
         }
-        showFloatingMenu(title, entries)
+        showFloatingMenu(title, entries, goBack = if (actualView == NotesView.Root) null else {
+            { showNotesOverlay(NotesView.Root) }
+        })
         notesMenuVisible = floatingMenu != null
         maybePromptFolderChoice()
     }
@@ -4635,7 +4676,7 @@ class OverlayService : Service() {
             onChoice = { folderId ->
                 notes.chooseFolder(note.id, folderId)
                 pendingFolderChoiceNoteId = null
-                showNotesOverlay(notesView)
+                showSavedNoteLocation(notes.get(note.id) ?: note)
             },
         )
     }

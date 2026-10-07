@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-07",
+  "tests": {
+    "tests": 727,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "build": "assembleDebug: BUILD SUCCESSFUL",
+  "apk": "/Users/ulliemaillot/Downloads/dictai-retour-dossiers-2026-10-07.apk",
+  "sha256": "c08473d5c99bc55683907e012e0019d222fa9cfe3ae9079cefc8566bdb17c49b",
+  "applicationId": "com.uhama.whisperpin",
+  "versionName": "0.9.13-dictai",
+  "versionCode": 42,
+  "signature": "apksigner verify: passed",
+  "zipAlignment": "zipalign -c -P 16 4: passed",
+  "emulator": "Android 36 arm64, emulator-5580, read-only isolated AVD",
+  "physicalDeviceValidated": false,
+  "githubActionsPublished": false,
+  "fixturePreserved": true
+}
