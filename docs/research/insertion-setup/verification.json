@@ -10,5 +10,6 @@
   "versionCode": 43,
   "physicalPad7ChatGPT": "NOT_TESTED",
   "androidServiceTests": "3 PASS on Android 36 emulator; original failure reproduced before fix",
-  "directSettingsRoute": "Rejected on Android 36: requires system OPEN_ACCESSIBILITY_DETAILS_SETTINGS. Public route used instead."
+  "directSettingsRoute": "Rejected on Android 36: requires system OPEN_ACCESSIBILITY_DETAILS_SETTINGS. Public route used instead.",
+  "publicSettingsReconnectFlow": "PASS: app help -> Android accessibility -> off/on -> service bound, no crashed service, onboarding shows connected"
 }

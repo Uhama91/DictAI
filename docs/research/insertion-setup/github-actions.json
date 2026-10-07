@@ -1,0 +1,23 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-10-07T14:53:31Z",
+  "databaseId": 37640517865,
+  "headSha": "c22d94d165f32292f0c2b6d1bcecb03e8b3b82cc",
+  "status": "completed",
+  "updatedAt": "2026-10-07T15:02:31Z",
+  "url": "https://github.com/Uhama91/DictAI/actions/runs/37640517865",
+  "artifactName": "dictai-debug-apk",
+  "artifactId": 11492771771,
+  "artifactUrl": "https://github.com/Uhama91/DictAI/actions/runs/37640517865/artifacts/11492771771",
+  "apkSha256": "203a2be17617284e054038f55fb78dad1c5f9c23b463f94cd651b5833efe831b",
+  "apkBytes": 90362232,
+  "package": "com.uhama.whisperpin",
+  "versionName": "0.9.14-dictai",
+  "versionCode": 43,
+  "downloadChecksum": "PASS",
+  "signature": "PASS",
+  "certificateSha256": "6b37c02704d31553b275a9a5f23c8eb650df04cd59f7b28074e6f2dcadbf9539",
+  "zipAlignment16KB": "PASS",
+  "nativeLibraries12Alignment": "PASS",
+  "physicalPad7ChatGPT": "NOT_TESTED"
+}

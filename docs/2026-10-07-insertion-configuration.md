@@ -55,6 +55,14 @@ Captures de l’émulateur Android : l’autorisation reste activée tandis que 
 |---|---|
 | ![Assistant Android et état de connexion](research/insertion-setup/android-onboarding-top.png) | ![Reconnexion et étapes facultatives](research/insertion-setup/android-onboarding-bottom.png) |
 
+La désactivation puis réactivation dans les réglages publics Android reconnecte le service. Au retour, l’étape se valide automatiquement :
+
+![Insertion reconnectée sur Android](research/insertion-setup/android-reconnected.png)
+
 Vérification locale : **735 tests JVM/Robolectric réussis**, compilation APK et trois tests Android réels réussis (champ vide standard, champ vide sans collage, conservation du texte déjà saisi).
 
 Les résultats détaillés et les preuves Android sont enregistrés dans `docs/research/insertion-setup/`. La validation physique Pad 7 / ChatGPT reste nécessaire.
+
+## APK vérifié
+
+**DictAI 0.9.14, code 43** : [télécharger l’artefact APK](https://github.com/Uhama91/DictAI/actions/runs/37640517865/artifacts/11492771771). [GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/37640517865) a terminé avec succès sur le commit `c22d94d165f32292f0c2b6d1bcecb03e8b3b82cc`. L’APK téléchargé a été vérifié : SHA-256 conforme, signature identique aux versions précédentes et alignement ZIP/ELF 16 Ko valide pour les 12 bibliothèques natives.
