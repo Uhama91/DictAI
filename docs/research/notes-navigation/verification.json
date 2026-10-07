@@ -16,6 +16,8 @@
   "zipAlignment": "zipalign -c -P 16 4: passed",
   "emulator": "Android 36 arm64, emulator-5580, read-only isolated AVD",
   "physicalDeviceValidated": false,
-  "githubActionsPublished": false,
-  "fixturePreserved": true
+  "githubActionsPublished": true,
+  "fixturePreserved": true,
+  "githubActionsRunId": 37596161369,
+  "githubActionsReport": "github-actions.json"
 }
