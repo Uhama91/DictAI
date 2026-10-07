@@ -1139,12 +1139,7 @@ class OverlayService : Service() {
                         activeNoteId?.let { notes.save(it, outText) }
                         Log.i(TAG, "event=dictation_publish stop_to_text_ms=${if (run.stoppedAtMs > 0) SystemClock.elapsedRealtime() - run.stoppedAtMs else -1}")
                         val result = runCatching {
-                            injectOrCopy(
-                                controller = InjectionGateway.current(),
-                                text = outText,
-                                copyToClipboard = { DictationClipboard.copy(this, it) },
-                                preserveClipboardOnDirectInsert = preserveImageClipboard,
-                            )
+                            InsertionDiagnostics.insert(this, outText, preserveImageClipboard)
                         }.getOrElse {
                             Log.w(TAG, "event=injection outcome=failure type=${it.javaClass.simpleName}")
                             InjectionResult.Failed
@@ -4248,7 +4243,7 @@ class OverlayService : Service() {
         main.post {
             if (localEngineLifecycle.isDestroyed() || purpose != DictationPurpose.MESSAGE || state != State.TRANSCRIBING) return@post
             val result = runCatching {
-                injectOrCopy(InjectionGateway.current(), text, { DictationClipboard.copy(this, it) }, preserveClipboardOnDirectInsert = preserveImageClipboard)
+                InsertionDiagnostics.insert(this, text, preserveImageClipboard)
             }.getOrDefault(InjectionResult.Failed)
             injectionFeedbackMessage(result)?.let(::toast)
             if (result != InjectionResult.Failed) {
@@ -4311,8 +4306,7 @@ class OverlayService : Service() {
                     val text = noteInsertionGate.consume(request, activeNoteId, rawTranscriptText())
                     if (text != null) {
                         val result = runCatching {
-                            injectOrCopy(InjectionGateway.current(), text, { DictationClipboard.copy(this, it) },
-                                preserveClipboardOnDirectInsert = preserveImageClipboard)
+                            InsertionDiagnostics.insert(this, text, preserveImageClipboard)
                         }.getOrDefault(InjectionResult.Failed)
                         if (result != InjectionResult.Failed) preserveImageClipboard = false
                         toast(injectionFeedbackMessage(result) ?: "Texte inséré. Votre note est conservée.")

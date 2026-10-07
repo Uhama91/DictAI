@@ -71,6 +71,11 @@ internal fun composeDirectSetText(
     selectionEnd: Int,
     dictatedText: String,
 ): String? {
+    // An explicitly empty editor has nothing to overwrite, even when it exposes no cursor.
+    // Null is still unknown: some apps withhold their text, so never treat it as empty here.
+    if (currentText != null && currentText.isEmpty() && selectionStart in -1..0 && selectionEnd in -1..0) {
+        return dictatedText
+    }
     if (currentText == null) {
         return dictatedText.takeIf { selectionStart == 0 && selectionEnd == 0 }
     }

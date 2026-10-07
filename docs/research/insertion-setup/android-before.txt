@@ -1,0 +1,23 @@
+
+com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest:.
+Error in insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest):
+java.lang.AssertionError: Accessibility service must insert into the focused external editor expected:<Inserted> but was:<Copied>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotEquals(Assert.java:835)
+	at org.junit.Assert.assertEquals(Assert.java:120)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.assertInsertion(AccessibilityInsertionAndroidTest.kt:43)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(AccessibilityInsertionAndroidTest.kt:27)
+.
+
+Time: 6.154
+There was 1 failure:
+1) insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest)
+java.lang.AssertionError: Accessibility service must insert into the focused external editor expected:<Inserted> but was:<Copied>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotEquals(Assert.java:835)
+	at org.junit.Assert.assertEquals(Assert.java:120)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.assertInsertion(AccessibilityInsertionAndroidTest.kt:43)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(AccessibilityInsertionAndroidTest.kt:27)
+
+FAILURES!!!
+Tests run: 3,  Failures: 1

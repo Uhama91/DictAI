@@ -33,8 +33,8 @@ android {
         buildConfigField("String", "SYNC_SUPABASE_PUBLISHABLE_KEY", quotedConfig(syncPublishableKey.get()))
         // The same applicationId was also published by the Gemma pilots up to code 41.
         // Keep updates newer than those builds so Android preserves the installed app's data.
-        versionCode = 42
-        versionName = if (localFormatPrototype) "0.9.13-dictai-gemma-test" else "0.9.13-dictai"
+        versionCode = 43
+        versionName = if (localFormatPrototype) "0.9.14-dictai-gemma-test" else "0.9.14-dictai"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }

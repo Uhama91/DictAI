@@ -9,6 +9,12 @@ import org.junit.Test
 
 class InjectionControllerTest {
 
+    @Test fun `explicitly empty editors can be filled without a reported cursor`() {
+        assertEquals("bonjour", composeDirectSetText("", -1, -1, "bonjour"))
+        assertNull(composeDirectSetText("texte existant", -1, -1, "bonjour"))
+        assertNull(composeDirectSetText(null, -1, -1, "bonjour"))
+    }
+
     @Test fun `direct text composition accepts only safe null text and valid selections`() {
         assertEquals(
             "texte dicté",

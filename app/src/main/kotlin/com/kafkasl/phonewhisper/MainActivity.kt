@@ -3,7 +3,6 @@ package com.kafkasl.phonewhisper
 // Modified from Phone Whisper by kafkasl for DictAI; see repository NOTICE.
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -14,7 +13,6 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
-import android.view.accessibility.AccessibilityManager
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -386,7 +384,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(audioRow)
         val accessibilityStatus = accessibilityServiceStatus()
         val accRow = settingsRow("Insertion automatique et captures d’écran", accessibilityStatus.subtitle) {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            AccessibilitySetup.showHelp(this)
         }
         accRowSub = accRow.findViewWithTag("subtitle")
         root.addView(accRow)
@@ -411,6 +409,9 @@ class MainActivity : AppCompatActivity() {
         root.addView(overlayRow)
 
         root.addView(sectionHeader("Diagnostic"))
+        root.addView(settingsRow("Dernière insertion", "Comprendre un échec et retrouver les réglages") {
+            InsertionDiagnostics.show(this)
+        })
         root.addView(settingsRow("Dernier post-traitement", "Diagnostic copiable conservé après la dictée") {
             showPostprocessingDiagnostic()
         })
@@ -1088,21 +1089,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hasPerm(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
 
-    private fun accessibilityServiceStatus(): AccessibilityServiceStatus {
-        val manager = getSystemService(AccessibilityManager::class.java)
-        val enabledInAndroid = runCatching {
-            manager?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-                ?.any { info ->
-                    val service = info.resolveInfo?.serviceInfo ?: return@any false
-                    service.packageName == packageName &&
-                        service.name == WhisperAccessibilityService::class.java.name
-                } == true
-        }.getOrDefault(false)
-        return AccessibilityServiceStatus.resolve(
-            enabledInAndroid = enabledInAndroid,
-            connected = InjectionGateway.current() != null,
-        )
-    }
+    private fun accessibilityServiceStatus() = AccessibilitySetup.status(this)
 
     private fun overlayStatusLabel(): String = if (Settings.canDrawOverlays(this)) {
         "Autorisation accordée · afficher la pastille"

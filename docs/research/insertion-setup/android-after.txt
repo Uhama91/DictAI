@@ -1,0 +1,6 @@
+
+com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest:...
+
+Time: 4.028
+
+OK (3 tests)

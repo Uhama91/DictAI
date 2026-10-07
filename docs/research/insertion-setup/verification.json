@@ -1,0 +1,14 @@
+{
+  "localUnitTests": {
+    "tests": 735,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "build": "PASS",
+  "versionName": "0.9.14-dictai",
+  "versionCode": 43,
+  "physicalPad7ChatGPT": "NOT_TESTED",
+  "androidServiceTests": "3 PASS on Android 36 emulator; original failure reproduced before fix",
+  "directSettingsRoute": "Rejected on Android 36: requires system OPEN_ACCESSIBILITY_DETAILS_SETTINGS. Public route used instead."
+}

@@ -11,6 +11,8 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
 class WhisperAccessibilityService : AccessibilityService(), InjectionController {
+    internal var lastInsertionIssue: String? = null
+        private set
     companion object {
         private const val TAG = "WhisperPin"
         @Volatile internal var connected: WhisperAccessibilityService? = null
@@ -31,12 +33,22 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
     override fun onInterrupt() {}
 
     override fun onDestroy() {
-        if (connected === this) connected = null
-        InjectionGateway.unregister(this)
+        clearConnection()
         super.onDestroy()
     }
 
+    override fun onUnbind(intent: Intent?): Boolean {
+        clearConnection()
+        return super.onUnbind(intent)
+    }
+
+    private fun clearConnection() {
+        if (connected === this) connected = null
+        InjectionGateway.unregister(this)
+    }
+
     override fun inject(text: String): InjectionResult {
+        lastInsertionIssue = "Aucun champ accessible. Touchez le champ de l’application avant de dicter."
         val candidates = findInjectionCandidates()
         val selectedTarget = selectInjectionTarget(
             candidates = candidates,
@@ -49,12 +61,15 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
             orchestrateInjection(
                 directInsert = {
                     preparedTarget = selectedTarget?.let(::focusAndReadTarget)
+                    if (selectedTarget != null && preparedTarget == null) {
+                        lastInsertionIssue = "Le champ a perdu le focus ou n’est plus disponible. Touchez-le à nouveau avant de dicter."
+                    }
                     preparedTarget?.let { tryDirectSetText(it, text) } == true
                 },
                 targetSafety = { targetSafety(preparedTarget) },
                 prepareClipboard = { DictationClipboard.copy(this, text) },
                 paste = { preparedTarget?.node?.let(::tryPaste) == true },
-            )
+            ).also { if (it == InjectionResult.Inserted) lastInsertionIssue = null }
         } finally {
             candidates.forEach { it.recycle() }
         }
@@ -197,17 +212,25 @@ class WhisperAccessibilityService : AccessibilityService(), InjectionController 
     }
 
     private fun tryDirectSetText(target: PreparedTarget, text: String): Boolean {
+        lastInsertionIssue = "Ce champ ne permet pas l’écriture directe. Si le collage automatique est refusé, utilisez un appui long → Coller."
         if (!target.isEditable) return false
-        if (SensitiveInputPolicy.isSensitive(target.isPassword, target.inputType)) return false
+        if (SensitiveInputPolicy.isSensitive(target.isPassword, target.inputType)) {
+            lastInsertionIssue = "Champ protégé : l’insertion automatique est désactivée."
+            return false
+        }
         val node = target.node
+        lastInsertionIssue = "La position du curseur n’est pas fournie par l’application. Touchez le champ ou utilisez un appui long → Coller."
         val updated = composeDirectSetText(
-            currentText = node.text,
+            // Android may expose a placeholder as text with selection -1/-1.
+            // It is not user content and must neither block SET_TEXT nor be inserted with it.
+            currentText = if (node.isShowingHintText) "" else node.text,
             selectionStart = node.textSelectionStart,
             selectionEnd = node.textSelectionEnd,
             dictatedText = text,
         ) ?: return false
 
         logNode("Trying direct node", node)
+        lastInsertionIssue = "L’application refuse l’écriture dans ce champ. Utilisez un appui long → Coller."
         val args = Bundle().apply {
             putCharSequence(
                 AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
