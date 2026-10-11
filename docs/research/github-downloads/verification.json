@@ -1,0 +1,87 @@
+{
+  "checkedAt": "2026-10-11T15:44:33.070694+00:00",
+  "repository": "https://github.com/Uhama91/DictAI",
+  "visibility": "PUBLIC",
+  "defaultBranch": "main",
+  "readmeCommit": "6554072",
+  "readmeSha256": "d6fd96bcc4a7c63924fb7457f54b89524b92b1fdfa24dc7e5f4371312ffd7cca",
+  "tests": {
+    "manifest": 5,
+    "downloadTable": 7,
+    "failures": 0
+  },
+  "workflowRuns": [
+    {
+      "id": 38151738186,
+      "url": "https://github.com/Uhama91/DictAI/actions/runs/38151738186",
+      "commit": "87afce97ea822b832fd33009076e750c718d7202",
+      "event": "workflow_dispatch",
+      "conclusion": "success"
+    },
+    {
+      "id": 38151977361,
+      "url": "https://github.com/Uhama91/DictAI/actions/runs/38151977361",
+      "commit": "c3900ee5dd83b6931e0392ef81c9ae689685acf1",
+      "event": "workflow_dispatch",
+      "conclusion": "success"
+    }
+  ],
+  "automationWriteCommit": "a5a58bc2c72d5a01e84d6906d180050094f90b36",
+  "release": "https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-preview",
+  "assets": [
+    {
+      "name": "DictAI-android.apk",
+      "size": 58303264,
+      "digest": "sha256:03f08f71edc4db58e4c134d6f53473fe64ee5a9bbbb10947f4eb4548da5fd081",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/DictAI-android.apk"
+    },
+    {
+      "name": "DictAI-macOS.pkg",
+      "size": 2069549,
+      "digest": "sha256:1a613699365ad5ec05c90b7e29c9dc4e0b423643d149711117c1db2a05272d25",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/DictAI-macOS.pkg"
+    },
+    {
+      "name": "SHA256SUMS",
+      "size": 168,
+      "digest": "sha256:33471085d96def1bc3b69d8f0cd81cf4ea52f7a5f157d7d4ff1270444105d9bb",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/SHA256SUMS"
+    },
+    {
+      "name": "updates-preview.json",
+      "size": 933,
+      "digest": "sha256:326ad99a2540fe03fc256d7f8fb401a0366d242fca2d517e7e1975f7d9b79d02",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/updates-preview.json"
+    }
+  ],
+  "anonymousInstallerDownloads": {
+    "androidHttpStatus": 200,
+    "macosHttpStatus": 200
+  },
+  "stableUpdateFeedActivated": false,
+  "logo": {
+    "sha256": "fae62b18807d8c52c8f3745bb2b6098d5170f3f2c3ef4924d70dc67c6110c043",
+    "matchesApplicationIcon": true,
+    "url": "https://github.com/Uhama91/DictAI/blob/main/docs/logo.png"
+  },
+  "upstreamCreditsAtFooter": true,
+  "visualAudit": {
+    "browser": "Codex in-app browser via CUA",
+    "desktopVerified": true,
+    "phoneViewport": [
+      390,
+      844
+    ],
+    "phoneLinksVisibleWithoutHorizontalScroll": true,
+    "logoLoadedDimensions": [
+      1024,
+      1024
+    ],
+    "originsVerifiedAtFooter": true,
+    "screenshots": [
+      "renders/github-readme-current-desktop.jpg",
+      "renders/github-readme-current-mobile.jpg",
+      "renders/github-readme-origins.jpg"
+    ]
+  }
+}

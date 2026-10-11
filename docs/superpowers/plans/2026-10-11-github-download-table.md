@@ -11,3 +11,11 @@ Périmètre validé : téléphones et tablettes Android 11 ou plus récent, ARM
 5. Joindre le manifeste de test à la préversion existante, publier la page d’accueil et vérifier une exécution réelle du workflow, les liens publics et le rendu du tableau sur ordinateur et téléphone.
 
 Validation : tests Python ciblés, analyse du workflow, téléchargement anonyme des fichiers, audit visuel du README publié. Les installateurs existants ne changent pas ; une nouvelle validation vocale physique n’est pas nécessaire pour ce tableau.
+
+## État au 11 octobre 2026
+
+Les cinq étapes sont réalisées et publiées sur `main`. Douze tests ciblés réussissent ; la maintenance a créé un commit du README lors de son premier essai réel sur GitHub. Le rendu ordinateur et le rendu téléphone ont été inspectés, puis corrigés pour placer les téléchargements dans la partie immédiatement visible du tableau. [Rapport et images](../../2026-10-11-github-downloads.md).
+
+Le manifeste de test accompagne la préversion existante sans activer le canal stable des notifications dans l’application. Le site et le domaine restent à réaliser ultérieurement.
+
+À la demande de l’utilisateur, le logo de l’introduction reprend maintenant l’icône réelle de DictAI. La présentation de Phone Whisper comme projet d’origine et les références des licences se trouvent tout en bas du README.
