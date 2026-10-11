@@ -34,7 +34,7 @@ python3 scripts/prepare_update_manifest.py \
 
 Les chemins sont à remplacer par ceux des artefacts contrôlés et le tag par celui de la version réellement préparée. Le dossier produit contient `DictAI-android.apk`, `DictAI-macOS.pkg` et `updates.json`, avec les métadonnées et les empreintes SHA-256 des fichiers. Les empreintes sont utiles pour les contrôles de publication ; le clic ouvre un navigateur et ne vérifie pas lui-même le fichier téléchargé. La signature est contrôlée par l’installateur du système.
 
-Pour une vérification locale des builds de test, utiliser `--allow-test-artifacts`. Cette option produit uniquement `updates-preview.json`, marqué `testOnly`. Les applications refusent ce marqueur sur le canal public. Utiliser un dossier distinct pour les préparations publiques et les aperçus : le générateur refuse de mélanger leurs manifestes. Ne pas renommer ce fichier en `updates.json` pour le publier.
+Pour préparer une distribution de test, utiliser `--allow-test-artifacts`. Cette option produit uniquement `updates-preview.json`, marqué `testOnly`. Ce fichier peut accompagner une préversion pour actualiser le tableau du dépôt. Les applications refusent ce marqueur sur le canal public. Utiliser un dossier distinct pour les préparations publiques et les aperçus : le générateur refuse de mélanger leurs manifestes. Ne pas renommer ce fichier en `updates.json` pour le publier.
 
 ## Rendre une version visible
 
@@ -48,9 +48,27 @@ Une fois la version publiée, contrôler le téléchargement public du manifeste
 
 La [préversion du 11 octobre 2026](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-preview) fournit l’APK Android 0.9.17, le paquet Mac 0.4.7 et leurs empreintes. Les fichiers sont téléchargeables sans compte GitHub ; les notes de version expliquent leur installation. Les trois téléchargements publics ont été vérifiés et comparés aux fichiers locaux.
 
-Pour une prochaine préversion, préparer et contrôler les installateurs, créer une release en brouillon marquée comme préversion, joindre les fichiers et les instructions, puis publier avec `--latest=false`. Partager le lien exact de la release. Conserver les téléchargements d’une version publiée pour les testeurs qui l’utilisent encore.
+Pour une prochaine préversion, préparer et contrôler les installateurs, créer une release en brouillon marquée comme préversion, joindre `DictAI-android.apk`, `DictAI-macOS.pkg`, `updates-preview.json`, les empreintes et les instructions, puis publier avec `--latest=false`. Conserver les téléchargements d’une version publiée pour les testeurs qui l’utilisent encore.
 
 Ce canal de test ne fournit pas de manifeste `updates.json` et ne remplace pas la dernière release stable. Les notifications automatiques restent liées à la préparation d’une diffusion stable signée.
+
+## Maintenir le tableau de téléchargement du dépôt
+
+L’adresse à partager est désormais **https://github.com/Uhama91/DictAI**. Le README présente un téléphone Android, une tablette Android et un Mac. Les deux appareils Android utilisent le même APK ; le périmètre validé est Android 11 ou plus récent sur ARM64. Le paquet Mac actuel contient les architectures Apple silicon et Intel et nécessite macOS 14 ou plus récent. Les architectures sont extraites des fichiers, puis enregistrées dans le manifeste.
+
+Le workflow [Maintain download table](https://github.com/Uhama91/DictAI/actions/workflows/downloads.yml) renouvelle le tableau lors de la publication ou de la modification d’une release. Il lit les versions publiées, vérifie les identifiants des applications, les URL des fichiers, les architectures et la concordance des SHA-256 avec les empreintes des assets GitHub. Les expériences de modèles sans manifeste de distribution sont ignorées. Le code Android et le build Mac sont comparés séparément pour éviter de proposer une version plus ancienne. Les préversions portent la mention « test ».
+
+Les liens pointent directement vers les fichiers de la release retenue. Le workflow ne modifie que le bloc balisé du README et publie ce changement sur `main`. Si une release est supprimée, la version vérifiée précédente est choisie ; si aucune ne subsiste, le tableau indique qu’aucun installateur n’est disponible. Une erreur réseau interrompt la vérification et laisse le README en place.
+
+Téléverser tous les assets avant de publier la release, en prenant son tag depuis `main` pour inclure le workflow. Pour compléter une ancienne release ou après une publication réalisée avec le `GITHUB_TOKEN` d’un autre workflow, lancer explicitement la maintenance :
+
+```bash
+gh workflow run downloads.yml --ref main
+```
+
+GitHub ne redéclenche pas les workflows ordinaires à partir des événements produits par ce jeton. Le déclenchement manuel reste disponible dans Actions. [Événements de release](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#release), [déclenchement depuis un workflow](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+
+Le futur site pourra reprendre ces mêmes données et liens de téléchargement.
 
 ## Site et domaine, à réaliser ultérieurement
 

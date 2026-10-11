@@ -4,7 +4,28 @@
 
 # DictAI
 
-Local Android dictation with a floating overlay.
+Dictez du texte dans vos applications depuis un téléphone Android, une tablette Android ou un Mac.
+
+## Télécharger DictAI
+
+Choisissez votre appareil dans le tableau. Le téléphone et la tablette utilisent le même fichier APK. Les téléchargements sont directs et ne nécessitent pas de compte GitHub.
+
+<!-- dictai-downloads:start -->
+| Appareil | Version | Compatibilité | Téléchargement |
+|---|---|---|---|
+| Téléphone Android | 0.9.17-dictai (test) | Android 11+ · ARM64 | [Télécharger l’APK](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/DictAI-android.apk) |
+| Tablette Android | 0.9.17-dictai (test) | Android 11+ · ARM64 | [Télécharger l’APK](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/DictAI-android.apk) |
+| Mac | 0.4.7 (test) | macOS 14.0+ · Apple silicon et Intel | [Télécharger l’installateur](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/DictAI-macOS.pkg) |
+
+Les versions marquées « test » sont destinées aux premiers essais. Consultez les instructions d’installation avant de les ouvrir.
+
+Instructions et nouveautés : [Notes de version](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-preview).
+
+<!-- dictai-downloads:end -->
+
+Le tableau est actualisé automatiquement à chaque publication d’une version complète vérifiée. Vous pouvez partager cette adresse : **[github.com/Uhama91/DictAI](https://github.com/Uhama91/DictAI)**.
+
+## Présentation
 
 DictAI lets you dictate into most apps without switching keyboards. Tap the
 floating button, speak, and edit the transcript before inserting it into the
@@ -27,9 +48,8 @@ for provenance and license terms.
 
 ### Download the APK
 
-Download the current APK from [GitHub Actions](https://github.com/Uhama91/DictAI/actions/workflows/build.yml):
-open the latest successful **main** run, download **dictai-debug-apk** under
-Artifacts, then extract the ZIP. Historical versions remain available in
+Use the direct download table above and follow the linked release instructions.
+Historical versions remain available in
 [DictAI releases](https://github.com/Uhama91/DictAI/releases).
 
 Open the APK on your phone, install it, and launch DictAI once to complete the

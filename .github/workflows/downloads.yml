@@ -1,0 +1,42 @@
+name: Maintain download table
+
+on:
+  release:
+    types: [published, edited, deleted, unpublished]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dictai-download-table
+  cancel-in-progress: false
+
+jobs:
+  downloads:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test release metadata and README maintenance
+        run: python3 -m unittest discover -s scripts -p 'test_*manifest.py' -v && python3 -m unittest discover -s scripts -p 'test_update_download_table.py' -v
+      - name: Refresh verified download links
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/update_download_table.py
+      - name: Publish the download table
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "Download table already current"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md
+          git commit -m 'docs: refresh DictAI downloads [skip ci]'
+          git push origin HEAD:main

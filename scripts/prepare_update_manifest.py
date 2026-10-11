@@ -33,6 +33,13 @@ def validate_destination(destination, preview):
             "Public and preview artifacts require separate output directories")
 
 
+def parse_android_abis(badging):
+    native = re.search(r"^native-code: (.+)$", badging, re.MULTILINE)
+    abis = re.findall(r"'([^']+)'", native[1]) if native else []
+    require(abis, "Cannot read Android native architectures")
+    return sorted(set(abis))
+
+
 def make_manifest(android, mac, tag):
     require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", tag), "Invalid release tag")
     require(android["applicationId"] == "com.uhama.whisperpin", "Unexpected Android application ID")
@@ -49,6 +56,7 @@ def make_manifest(android, mac, tag):
     return {"schemaVersion": 1, "android": {**android, "downloadUrl": base + "DictAI-android.apk"},
             "macos": {"bundleIdentifier": mac["CFBundleIdentifier"], "buildNumber": build,
                       "versionName": mac["CFBundleShortVersionString"], "minSystemVersion": mac["LSMinimumSystemVersion"],
+                      **({"architectures": mac["architectures"]} if "architectures" in mac else {}),
                       "downloadUrl": base + "DictAI-macOS.pkg"}}
 
 
@@ -77,7 +85,8 @@ def prepare(args):
     package = re.search(r"package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", badging)
     minimum = re.search(r"sdkVersion:'([0-9]+)'", badging)
     require(package and minimum, "Cannot read Android artifact metadata")
-    android = {"applicationId": package[1], "versionCode": int(package[2]), "versionName": package[3], "minSdk": int(minimum[1])}
+    android = {"applicationId": package[1], "versionCode": int(package[2]), "versionName": package[3],
+               "minSdk": int(minimum[1]), "abis": parse_android_abis(badging)}
     signature = run(tools / "apksigner", "verify", "--print-certs", apk)
     run(tools / "zipalign", "-c", "-P", "16", "4", apk)
     cert = re.search(r"Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)", signature)
@@ -107,7 +116,9 @@ def prepare(args):
         require("Developer ID Installer:" in run("pkgutil", "--check-signature", installer), "Missing macOS Developer ID Installer signature")
         run("xcrun", "stapler", "validate", installer)
         run("spctl", "--assess", "--type", "install", installer)
-    manifest = make_manifest(android, mac, args.tag)
+    architectures = run("xcrun", "lipo", "-archs", app / "Contents/MacOS" / mac["CFBundleExecutable"]).strip().split()
+    require(architectures and set(architectures) <= {"arm64", "x86_64"}, "Unexpected macOS architectures")
+    manifest = make_manifest(android, {**mac, "architectures": sorted(set(architectures))}, args.tag)
     manifest["android"].update(sha256=sha256(apk), signingCertificateSha256=cert[1].lower())
     manifest["macos"]["sha256"] = sha256(installer)
     if args.allow_test_artifacts:
@@ -133,7 +144,7 @@ def main():
     parser.add_argument("--tag", required=True)
     parser.add_argument("--output-directory", type=Path, required=True)
     parser.add_argument("--expected-android-cert")
-    parser.add_argument("--allow-test-artifacts", action="store_true", help="Local preview only; never creates updates.json")
+    parser.add_argument("--allow-test-artifacts", action="store_true", help="Test distribution only; never creates updates.json")
     args = parser.parse_args()
     try:
         prepare(args)

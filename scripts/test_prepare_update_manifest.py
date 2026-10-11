@@ -1,7 +1,7 @@
 import unittest
 import tempfile
 from pathlib import Path
-from prepare_update_manifest import make_manifest, validate_android_signer, validate_destination
+from prepare_update_manifest import make_manifest, parse_android_abis, validate_android_signer, validate_destination
 
 
 class UpdateManifestTests(unittest.TestCase):
@@ -16,6 +16,16 @@ class UpdateManifestTests(unittest.TestCase):
         self.assertEqual(17, result["macos"]["buildNumber"])
         self.assertEqual("https://github.com/Uhama91/DictAI/releases/download/dictai-20261011/DictAI-android.apk", result["android"]["downloadUrl"])
         self.assertEqual("https://github.com/Uhama91/DictAI/releases/download/dictai-20261011/DictAI-macOS.pkg", result["macos"]["downloadUrl"])
+
+    def test_architectures_are_taken_from_artifact_metadata(self):
+        abis = parse_android_abis("sdkVersion:'30'\nnative-code: 'arm64-v8a'\n")
+        self.assertEqual(["arm64-v8a"], abis)
+        result = make_manifest({**self.android, "abis": abis},
+                               {**self.mac, "architectures": ["arm64", "x86_64"]}, "test")
+        self.assertEqual(["arm64-v8a"], result["android"]["abis"])
+        self.assertEqual(["arm64", "x86_64"], result["macos"]["architectures"])
+        with self.assertRaises(ValueError):
+            parse_android_abis("sdkVersion:'30'")
 
     def test_refuses_other_app_or_invalid_release_metadata(self):
         for tag in ["../bad", "v1?other", "v1/new", ""]:
