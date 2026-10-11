@@ -13,13 +13,13 @@ Choisissez votre appareil dans le tableau. Le téléphone et la tablette utilise
 <!-- dictai-downloads:start -->
 | Appareil | Téléchargement | Version | Compatibilité |
 |---|---|---|---|
-| Téléphone Android | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-macos-0.4.9-preview/DictAI-android.apk) | 0.9.17-dictai (test) | Android 11+ · ARM64 |
-| Tablette Android | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-macos-0.4.9-preview/DictAI-android.apk) | 0.9.17-dictai (test) | Android 11+ · ARM64 |
-| Mac | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-macos-0.4.9-preview/DictAI-macOS.pkg) | 0.4.9 (test) | macOS 14.0+ · Apple silicon et Intel |
+| Téléphone Android | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
+| Tablette Android | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
+| Mac | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-macOS.pkg) | 0.4.9 (test) | macOS 14.0+ · Apple silicon et Intel |
 
 Les versions marquées « test » sont destinées aux premiers essais. Consultez les instructions d’installation avant de les ouvrir.
 
-Instructions et nouveautés : [Notes de version](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-macos-0.4.9-preview).
+Instructions et nouveautés : [Notes de version](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-android-0.9.18-preview).
 <!-- dictai-downloads:end -->
 
 Le tableau est actualisé automatiquement à chaque publication d’une version complète vérifiée. Vous pouvez partager cette adresse : **[github.com/Uhama91/DictAI](https://github.com/Uhama91/DictAI)**.
