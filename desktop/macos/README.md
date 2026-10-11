@@ -27,6 +27,8 @@ La version **0.4.4** ajoute **Historique des dictées** dans la bibliothèque et
 
 La version **0.4.5** complète le menu de l’icône DictAI dans la barre des menus : **Copier la dernière transcription**, accès direct à l’historique, à la bibliothèque et aux réglages, pause/reprise de la dictée en cours et **Quitter DictAI**. La copie rapide utilise le texte intégral de la dernière dictée terminée. Elle est désactivée lorsque l’historique est vide.
 
+La version **0.4.6** utilise une image native du logo pour rendre l’icône visible dans la barre des menus, avec adaptation automatique au fond clair ou sombre.
+
 ## Notes, dossiers et vocabulaire
 
 Les notes s’enregistrent progressivement sur le Mac. La bibliothèque propose la recherche, le classement, l’export texte, la suppression synchronisée et l’affichage des images reçues d’Android. Le menu « Classer » du panneau choisit le dossier de destination.

@@ -24,7 +24,7 @@ import AppKit
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            BrandMark(width: 23).accessibilityHidden(false)
+            Image(nsImage: MenuBarIcon.image).renderingMode(.template)
                 .accessibilityLabel("DictAI — accès rapide").help("DictAI — accès rapide")
         }
         .menuBarExtraStyle(.menu)
