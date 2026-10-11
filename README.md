@@ -20,7 +20,6 @@ Choisissez votre appareil dans le tableau. Le téléphone et la tablette utilise
 Les versions marquées « test » sont destinées aux premiers essais. Consultez les instructions d’installation avant de les ouvrir.
 
 Instructions et nouveautés : [Notes de version](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-preview).
-
 <!-- dictai-downloads:end -->
 
 Le tableau est actualisé automatiquement à chaque publication d’une version complète vérifiée. Vous pouvez partager cette adresse : **[github.com/Uhama91/DictAI](https://github.com/Uhama91/DictAI)**.
