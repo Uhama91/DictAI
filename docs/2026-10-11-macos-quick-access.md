@@ -19,6 +19,8 @@ Le tampon d’historique est local et borné à dix entrées. Il survit à une f
 - Copie réelle depuis la page d’historique : presse-papiers strictement égal au texte intégral de la dernière dictée.
 - Fermeture complète constatée par l’absence de processus, puis mise à jour 0.4.6 : les quatorze fichiers de données sont strictement identiques avant la nouvelle ouverture, dont les sept dictées de l’historique.
 - L’utilisateur confirme que l’icône est visible après installation de la 0.4.6.
+- Copie depuis le menu installé confirmée par l’utilisateur et par comparaison exacte avec le texte de la dernière entrée et le presse-papiers système.
+- Trois autorisations confirmées dans la 0.4.6 après validation des demandes macOS ; bibliothèque complète et sept dictées identiques après ouverture.
 
 Le paquet local installé est `DictAI-0.4.6-macOS-test.pkg`, SHA-256 `eb94cbf136558b9833bfd763a394ce73ab53c6f6c02cde79d626107c91fa0b67`. Les captures de tests ci-dessous utilisent des données synthétiques ; aucune donnée personnelle de la bibliothèque n’est publiée.
 
@@ -30,4 +32,8 @@ Le paquet local installé est `DictAI-0.4.6-macOS-test.pkg`, SHA-256 `eb94cbf136
 
 ## Validation physique restante
 
-Les dictées physiques dans Codex, leur récupération dans l’historique, la copie intégrale et la conservation après fermeture et mise à jour sont confirmées. Le contrôle du menu installé reste en cours. L’éviction de la onzième dictée est couverte par les tests natifs. Le Poco et la tablette ne sont pas accessibles par ADB : leur installation et leur essai physique restent à effectuer.
+Les dictées physiques dans Codex, leur récupération dans l’historique, la copie intégrale depuis la bibliothèque et le menu, et la conservation après fermeture et mise à jour sont confirmées. L’éviction de la onzième dictée est couverte par les tests natifs. Le Poco et la tablette ne sont pas accessibles par ADB : leur installation et leur essai physique restent à effectuer.
+
+## Publication GitHub
+
+Sources publiées sur `main`, commit `fbbd51f905e7ec3f8ede90d18eeae739f6a12f4a`. La [compilation GitHub Actions 38138576586](https://github.com/Uhama91/DictAI/actions/runs/38138576586) a réussi : 152 tests, installateur universel contrôlé et artefact `dictai-macos` (`11701158666`). Après téléchargement, le paquet est à nouveau vérifié ; SHA-256 `ddb10cc0c0102dc583e59102893815e17de782a1c45881acdd3f4812792e03ac`. Ce paquet CI n’est pas réinstallé sur le Mac pour éviter un nouveau renouvellement des autorisations : le paquet local installé contient la même version de source vérifiée.
