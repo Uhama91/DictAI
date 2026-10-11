@@ -1,6 +1,6 @@
 # DictAI Android 0.9.16 — installation sur le Poco et la tablette
 
-La version **0.9.16-dictai**, code 45, est installée sur le Poco F7 physique sous Android 16. Elle remplace la version 0.9.13, code 42, par une mise à jour avec conservation des données.
+La version **0.9.16-dictai**, code 45, est installée sur le Poco F7 et la Xiaomi Pad 7 physiques sous Android 16. Elle remplace la version 0.9.13, code 42, par une mise à jour avec conservation des données.
 
 ## Préservation sur le Poco
 
@@ -36,7 +36,7 @@ Une sauvegarde privée complète de **7,60 Go**, comprenant **52 fichiers**, est
 
 Après démarrage du service, les **62 notes** et **10 dossiers** antérieurs conservent leur contenu intégral et leurs métadonnées. Le vocabulaire de **56 entrées** est identique. Les **7 images originales**, leurs aperçus et le modèle vocal local sont conservés. Android a désactivé l’accessibilité de DictAI pendant le remplacement ; cette autorisation déjà active avant la mise à jour est rétablie dans les réglages, puis son activation est confirmée.
 
-L’essai vocal sur la tablette mise à jour est demandé à l’utilisateur. La récupération d’une vraie dictée, sa copie et sa conservation après réouverture restent à confirmer.
+Une vraie dictée de l’utilisateur est enregistrée dans le tampon local et affichée dans l’historique de la tablette mise à jour. Le bouton **Copier le texte** restitue exactement son texte intégral : les empreintes de la transcription enregistrée et du presse-papiers sont identiques. Après fermeture de l’écran, retour à l’accueil et réouverture de l’historique, la même entrée reste visible ; son fichier est strictement identique. Les notes, les dossiers et le vocabulaire sont encore intégralement conservés après cet essai. L’utilisateur confirme également le fonctionnement. La limite de dix entrées et le redémarrage complet restent couverts par les tests automatisés de la livraison.
 
 ## Aperçus des tests natifs
 

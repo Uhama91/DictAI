@@ -30,9 +30,9 @@ Le paquet local installé est `DictAI-0.4.6-macOS-test.pkg`, SHA-256 `eb94cbf136
 
 ![Logo natif de la barre des menus, agrandi pour inspection](research/recent-dictations/menu-bar-icon.png)
 
-## Validation physique restante
+## Validation physique
 
-Les dictées physiques dans Codex, leur récupération dans l’historique, la copie intégrale depuis la bibliothèque et le menu, et la conservation après fermeture et mise à jour sont confirmées. L’éviction de la onzième dictée est couverte par les tests natifs. Le [Poco est ensuite mis à jour en 0.9.16](2026-10-11-android-installation.md), avec conservation des données, vraie dictée retrouvée dans l’historique et copie intégrale vérifiées. La tablette est également installée en 0.9.16 avec données conservées et accessibilité rétablie ; son essai vocal reste à confirmer.
+Les dictées physiques dans Codex, leur récupération dans l’historique, la copie intégrale depuis la bibliothèque et le menu, et la conservation après fermeture et mise à jour sont confirmées. L’éviction de la onzième dictée est couverte par les tests natifs. Le [Poco et la tablette sont ensuite mis à jour en 0.9.16](2026-10-11-android-installation.md), avec conservation des données et accessibilité active. Sur les deux appareils, une vraie dictée est retrouvée dans l’historique, copiée intégralement et conservée après réouverture de cet écran.
 
 ## Publication GitHub
 

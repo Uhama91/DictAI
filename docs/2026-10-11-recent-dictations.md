@@ -20,7 +20,7 @@ Les tests couvrent la onzième dictée, le redémarrage, les retouches et nouvel
 
 Les suites complètes réussissent : **748 tests Android**, **149 tests Mac sur ARM et sur Intel via Rosetta**. Les tests Mac suivent le lanceur du projet, qui sérialise les fenêtres AppKit et les raccourcis partageant la boucle principale. Les rendus natifs ont été inspectés en apparence claire et sombre : titres et commandes lisibles, liste défilante, transcription intégrale dans une zone dédiée. L’APK conserve les neuf bibliothèques de reconnaissance autorisées, avec alignement ELF et ZIP 16 Ko ; sa signature est vérifiée. L’installateur Mac universel contient les binaires ARM et Intel et aucune donnée personnelle.
 
-Ces premières vérifications utilisent des bibliothèques isolées et des dictées synthétiques. Les essais physiques réalisés ensuite sur le [Mac](2026-10-11-macos-quick-access.md) et le [Poco F7](2026-10-11-android-installation.md) confirment la récupération et la copie des vraies dictées de l’utilisateur. La tablette est aussi mise à jour avec conservation des données ; son essai vocal reste à confirmer. Le paquet Mac conserve le statut de version de test, sans validation Developer ID ni notarisation.
+Ces premières vérifications utilisent des bibliothèques isolées et des dictées synthétiques. Les essais physiques réalisés ensuite sur le [Mac](2026-10-11-macos-quick-access.md), le [Poco F7 et la Xiaomi Pad 7](2026-10-11-android-installation.md) confirment la récupération et la copie des vraies dictées de l’utilisateur, ainsi que leur conservation après réouverture de l’historique. Les trois installations préservent les données antérieures. Le paquet Mac conserve le statut de version de test, sans validation Developer ID ni notarisation.
 
 ## Publication GitHub
 
@@ -29,7 +29,7 @@ Les sources sont publiées sur `main` au commit [`e0a6fda`](https://github.com/U
 - [APK Android 0.9.16 — artefact GitHub](https://github.com/Uhama91/DictAI/actions/runs/38135603758/artifacts/11700863347) : SHA-256 `fc53f27201eee7902a9515d351c38fb8e7f2e360dba5a39e44027a5df77403a0`.
 - [Installateur Mac 0.4.4 — artefact GitHub](https://github.com/Uhama91/DictAI/actions/runs/38135603762/artifacts/11700957844) : SHA-256 du paquet `87d5038e5d54eb309077b62e0d7adfb1ac0694d697ba6b9de5ff3ecaebf3faf2`.
 
-Les artefacts téléchargés ont été contrôlés : empreintes conformes, identité et signature de l’APK, alignement ELF/ZIP 16 Ko, signature de l’application Mac et présence des deux architectures. Depuis cette livraison, le [Mac 0.4.6](2026-10-11-macos-quick-access.md) et [le Poco et la tablette 0.9.16](2026-10-11-android-installation.md) sont mis à jour avec conservation des données. L’historique est vérifié sur de vraies dictées sur le Mac et le Poco ; l’essai vocal de la tablette reste à confirmer.
+Les artefacts téléchargés ont été contrôlés : empreintes conformes, identité et signature de l’APK, alignement ELF/ZIP 16 Ko, signature de l’application Mac et présence des deux architectures. Depuis cette livraison, le [Mac 0.4.6](2026-10-11-macos-quick-access.md) et [le Poco et la tablette 0.9.16](2026-10-11-android-installation.md) sont mis à jour avec conservation des données. L’historique est vérifié sur de vraies dictées sur les trois appareils, avec copie exacte et conservation après réouverture.
 
 ## Aperçus natifs
 
