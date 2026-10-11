@@ -1,0 +1,2 @@
+--------- beginning of main
+09-25 01:24:47.003 19084 19098 I MeetingNoteExportFixture: status=pass artifactDir=/storage/emulated/0/Android/data/com.uhama.whisperpin.meetingtest/files/meeting-export-fixtures/meeting-note-f5eb72e8-1eb5-41a8-a3fb-a43a916ed5e7 txtBytes=385 expectedTxtBytes=385 htmlBytes=122334 pdfBytes=243347 images=2 pdfPages=2 renderDpi=150 pagePngs=2

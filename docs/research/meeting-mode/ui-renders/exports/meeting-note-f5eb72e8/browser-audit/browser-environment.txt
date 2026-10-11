@@ -1,0 +1,14 @@
+Browser audit environment
+Bundled Node: v24.19.0
+Playwright: 1.62.1
+System browser: Google Chrome 153.0.8010.53 at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+Launch mode: headless Playwright Chromium launch with ephemeral contexts; no user browser profile/session
+Playwright-managed chromium-headless-shell was absent; no browser download or installation was attempted
+Network: browser contexts set offline; HTTP and HTTPS routes blocked; source contained zero external HTTP(S) references; observed request scheme was file: only
+Source: ../../android-run/artifacts/meeting-note-f5eb72e8-1eb5-41a8-a3fb-a43a916ed5e7/meeting-note.html
+Image wait: both embedded data URI images decoded and had nonzero natural dimensions before screenshots
+Interaction: Playwright locator.click() opened image 1 details; second click restored it to closed
+Mobile caveat: at 390 CSS px, the image already fits the available 360 CSS px width, so the open state changes the details toggle but not rendered image width
+Repro command: NODE_PATH=/Users/ulliemaillot/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules /Users/ulliemaillot/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node app/build/reports/meeting/t8-export/browser-audit/audit.cjs
+Desktop toggle check: actual click changed image 1 rendered width from 575px to 770px CSS; second click restored 575px.
+Mobile toggle check: actual click opened details at 390px; rendered image stayed 360px because responsive width already constrained it, then second click restored closed state.

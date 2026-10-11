@@ -1,0 +1,13 @@
+T8 export fixture build
+
+Gradle command: ./gradlew -PmeetingPrototype=true --max-workers=4 --console=plain :app:assembleDebug :app:assembleDebugAndroidTest
+JDK: OpenJDK 21.0.6 (Android Studio JBR, /Applications/Android Studio.app/Contents/jbr/Contents/Home)
+Build result: BUILD SUCCESSFUL (3 seconds, 66 actionable tasks; 9 executed, 57 up-to-date)
+Tests: none run in this build
+App applicationId: com.uhama.whisperpin.meetingtest
+App versionCode: 35
+App versionName: 0.9.6-dictai-meeting-test
+Test applicationId: com.uhama.whisperpin.meetingtest.test
+Fixture SHA-256: 354d16e243cac5bd3299e2660b124397d7c7a0eacc7e76239c9ee46c6b3325e6
+App APK: meetingtest-app.apk
+Test APK: meetingtest-test.apk

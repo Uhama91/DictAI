@@ -1,0 +1,1 @@
+09-25 00:50:09.628 18141 18155 I MeetingAudioRecordTest: status=pass sampleRateHz=16000 cycle1Blocks=3 cycle1Bytes=9600 cycle1Ms=466 cycle2Blocks=3 cycle2Bytes=9600 cycle2Ms=394 allBuffersEven=true stoppedCycles=2

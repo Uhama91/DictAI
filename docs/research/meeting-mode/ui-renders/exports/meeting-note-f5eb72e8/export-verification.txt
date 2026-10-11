@@ -1,0 +1,5 @@
+Instrumentation: OK (1 test), exportsProjectedMeetingTextAndImagesWithoutStaleCacheOrIgnoredSpeech
+Runner-reported export sizes: TXT 385 bytes, expected TXT 385 bytes, HTML 122334 bytes, PDF 243347 bytes, images 2, PDF pages 2, render DPI 150
+TXT comparison: actual and independent expected TXT are byte-identical
+PDF: 2 A4 pages; pdftotext checks are recorded in artifacts/meeting-note-f5eb72e8-1eb5-41a8-a3fb-a43a916ed5e7/pdftotext-verification.txt
+PDF rendered PNGs: both 1239x1754 pixels, 150 DPI output

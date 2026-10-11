@@ -1,0 +1,7 @@
+Console messages: none
+Uncaught page errors: none
+External HTTP(S) references in source: 0
+External HTTP(S) requests: 0
+Observed resource requests: file: 2
+Offline browser contexts: confirmed by navigator.onLine=false at 390px and 1280px
+Horizontal overflow: none at either viewport or after opening image 1

@@ -1,0 +1,4 @@
+# Keep rendered documents and media intact and out of line-oriented diffs.
+*.pdf binary
+*.png binary
+*.mp4 binary

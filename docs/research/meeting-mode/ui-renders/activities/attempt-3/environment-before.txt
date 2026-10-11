@@ -1,0 +1,10 @@
+device=emulator-5554
+sdk=36
+release=16
+fingerprint=google/sdk_gphone64_arm64/emu64a:16/BE2A.250530.026.D1/13818094:user/release-keys
+font_scale_before=1.0
+record_audio_granted_before=        android.permission.RECORD_AUDIO: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+app_sha256=8ee1f290156a53df5e9b7be8008426431774899e4b65ce9a4b69fb28b30d1197
+test_sha256=b261d12d57eee85affa138c2b34e6bca13e866b0f2daeab6ba5ac8240b5650ef
+test_package=com.uhama.whisperpin.meetingtest.test
+runner=androidx.test.runner.AndroidJUnitRunner

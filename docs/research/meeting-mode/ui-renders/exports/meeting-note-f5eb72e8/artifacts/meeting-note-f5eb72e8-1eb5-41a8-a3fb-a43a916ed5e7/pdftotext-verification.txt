@@ -1,0 +1,8 @@
+edited Thursday present: PASS
+Tuesday excluded: PASS
+ignored speech excluded: PASS
+stale cache excluded: PASS
+Sophie count is 2: PASS
+Karim count is 1: PASS
+unconfirmed speaker count is 1: PASS
+first image precedes second: PASS

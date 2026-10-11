@@ -1,0 +1,8 @@
+8b24b43060a3490edf6397957b31b4b8d6e37534ec6727ed1869559bb63da1da  /Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/activities/01-main-home-light-100.png
+413971b55aed6baf5eb5de622c1682a4831661b7e31065edcd3b18d55875d277  /Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/activities/02-main-settings-light-100.png
+8902f538c0dac2ca82c154ce6907169bd1ccd82f945e59fc13beb018d2b8726f  /Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/activities/03-main-home-dark-100.png
+6c9f0471eef68e24ba4f7ad14a47e4fffb319ba49d96186dccdd6de43883a6f3  /Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/activities/04-main-settings-dark-100.png
+8f42060c8e164f806777a22f41d203a8cee78c18e5750e2512521814bf3282ed  /Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/activities/05-main-settings-dark-135.png
+6045ba0ebacdf3ce6a497ecb53c11d1983a1e6ccd91b4b68f54c2454d01760a4  /Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/activities/06-onboarding-meeting-light-100.png
+1b04eab1ddf15cc43cf2613cb17479e6c35da473ce05153f6fdc41e5492c14b4  /Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/activities/07-onboarding-meeting-dark-100.png
+9340b27d17f7363e3e3f5a83b299a6f6b37239ece731f04563f8eeabf45960f5  /Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/ui-renders/activities/08-onboarding-meeting-light-135.png

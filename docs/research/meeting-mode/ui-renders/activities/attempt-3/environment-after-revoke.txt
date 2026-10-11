@@ -1,0 +1,11 @@
+avd_name=Medium_Phone_API_36.0
+abi=arm64-v8a
+model=sdk_gphone64_arm64
+api=36
+release=16
+app_package=com.uhama.whisperpin.meetingtest
+test_package=com.uhama.whisperpin.meetingtest.test
+original_app_package=com.uhama.whisperpin
+original_app_installed=false
+record_audio_granted=android.permission.RECORD_AUDIO: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+font_scale=1.0

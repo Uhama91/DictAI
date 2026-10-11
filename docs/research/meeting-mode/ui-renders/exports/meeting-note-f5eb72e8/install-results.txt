@@ -1,0 +1,4 @@
+adb -s emulator-5554 install -r app/build/reports/meeting/t8-export/build/meetingtest-app.apk
+Success
+adb -s emulator-5554 install -r app/build/reports/meeting/t8-export/build/meetingtest-test.apk
+Success

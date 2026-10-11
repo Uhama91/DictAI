@@ -1,0 +1,4 @@
+Instrumented runner: OK (1 test)
+Class: com.kafkasl.phonewhisper.meeting.MeetingAudioRecordAndroidTest
+Permission RECORD_AUDIO was denied before the adb session and was granted externally for this runner.
+Permission restoration is performed externally after both runners.

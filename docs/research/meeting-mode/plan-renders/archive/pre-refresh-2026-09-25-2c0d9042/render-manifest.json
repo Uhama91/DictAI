@@ -1,0 +1,329 @@
+{
+  "purpose": "Mechanical refresh of the Astra-authored spec and plan PDF/PNG render; source prose unchanged.",
+  "rendered_at_local_date": "2026-09-25",
+  "renderer": {
+    "file": "docs/research/meeting-mode/plan-renders/render_sources.py",
+    "sha256": "fbaf6cdf99eed86ac7e318d4644aa5dc36a0522529fc1029602008c2bbb60f2a",
+    "modified": false,
+    "output_redirected_to_staging": true,
+    "runtime": "/opt/homebrew/bin/python3 3.14.3"
+  },
+  "sources": {
+    "spec": {
+      "file": "docs/superpowers/specs/2026-09-24-meeting-mode.md",
+      "sha256": "d65fa279c79bdc0bd3f7f6381d54ccf3859de92097745ffd5d0de2768fd55d3a"
+    },
+    "plan": {
+      "file": "docs/superpowers/plans/2026-09-24-meeting-mode.md",
+      "sha256": "b41ef6ee86c5484ced0608c92f6b4f07362112a6c0a74436e069d2fcc1a942fe"
+    }
+  },
+  "pdf": {
+    "file": "mode-reunion-spec-plan-complets.pdf",
+    "sha256": "2c0d9042803ed080ea433cd50ce327a9d7ba504e27c77e237dfa6d7c133fd644",
+    "bytes": 118398,
+    "pages": 29,
+    "page_size": "A4",
+    "png_dpi": 150
+  },
+  "previous_pdf": {
+    "file": "archive/pre-refresh-2026-09-25-ac2a1bca/mode-reunion-spec-plan-complets.pdf",
+    "sha256": "ac2a1bca0fc7f34e6c2d8ea883bcfe61d41a00bae20e00f9c083b619218f19d3"
+  },
+  "archived_before_refresh": {
+    "directory": "archive/pre-refresh-2026-09-25-ac2a1bca",
+    "pdf_sha256": "ac2a1bca0fc7f34e6c2d8ea883bcfe61d41a00bae20e00f9c083b619218f19d3",
+    "png_count": 27,
+    "manifest_sha256": "7bf0ed3928c81233e84e6808edc2fdba4b15769a29dea009a4673e1253e6b4d8"
+  },
+  "text_validation": {
+    "pdftotext_chars": 149655,
+    "source_headings": 40,
+    "missing_headings": 0,
+    "short_source_tokens_checked": [
+      "un fichier de brouillon absent ne doit pas empêcher cette ouverture",
+      "claim Absent",
+      "Actions documentaires accessibles",
+      "Prendre une photo",
+      "Ajouter une capture",
+      "Copier la transcription",
+      "Exporter la note",
+      "T7d.2",
+      "T8 — Validation de livraison et limites mesurées"
+    ],
+    "short_source_tokens_missing": 0
+  },
+  "visual_review": {
+    "inspected_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ],
+    "finding": "No clipping or overlap observed; text and tables remain within page margins."
+  },
+  "readme_sha256_preserved": "bc027de14df3d7bb6575a72a275c7a8369769bac8f2ac1781ffa9fb82b09531f",
+  "output_roots": [
+    "/Users/ulliemaillot/.codex/worktrees/dictai-meeting-mode/phone-whisper/docs/research/meeting-mode/plan-renders",
+    "/Users/ulliemaillot/dev_project/phone-whisper/docs/research/meeting-mode/plan-renders"
+  ],
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-001.png",
+      "sha256": "e0d6d5a13f3a89609ee208a7d0a05095ba0c3a0148a5b1b36c86a8d09e7ce693",
+      "previous_sha256": "e0d6d5a13f3a89609ee208a7d0a05095ba0c3a0148a5b1b36c86a8d09e7ce693",
+      "status": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 2,
+      "file": "page-002.png",
+      "sha256": "e007ab664f47dc95706cc61da9f29b3b4a539007ff8f18eef37bbd08354479f7",
+      "previous_sha256": "e007ab664f47dc95706cc61da9f29b3b4a539007ff8f18eef37bbd08354479f7",
+      "status": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 3,
+      "file": "page-003.png",
+      "sha256": "b83e9c97305ec8fd79bb7dfccd1003e4aef2f8866df7b81946ddc317a3197cac",
+      "previous_sha256": "8ab93127e68b5f53f5f5266226f30efd431fcfdb5707c4801c48e9c66e8fd0aa",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 4,
+      "file": "page-004.png",
+      "sha256": "00201a19eca7fd0c3bd9ae70c6f0b761ec10be53dae0a2e32513df3a02f6805a",
+      "previous_sha256": "6d763d13bcad02d60ad029cc9052d32c4d5e2691c11da2cc90531fb7af4f89a5",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 5,
+      "file": "page-005.png",
+      "sha256": "00971cae18d65ce0a30590da3b9b59b3e8c4879273332da409f044babb5f74e1",
+      "previous_sha256": "7dccad49480f654d3915be31015f6329befd013a244ed8c0990385eeac3951c8",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 6,
+      "file": "page-006.png",
+      "sha256": "3c75ccb6241de06d00bf81ca9fe27aaab2a40cff7c3deefe77b2439a101d45f7",
+      "previous_sha256": "f29b978d5933635aaddff204b659db6b29f491842ad689db218e6b31c684eeaa",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 7,
+      "file": "page-007.png",
+      "sha256": "f91af6a610b1547ff4e8c72442e2559af22d8d0604ec8dc10b7ffacf93a705f4",
+      "previous_sha256": "ce50badecf8732f5ec506deb7b9aa52a0b63eb0753291e79d578ecc4a12d3841",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 8,
+      "file": "page-008.png",
+      "sha256": "f918e0578b541d2bf4ad6215946d1132df36ea47ff5add36e6b9dff9cb8a73ef",
+      "previous_sha256": "dcf75b417b59c32082bb98710aac06ab74971967859fd8e1292927de149b4906",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 9,
+      "file": "page-009.png",
+      "sha256": "8ef7bc959fc47a5baca177cd7d171d7b25fe8dee687b1778728d700318a67f28",
+      "previous_sha256": "6315c39d30ef30820635c7476bbf1415a8908447ae9c24922e9d559606fb4878",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 10,
+      "file": "page-010.png",
+      "sha256": "515585fa27053ece703b33d6bcc26f1ba9efd0d47961a73b2aa7766b679b6e4e",
+      "previous_sha256": "bd82a03c19ff7a99752e9d8bd5a4d623f3754c995a56071e2e5c45f3131fd287",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 11,
+      "file": "page-011.png",
+      "sha256": "ba2a193aa0a2c134391d94f2bec88b4f105ddfc193018b09d432b78b079b8854",
+      "previous_sha256": "643b925cf72d4fcb4af5cfe3e9a7d0517310ebe97af0654b3bed24ac77542b54",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 12,
+      "file": "page-012.png",
+      "sha256": "377b3b72468cf1e0dd6ddbe752a4ec6a173ae91436489413d994c7705acad1e0",
+      "previous_sha256": "549aaf1d328645781e7255e1663344abc08c52091787da86d72420935912b8f6",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 13,
+      "file": "page-013.png",
+      "sha256": "1d6c33a4187005a82835168efde8dd631d2a911a389e34d00f14d07d45be5c04",
+      "previous_sha256": "9ca0035e80f6baccfe5ce757f5619200f6ed7c7faa93b3f5edb7df4b42636e0f",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 14,
+      "file": "page-014.png",
+      "sha256": "0537dfe719f73cdf605b2f57b44733aaf3c69889e1dd4751f1ba1217c7f30e91",
+      "previous_sha256": "2245dfcbea7b90a27d2d06123343a90c3f7d75a72ddb988bc7e6046d8b2d1795",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 15,
+      "file": "page-015.png",
+      "sha256": "2f985aa2ec322400f275ee964a43a3e28a62fd1376774005fe1dc7ed8d7fdaf0",
+      "previous_sha256": "0bcc1f8c6d8241b5037a9b688f32f9270160d447920aecf79794913674c986da",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 16,
+      "file": "page-016.png",
+      "sha256": "9433cd7618ac380c70e3102dc39f7b918f6214de07dfb9d1a6905fc85d414a19",
+      "previous_sha256": "51da831cac5f28c9de7712c405abb8477cc92a85a554b69f19641d8a88bcc220",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 17,
+      "file": "page-017.png",
+      "sha256": "7da8d8f9a81ac48ad28f2b5cc7e39b3513d8724055a6a6e2848ec5d0458a8f68",
+      "previous_sha256": "3f5939fad75fa7e6303972b68bbac27a7cc83787e584a2ea7de15947ca0563e0",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 18,
+      "file": "page-018.png",
+      "sha256": "6631183dde47cb0be7f4d63cee002f8f0de1570f5599cca495b4b2ef37e7522e",
+      "previous_sha256": "fd9e3dbf6fac19def3ec60a43921759b82bc0d674ff98728a82a6de3e82ffc05",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 19,
+      "file": "page-019.png",
+      "sha256": "8fb82e1cb48306851c2d8029a90f73ee66dd92f39a2749fb1da8c0dafafbbfbb",
+      "previous_sha256": "74d55e687fb3022cc882f6d169e88e7410c92323a92ecb7235fd0168402d7c0a",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 20,
+      "file": "page-020.png",
+      "sha256": "130a75dc480a802c54aef687b27b15950ae66c3c2209158bcbb0aba934258676",
+      "previous_sha256": "ec5f98da40fd5e34913e7f87aca5c4206064d76a9f481869e6ee561e8d7b2463",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 21,
+      "file": "page-021.png",
+      "sha256": "e960941ec688df53acf8a1de11a1b927cbcea96db7a47af1987f8dba9fbc1a3d",
+      "previous_sha256": "5014ce76f851c698ab893d9a097dd85ad1b82cc13b81b4e67db85a6e4a4f446e",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 22,
+      "file": "page-022.png",
+      "sha256": "6de5641557b3d136be759ad402db3ce4d2843aea2247250f9358bf1c1626ed3e",
+      "previous_sha256": "f4c3bafc29672ba70de259c6cd8330ff4a1c653a7c29216a805d7c9552d4cf38",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 23,
+      "file": "page-023.png",
+      "sha256": "d00d0aed678a441ba92abb4f084baa82995d3c56236d079571a85f0a9f8fe0d2",
+      "previous_sha256": "762f8ca7b5c84b40e3dc331a10cfc82781c69e57fe16165d31b2275acdb662f1",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 24,
+      "file": "page-024.png",
+      "sha256": "3518962f3b9a63ff32e8e6a5d0aa35ab3bd768e54596eca2780ffa5e3ba328c8",
+      "previous_sha256": "3082421f0eaf0f3fd7359d64f717e70a48a2f0584c600fab16c5cecf25b19b2e",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 25,
+      "file": "page-025.png",
+      "sha256": "8e0925aaa7015c4282517f8104abfbf5af13eeecac6734da77250c061776bed9",
+      "previous_sha256": "ba402333749d55337e449d484a2420d0c0b888f0a0a94a9512b6626462bee971",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 26,
+      "file": "page-026.png",
+      "sha256": "697e9d99b412f44f16319f4a68f444ea36502c67c0f4d11b2a36a7d6877a1827",
+      "previous_sha256": "708136441c01fe100fc319f8eaff4cae619aaa776bf964cd295fa7297f1a0c66",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 27,
+      "file": "page-027.png",
+      "sha256": "4e15f8deab7de8a41fc955a2add2bce9d01e24198e74c1daed8b95dcc912258f",
+      "previous_sha256": "6bb7beed06fdae18fccea132f23717aa66c8368d03c0792d4855e157b9bb6297",
+      "status": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 28,
+      "file": "page-028.png",
+      "sha256": "35789d269374613e347f059b11d6b2bc53f25dee3c813d0e4c497def39327df8",
+      "previous_sha256": null,
+      "status": "added",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 29,
+      "file": "page-029.png",
+      "sha256": "ccfdb7c91ca4b1dc9d887e39428b3f6ed238c7876a60aeef52232f62e7a9050e",
+      "previous_sha256": null,
+      "status": "added",
+      "pixels": "1241x1754"
+    }
+  ]
+}

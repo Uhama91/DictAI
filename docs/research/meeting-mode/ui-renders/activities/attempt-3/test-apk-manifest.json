@@ -1,0 +1,8 @@
+{
+  "artifact": "app-debug-androidTest.apk",
+  "source": "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
+  "archive": "app/build/reports/meeting/t7d2-activities/build-capture-attempt-3/app-debug-androidTest.apk",
+  "size_bytes": 1546627,
+  "sha256": "b261d12d57eee85affa138c2b34e6bca13e866b0f2daeab6ba5ac8240b5650ef",
+  "build_result": "BUILD SUCCESSFUL"
+}

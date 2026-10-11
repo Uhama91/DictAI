@@ -1,0 +1,364 @@
+{
+  "purpose": "Mechanical render of Astra-authored final spec and plan; source prose unchanged.",
+  "rendered_at_local_date": "2026-09-25",
+  "renderer": {
+    "file": "docs/research/meeting-mode/plan-renders/render_sources.py",
+    "sha256": "0a391ad177b2a94e83079a3a46b07f4eb1a2d95e0c695474bbae5dfce36c607e",
+    "modified_for_pagination_only": true,
+    "change": "Start T8b on a new page to avoid an orphaned final checklist item.",
+    "runtime": "python3; ReportLab; pdftoppm"
+  },
+  "sources": {
+    "spec": {
+      "file": "docs/superpowers/specs/2026-09-24-meeting-mode.md",
+      "sha256": "90a6741588afdfdaa47fd3c162e03ea6fb220ca72352353ad7f5d0c5cfb0232e"
+    },
+    "plan": {
+      "file": "docs/superpowers/plans/2026-09-24-meeting-mode.md",
+      "sha256": "577538d3108c2a4847d4eabe2f01fee79e951cd15a83a65e0fc87f521ebb66c6"
+    }
+  },
+  "pdf": {
+    "file": "mode-reunion-spec-plan-complets.pdf",
+    "sha256": "8ed76395917e35297724e886d1a1592a4c77a8252f37b7e98e56c514def9e1c8",
+    "bytes": 130664,
+    "pages": 31,
+    "page_size": "A4",
+    "png_dpi": 150
+  },
+  "readme": {
+    "file": "README.md",
+    "sha256": "a90b485a8322dc718d756d6434744b7a8f6278bfb540a97f8fc4d641e76c55eb"
+  },
+  "previous_active_render": {
+    "directory": "archive/excluded/pre-final-render-2026-09-25",
+    "pdf_sha256": "2ce4695f5b46b7b74c65a367ade571cab7b4a1cd51f1476bf62eb273ff4d0af6",
+    "png_pages": 27
+  },
+  "comparison_previous_active": {
+    "unchanged_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      7,
+      8,
+      9
+    ],
+    "changed_pages": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27
+    ],
+    "added_pages": [
+      28,
+      29,
+      30,
+      31
+    ],
+    "removed_pages": []
+  },
+  "visual_review": {
+    "inspected_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "finding": "Astra inspected all 31 pages. No clipping observed; T8b starts on a dedicated page and the final checklist item remains together."
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-001.png",
+      "sha256": "e0d6d5a13f3a89609ee208a7d0a05095ba0c3a0148a5b1b36c86a8d09e7ce693",
+      "previous_active_sha256": "e0d6d5a13f3a89609ee208a7d0a05095ba0c3a0148a5b1b36c86a8d09e7ce693",
+      "status_vs_previous_active": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 2,
+      "file": "page-002.png",
+      "sha256": "e007ab664f47dc95706cc61da9f29b3b4a539007ff8f18eef37bbd08354479f7",
+      "previous_active_sha256": "e007ab664f47dc95706cc61da9f29b3b4a539007ff8f18eef37bbd08354479f7",
+      "status_vs_previous_active": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 3,
+      "file": "page-003.png",
+      "sha256": "b83e9c97305ec8fd79bb7dfccd1003e4aef2f8866df7b81946ddc317a3197cac",
+      "previous_active_sha256": "b83e9c97305ec8fd79bb7dfccd1003e4aef2f8866df7b81946ddc317a3197cac",
+      "status_vs_previous_active": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 4,
+      "file": "page-004.png",
+      "sha256": "00201a19eca7fd0c3bd9ae70c6f0b761ec10be53dae0a2e32513df3a02f6805a",
+      "previous_active_sha256": "00201a19eca7fd0c3bd9ae70c6f0b761ec10be53dae0a2e32513df3a02f6805a",
+      "status_vs_previous_active": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 5,
+      "file": "page-005.png",
+      "sha256": "f377aa16e565376f061b0b73f24df11aed80f19e013cd6b39a668b0d0db8271f",
+      "previous_active_sha256": "f377aa16e565376f061b0b73f24df11aed80f19e013cd6b39a668b0d0db8271f",
+      "status_vs_previous_active": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 6,
+      "file": "page-006.png",
+      "sha256": "a2cf0518ded153e0e5734096849f3a4e1ab604e79888834d035ecabeb6de14f3",
+      "previous_active_sha256": "f29b978d5933635aaddff204b659db6b29f491842ad689db218e6b31c684eeaa",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 7,
+      "file": "page-007.png",
+      "sha256": "ce50badecf8732f5ec506deb7b9aa52a0b63eb0753291e79d578ecc4a12d3841",
+      "previous_active_sha256": "ce50badecf8732f5ec506deb7b9aa52a0b63eb0753291e79d578ecc4a12d3841",
+      "status_vs_previous_active": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 8,
+      "file": "page-008.png",
+      "sha256": "dcf75b417b59c32082bb98710aac06ab74971967859fd8e1292927de149b4906",
+      "previous_active_sha256": "dcf75b417b59c32082bb98710aac06ab74971967859fd8e1292927de149b4906",
+      "status_vs_previous_active": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 9,
+      "file": "page-009.png",
+      "sha256": "6315c39d30ef30820635c7476bbf1415a8908447ae9c24922e9d559606fb4878",
+      "previous_active_sha256": "6315c39d30ef30820635c7476bbf1415a8908447ae9c24922e9d559606fb4878",
+      "status_vs_previous_active": "unchanged",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 10,
+      "file": "page-010.png",
+      "sha256": "c8bfe067292a137887b74e533ad88243c75eaf0f1e56143ad591e471da0e67ab",
+      "previous_active_sha256": "bd82a03c19ff7a99752e9d8bd5a4d623f3754c995a56071e2e5c45f3131fd287",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 11,
+      "file": "page-011.png",
+      "sha256": "f395b7ea3510ce614a2fd03edcad1a262c581d1f7c83222142b451eddd917124",
+      "previous_active_sha256": "643b925cf72d4fcb4af5cfe3e9a7d0517310ebe97af0654b3bed24ac77542b54",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 12,
+      "file": "page-012.png",
+      "sha256": "04d72ea31980db1b3090dd4d5d0c2cc4c8ad005fcdce4058fceabf043ebbb3fb",
+      "previous_active_sha256": "549aaf1d328645781e7255e1663344abc08c52091787da86d72420935912b8f6",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 13,
+      "file": "page-013.png",
+      "sha256": "d933aff72442b3d89e28335e25ad01a8e5f5127168ba52a737f8fd6623284fbe",
+      "previous_active_sha256": "9ca0035e80f6baccfe5ce757f5619200f6ed7c7faa93b3f5edb7df4b42636e0f",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 14,
+      "file": "page-014.png",
+      "sha256": "f5d95bd1017ef504329f38ffcf49b81ff678fe834849c1f591dad3126dcc0f76",
+      "previous_active_sha256": "2245dfcbea7b90a27d2d06123343a90c3f7d75a72ddb988bc7e6046d8b2d1795",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 15,
+      "file": "page-015.png",
+      "sha256": "6e9fea8092c63638f7e60a4fb851d72dd605101da0d2cb268d4fcb2f2388d010",
+      "previous_active_sha256": "0bcc1f8c6d8241b5037a9b688f32f9270160d447920aecf79794913674c986da",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 16,
+      "file": "page-016.png",
+      "sha256": "d31548a39b1c02d40707258cc60ede4d3fbbc045365bbd13564808445fab6f85",
+      "previous_active_sha256": "51da831cac5f28c9de7712c405abb8477cc92a85a554b69f19641d8a88bcc220",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 17,
+      "file": "page-017.png",
+      "sha256": "a7afe129b1ea2ba66e9c7ab46c8ba68ae788b81cd047d49daae6d899964f7d72",
+      "previous_active_sha256": "3f5939fad75fa7e6303972b68bbac27a7cc83787e584a2ea7de15947ca0563e0",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 18,
+      "file": "page-018.png",
+      "sha256": "a72d7e64af64e34f79858a765fb9af4e10264c22fbd38ff2123a87e481238691",
+      "previous_active_sha256": "fd9e3dbf6fac19def3ec60a43921759b82bc0d674ff98728a82a6de3e82ffc05",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 19,
+      "file": "page-019.png",
+      "sha256": "bbfc403950f2fdaa48328b7933d25eefc98e0ccaebd431f0d84e2fe1bc70bf1e",
+      "previous_active_sha256": "daa132b96871a3f3a4adb39146a2b3adeb8597ff1e324623e05f473972641c40",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 20,
+      "file": "page-020.png",
+      "sha256": "be21fbb00b3c4e10ddcd4fb92326dc23fc797fd611c5a8a48d0f3a307535f933",
+      "previous_active_sha256": "814befd06e6c644f08b567357aad035d19d44e11ebaf7e1396d4a587f5bc3884",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 21,
+      "file": "page-021.png",
+      "sha256": "100efe35c8188493b9509845b090bfd32aba8fbd757e5076103bacfdb02126d5",
+      "previous_active_sha256": "faabd9ff736020a54452c2b791b19e19adfe54d403e63782c423a1f7e2a2cba5",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 22,
+      "file": "page-022.png",
+      "sha256": "f67c2dcfcddee3db28925dbdd0626ad2cd41864c9931ce2d33cf8a9fe7f7a654",
+      "previous_active_sha256": "8dd7198ddea03b9ca68f273f9f3622ef3010800a20d1acb254e3750f5371f4b7",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 23,
+      "file": "page-023.png",
+      "sha256": "60ae519376b7634210f48df7547d394688586c1a0a8a4bad49d1136f546aef8b",
+      "previous_active_sha256": "4be8306119c274b18489a2490ce3e3b458e1f2f8684a23e4b073184487a51704",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 24,
+      "file": "page-024.png",
+      "sha256": "731fd123fa1eafe217ded55629a597af98986ac7b11dfc1a87a1236a9304a65c",
+      "previous_active_sha256": "10c724b504411f9738984793d73f33cfd975bcd9237a3d3106ee3106b08feae8",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 25,
+      "file": "page-025.png",
+      "sha256": "09cc22722743661cebaccfe0b7cb0da748e06625f0c8557c06bf81800e73a9d2",
+      "previous_active_sha256": "708f9557e6683a6583ce44da6674b47f8b0ebc9e2a9e4f1498ceae17894ebf8b",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 26,
+      "file": "page-026.png",
+      "sha256": "b04d947bcf8a7ec9302cbf7cffc80a218d75454b2c522714539a9e4c3a230b1b",
+      "previous_active_sha256": "0e6b4e61ca5b468267dd8f71997f1838b5f5ed7bc057e761250afb1416c23e66",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 27,
+      "file": "page-027.png",
+      "sha256": "a8f89f1b71335ee5a559f01e64c80714f854ecb57254bbe95fa116b80e88658b",
+      "previous_active_sha256": "066611c218aeb0d9b003505082d5b78278216451c0e4d6fb0a77cfff382a300d",
+      "status_vs_previous_active": "changed",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 28,
+      "file": "page-028.png",
+      "sha256": "8220feef9a8563152f46b5995a419cb2c366dee975f3f72478a828412fee194d",
+      "previous_active_sha256": null,
+      "status_vs_previous_active": "new",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 29,
+      "file": "page-029.png",
+      "sha256": "8ddef5c5e2626f57916dbd895d6367aa71fba337bd65a973d38216d4bb191f03",
+      "previous_active_sha256": null,
+      "status_vs_previous_active": "new",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 30,
+      "file": "page-030.png",
+      "sha256": "fc8ca45450aed1e9568b6938e185943d0d49387e96ac13ddecb2a4b6a54e9cf2",
+      "previous_active_sha256": null,
+      "status_vs_previous_active": "new",
+      "pixels": "1241x1754"
+    },
+    {
+      "page": 31,
+      "file": "page-031.png",
+      "sha256": "4495e41b83ef78bca839cc9133f25de99106d94c29a1c4442fed19d7fa168e43",
+      "previous_active_sha256": null,
+      "status_vs_previous_active": "new",
+      "pixels": "1241x1754"
+    }
+  ]
+}

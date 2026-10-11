@@ -1,0 +1,10 @@
+e23fd9e261014ae3b2db58090ce50a46a97502269cad0ebc853a245c5a9b35f5  app/build/reports/meeting/t8-export/build/meetingtest-app.apk
+17df7455c3ee664add04d9eb51e94364bbe44caf813a077790468e74b7517d98  app/build/reports/meeting/t8-export/build/meetingtest-test.apk
+0226076b40e9dc128edd963ed98e2a7ed1d6615f32080ce8e81de11222128a75  app/build/reports/meeting/t8-export/build/gradle.log
+37a119e0ae206a1a68f29f875252f5e485726f40894e3c4f69e1f0378963ae83  app/build/reports/meeting/t8-export/build/metadata.txt
+4e86c7458409db67c013aadc7fcad366fdd3e90cc0272ef9873d488904984cca  app/build/reports/meeting/t8-export/build/app-output-metadata.json
+529c16bb4428e426ed675bd1d791ee6fb0f44e9f5d4f6e62c546430bf56c0df1  app/build/reports/meeting/t8-export/build/test-output-metadata.json
+2806a2d231e310cb6396bc44e04b1b1b1de97c5fddc0ffeffa703b6e585e42e8  app/build/reports/meeting/t8-export/build/app-badging.txt
+73c44ebb81b97ddf9c4b3467f81c6be60023bc37809f63f5406a390d2e803367  app/build/reports/meeting/t8-export/build/test-badging.txt
+ba385fa405e2b14764be857246fe60d1adf3f86d1fcda5d58932e3897448dbcd  app/build/reports/meeting/t8-export/build/source-manifest.sha256
+354d16e243cac5bd3299e2660b124397d7c7a0eacc7e76239c9ee46c6b3325e6  app/src/androidTest/kotlin/com/kafkasl/phonewhisper/MeetingNoteExportFixtureAndroidTest.kt

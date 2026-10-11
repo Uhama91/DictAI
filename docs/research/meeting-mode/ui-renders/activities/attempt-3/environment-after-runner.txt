@@ -1,0 +1,6 @@
+font_scale_after_runner=1.0
+record_audio_granted_after_runner=        android.permission.RECORD_AUDIO: granted=true, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+activity_capture_directory=/storage/emulated/0/Android/data/com.uhama.whisperpin.meetingtest/files/meeting-activities-fixture-1790290913157
+runner=OK (1 test)
+network_requests=0 (asserted by fixture)
+audio_capture=none (asserted by fixture)

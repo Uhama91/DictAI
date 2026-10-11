@@ -1,0 +1,2 @@
+record_audio_granted_after_pregrant=        android.permission.RECORD_AUDIO: granted=true, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+font_scale_after_pregrant=1.0
