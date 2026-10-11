@@ -8,13 +8,6 @@ import DictAICore
     @Published var error: String?
     @Published var selectedNote: String?
     @Published var selectedFolder: String?
-    @Published private(set) var intelligentPunctuation = true
-    func setIntelligentPunctuation(_ enabled: Bool) {
-        perform {
-            try JSONEncoder().encode(["intelligentPunctuation": enabled]).write(to: root.appendingPathComponent("mac-preferences.json"), options: .atomic)
-            intelligentPunctuation = enabled
-        }
-    }
     let root: URL
     let actor: String
     private(set) var generation = UUID()
@@ -22,10 +15,6 @@ import DictAICore
     init(root: URL? = nil) throws {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DictAI")
         try FileManager.default.createDirectory(at: self.root, withIntermediateDirectories: true)
-        let localSettings = self.root.appendingPathComponent("mac-preferences.json")
-        if FileManager.default.fileExists(atPath: localSettings.path) {
-            intelligentPunctuation = try JSONDecoder().decode([String: Bool].self, from: Data(contentsOf: localSettings))["intelligentPunctuation"] ?? true
-        }
         let identity = self.root.appendingPathComponent("device-id")
         if FileManager.default.fileExists(atPath: identity.path) {
             actor = try String(contentsOf: identity, encoding: .utf8)
@@ -40,7 +29,11 @@ import DictAICore
     var notes: [Note] { (try? document.notes()) ?? [] }
     var folders: [Folder] { (try? document.folders()) ?? [] }
     var vocabulary: [(key: String, value: String)] { document.values.filter { $0.key.hasPrefix("vocab:") }.sorted { $0.value.localizedStandardCompare($1.value) == .orderedAscending }.map { ($0.key, $0.value) } }
-    func preference(_ key: String, default fallback: String) -> String { document.values["pref:" + key] ?? fallback }
+    func preference(_ key: String, default fallback: String) -> String {
+        // Retired wire values remain readable by older clients, but cannot select a format here.
+        if key == "selected_format" { return "cleanup" }
+        return document.values["pref:" + key] ?? fallback
+    }
     func switchScope(_ user: String?) throws {
         if let user { try require(isUUID(user), "Compte invalide.") }
         let name = user ?? "local"

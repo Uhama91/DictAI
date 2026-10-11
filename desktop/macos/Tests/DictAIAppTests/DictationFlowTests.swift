@@ -4,122 +4,17 @@ import DictAICore
 @testable import DictAI
 
 @MainActor struct DictationFlowTests {
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DICTAI_TEST_LOCAL_MODEL"] == "1"))
-    func theAvailableLocalModelPunctuatesBeforeTheRealAppFlowDelivers() async throws {
-        let rig = try Rig(localModel: true)
-        #expect(rig.model.punctuator.available)
-        rig.model.begin(); await rig.settle()
-        rig.speech.onText?("je regarde l'application dans Le navigateur la dictée est terminée je peux passer à la suite")
-        // Simulate the user speaking while the empty model session warms up.
-        try await Task.sleep(for: .seconds(3))
-        let started = Date()
+    @Test func retiringLocalPunctuationRestoresImmediateInsertion() async throws {
+        let rig = try Rig()
+        let legacy = rig.model.library.root.appendingPathComponent("mac-preferences.json")
+        let data = Data("{\"intelligentPunctuation\":true}".utf8)
+        try data.write(to: legacy)
+        rig.model.toggle(); await rig.settle()
+        rig.speech.onText?("les enfants rangent leur cahier")
         rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
-        #expect(rig.model.state == .punctuating)
-        while rig.model.busy && Date().timeIntervalSince(started) < 30 { try await Task.sleep(for: .milliseconds(100)) }
-        #expect(rig.delivery.texts == ["Je regarde l'application dans le navigateur. La dictée est terminée. Je peux passer à la suite. "])
+        #expect(rig.delivery.texts == ["Les enfants rangent leur cahier. "])
         #expect(rig.model.state == .idle && rig.model.delivered)
-        #expect(rig.model.library.loadDraft()?.text.isEmpty == true)
-        print("Local punctuation through AppModel: \(Date().timeIntervalSince(started)) seconds")
-    }
-    @Test func localPunctuationRunsBeforeInsertionAndKeepsAllDictatedWords() async throws {
-        let rig = try Rig(punctuation: true)
-        rig.model.toggle(); await rig.settle()
-        rig.speech.onText?("je finis la séance les enfants rangent leur cahier")
-        rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
-        #expect(rig.punctuator.inputs == ["je finis la séance les enfants rangent leur cahier"])
-        #expect(rig.model.state == .punctuating && rig.model.busy)
-        #expect(rig.delivery.texts.isEmpty)
-        rig.model.toggle()
-        rig.punctuator.resolve("Je finis la séance. Les enfants rangent leur cahier.")
-        await rig.settle()
-        #expect(rig.delivery.texts == ["Je finis la séance. Les enfants rangent leur cahier. "])
-        #expect(rig.model.library.notes.map(\.text) == ["Je finis la séance. Les enfants rangent leur cahier."])
-    }
-    @Test func reviewIsPunctuatedOnceAndSavingANoteUsesTheSameResult() async throws {
-        let rig = try Rig(punctuation: true)
-        rig.model.begin(destination: .note); await rig.settle()
-        rig.speech.onText?("la réunion est finie nous partons")
-        rig.model.reviewBeforeDelivery(); rig.speech.onFinish?(nil); await rig.settle()
-        #expect(rig.punctuator.inputs.count == 1)
-        rig.punctuator.resolve("La réunion est finie. Nous partons."); await rig.settle()
-        #expect(rig.model.draft.text == "La réunion est finie. Nous partons.")
-        #expect(rig.model.state == .review)
-        rig.model.saveNote(); await rig.settle()
-        #expect(rig.punctuator.inputs.count == 1)
-        #expect(rig.model.library.notes.map(\.text) == ["La réunion est finie. Nous partons."])
-    }
-    @Test func pauseAndRecognizerRestartNeverTriggerLocalPunctuation() async throws {
-        let rig = try Rig(punctuation: true)
-        rig.model.toggle(); await rig.settle()
-        rig.speech.onText?("je commence la phrase")
-        rig.speech.onFinish?(nil); await rig.settle()
-        rig.speech.onText?("et je continue")
-        rig.model.pauseListening(); rig.speech.onFinish?(nil); await rig.settle()
-        #expect(rig.punctuator.inputs.isEmpty)
-        #expect(rig.model.draft.text == "je commence la phrase et je continue")
-        rig.model.insert(); await rig.settle()
-        #expect(rig.punctuator.inputs.count == 1)
-        rig.punctuator.resolve("Je commence la phrase et je continue."); await rig.settle()
-        #expect(rig.delivery.texts == ["Je commence la phrase et je continue. "])
-    }
-    @Test func localPunctuationNeverOverridesManualEditsOrCloudChoice() async throws {
-        for choice in ["edited", "disabled", "cloud", "english"] {
-            let rig = try Rig(punctuation: true)
-            if choice == "disabled" { rig.model.library.setIntelligentPunctuation(false) }
-            if choice == "cloud" { rig.model.library.setPreference("formatting_engine", "cloud") }
-            if choice == "english" { rig.model.library.setPreference("dictation_language", "en") }
-            rig.model.toggle(); await rig.settle()
-            rig.speech.onText?("mon titre")
-            if choice == "edited" { rig.model.edit("mon titre retouché sans point") }
-            rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
-            #expect(rig.punctuator.inputs.isEmpty)
-            if choice == "cloud" { rig.cleaner.resolve("Mon titre."); await rig.settle() }
-            if choice == "edited" { #expect(rig.delivery.texts == ["mon titre retouché sans point "]) }
-        }
-    }
-    @Test func rejectedModelChangesOrAnUnavailableResponseUseSimpleTypography() async throws {
-        for result in [String?.none, "Les élèves rangent les livres.", "Les élèves ne rangent leur cahier."] {
-            let rig = try Rig(punctuation: true)
-            rig.model.toggle(); await rig.settle()
-            rig.speech.onText?("les élèves rangent leur cahier")
-            rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
-            rig.punctuator.resolve(result); await rig.settle()
-            #expect(rig.delivery.texts == ["Les élèves rangent leur cahier. "])
-        }
-    }
-    @Test func vocabularyCaseSurvivesLocalPunctuation() async throws {
-        let rig = try Rig(punctuation: true)
-        try rig.model.library.addVocabulary("maelys => Maëlys")
-        rig.model.toggle(); await rig.settle()
-        rig.speech.onText?("je parle avec maelys nous partons")
-        rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
-        #expect(rig.punctuator.inputs == ["je parle avec Maëlys nous partons"])
-        rig.punctuator.resolve("Je parle avec maëlys. Nous partons."); await rig.settle()
-        #expect(rig.delivery.texts == ["Je parle avec Maëlys. Nous partons. "])
-    }
-    @Test func editingClosingOrChangingAccountWhilePunctuatingNeverDeliversALateResult() async throws {
-        for action in ["edit", "close", "account"] {
-            let rig = try Rig(punctuation: true)
-            rig.model.toggle(); await rig.settle()
-            rig.speech.onText?("je termine le texte")
-            rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
-            if action == "edit" { rig.model.edit("ma retouche") }
-            if action == "close" { rig.model.closeOverlay() }
-            if action == "account" { try rig.model.library.switchScope("11111111-1111-4111-8111-111111111111") }
-            rig.punctuator.resolve("Je termine le texte."); await rig.settle()
-            #expect(rig.delivery.texts.isEmpty)
-            #expect(rig.model.draft.text == (action == "edit" ? "ma retouche" : "je termine le texte"))
-        }
-    }
-    @Test func aSlowModelCannotBlockInsertionOrDeliverItsResultAfterTheDeadline() async throws {
-        let rig = try Rig(punctuation: true, timeout: .milliseconds(30))
-        rig.model.toggle(); await rig.settle()
-        rig.speech.onText?("je termine le texte")
-        rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
-        try await Task.sleep(for: .milliseconds(80)); await rig.settle()
-        #expect(rig.delivery.texts == ["Je termine le texte. "])
-        rig.punctuator.resolve("Je termine le texte !"); await rig.settle()
-        #expect(rig.delivery.texts == ["Je termine le texte. "])
+        #expect(try Data(contentsOf: legacy) == data)
     }
     @Test func aNoneditableDestinationDoesNotFallBackToThePreviousApplication() async throws {
         let rig = try Rig()
@@ -578,24 +473,12 @@ import DictAICore
     let delivery = RecordedDelivery()
     let panel = RecordedPanel()
     let cleaner = ControlledCleaner()
-    let punctuator = ControlledPunctuator()
     let model: AppModel
-    init(punctuation: Bool = false, timeout: Duration = .seconds(25), localModel: Bool = false) throws {
+    init() throws {
         let panel = self.panel
-        punctuator.available = punctuation
-        model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-flow-" + UUID().uuidString), speech: speech, insertion: delivery, cleaner: cleaner, punctuator: localModel ? LiveDictationPunctuator() : punctuator, punctuationTimeout: timeout, makeOverlay: { _ in panel })
+        model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-flow-" + UUID().uuidString), speech: speech, insertion: delivery, cleaner: cleaner, makeOverlay: { _ in panel })
     }
     func settle() async { for _ in 0..<30 { await Task.yield() } }
-}
-@MainActor private final class ControlledPunctuator: DictationPunctuating {
-    var available = false
-    var inputs: [String] = []
-    var completion: CheckedContinuation<String?, Error>?
-    func process(_ text: String, protectedTerms: [String]) async throws -> String? {
-        inputs.append(text)
-        return try await withCheckedThrowingContinuation { completion = $0 }
-    }
-    func resolve(_ text: String?) { completion?.resume(returning: text); completion = nil }
 }
 @MainActor private final class ControlledSpeech: SpeechCapturing {
     var onText: ((String) -> Void)?

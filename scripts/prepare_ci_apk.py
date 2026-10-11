@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 """Verify the selected CI APK before exposing an installable download."""
-import hashlib, os, shutil, zipfile
+import hashlib, shutil, zipfile
 from pathlib import Path
 
 apk = Path('app/build/outputs/apk/debug/app-debug.apk')
-prototype = os.environ.get('PROTOTYPE') == 'true'
 with zipfile.ZipFile(apk) as archive:
     names = archive.namelist()
     models = [name for name in names if name.endswith(('.gguf', '.litertlm'))]
-    assert not models, 'Gemma is installed in-app; no old or partial model may be bundled'
-    for name in ['gemma-NOTICE.txt', 'Apache-2.0.txt']:
-        assert 'assets/local-format/' + name in names
+    assert not models, 'Speech models are installed in-app; no LLM model may be bundled'
     for name in [
         'Apache-2.0.txt',
         'NOTICE.txt',
@@ -19,14 +16,14 @@ with zipfile.ZipFile(apk) as archive:
     ]:
         assert 'assets/licenses/' + name in names
     assert 'assets/THIRD_PARTY_NOTICES.txt' in names
-    assert 'lib/arm64-v8a/liblitertlm_jni.so' in names, 'Missing LiteRT-LM Android runtime'
-    for name in ['layout-list.prompt', 'layout-email.prompt', 'llama-LICENSE.txt']:
-        assert 'assets/local-format/' + name in names
-    for name in ['libdictai_llm.so', 'libdictai_llm_arm82.so']:
-        assert ('lib/arm64-v8a/' + name in names) != prototype, 'Prototype must use Gemma, normal build keeps legacy test runtime'
+    for name in ['libdictai_llm.so', 'libdictai_llm_arm82.so', 'liblitertlm_jni.so']:
+        assert 'lib/arm64-v8a/' + name not in names, 'Retired local LLM runtime must not be packaged'
+    for name in ['libtranscribe.so', 'libtranscribe_jni.so', 'libggml.so', 'libggml-base.so', 'libggml-cpu.so']:
+        assert 'lib/arm64-v8a/' + name in names, 'Missing local speech recognition runtime'
+    assert not any(name.startswith('assets/local-format/') for name in names), 'Retired local formatting prompts must not be packaged'
 output = Path('dist')
 output.mkdir(exist_ok=True)
-name = 'dictai-local-layout-test.apk' if prototype else 'dictai-debug.apk'
+name = 'dictai-debug.apk'
 destination = output / name
 shutil.copyfile(apk, destination)
 with destination.open('rb') as stream:

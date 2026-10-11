@@ -36,33 +36,13 @@ extension OverlayPresenting {
     func process(_ text: String, preferences: [String: String], vocabulary: [String]) async throws -> String
 }
 
-@MainActor protocol DictationPunctuating {
-    var available: Bool { get }
-    func prepare()
-    func process(_ text: String, protectedTerms: [String]) async throws -> String?
-}
-extension DictationPunctuating { func prepare() {} }
-struct UnavailablePunctuator: DictationPunctuating {
-    let available = false
-    func process(_ text: String, protectedTerms: [String]) async throws -> String? { nil }
-}
-struct LiveDictationPunctuator: DictationPunctuating {
-    private let model = PunctuationModel()
-    var available: Bool { model.available }
-    func prepare() { model.prepare() }
-    func process(_ text: String, protectedTerms: [String]) async throws -> String? {
-        try await model.process(text, protectedTerms: protectedTerms)
-    }
-}
-
 struct LiveDictationCleaner: DictationCleaning {
+    var credential: () throws -> Data? = { try Keychain.read("openrouter-key") }
+    var session: URLSession?
     func process(_ text: String, preferences: [String: String], vocabulary: [String]) async throws -> String {
-        let data = try Keychain.read("openrouter-key")
+        let data = try credential()
         let key = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        let model = CleanupModel.all.first { $0.id == preferences["pref:cloud_cleanup_model"] } ?? CleanupModel.all[0]
-        let format = preferences["pref:selected_format"] ?? "cleanup"
-        let builtins = ["cleanup": "Supprime seulement les hésitations et les répétitions inutiles.", "corrected": "Corrige la grammaire et la ponctuation.", "list": "Présente les éléments dictés sous forme de liste.", "email": "Mets en forme un courriel, sans inventer de destinataire ni de signature."]
-        let custom = preferences["format:" + format].flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: String] }
-        return try await CloudCleanup.process(text, model: model, instructions: custom?["instructions"] ?? builtins[format] ?? builtins["cleanup"]!, language: preferences["pref:dictation_language"] ?? "fr", vocabulary: vocabulary, key: key)
+        let model = CleanupModel.all.first { $0.id == preferences["pref:cloud_cleanup_model"] } ?? CleanupModel.default
+        return try await CloudCleanup.process(text, model: model, language: preferences["pref:dictation_language"] ?? "fr", vocabulary: vocabulary, key: key, session: session)
     }
 }

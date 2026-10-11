@@ -6,7 +6,7 @@ import android.content.SharedPreferences
 class PersistencePrefs internal constructor(private val p: SharedPreferences) {
     constructor(ctx: Context) : this(ctx.getSharedPreferences("whisperpin", Context.MODE_PRIVATE))
 
-    init { migrateCloudCleanupPreferences() }
+    init { migrateCloudCleanupPreferences(); migrateRetiredLocalEngine() }
 
     /** Appearance survives activity recreation and defaults to the device setting. */
     var themeMode: ThemeMode
@@ -84,24 +84,28 @@ class PersistencePrefs internal constructor(private val p: SharedPreferences) {
         get() = p.getBoolean("light_text_cleanup", true)
         set(value) { p.edit().putBoolean("light_text_cleanup", value).apply() }
 
-    /** Keep existing cloud preferences. Unvalidated local models are restricted to prototype builds. */
+    /** Retired local LLM choices become optional cloud correction, including incoming sync values. */
     var formattingEngine: String
         get() {
-            val requested = p.getString("formatting_engine", null)
-            return when {
-                requested == "cloud" -> "cloud"
-                requested == "off" -> "off"
-                requested == "local" -> if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) "local" else "off"
-                cloudCleanupEnabled -> "cloud"
-                BuildConfig.LOCAL_FORMAT_PROTOTYPE -> "local"
-                else -> "off"
+            migrateRetiredLocalEngine()
+            return when (p.getString("formatting_engine", null)) {
+                "cloud" -> "cloud"
+                "off" -> "off"
+                else -> if (cloudCleanupEnabled) "cloud" else "off"
             }
         }
         set(value) {
-            require(value in listOf("local", "cloud", "off"))
-            require(value != "local" || BuildConfig.LOCAL_FORMAT_PROTOTYPE)
+            require(value in listOf("cloud", "off"))
             p.edit().putString("formatting_engine", value).putBoolean("cloud_cleanup_enabled", value == "cloud").apply()
         }
+
+    private fun migrateRetiredLocalEngine() {
+        if (p.getString("formatting_engine", null) == "local") {
+            check(p.edit().putString("formatting_engine", "cloud").putBoolean("cloud_cleanup_enabled", true).commit()) {
+                "Retired local correction preference was not saved"
+            }
+        }
+    }
 
     fun cloudModel(): CuratedCloudModel =
         CloudModelCatalog.selected(p.getString(CloudModelPreferences.KEY, null))

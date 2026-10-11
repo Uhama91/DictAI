@@ -128,7 +128,6 @@ struct DictationContextRow: View {
             Text(model.destination == .note ? "Note dans DictAI" : model.insertion.available ? "Vers " + model.insertion.targetName : "Brouillon")
                 .font(.system(size: 11)).foregroundStyle(Theme.muted).lineLimit(1)
             Spacer(minLength: 0)
-            DictationFormatMenu(library: library).disabled(model.busy)
         }
     }
 }
@@ -194,8 +193,7 @@ extension DictationState {
         case .preparing: return "Préparation du micro…"
         case .listening: return "À votre écoute"
         case .finishing: return "Transcription…"
-        case .cleaning: return "Mise en forme…"
-        case .punctuating: return "Ponctuation…"
+        case .cleaning: return "Correction cloud…"
         case .inserting: return "Insertion…"
         case .paused: return "En pause"
         case .idle, .review: return "Votre dictée"

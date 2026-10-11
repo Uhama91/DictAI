@@ -25,13 +25,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CloudCleanupTest {
-    @Test fun `selected formatting instructions travel with the cleanup request`() = withServer { server ->
+    @Test fun `retired formatting instructions never travel with the correction request`() = withServer { server ->
         server.enqueue(MockResponse().setBody("{}"))
         val cleanup = CloudCleanup(OkHttpClient(), CloudEndpoints.forTests(server.url("/")))
         assertNull(cleanup.clean("acheter pommes et poires", DictationLanguage.FRENCH,
             CloudModelCatalog.default, "dummy-key", null, "Use a bullet list."))
         val body = server.takeRequest().body.readUtf8()
-        assertTrue(body.contains("Use a bullet list."))
+        assertFalse(body.contains("Use a bullet list."))
         assertTrue(body.contains("acheter pommes et poires"))
     }
 
@@ -69,7 +69,7 @@ class CloudCleanupTest {
             ),
             CloudModelCatalog.all.map { it.modelId },
         )
-        assertEquals("mistralai/mistral-small-3.2-24b-instruct", CloudModelCatalog.default.modelId)
+        assertEquals("openai/gpt-5.4-nano", CloudModelCatalog.default.modelId)
     }
 
     @Test fun `OpenRouter model preferences migrate only when the new value is absent`() {
@@ -112,12 +112,12 @@ class CloudCleanupTest {
         assertEquals("Bearer dummy-router-key", request.getHeader("Authorization"))
         assertNull(request.getHeader("x-goog-api-key"))
         val body = request.body.readUtf8()
-        assertTrue(body.contains("\"model\":\"mistralai/mistral-small-3.2-24b-instruct\""))
+        assertTrue(body.contains("\"model\":\"openai/gpt-5.4-nano\""))
         assertTrue(body.contains("\"response_format\":{\"type\":\"json_schema\""))
         assertTrue(body.contains("\"strict\":true"))
         assertTrue(body.contains("\"provider\":{\"require_parameters\":true}"))
         assertTrue(body.contains("\"max_tokens\":512"))
-        assertFalse(body.contains("\"reasoning\""))
+        assertTrue(body.contains("\"reasoning\":{\"enabled\":false}"))
     }
 
     @Test fun `reasoning is disabled only for catalogue models that support it`() = withServer { server ->

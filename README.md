@@ -14,8 +14,7 @@ field.
 It provides:
 
 - **Local on-device transcription** with sherpa-onnx or transcribe.cpp
-- **Optional cloud cleanup** through OpenRouter for punctuation, formatting,
-  and conservative corrections
+- **Optional cloud cleanup** through OpenRouter for punctuation and conservative corrections
 - A persistent overlay, accessibility insertion, local notes, and PDF/HTML
   export
 
@@ -28,7 +27,10 @@ for provenance and license terms.
 
 ### Download the APK
 
-Download the latest build from [DictAI releases](https://github.com/Uhama91/DictAI/releases).
+Download the current APK from [GitHub Actions](https://github.com/Uhama91/DictAI/actions/workflows/build.yml):
+open the latest successful **main** run, download **dictai-debug-apk** under
+Artifacts, then extract the ZIP. Historical versions remain available in
+[DictAI releases](https://github.com/Uhama91/DictAI/releases).
 
 Open the APK on your phone, install it, and launch DictAI once to complete the
 initial setup.
@@ -65,9 +67,9 @@ make adb-install
 1. DictAI displays a small overlay on top of your apps.
 2. Tap the overlay to start recording and tap again to finish.
 3. The selected local model transcribes the audio on the device.
-4. If enabled, cloud cleanup sends the transcript, formatting instructions, and
-   any configured vocabulary or protected spellings to OpenRouter; audio stays
-   on the device.
+4. If enabled, cloud correction sends the transcript to OpenRouter with a fixed
+   conservative correction prompt; audio stays on the device. Vocabulary is
+   applied locally before correction, and protected spellings are checked on return.
 5. DictAI keeps the transcript available for editing during the dictation and
    pause flows, then, when you finish, inserts it into the focused field when
    possible and keeps a clipboard copy as a fallback.
@@ -85,6 +87,10 @@ On first launch:
 
 The floating overlay is ready after setup.
 
+The [0.9.15 change and validation report](docs/2026-10-11-cloud-cleanup-only.md)
+describes the simplified correction flow. The macOS companion and its installation
+instructions are documented in [desktop/macos/README.md](desktop/macos/README.md).
+
 ## Why does DictAI need Accessibility?
 
 DictAI uses Android Accessibility Service to identify the focused text field and
@@ -99,13 +105,14 @@ analytics, or run background automation.
 DictAI transcribes audio locally on the device. Audio is not sent to a server by
 the app's normal transcription path.
 
-Cloud cleanup is optional. When enabled, DictAI sends the transcript text, your
-selected formatting instructions, and any configured vocabulary or protected
-spellings directly from the device to OpenRouter, using your own API key. Audio
+Cloud cleanup is optional. When enabled, DictAI sends the transcript text
+directly from the device to OpenRouter with a fixed correction prompt, using
+your own API key. Audio
 is not sent for this cleanup step.
 
 An optional Google account synchronizes vocabulary, shared preferences, personal
-formats, saved folders, notes, and their images through Supabase. DictAI remains
+historical format definitions, saved folders, notes, and their images through Supabase.
+Historical format definitions are retained for compatibility and are never executed. DictAI remains
 usable locally without an account. API keys, unfinished drafts, audio, model
 installations, permissions, and overlay positions stay on the device.
 See the full [privacy policy](PRIVACY.md) and the
@@ -177,21 +184,32 @@ the modified inherited files. Bundled native libraries and models may use
 separate terms; see [THIRD_PARTY_NOTICES.txt](app/src/main/assets/THIRD_PARTY_NOTICES.txt)
 and the license texts in [app/src/main/assets/licenses](app/src/main/assets/licenses).
 
-## DictAI 0.6 — édition et formats
+## DictAI 0.9.15 — correction facultative
 
-- Le résultat final est copié dans le presse-papiers, même si l’insertion réussit ou si aucun champ n’est sélectionné.
-- Pendant une dictée en streaming, toucher le texte ouvre le clavier. Les corrections manuelles restent présentes pendant l’arrivée des mots suivants et dans le résultat final. Une ponctuation finale ou un retour à la ligne commence la suite par une majuscule.
-- Un tap déclenche la dictée. Maintenir la pastille immobile 400 ms jusqu’à la vibration autorise son déplacement dans toutes les directions ; relâcher mémorise sa position. Cet appui maintenu remplace l’ancien push-to-talk. Un glissement direct vers le haut ouvre les formats au relâchement, sans déplacer la pastille : au moins 56 dp et une distance verticale au moins double de l’horizontale, sans limite de vitesse une fois le mouvement commencé.
-- Dans **Formats de post-traitement**, choisir Texte corrigé, Liste à puces ou Mail. Créer, modifier ou supprimer des formats personnels avec un nom et des consignes. Le choix est mémorisé.
-- Dans **Moteur de post-traitement**, la version normale propose **Cloud** ou **Désactivé** ; Cloud nécessite une clé OpenRouter. L’APK d’essai **0.7.1-wp-local-test** ajoute **Local**, limité aux listes et aux paragraphes de mail avec un modèle inclus. Les formats personnels et Texte corrigé nécessitent le cloud. Le choix cloud existant est conservé lors d’une mise à jour. En cas d’indisponibilité, le texte reste récupérable et un message signale l’absence de mise en forme.
+La transcription Nemotron et les autres modèles vocaux restent locaux. Dans
+**Correction du texte**, choisir **Cloud** ou **Désactivé**. Le cloud utilise votre
+clé OpenRouter pour corriger la ponctuation et les fautes évidentes sans appliquer
+de format de liste, de mail ou de consignes personnalisées. Le modèle proposé par
+défaut est GPT-5.4 Nano ; un modèle déjà choisi est conservé.
+
+Les anciens réglages de correction locale passent à **Cloud**. Les formats
+historiques restent stockés et synchronisés pour préserver les données, mais ne
+modifient plus la dictée. Les menus de formats, les gestes de sélection et le
+prototype Gemma sont retirés. L’ancien drapeau de compilation du prototype ne
+peut plus les réactiver.
+
+Le vocabulaire, la conversion des nombres et le nettoyage léger restent des
+règles locales. Après une retouche manuelle, la correction IA est ignorée pour
+préserver vos modifications. Sans clé, sans réseau ou si une réponse est refusée,
+le texte reste disponible pour insertion et copie.
 
 ### Vérification sur téléphone / tablette
 
 1. Dicter dans un champ sélectionné, puis coller ailleurs : les deux textes doivent être identiques.
 2. Dicter sans champ sélectionné : récupérer le résultat avec Coller.
-3. Corriger un nom, ajouter un point puis continuer à parler : vérifier la conservation de la correction, la majuscule et la position du curseur. Tester aussi une sélection, une suppression et le clavier en paysage.
-4. Maintenir jusqu’à la vibration, puis déplacer dans les quatre directions : aucun format ni enregistrement ne doit se déclencher. Glisser directement vers le haut, vite ou lentement : la pastille reste fixe et le menu s’ouvre au relâchement. Revenir sous le seuil annule le raccourci. Tester aussi un maintien sans déplacement, les diagonales, les quatre bords, la rotation et une interruption tactile.
-5. Créer un format personnalisé, relancer l’application, le modifier puis le supprimer. Tester sans réseau et sans clé : le texte doit rester récupérable.
+3. Corriger un nom puis continuer à parler : vérifier la conservation de la correction et de la position du curseur.
+4. Maintenir jusqu’à la vibration, puis déplacer la pastille. Un glissement vers le haut au repos ne doit ouvrir aucun menu ; pendant une dictée ou une pause, il réaffiche le texte.
+5. Choisir Cloud, puis tester sans réseau et sans clé : le texte doit rester récupérable.
 
 L’APK de chaque branche est disponible dans **Actions → Build DictAI APK → Artifacts → dictai-debug-apk** une fois la compilation réussie.
 
@@ -214,7 +232,7 @@ Vérifier sur **Xiaomi Pad 7** et **Poco F7**, avec le micro intégré puis les 
 
 Le texte est sauvegardé localement pendant la dictée et les corrections. Après destruction du service, il est restauré en pause ; la reprise ouvre une nouvelle session audio et ajoute la suite au brouillon protégé. L’audio de l’ancienne session n’est pas conservé. Le brouillon est supprimé après la fin ou l’annulation de la dictée.
 
-Les gestes de format et de pause affichent une indication progressive sur la pastille et un retour haptique au seuil. Ils ne déplacent jamais le bouton. Le maintien immobile jusqu’à la vibration affiche « Déplacer » et réserve tout le mouvement suivant au positionnement.
+Les gestes de texte et de pause affichent une indication progressive sur la pastille et un retour haptique au seuil. Ils ne déplacent jamais le bouton. Le maintien immobile jusqu’à la vibration affiche « Déplacer » et réserve tout le mouvement suivant au positionnement.
 
 Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute en cours… », sans attendre les premiers mots du modèle. Il est déjà éditable. Les lectures audio sont limitées à 20 ms par bloc ; le tampon matériel conserve sa taille minimale requise. Le délai de reconnaissance dépend toujours du modèle et de l’appareil.
 
@@ -223,7 +241,7 @@ Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute
 - « Agrandir / Réduire » passe de trois lignes à un panneau pouvant occuper 82 % de la hauteur disponible, ajusté au bord de la pastille et au clavier.
 - « Masquer » cache le texte et le clavier sans arrêter la dictée. Glisser vers le haut pendant une dictée ou une pause réaffiche le panneau.
 - Le réglage « Afficher le texte pendant la dictée » définit le comportement au démarrage de la prochaine dictée.
-- Les corrections manuelles restent prioritaires. Après une retouche manuelle, le nettoyage général est ignoré. Un format explicitement choisi peut toujours être appliqué au brouillon corrigé.
+- Les corrections manuelles restent prioritaires. Après une retouche manuelle, la correction IA est ignorée.
 - Le brouillon est privé, stocké dans les données locales de l’application, exclues des sauvegardes Android. Après un arrêt du service, le micro peut nécessiter une réactivation depuis l’application avant la reprise. Effacer les données ou désinstaller l’application supprime ce brouillon.
 
 À vérifier sur appareil : agrandir aux quatre bords, ouvrir le clavier en portrait/paysage, masquer puis réafficher, modifier en pause, verrouiller/déverrouiller puis reprendre ; enfin arrêter puis relancer le service pour vérifier la restauration du texte et l’ajout de la suite sans reformulation.
@@ -235,11 +253,11 @@ Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute
 - Les notes ouvertes sont sauvegardées automatiquement. Le rangement finalise les derniers mots localement. Les titres sont tirés de la première ligne (neuf mots, 60 caractères maximum), sans modèle ni réseau. Les titres renommés sont conservés.
 - Appuyer sur une note la rouvre en pause. Un appui maintenu ouvre Renommer / Supprimer. La liste affiche les notes récemment modifiées en premier, avec titre en gras, aperçu distinct, date de modification et nombre d’images.
 - « Insérer… » termine l’écoute si nécessaire puis présente le texte final à confirmer. « Insérer le texte » tente son insertion dans le champ de l’application ; « Rester dans la note » ne dépose rien. Si l’insertion n’est pas possible, le texte est copié pour collage manuel. La note reste ouverte et conservée après insertion. La propre fenêtre de DictAI est exclue des cibles. Les images se transmettent par l’export PDF/HTML.
-- Le menu des formats est une liste flottante au-dessus de la pastille, ou en dessous si l’espace manque. Les menus restent dans les limites de l’écran et se ferment au toucher extérieur.
+- Les menus de notes restent dans les limites de l’écran et se ferment au toucher extérieur.
 - Les icônes agrandir/réduire et masquer sont en haut à droite, avec des cibles tactiles de 48 dp. Le mode agrandi atteint 82 % de la hauteur disponible. La croix masque seulement le panneau.
 
 Essais sur appareil : écrire une note sans micro, la ranger, ouvrir une autre note et revenir à la première ; dicter/reprendre, ranger par double tap pendant la pause, renommer puis poursuivre, supprimer une seule note, annuler puis confirmer une insertion dans une autre application ; vérifier les menus aux quatre bords et le verrouillage/redémarrage avec une note ouverte.
 
-Suivi du développement par étapes : [demandes et validations](docs/SUIVI-DEVELOPPEMENT.md). Le 350M reste exclu de la compilation normale. Après l’échec de la réécriture libre, une configuration de copie contrainte est disponible dans un [prototype séparé à essayer sur téléphone](docs/ESSAI-LLM-LOCAL.md) : mots conservés sur le corpus, découpage encore imparfait, latence appareil à mesurer.
+Suivi du développement par étapes : [demandes et validations](docs/SUIVI-DEVELOPPEMENT.md). Les recherches de mise en forme locale sont archivées ; leurs moteurs et interfaces ne font pas partie de l’application livrée.
 
 Le correctif 0.9.5 et son essai ciblé sont décrits dans [Notes et édition](docs/NOTES-ET-EDITION-0.9.5.md). Les gestes, le clavier et le rendu de cette version restent à vérifier sur appareil ; les tests instrumentés sont compilés sans être exécutés ici.

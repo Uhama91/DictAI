@@ -21,7 +21,7 @@ La pastille et l’éditeur rapide peuvent être déplacés ; la fenêtre compl�
 
 L’application reprend le tracé exact du logo Android à trois boucles, y compris dans l’icône de l’application et la barre des menus. La version 0.3 ajoute les boucles animées pendant l’écoute, avec une amplitude liée au niveau sonore et un mode statique lorsque Réduire les animations est activé. La police Caveat et les couleurs viennent du mobile. Les thèmes carnet clair, carnet sombre et système suivent la préférence synchronisée `theme_mode`. La licence SIL Open Font License de Caveat est incluse dans le paquet.
 
-[Fin de dictée et vérifications de la version 0.3.5](walkthrough-0.3.5.md).
+[Simplification de la correction dans la version 0.4.3](../../docs/2026-10-11-cloud-cleanup-only.md).
 
 ## Notes, dossiers et vocabulaire
 
@@ -45,14 +45,13 @@ Le statut « Échange terminé » confirme un échange avec le serveur, pas la r
 
 La ponctuation automatique du moteur Apple est activée (`addsPunctuation`). Les résultats provisoires peuvent être révisés en cours d’écoute. La ponctuation ajoutée après une correction de mot est conservée à la jonction avec la suite ; la ponctuation modifiée ou supprimée manuellement reste prioritaire. Cette correction ne garantit pas que le moteur place toujours chaque virgule correctement.
 
+La correction OpenRouter est le seul post-traitement par modèle. Lorsqu’elle est activée, le texte et le vocabulaire utile sont envoyés au modèle choisi pour une correction fidèle, sans mise en forme en liste ou en courriel. Les formats personnels ne sont plus exécutés. Le texte brut est conservé en cas d’échec. La clé est propre au Mac et ne se synchronise pas. Sans correction cloud, les règles simples de typographie et le vocabulaire restent appliqués immédiatement par le code. La ponctuation Apple Intelligence a été retirée.
 
-Le nettoyage OpenRouter propose les mêmes identifiants de modèles et formats que l’application Android, ainsi que les formats personnels. Lorsqu’il est activé, le texte et le vocabulaire utile sont envoyés au modèle choisi. Le texte brut est conservé en cas d’échec. La clé est propre au Mac et ne se synchronise pas.
-
-Cette version utilise le moteur vocal Apple ; elle n’embarque pas les modèles sherpa-onnx, Nemotron ou Gemma de l’APK. Les préférences inconnues de l’interface Mac sont conservées dans le document partagé. Les commandes de formatage et la langue sont appliquées ; les moteurs de traitement locaux Android et le mode réunion ne sont pas portés dans cette version.
+Cette version utilise le moteur vocal Apple ; elle n’embarque pas les modèles sherpa-onnx, Nemotron ou Gemma de l’APK. Les préférences inconnues de l’interface Mac sont conservées dans le document partagé. La langue est appliquée ; les anciennes préférences de formats restent conservées pour la compatibilité des données, sans être exécutées. Le mode Réunion expérimental est abandonné et ne fait pas partie de cette version.
 
 ## Compilation et tests
 
-macOS 14 minimum. Swift 5.9 pour l’application ; Swift 6 avec Swift Testing pour les tests. Aucun paquet externe n’est nécessaire. Le build produit un exécutable pour l’architecture de la machine qui compile ; le livrable préparé sur ce Mac est Apple Silicon.
+macOS 14 minimum. Swift 5.9 pour l’application ; Swift 6 avec Swift Testing pour les tests. Aucun paquet externe n’est nécessaire. Le build produit une application universelle Apple Silicon et Intel. La reconnaissance vocale doit encore être validée sur un Mac Intel physique.
 
 ```sh
 cd desktop/macos
@@ -65,7 +64,7 @@ Les scripts utilisent les Command Line Tools par défaut. Pour Xcode, définir `
 
 Les tests utilisent des dossiers temporaires. L’argument `--preview` ouvre une bibliothèque isolée sans connexion ni surveillance globale du clavier, pour les essais d’interface. Les captures de contrôle sont dans `artifacts/` ; elles ne sont pas incluses dans l’app.
 
-Le workflow `.github/workflows/macos.yml` compile et publie l’archive comme artefact `dictai-macos` lorsqu’il est exécuté sur GitHub. Ce workflow est préparé mais n’a pas encore été exécuté.
+Le workflow `.github/workflows/macos.yml` compile et publie l’archive comme artefact `dictai-macos` lorsqu’il est exécuté sur GitHub. Les tests et la compilation de l’installateur sont exécutés à chaque modification de cette version.
 
 ## Références et provenance
 

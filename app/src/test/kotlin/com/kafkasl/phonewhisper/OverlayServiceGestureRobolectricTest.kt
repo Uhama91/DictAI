@@ -59,45 +59,38 @@ class OverlayServiceGestureRobolectricTest {
     }
 
     @Test
-    fun `upward pull opens menu and a held second move commits the next format`() {
+    fun `upward swipe at rest never opens a formatting menu or changes saved data`() {
         val pill = field<FrameLayout>(service, "pill")
-        val formats = PostProcessingFormats(context)
-        assertEquals("cleanup", formats.selected().id)
-
+        val formats = context.getSharedPreferences("dictai_formats", android.content.Context.MODE_PRIVATE)
+        formats.edit().putString("selected", "email").apply()
+        val before = formats.all.toMap()
+        invoke(service, "setState", field<Any>(service, "state"))
+        assertTrue("The accessibility hint must only advertise available actions", !pill.contentDescription.toString().contains("formats"))
         send(pill, MotionEvent.ACTION_DOWN, 20f, 20f)
         send(pill, MotionEvent.ACTION_MOVE, 20f, -36f)
-        assertNotNull(field<Any>(service, "formatMenuParams"))
-        assertEquals(0, field<Int>(service, "formatMenuSelected"))
+        assertTrue(field<Any?>(service, "floatingMenu") == null)
         send(pill, MotionEvent.ACTION_MOVE, 20f, -100f)
         send(pill, MotionEvent.ACTION_UP, 20f, -100f)
-
-        assertEquals("corrected", formats.selected().id)
-        assertTrue(field<Any?>(service, "formatMenuParams") == null)
+        assertTrue(field<Any?>(service, "floatingMenu") == null)
+        assertEquals(before, formats.all)
     }
 
     @Test
-    fun `cancelled reveal dismisses menu without changing the selected format`() {
+    fun `cancelled upward swipe leaves the library and menus unchanged`() {
         val pill = field<FrameLayout>(service, "pill")
-        val formats = PostProcessingFormats(context)
-
         send(pill, MotionEvent.ACTION_DOWN, 20f, 20f)
         send(pill, MotionEvent.ACTION_MOVE, 20f, -36f)
         send(pill, MotionEvent.ACTION_CANCEL, 20f, -36f)
-
-        assertEquals("cleanup", formats.selected().id)
-        assertTrue(field<Any?>(service, "formatMenuParams") == null)
+        assertEquals("cleanup", PostProcessingFormats(context).selected().id)
+        assertTrue(field<Any?>(service, "floatingMenu") == null)
     }
 
     @Test
-    fun `short reveal keeps the menu touchable for a normal tap`() {
+    fun `fast upward swipe at rest has no formatting action`() {
         val pill = field<FrameLayout>(service, "pill")
-
         send(pill, MotionEvent.ACTION_DOWN, 20f, 20f)
-        send(pill, MotionEvent.ACTION_MOVE, 20f, -36f)
-        send(pill, MotionEvent.ACTION_UP, 20f, -36f)
-
-        val layout = field<WindowManager.LayoutParams>(service, "formatMenuParams")
-        assertTrue(layout.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0)
+        send(pill, MotionEvent.ACTION_UP, 20f, -80f)
+        assertTrue(field<Any?>(service, "floatingMenu") == null)
     }
 
     @Test

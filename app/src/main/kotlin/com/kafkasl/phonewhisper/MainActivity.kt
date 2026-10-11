@@ -26,9 +26,6 @@ import com.google.android.material.radiobutton.MaterialRadioButton
 class MainActivity : AppCompatActivity() {
     private enum class Screen { HOME, DICTATION, FORMATTING, PREFERENCES }
 
-    private var localFormatBenchmark: LocalFormatBenchmarkDialog? = null
-    private var gemmaDownload: GemmaModelDownloadDialog? = null
-    private var gemmaSubtitle: TextView? = null
     private var screen = Screen.HOME
     private var contentScroll: ScrollView? = null
     private val synchronizedData = { renderScreen(contentScroll?.scrollY ?: 0) }
@@ -43,26 +40,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         PreferenceSyncCoordinator.get(this).unobserveData(synchronizedData)
-        gemmaDownload?.close()
-        gemmaDownload = null
-        localFormatBenchmark?.cancel()
         super.onStop()
     }
-
-    override fun onDestroy() {
-        gemmaDownload?.close()
-        gemmaDownload = null
-        localFormatBenchmark?.close()
-        localFormatBenchmark = null
-        super.onDestroy()
-    }
-
 
     private var audioRowSub: TextView? = null
     private var accRowSub: TextView? = null
     private var overlayRowSub: TextView? = null
     private var modelContainer: LinearLayout? = null
-    private var formatSummarySubtitle: TextView? = null
 
     private val modelRows = mutableMapOf<String, ModelRowViews>()
 
@@ -72,79 +56,6 @@ class MainActivity : AppCompatActivity() {
         val subtitle: TextView,
         val dlBtn: MaterialButton
     )
-
-    private fun showFormatsDialog() {
-        val store = PostProcessingFormats(this)
-        val formats = store.all()
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Formats · ${store.selected().name}")
-            .setItems((formats.map { it.name } + "＋ Créer un format").toTypedArray()) { _, index ->
-                if (index == formats.size) editFormat(null)
-                else {
-                    val format = formats[index]
-                    val custom = store.custom().any { it.id == format.id }
-                    val options = if (custom) arrayOf("Utiliser", "Modifier", "Supprimer") else arrayOf("Utiliser")
-                    androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle(format.name)
-                        .setItems(options) { _, action ->
-                            when (action) {
-                                0 -> {
-                                    store.select(format)
-                                    refreshFormatSummary()
-                                    val unavailable = PersistencePrefs(this).formattingEngine == "local" && format.localLayoutKind == null && format.instructions.isNotBlank()
-                                    Toast.makeText(this, if (unavailable) "Ce format nécessite le cloud. L’essai local prend en charge les listes et les mails." else "Prochaine dictée : ${format.name}", Toast.LENGTH_LONG).show()
-                                }
-                                1 -> editFormat(format)
-                                2 -> androidx.appcompat.app.AlertDialog.Builder(this)
-                                    .setTitle("Supprimer ${format.name} ?")
-                                    .setPositiveButton("Supprimer") { _, _ ->
-                                        store.delete(format.id)
-                                        refreshFormatSummary()
-                                    }
-                                    .setNegativeButton("Annuler", null).show()
-                            }
-                        }.show()
-                }
-            }
-            .setNegativeButton("Fermer", null)
-            .show()
-    }
-
-    private fun editFormat(format: PostProcessingFormat?) {
-        val name = EditText(this).apply {
-            hint = "Nom du format"; setSingleLine(true); setText(format?.name.orEmpty())
-            filters = arrayOf(android.text.InputFilter.LengthFilter(60))
-        }
-        val instructions = EditText(this).apply {
-            hint = "Ex. : organise mes idées en liste à puces, sans ajouter d'information."
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            minLines = 4; setText(format?.instructions.orEmpty())
-            filters = arrayOf(android.text.InputFilter.LengthFilter(4000))
-        }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(8))
-            addView(name); addView(instructions)
-        }
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(if (format == null) "Créer un format" else "Modifier le format")
-            .setMessage("Décrivez la mise en forme souhaitée. Les formats personnalisés utilisent le cloud avec votre clé OpenRouter. L’essai local prend en charge les listes et les mails.")
-            .setView(content).setPositiveButton("Enregistrer", null).setNegativeButton("Annuler", null).create()
-        dialog.setOnShowListener {
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                when {
-                    name.text.isNullOrBlank() -> name.error = "Indiquez un nom"
-                    instructions.text.isNullOrBlank() -> instructions.error = "Indiquez les consignes"
-                    else -> {
-                        PostProcessingFormats(this).save(format?.id, name.text.toString(), instructions.text.toString())
-                        dialog.dismiss()
-                        refreshFormatSummary()
-                        showFormatsDialog()
-                    }
-                }
-            }
-        }
-        dialog.show()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -196,8 +107,6 @@ class MainActivity : AppCompatActivity() {
         overlayRowSub = null
         modelContainer = null
         modelRows.clear()
-        gemmaSubtitle = null
-        formatSummarySubtitle = null
 
         val root = when (screen) {
             Screen.HOME -> buildHomePage()
@@ -305,7 +214,7 @@ class MainActivity : AppCompatActivity() {
             }
         })
         root.addView(homeAccessRow("Dictée", dictationSummary(), R.drawable.ic_mic, minHeightDp = 94) { navigateTo(Screen.DICTATION) })
-        root.addView(homeAccessRow("Mise en forme", formattingSummary(), android.R.drawable.ic_menu_edit, minHeightDp = 94) { navigateTo(Screen.FORMATTING) })
+        root.addView(homeAccessRow("Correction du texte", formattingSummary(), android.R.drawable.ic_menu_edit, minHeightDp = 94) { navigateTo(Screen.FORMATTING) })
         root.addView(homeAccessRow("Préférences", "", android.R.drawable.ic_menu_preferences, minHeightDp = 94) {
             navigateTo(Screen.PREFERENCES)
         })
@@ -527,54 +436,27 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildFormattingPage(): LinearLayout {
         val root = vertical(0, 0)
-        root.addView(navigationHeader("Mise en forme"))
-        val formattingPrefs = PersistencePrefs(this)
-        val formatStore = PostProcessingFormats(this)
-        val selectedFormat = formatStore.selected()
-        root.addView(sectionHeader("Format de la dictée"))
-        val formatRow = settingsRow("Format de la dictée", selectedFormatLabel(selectedFormat), null) {
-            showFormatsDialog()
-        }
-        formatSummarySubtitle = formatRow.findViewWithTag("subtitle")
-        root.addView(formatRow)
-        root.addView(settingsRow("Choix disponibles", "Texte · Liste à puces · Mail"))
-
-        root.addView(sectionHeader("Moteur"))
-        val engineRow = settingsRow("Moteur de post-traitement", engineLabel(formattingPrefs))
+        root.addView(navigationHeader("Correction du texte"))
+        root.addView(sectionHeader("Correction facultative"))
+        root.addView(TextView(this).apply {
+            text = "La transcription reste sur l’appareil. La correction cloud améliore la ponctuation et corrige les fautes évidentes en conservant vos mots et le sens."
+            textSize = 15f
+            setTextColor(palette.inkMuted)
+            setPadding(0, 0, 0, dp(16))
+        })
+        val preferences = PersistencePrefs(this)
+        val engineRow = settingsRow("Correction IA", engineLabel(preferences))
         engineRow.setOnClickListener { showEngineDialog(engineRow) }
         root.addView(engineRow)
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
-            val row = settingsRow("Installer Gemma 4 E2B", gemmaInstallLabel()) { showGemmaDownload() }
-            gemmaSubtitle = row.findViewWithTag("subtitle")
-            root.addView(row)
-        }
-        root.addView(settingsRow("Modèle cloud", formattingPrefs.cloudModel().label) { showCloudModelDialog() })
+        root.addView(settingsRow("Modèle cloud", preferences.cloudModel().label) { showCloudModelDialog() })
         val credentialStore = SecureCredentialStore(this)
-        root.addView(settingsRow(
-            "Clé OpenRouter",
+        root.addView(settingsRow("Clé OpenRouter",
             if (credentialStore.has()) "Clé enregistrée (masquée)" else "Aucune clé enregistrée",
         ) { showCredentialDialog() })
-
         root.addView(sectionHeader("Diagnostics"))
-        root.addView(settingsRow("Dernier post-traitement", "Diagnostic copiable conservé après la dictée") {
+        root.addView(settingsRow("Dernière correction", "Diagnostic copiable de la dernière dictée") {
             showPostprocessingDiagnostic()
         })
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) {
-            root.addView(settingsRow("Tester Gemma sur ce téléphone", "GPU · sans thinking · vitesse et fidélité FR/EN") {
-                if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
-                else if (localFormatBenchmark?.isShowing != true) {
-                    localFormatBenchmark?.close()
-                    localFormatBenchmark = LocalFormatBenchmarkDialog(this).also { it.show() }
-                }
-            })
-            root.addView(settingsRow("Mesurer les mails longs avec Gemma", "Deux mails × deux passages · résultat copiable") {
-                if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
-                else if (localFormatBenchmark?.isShowing != true) {
-                    localFormatBenchmark?.close()
-                    localFormatBenchmark = LocalFormatBenchmarkDialog(this, longMailsOnly = true).also { it.show() }
-                }
-            })
-        }
         return root
     }
 
@@ -663,15 +545,7 @@ class MainActivity : AppCompatActivity() {
         NumberStyle.UNCHANGED -> "Conserver la transcription"
     }
 
-    private fun selectedFormatLabel(format: PostProcessingFormat): String =
-        if (format.id == "cleanup") "Texte sans LLM" else format.name
-
-    private fun refreshFormatSummary() {
-        formatSummarySubtitle?.text = selectedFormatLabel(PostProcessingFormats(this).selected())
-    }
-
     private fun engineLabel(preferences: PersistencePrefs): String = when (preferences.formattingEngine) {
-        "local" -> "Local · Gemma · essai"
         "cloud" -> "Cloud · OpenRouter"
         else -> "Désactivé · vocabulaire et nombres conservés"
     }
@@ -682,16 +556,7 @@ class MainActivity : AppCompatActivity() {
         return "${languageLabel(PersistencePrefs(this).dictationLanguage)} · ${model?.name ?: "modèle vocal à choisir"}"
     }
 
-    private fun formattingSummary(): String {
-        val preferences = PersistencePrefs(this)
-        val format = selectedFormatLabel(PostProcessingFormats(this).selected())
-        val engine = when (preferences.formattingEngine) {
-            "cloud" -> "Cloud"
-            "local" -> "Local · essai"
-            else -> "Sans moteur"
-        }
-        return "$format · $engine"
-    }
+    private fun formattingSummary(): String = engineLabel(PersistencePrefs(this))
 
     override fun onResume() {
         super.onResume()
@@ -703,7 +568,6 @@ class MainActivity : AppCompatActivity() {
             )
         }
         refresh()
-        gemmaSubtitle?.text = gemmaInstallLabel()
     }
 
     private fun showVocabularyDialog() {
@@ -732,68 +596,33 @@ class MainActivity : AppCompatActivity() {
 
     private fun showEngineDialog(row: LinearLayout) {
         val preferences = PersistencePrefs(this)
-        val values = if (BuildConfig.LOCAL_FORMAT_PROTOTYPE) listOf("local", "cloud", "off") else listOf("cloud", "off")
+        val values = listOf("cloud", "off")
         val labels = values.map {
             when (it) {
-                "local" -> "Local — texte corrigé, listes et mails (essai)"
                 "cloud" -> "Cloud — OpenRouter"
                 else -> "Désactivé"
             }
         }.toTypedArray()
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Moteur de post-traitement")
+            .setTitle("Correction IA")
             .setSingleChoiceItems(labels, values.indexOf(preferences.formattingEngine)) { dialog, index ->
                 preferences.formattingEngine = values[index]
                 row.findViewWithTag<TextView>("subtitle").text = engineLabel(preferences)
                 dialog.dismiss()
-                if (values[index] == "local") {
-                    if (GemmaModelStore(this).installedModel() == null) showGemmaDownload()
-                    else prepareLocalFormatter()
-                }
             }
             .setNegativeButton("Annuler", null)
             .show()
     }
 
-    private fun showPostprocessingDiagnostic(latestDictation: Boolean = false) {
-        val prefs = PersistencePrefs(this)
-        val latest = prefs.lastPostprocessingDiagnostic
-        val formatted = prefs.lastFormatPostprocessingDiagnostic
-        val report = if (latestDictation) latest else formatted ?: latest
-        val title = if (!latestDictation && formatted != null) "Dernier format demandé" else "Dernière dictée"
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(report ?: "Aucun traitement enregistré. Après un essai Mail ou Liste, son diagnostic restera disponible ici même après une dictée en mode Texte.")
+    private fun showPostprocessingDiagnostic() {
+        val report = PersistencePrefs(this).lastPostprocessingDiagnostic
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Dernière dictée")
+            .setMessage(report ?: "Aucun traitement enregistré. Le diagnostic sera disponible après une dictée.")
             .setPositiveButton("Copier") { _, _ -> report?.let { DictationClipboard.copy(this, it) } }
-            .setNegativeButton("Fermer", null)
-        if (!latestDictation && formatted != null && latest != null && latest != formatted) {
-            dialog.setNeutralButton("Dernière dictée") { _, _ -> showPostprocessingDiagnostic(latestDictation = true) }
-        }
-        dialog.show()
+            .setNegativeButton("Fermer", null).show()
     }
 
-    private fun gemmaInstallLabel(): String = if (GemmaModelStore(this).installedModel() != null)
-        "Installé · hors ligne · texte corrigé, listes et mails"
-    else "2,6 Go · téléchargement reprenable · puis utilisation hors ligne"
-
-    private fun showGemmaDownload() {
-        if (gemmaDownload?.isShowing == true) return
-        gemmaDownload?.close()
-        gemmaDownload = GemmaModelDownloadDialog(this, onInstalled = {
-            gemmaSubtitle?.text = gemmaInstallLabel()
-            prepareLocalFormatter()
-        }).also { it.show() }
-    }
-
-    private fun prepareLocalFormatter() {
-        if (BuildConfig.LOCAL_FORMAT_PROTOTYPE && Settings.canDrawOverlays(this) &&
-            lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
-            runCatching {
-                startForegroundService(Intent(this, OverlayService::class.java)
-                    .setAction(OverlayService.ACTION_PREPARE_LOCAL_FORMAT))
-            }
-        }
-    }
     override fun onRequestPermissionsResult(c: Int, p: Array<String>, r: IntArray) {
         super.onRequestPermissionsResult(c, p, r); refresh()
     }

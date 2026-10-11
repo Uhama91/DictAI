@@ -4,17 +4,23 @@ import DictAICore
 @testable import DictAI
 
 @MainActor struct LibraryStoreTests {
-    @Test func intelligentPunctuationIsAPersistentMacSettingOutsideAndroidSync() throws {
+    @Test func retiredFormatSelectionIsIgnoredWithoutDeletingSyncedData() throws {
+        let store = try LibraryStore(root: location())
+        store.setPreference("selected_format", "email")
+        #expect(store.preference("selected_format", default: "cleanup") == "cleanup")
+        #expect(store.document.values["pref:selected_format"] == "email")
+        #expect(try LibraryStore(root: store.root).preference("selected_format", default: "cleanup") == "cleanup")
+    }
+    @Test func retiredLocalSettingsCannotPreventLoadingExistingNotes() throws {
         let root = location()
         let store = try LibraryStore(root: root)
-        #expect(store.intelligentPunctuation)
-        store.setIntelligentPunctuation(false)
-        #expect(!store.intelligentPunctuation)
-        try store.switchScope("11111111-1111-4111-8111-111111111111")
-        #expect(!store.intelligentPunctuation)
+        _ = try store.createNote(text: "Ma note conservée")
+        let file = root.appendingPathComponent("mac-preferences.json")
+        let legacy = Data("{\"intelligentPunctuation\":true}".utf8)
+        try legacy.write(to: file)
         let restored = try LibraryStore(root: root)
-        #expect(!restored.intelligentPunctuation)
-        #expect(store.document.values.isEmpty && restored.document.values.isEmpty)
+        #expect(restored.notes.map(\.text) == ["Ma note conservée"])
+        #expect(try Data(contentsOf: file) == legacy)
     }
     func location() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent("dictai-test-" + UUID().uuidString) }
     @Test func manualDraftIsReadyForCorrectionWithoutStartingMicrophone() throws {

@@ -5,34 +5,32 @@ import DictAICore
 @testable import DictAI
 
 @MainActor struct DictationWindowTests {
-    @Test func localPunctuationSettingsAndReviewRenderInNativeViews() async throws {
+    @Test func cloudCorrectionSettingsAndReviewRenderInNativeViews() async throws {
         _ = NSApplication.shared
         Theme.registerFonts()
-        let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-punctuation-render-" + UUID().uuidString), punctuator: UnavailablePunctuator())
+        let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-cloud-render-" + UUID().uuidString))
         defer { model.closeOverlay() }
         for theme in ["light", "dark"] {
             model.library.setPreference("theme_mode", theme)
-            let settings = NSHostingView(rootView: VStack(alignment: .leading, spacing: 16) {
-                Label("Correction et formats", systemImage: "wand.and.stars").font(Theme.handwriting(26)).foregroundStyle(Theme.accent)
-                LocalPunctuationSettings(library: model.library)
-            }.padding(24).frame(width: 720, height: 230, alignment: .topLeading).foregroundStyle(Theme.cream).tint(Theme.accent).background(Theme.surface).environment(\.colorScheme, theme == "light" ? .light : .dark))
+            let settings = NSHostingView(rootView: SettingsView(model: model, library: model.library, account: model.account, sync: model.sync)
+                .foregroundStyle(Theme.cream).tint(Theme.accent).background(Theme.surface).environment(\.colorScheme, theme == "light" ? .light : .dark))
             settings.appearance = NSAppearance(named: theme == "light" ? .aqua : .darkAqua)
-            settings.frame = NSRect(x: 0, y: 0, width: 720, height: 230)
+            settings.frame = NSRect(x: 0, y: 0, width: 920, height: 1500)
             settings.layoutSubtreeIfNeeded()
-            try render(settings, name: "punctuation-settings-\(theme)")
+            try render(settings, name: "cloud-settings-\(theme)")
         }
         model.edit("Je regarde l’application dans le navigateur. La dictée est terminée. Je peux passer à la suite.")
         model.showDraft()
         try await Task.sleep(for: .milliseconds(200))
         let editor = try #require(NSApp.windows.first { $0.isVisible && $0.title == "DictAI · Votre dictée" })
         editor.contentView?.layoutSubtreeIfNeeded()
-        try render(editor.contentView, name: "punctuation-review")
-        model.state = .punctuating
+        try render(editor.contentView, name: "cloud-review")
+        model.state = .cleaning
         model.showCompact()
         try await Task.sleep(for: .milliseconds(200))
         let compact = try #require(NSApp.windows.first { $0.isVisible && $0.title == "DictAI · Votre dictée" })
         compact.contentView?.layoutSubtreeIfNeeded()
-        try render(compact.contentView, name: "punctuation-progress")
+        try render(compact.contentView, name: "cloud-progress")
     }
     @Test func missingAccessibilityRemainsVisibleWithARecoverableDraft() async throws {
         _ = NSApplication.shared
@@ -40,7 +38,7 @@ import DictAICore
         let delivery = WindowTestDelivery()
         delivery.available = false
         delivery.issue = "Accessibilité requise pour Option et l’insertion. Autorisez DictAI dans Réglages Système → Confidentialité et sécurité → Accessibilité. Votre dictée reste dans le brouillon."
-        let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-permission-" + UUID().uuidString), speech: speech, insertion: delivery, punctuator: UnavailablePunctuator())
+        let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-permission-" + UUID().uuidString), speech: speech, insertion: delivery)
         defer { model.closeOverlay() }
         model.begin()
         for _ in 0..<30 { await Task.yield() }
@@ -67,7 +65,7 @@ import DictAICore
             let speech = WindowTestSpeech()
             let delivery = WindowTestDelivery()
             let before = Set(NSApp.windows.map(ObjectIdentifier.init))
-            let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-dismiss-" + UUID().uuidString), speech: speech, insertion: delivery, punctuator: UnavailablePunctuator())
+            let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-dismiss-" + UUID().uuidString), speech: speech, insertion: delivery)
             model.begin()
             for _ in 0..<30 { await Task.yield() }
             speech.onText?("Une dictée avant retouche.")

@@ -94,7 +94,9 @@ def main() -> int:
                 name = lib.rsplit("/", 1)[-1]
 
             lowercase_path = lib.lower()
-            if "llama" in lowercase_path:
+            if name in {"libdictai_llm.so", "libdictai_llm_arm82.so", "liblitertlm_jni.so"}:
+                failures.append(f"{lib}: retired LLM runtime")
+            elif "llama" in lowercase_path:
                 failures.append(f"{lib}: forbidden llama native library")
             elif "ggml" in lowercase_path and (
                 abi_and_name is None or name not in ALLOWED_GGML_LIBRARY_NAMES

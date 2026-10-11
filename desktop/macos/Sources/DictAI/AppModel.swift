@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import DictAICore
 
-enum DictationState: String { case idle, preparing, listening, finishing, paused, review, cleaning, punctuating, inserting }
+enum DictationState: String { case idle, preparing, listening, finishing, paused, review, cleaning, inserting }
 enum DictationDestination { case field, note }
 enum DictationPresentation { case compact, editor, window }
 
@@ -15,8 +15,6 @@ enum DictationPresentation { case compact, editor, window }
     let speech: any SpeechCapturing
     let insertion: any TextDelivering
     let cleaner: any DictationCleaning
-    let punctuator: any DictationPunctuating
-    private let punctuationTimeout: Duration
     private let makeOverlay: @MainActor (AppModel) -> any OverlayPresenting
     lazy var overlay = makeOverlay(self)
     let editorSession = DictationEditorSession()
@@ -32,8 +30,6 @@ enum DictationPresentation { case compact, editor, window }
     @Published private(set) var destination: DictationDestination = .field
     @Published var startedAt = Date()
     private var operation: Task<Void, Never>?
-    private var punctuationDeadline: Task<Void, Never>?
-    private var punctuationDoneFor: String?
     private var revision = UUID()
     private var generation = UUID()
     private var deliverWhenFinished = false
@@ -45,14 +41,12 @@ enum DictationPresentation { case compact, editor, window }
     private var savedNoteBase: String?
     private var didStart = false
     init(root: URL? = nil, speech: (any SpeechCapturing)? = nil, insertion: (any TextDelivering)? = nil,
-         cleaner: (any DictationCleaning)? = nil, punctuator: (any DictationPunctuating)? = nil, punctuationTimeout: Duration = .seconds(25), makeOverlay: @escaping @MainActor (AppModel) -> any OverlayPresenting = { OverlayController(model: $0) }) throws {
+         cleaner: (any DictationCleaning)? = nil, makeOverlay: @escaping @MainActor (AppModel) -> any OverlayPresenting = { OverlayController(model: $0) }) throws {
         library = try LibraryStore(root: root)
         let setup = try SetupState(root: library.root)
         self.setup = setup
         self.speech = speech ?? SpeechEngine(); self.insertion = insertion ?? TextInsertion()
         self.cleaner = cleaner ?? LiveDictationCleaner(); self.makeOverlay = makeOverlay
-        self.punctuator = punctuator ?? LiveDictationPunctuator()
-        self.punctuationTimeout = punctuationTimeout
         sync = SyncCoordinator(library: library, account: account)
         if let restored = library.loadDraft() { draft = restored; if !draft.text.isEmpty { state = .review } }
         account.onChange = { [weak self] session in
@@ -107,7 +101,7 @@ enum DictationPresentation { case compact, editor, window }
         switch state {
         case .listening: finishListening(deliver: true)
         case .preparing: closeOverlay()
-        case .finishing, .cleaning, .punctuating, .inserting: break
+        case .finishing, .cleaning, .inserting: break
         case .paused:
             if panelVisible {
                 if draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { closeOverlay() }
@@ -119,7 +113,7 @@ enum DictationPresentation { case compact, editor, window }
         }
     }
     func begin(destination: DictationDestination = .field) {
-        guard ![.preparing, .listening, .finishing, .cleaning, .punctuating, .inserting].contains(state) else { return }
+        guard ![.preparing, .listening, .finishing, .cleaning, .inserting].contains(state) else { return }
         do {
             if !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 if var note = savedNote {
@@ -144,8 +138,6 @@ enum DictationPresentation { case compact, editor, window }
         startSpeechSegment()
     }
     private func startSpeechSegment() {
-        punctuationDoneFor = nil
-        if localPunctuationEnabled { punctuator.prepare() }
         revision = UUID(); generation = UUID(); let epoch = generation
         deliverWhenFinished = false; pauseWhenFinished = false; resumeAfterPause = false; delivered = false; segmentHasSpeech = false
         draft.beginSegment(); persistDraft()
@@ -196,7 +188,7 @@ enum DictationPresentation { case compact, editor, window }
     }
     func closeOverlay() {
         revision = UUID(); generation = UUID(); deliverWhenFinished = false; resumeAfterPause = false
-        operation?.cancel(); punctuationDeadline?.cancel(); speech.cancel(); level = 0
+        operation?.cancel(); speech.cancel(); level = 0
         state = draft.text.isEmpty ? .idle : .paused
         persistDraft(); overlay.hide(); panelVisible = false
     }
@@ -230,21 +222,15 @@ enum DictationPresentation { case compact, editor, window }
         }
         if !draft.edited && library.preference("formatting_engine", default: "off") == "cloud" {
             clean(deliverAfter: shouldDeliver)
-        } else if needsPunctuation {
-            punctuate { [weak self] in
-                if shouldDeliver { self?.completeDictation() }
-                else { self?.revealEditor() }
-            }
         } else if shouldDeliver { completeDictation() }
         else { finalizeTypography(); revealEditor() }
     }
     var learningSuggestion: String? { Vocabulary.suggestion(before: draft.recognized, after: draft.text) }
-    var busy: Bool { [.preparing, .finishing, .cleaning, .punctuating, .inserting].contains(state) }
+    var busy: Bool { [.preparing, .finishing, .cleaning, .inserting].contains(state) }
     var deliveryLabel: String { destination == .note ? "Enregistrer la note" : "Insérer le texte" }
     func learn(_ rule: String) { library.perform { try library.addVocabulary(rule); message = "Préférence ajoutée au vocabulaire" } }
     func saveNote() {
         guard !busy, !delivered, state != .listening, !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        if needsPunctuation { punctuate { [weak self] in self?.saveNote() }; return }
         finalizeTypography()
         library.perform {
             try archiveDraft()
@@ -278,7 +264,6 @@ enum DictationPresentation { case compact, editor, window }
     func completeDictation() { if destination == .note { saveNote() } else { insert() } }
     func insert() {
         guard [.review, .paused].contains(state), !delivered, !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        if needsPunctuation { punctuate { [weak self] in self?.insert() }; return }
         finalizeTypography()
         let text = draft.text + (library.preference("trailing_space", default: "true") == "true" ? " " : "")
         let edit = revision; let epoch = generation; let scope = library.generation
@@ -302,43 +287,6 @@ enum DictationPresentation { case compact, editor, window }
         guard !draft.edited, library.preference("formatting_engine", default: "off") != "cloud" else { return }
         draft.normalizeRecognition(DictationTypography.finalized(draft.text, language: library.preference("dictation_language", default: "fr")))
         persistDraft()
-    }
-    private var localPunctuationEnabled: Bool {
-        library.intelligentPunctuation && library.preference("dictation_language", default: "fr") == "fr" && library.preference("formatting_engine", default: "off") != "cloud"
-    }
-    private var needsPunctuation: Bool {
-        [.review, .paused].contains(state) && !draft.edited && localPunctuationEnabled && punctuator.available && punctuationDoneFor != draft.text
-    }
-    private func punctuate(then completion: @escaping @MainActor () -> Void) {
-        let text = draft.text, edit = revision, epoch = generation, scope = library.generation
-        let terms = PunctuationProtection.terms(in: text, vocabulary: library.vocabulary.map(\.value))
-        state = .punctuating; message = ""
-        let finish: @MainActor (String?) -> Void = { [weak self] result in
-            guard let self, self.generation == epoch, self.library.generation == scope, self.state == .punctuating else { return }
-            self.punctuationDeadline?.cancel()
-            self.state = .review
-            guard self.revision == edit else {
-                self.reveal("Vos retouches ont été conservées. Vérifiez le texte avant de terminer."); return
-            }
-            if let accepted = result.flatMap({ PunctuationRestoration.accept($0, for: text, protectedTerms: terms) }) {
-                self.draft.normalizeRecognition(accepted)
-            }
-            self.finalizeTypography()
-            self.punctuationDoneFor = self.draft.text
-            completion()
-        }
-        // Independent deadline: even an uncooperative service cannot block delivery.
-        punctuationDeadline = Task {
-            do { try await Task.sleep(for: punctuationTimeout) } catch { return }
-            guard !Task.isCancelled, generation == epoch, library.generation == scope, state == .punctuating else { return }
-            operation?.cancel()
-            finish(nil)
-        }
-        operation = Task {
-            let result = try? await punctuator.process(text, protectedTerms: terms)
-            guard !Task.isCancelled else { return }
-            finish(result)
-        }
     }
     func clean(deliverAfter: Bool = false) {
         guard !draft.text.isEmpty, [.review, .paused].contains(state) else { return }

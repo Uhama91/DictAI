@@ -1,14 +1,11 @@
 # CLAUDE.md — DictAI (fork de Phone Whisper)
 
 ## Description
-App Android Kotlin : bouton micro flottant pour dicter du texte (transcription locale sherpa-onnx
-ou nettoyage cloud facultatif) par-dessus toutes les apps via service d'accessibilité. **Fork rebrandé "DictAI"**
-(`applicationId com.uhama.whisperpin`, namespace inchangé `com.kafkasl.phonewhisper`). Objectif du
-chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco F7 + Pad 7).
+App Android Kotlin : bouton flottant pour dicter du texte, avec reconnaissance locale Nemotron/transcribe.cpp ou sherpa-onnx et correction cloud OpenRouter facultative, par-dessus les autres apps via service d'accessibilité. Compagnon macOS natif dans `desktop/macos/`. **Fork rebrandé "DictAI"** (`applicationId com.uhama.whisperpin`, namespace inchangé `com.kafkasl.phonewhisper`). Chantier en cours : conserver la dictée actuelle et proposer uniquement une correction par modèle cloud, sans formats Liste/Mail ni LLM local.
 
 ## Stack
 - Kotlin, Android (compileSdk 34, minSdk 30, targetSdk 34), AGP/Gradle, OkHttp, sherpa-onnx et transcribe.cpp (JNI arm64 bundlés) pour la transcription locale, avec nettoyage cloud OpenRouter facultatif.
-- Build : `./gradlew :app:assembleDebug` (NDK non requis, APK ~16 Mo). Tests : `./gradlew :app:testDebugUnitTest`.
+- Build : `./gradlew :app:assembleDebug` avec JDK 21. Tests : `./gradlew :app:testDebugUnitTest`. Les runtimes ASR natifs arm64 sont conservés et vérifiés par la CI.
 - SDK local : `~/Library/Android/sdk` (via `local.properties`, gitignored).
 - CI : GitHub Actions (`.github/workflows/build.yml`) → artefact `dictai-debug-apk`.
 - Repo : `Uhama91/DictAI`, dérivé de `kafkasl/phone-whisper`.
@@ -24,11 +21,8 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 - Plan : `docs/superpowers/plans/2026-05-31-whisperpin-persistence.md` (14 tasks, 1 passe Codex).
 
 ## TODO / état
-- Post-traitement multiformat : parent V6 Gemma 4 E2B 1956 retenu comme référence expérimentale (42/60 utilisables, 10 critiques sur développement). V7 ciblé et Adam corrigé rejetés. Détails dans `/Users/ulliemaillot/dev_project/asr-postclean-fr/CLAUDE.md`. Listes mixtes, consignes, enveloppe et profil JNI greedy acceptés dans `/Users/ulliemaillot/.codex/worktrees/gemma4-layout-validation/phone-whisper`, 561 tests JDK 21 et deux builds NDK en staging ; pas intégrés ici. Export BF16, staging F32, GGUF F32 et quantification Q4_K_M/QO F16 réussis et vérifiés. Modèle réel de 3 534 083 584 octets, SHA `d3ea0d2ebb5bdd91e5a6ce2332a75f70a098bda17602afcb7d90c4c1fafd534c`. Génération native encore à examiner. Multipart en cours ; plans moteur partagé et livraison préparés. Aucun nouveau poids dans l'APK ni Actions lancée. Concurrence Nemotron, protection des retouches humaines et mesures téléphone restent à faire ; aucun taux mobile établi.
-- ⏳ **GATE spike micro (Task 3)** : valider sur Poco F7 que l'OverlayService FGS `microphone` capte
-  un audio non silencieux en arrière-plan (mesure `maxAmp`). APK : `~/Downloads/whisperpin-spike.apk`.
-  Si VERT → Phases C-F (manifest, refactor, OverlayService complet, boot, watchdog, assistant, bouton, sécurité, matrice).
-  Si ROUGE → repli (capture dans le service d'accessibilité).
+- Décision du 11 octobre 2026 : abandon du post-traitement LLM local, des formats Liste/Mail/personnels et du mode Réunion expérimental. Conserver Nemotron et les autres moteurs ASR de la version actuelle ; ne pas intégrer la branche `codex/meeting-mode`. Les recherches historiques restent disponibles, sans moteur local exécutable dans l'APK.
+- Correction cloud facultative, avec consigne fixe et données de formats historiques conservées pour la synchronisation. Valider les versions simplifiées sur Poco F7, Pad 7 et dans le champ externe du Mac après installation ; les rendus natifs et les tests automatisés ne remplacent pas cet essai physique.
 
 ## Étapes OEM réelles découvertes sur le Poco F7 (à encoder dans l'assistant Task 10)
 1. **Overlay** : Afficher par-dessus les autres apps → autoriser.
@@ -45,6 +39,8 @@ chantier en cours : rendre le bouton **indestructible** sur Xiaomi HyperOS (Poco
 ## Session Log
 | Date | Action | Fichiers/Config |
 |------|--------|-----------------|
+| 2026-10-11 | GitHub rattrapé avant simplification : sources macOS et CI ajoutées, Android 0.9.14 et Mac 0.4.2 publiés sur `main` par avance normale, sans intégrer le mode Réunion. | `9cd5203`, `desktop/macos/`, `.github/workflows/macos.yml` |
+| 2026-10-11 | Android 0.9.15 et Mac 0.4.3 : Nemotron/ASR conservés, LLM locaux et formats retirés, correction OpenRouter fidèle facultative ; données historiques préservées. 741 tests Android, 139 tests Mac ARM et 139 sous Rosetta réussis, rendus natifs audités et installateur universel construit ; installation physique restante. | `docs/2026-10-11-cloud-cleanup-only.md`, `app/`, `desktop/macos/`, contrôleurs APK et CI |
 | 2026-10-11 | Mac 0.4.2 : ponctuation IA désactivée pour supprimer l’attente ajoutée, préférence persistante vérifiée. Accessibilité de DictAI réactivée avec validation de l’utilisateur (Preview était autorisée, DictAI désactivée), trois permissions reconnues et raccourci Option relancé. 39 notes et 56 entrées de vocabulaire présentes ; deux insertions rapides successives dans Codex confirmées par l’utilisateur. Aucune réinstallation ni modification du code. | `desktop/macos/walkthrough-0.4.2.md`, réglage local de DictAI |
 | 2026-10-10 | Mac 0.4.2 installée (build 12) : ponctuation locale à la fin de la dictée, mots/noms/retouches protégés, repli après 25 s ; 144 tests ARM et 144 sous Rosetta, essai supplémentaire avec le modèle réel (11,6 s), quatre rendus natifs audités, paquet universel vérifié. Douze fichiers identiques après installation, 33 notes et 55 entrées de vocabulaire conservées ; Trousseau validé, autorisations en cours de renouvellement et essai vocal réel restant. | `desktop/macos/walkthrough-0.4.2.md` |
 | 2026-10-10 | DictAI Mac 0.4.1 installée (build 11) : erreur visible, recherche du champ à l’insertion et typographie française prudente ; 123 tests ARM + 123 sous Rosetta, installateur et deux rendus natifs vérifiés. Douze fichiers et contenu conservés ; les trois autorisations et le modèle vocal français sont confirmés dans DictAI. L’utilisateur confirme l’insertion réussie dans Codex lors de l’essai réel demandé. | `desktop/macos/walkthrough-0.4.1.md` |

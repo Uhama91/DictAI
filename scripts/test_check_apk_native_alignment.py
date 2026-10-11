@@ -55,6 +55,14 @@ class CheckApkNativeAlignmentTest(unittest.TestCase):
                 text=True,
             )
 
+    def test_rejects_retired_llm_runtimes_and_preserves_the_transcribe_bundle(self) -> None:
+        for library in ("libdictai_llm.so", "libdictai_llm_arm82.so", "liblitertlm_jni.so"):
+            entries = transcribe_bundle_entries()
+            entries.append((f"lib/arm64-v8a/{library}", elf_with_load_alignment(16 * 1024), zipfile.ZIP_STORED))
+            result = self.run_check(entries)
+            self.assertNotEqual(result.returncode, 0, library)
+            self.assertIn("retired LLM runtime", result.stdout)
+
     def test_rejects_llama_library_even_with_16_kib_alignment(self) -> None:
         result = self.run_check(
             [("lib/arm64-v8a/libllama.so", elf_with_load_alignment(16 * 1024), zipfile.ZIP_STORED)]

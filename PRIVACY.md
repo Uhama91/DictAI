@@ -13,9 +13,10 @@ download into the app's private storage. Audio is not sent to a DictAI server.
 
 ### Optional cloud cleanup
 
-If you enable cloud cleanup, DictAI sends the transcript text, the selected
-formatting instructions, and any configured vocabulary or protected spellings
-directly from the device to OpenRouter. This step is optional and does not send
+If you enable cloud cleanup, DictAI sends the transcript text with a fixed conservative correction prompt
+directly from the device to OpenRouter. The transcript already contains any
+vocabulary substitutions made locally; protected spellings are checked before
+accepting the result. This step is optional and does not send
 the recorded audio.
 
 ## API key
@@ -39,9 +40,11 @@ analytics, or perform background automation.
 
 DictAI works locally without an account. If you choose to sign in with Google,
 Supabase Auth hosts your account identifier and email address. Supabase hosts
-your vocabulary, shared preferences, personal formats, saved folders, notes,
+your vocabulary, shared preferences, historical format definitions, saved folders, notes,
 and the original images attached to those notes so your devices can retrieve
 them. Existing saved content on a device is included when that device connects.
+Historical format definitions are kept for compatibility and are never executed
+by this version of the app.
 
 Database policies isolate each user's rows. Images use a private storage bucket
 and authenticated downloads. Network exchanges use HTTPS. Account credentials
@@ -63,8 +66,8 @@ Without account synchronization, notes and captures remain local unless you
 explicitly export, save, or share them.
 
 OpenRouter and the model provider selected through it may process the transcript
-text, selected formatting instructions, and configured vocabulary or protected
-spellings according to their own terms and privacy policies.
+text, including locally corrected vocabulary, according to their own terms and
+privacy policies.
 
 ## Contact
 

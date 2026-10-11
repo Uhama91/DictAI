@@ -6,7 +6,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val localFormatPrototype = providers.gradleProperty("localFormatPrototype").orNull == "true"
+// A historical -PlocalFormatPrototype=true can no longer enable an executable formatter.
+val localFormatPrototype = false
 val syncClient = Properties().apply { file("sync-client.properties").inputStream().use { load(it) } }
 val syncSupabaseUrl = providers.gradleProperty("dictaiSupabaseUrl").orElse(providers.environmentVariable("DICTAI_SUPABASE_URL")).orElse(syncClient.getProperty("url", ""))
 val syncPublishableKey = providers.gradleProperty("dictaiSupabasePublishableKey").orElse(providers.environmentVariable("DICTAI_SUPABASE_PUBLISHABLE_KEY")).orElse(syncClient.getProperty("publishableKey", ""))
@@ -21,8 +22,8 @@ android {
     }
 
     androidResources { noCompress += listOf("gguf", "litertlm") }
-    // Gemma is installed once from inside the app. The old bundled 350M is not packaged.
-    if (localFormatPrototype) packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so")
+    // Keep the local ASR bundle; retired local LLM runtimes and prompts are never shipped.
+    packaging.jniLibs.excludes += setOf("**/libdictai_llm.so", "**/libdictai_llm_arm82.so", "**/liblitertlm_jni.so")
 
     defaultConfig {
         applicationId = "com.uhama.whisperpin"
@@ -33,8 +34,8 @@ android {
         buildConfigField("String", "SYNC_SUPABASE_PUBLISHABLE_KEY", quotedConfig(syncPublishableKey.get()))
         // The same applicationId was also published by the Gemma pilots up to code 41.
         // Keep updates newer than those builds so Android preserves the installed app's data.
-        versionCode = 43
-        versionName = if (localFormatPrototype) "0.9.14-dictai-gemma-test" else "0.9.14-dictai"
+        versionCode = 44
+        versionName = "0.9.15-dictai"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }
@@ -75,7 +76,7 @@ dependencies {
     implementation("org.apache.commons:commons-compress:1.27.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.0")
+    testImplementation("com.google.ai.edge.litertlm:litertlm-android:0.17.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")

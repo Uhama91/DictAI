@@ -26,7 +26,8 @@ internal class PostProcessingFormats(context: Context) {
         }
     }.getOrDefault(emptyList())
     fun all() = builtins + custom()
-    fun selected() = all().firstOrNull { it.id == prefs.getString("selected", "cleanup") } ?: builtins.first()
+    // Retained for sync compatibility; historical selections never affect runtime correction.
+    fun selected() = builtins.first()
     fun select(format: PostProcessingFormat) { prefs.edit().putString("selected", format.id).apply() }
     fun save(id: String?, name: String, instructions: String) {
         require(name.isNotBlank() && name.length <= 60 && instructions.isNotBlank() && instructions.length <= 4000)

@@ -13,8 +13,6 @@ struct SettingsView: View {
     @State private var keyMessage = ""
     @State private var permissionsRevision = 0
     @State private var loginEnabled = SMAppService.mainApp.status == .enabled
-    @State private var customName = ""
-    @State private var customInstructions = ""
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -62,20 +60,13 @@ struct SettingsView: View {
                     Text("Le micro et la reconnaissance sont demandés à la première dictée. L’accessibilité permet le raccourci global et l’insertion dans un autre logiciel.").font(.caption).foregroundStyle(Theme.muted)
                     Button("Vérifier à nouveau") { permissionsRevision += 1; model.shortcut.start() }.font(.caption)
                 }.id(permissionsRevision)
-                group("Correction et formats", icon: "wand.and.stars") {
-                    LocalPunctuationSettings(library: library)
-                    Divider()
-                    Picker("Nettoyage automatique", selection: preference("formatting_engine", fallback: "off")) {
+                group("Correction cloud", icon: "wand.and.stars") {
+                    Picker("Correction automatique", selection: preference("formatting_engine", fallback: "off")) {
                         Text("Désactivé").tag("off"); Text("OpenRouter").tag("cloud")
                     }
                     Text("La transcription reste locale. Si vous activez OpenRouter, le texte et le vocabulaire utile sont envoyés au modèle choisi pour correction.").font(.caption).foregroundStyle(Theme.muted)
-                    Picker("Modèle", selection: preference("cloud_cleanup_model", fallback: "mistral-small-3-2")) {
+                    Picker("Modèle", selection: preference("cloud_cleanup_model", fallback: CleanupModel.default.id)) {
                         ForEach(CleanupModel.all) { Text($0.name).tag($0.id) }
-                    }
-                    Picker("Format", selection: preference("selected_format", fallback: "cleanup")) {
-                        Text("Nettoyage fidèle").tag("cleanup"); Text("Texte corrigé").tag("corrected")
-                        Text("Liste").tag("list"); Text("Courriel").tag("email")
-                        ForEach(customFormats, id: \.id) { Text($0.name).tag($0.id) }
                     }
                     HStack {
                         SecureField("Clé OpenRouter", text: $apiKey).textFieldStyle(.roundedBorder)
@@ -89,13 +80,6 @@ struct SettingsView: View {
                         Button("Retirer") { library.perform { try Keychain.write("openrouter-key", data: nil); keyMessage = "Clé retirée de ce Mac." } }
                     }
                     Text(keyMessage.isEmpty ? "La clé reste dans le Trousseau et n’est jamais synchronisée." : keyMessage).font(.caption).foregroundStyle(Theme.muted)
-                    DisclosureGroup("Créer un format personnel") {
-                        VStack(spacing: 12) {
-                            TextField("Nom du format", text: $customName).textFieldStyle(.roundedBorder)
-                            TextField("Consignes de mise en forme", text: $customInstructions, axis: .vertical).lineLimit(3...6).textFieldStyle(.roundedBorder)
-                            HStack { Spacer(); Button("Ajouter le format") { addFormat() }.disabled(customName.isEmpty || customInstructions.isEmpty) }
-                        }.padding(.top, 12)
-                    }
                 }
                 Text("DictAI pour macOS · Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "développement")\nLe modèle vocal local dépend des langues disponibles sur le Mac. Les modèles Android ne sont pas copiés sur cet appareil.")
                     .font(.system(size: 11)).foregroundStyle(Theme.muted).lineSpacing(5)
@@ -114,30 +98,4 @@ struct SettingsView: View {
         HStack { Label(title + (allowed ? (title == "Reconnaissance vocale" ? " autorisée" : " autorisé") : " à autoriser"), systemImage: allowed ? "checkmark.circle.fill" : "circle"); Spacer(); Button("Réglages Système") { openPrivacy(key) } }
     }
     private func openPrivacy(_ key: String) { if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?" + key) { NSWorkspace.shared.open(url) } }
-    private var customFormats: [(id: String, name: String)] {
-        library.document.values.compactMap { key, raw in
-            guard key.hasPrefix("format:"), let item = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: String], let name = item["name"] else { return nil }
-            return (String(key.dropFirst(7)), name)
-        }.sorted { $0.name < $1.name }
-    }
-    private func addFormat() {
-        library.perform {
-            let id = UUID().uuidString.lowercased()
-            let value = "{\"name\":\(Wire.quote(customName.trimmingCharacters(in: .whitespaces))),\"instructions\":\(Wire.quote(customInstructions.trimmingCharacters(in: .whitespaces)))}"
-            try library.commit(library.document.setting("format:" + id, value: value, actor: library.actor))
-            library.setPreference("selected_format", id); customName = ""; customInstructions = ""
-        }
-    }
-}
-
-struct LocalPunctuationSettings: View {
-    @ObservedObject var library: LibraryStore
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Toggle("Ponctuation intelligente sur ce Mac", isOn: Binding(get: { library.intelligentPunctuation }, set: { library.setIntelligentPunctuation($0) }))
-            Text("À la fin d’une dictée en français, corrige les points et les majuscules avec Apple Intelligence, sur ce Mac. Les mots, les noms et vos retouches sont conservés. Ce réglage reste propre au Mac.").font(.caption).foregroundStyle(Theme.muted)
-            Text(PunctuationModel().status).font(.caption).foregroundStyle(Theme.accent)
-            Text("Avec OpenRouter, la ponctuation suit le format choisi ci-dessous.").font(.caption).foregroundStyle(Theme.muted)
-        }
-    }
 }
