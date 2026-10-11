@@ -32,4 +32,8 @@ Les trois autorisations sont confirmées dans l’application installée : micr
 
 La vérification de fermeture de l’installateur vise désormais le chemin de l’application remplacée. Une copie de démonstration distincte ne bloque plus la mise à jour ; le refus erroné a été observé avant la correction et sa disparition vérifiée après. Le refus reste actif lorsque l’application installée fonctionne.
 
-La préversion publique GitHub reste inchangée.
+## Publication GitHub
+
+La publication de la 0.4.9 est en préparation. La première CI a mis en évidence une différence de classification grammaticale entre le Mac local et l’environnement GitHub : « Complètement », « Ensuite » et les élisions telles que « J’ai » ou « L’application » restaient capitalisées. Un repli déterministe traite désormais ces continuations même sans étiquette grammaticale. Un test reproduit explicitement cette absence et protège les noms, le vocabulaire et les vrais débuts de phrase.
+
+Le paquet destiné à GitHub sera reconstruit avec ce repli supplémentaire. L’essai vocal réel ci-dessus concerne le premier paquet installé ; la validation du repli ajoute une régression automatisée. L’APK Android reste celui de la version 0.9.17, sans changement de code ni d’octets.

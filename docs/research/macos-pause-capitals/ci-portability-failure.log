@@ -1,0 +1,508 @@
+macos	Test data integrity and native storage	﻿2026-10-11T18:13:49.4731330Z ##[group]Run ./scripts/test.sh
+macos	Test data integrity and native storage	2026-10-11T18:13:49.4731900Z [36;1m./scripts/test.sh[0m
+macos	Test data integrity and native storage	2026-10-11T18:13:49.4772250Z shell: /bin/bash -e {0}
+macos	Test data integrity and native storage	2026-10-11T18:13:49.4772630Z env:
+macos	Test data integrity and native storage	2026-10-11T18:13:49.4773140Z   DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+macos	Test data integrity and native storage	2026-10-11T18:13:49.4773570Z ##[endgroup]
+macos	Test data integrity and native storage	2026-10-11T18:13:57.5840510Z Building for debugging...
+macos	Test data integrity and native storage	2026-10-11T18:13:57.5899030Z [0/13] /Users/runner/work/DictAI/DictAI/desktop/macos/.build/arm64-apple-macosx/debug/DictAIPackageTests.derived/runner.swift
+macos	Test data integrity and native storage	2026-10-11T18:13:57.5910610Z [1/13] Write sources
+macos	Test data integrity and native storage	2026-10-11T18:13:57.5998490Z [6/13] Write DictAI-entitlement.plist
+macos	Test data integrity and native storage	2026-10-11T18:13:57.7997340Z [7/13] Write swift-version--79AA4F9932D1E87A.txt
+macos	Test data integrity and native storage	2026-10-11T18:14:03.5481560Z [9/26] Emitting module DictAICore
+macos	Test data integrity and native storage	2026-10-11T18:14:07.9657790Z [10/31] Compiling DictAICore SpeechTextJoin.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:07.9777360Z [11/31] Compiling DictAICore SpeechTranscriptBuffer.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:07.9908430Z [12/31] Compiling DictAICore SyncDocument.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.0018870Z [13/31] Compiling DictAICore TextMutation.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.0129480Z [14/31] Compiling DictAICore TranscriptFollowPolicy.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2680210Z [15/31] Compiling DictAICore AppUpdate.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2680660Z [16/31] Compiling DictAICore DictationDraft.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2681020Z [17/31] Compiling DictAICore DictationTypography.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2681420Z [18/31] Compiling DictAICore InsertionReceipt.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2681750Z [19/31] Compiling DictAICore Interaction.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2682120Z [20/31] Compiling DictAICore NoteMerge.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2682400Z [21/31] Compiling DictAICore Notes.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2682830Z [22/31] Compiling DictAICore OptionGesture.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2683240Z [23/31] Compiling DictAICore PreferenceContract.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2683610Z [24/31] Compiling DictAICore PunctuationMask.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2684020Z [25/31] Compiling DictAICore PunctuationRestoration.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:08.2684390Z [26/31] Compiling DictAICore SpeechCapitalization.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:11.3515190Z [27/66] Emitting module DictAICoreTests
+macos	Test data integrity and native storage	2026-10-11T18:14:12.2868190Z [28/70] Compiling DictAI AppModel.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:12.2869630Z [29/70] Compiling DictAI DictAIApp.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:12.2878580Z [30/70] Compiling DictAI DictationHistoryStore.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:12.2879180Z [31/70] Compiling DictAI LibraryStore.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:12.2879630Z [32/70] Compiling DictAI AppUpdateChecker.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:12.2880280Z [33/70] Compiling DictAI ClipboardDelivery.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:12.2918190Z [34/70] Compiling DictAI CloudCleanup.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:12.2919900Z [35/70] Compiling DictAI DictationServices.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:13.8445040Z [36/70] Compiling DictAICoreTests PunctuationRestorationTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:13.8464240Z [37/70] Compiling DictAICoreTests SpeechContinuityTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:13.8465260Z [38/70] Compiling DictAICoreTests SyncDocumentTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:13.8465910Z [39/70] Compiling DictAICoreTests TranscriptFollowTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:15.3991540Z [40/70] Emitting module DictAI
+macos	Test data integrity and native storage	2026-10-11T18:14:18.6635570Z [53/82] Compiling DictAI PreviewDictation.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9186810Z [54/82] Compiling DictAI SetupPermissions.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9190200Z [55/82] Compiling DictAI SpeechEngine.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9190800Z [56/82] Compiling DictAI TextInsertion.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9191270Z [57/82] Compiling DictAI SetupState.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9191670Z [58/82] Compiling DictAI AccountController.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9192560Z [59/82] Compiling DictAI SupabaseClient.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9193110Z [60/82] Compiling DictAI SyncCoordinator.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9193680Z [61/82] Compiling DictAI AppUpdateViews.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9194160Z [62/82] Compiling DictAI CompactDictationView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9203450Z [63/82] Compiling DictAI CursiveLoopGeometry.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9204530Z [64/82] Compiling DictAI CursiveLoops.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:18.9204840Z [65/82] Compiling DictAI DictAIEmblem.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.0976320Z [66/82] Compiling DictAI DictationEditorSession.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.0977400Z [67/82] Compiling DictAI HistoryView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.0978020Z [68/82] Compiling DictAI LibraryView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.0978740Z [69/82] Compiling DictAI LiveDictationTextView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.0996580Z [70/82] Compiling DictAI NoteEditorView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.0998750Z [71/82] Compiling DictAI OverlayController.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.0999200Z [72/82] Compiling DictAI OverlayView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.0999730Z [73/82] Compiling DictAI SettingsView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.1000320Z [74/82] Compiling DictAI SetupView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.1000830Z [75/82] Compiling DictAI Theme.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.1002090Z [76/82] Compiling DictAI TranscriptRibbon.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.1002520Z [77/82] Compiling DictAI VocabularyView.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:21.1417810Z [77/82] Write Objects.LinkFileList
+macos	Test data integrity and native storage	2026-10-11T18:14:22.3107960Z [78/82] Linking DictAI
+macos	Test data integrity and native storage	2026-10-11T18:14:22.3522590Z [79/82] Applying DictAI
+macos	Test data integrity and native storage	2026-10-11T18:14:27.2975680Z [81/93] Compiling DictAIAppTests DictationHistoryTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:27.3077450Z [82/93] Compiling DictAIAppTests DictationWindowTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:27.3177890Z [83/93] Compiling DictAIAppTests HistoryViewTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:27.3280080Z [84/93] Compiling DictAIAppTests InsertionDeliveryTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:27.3379620Z [85/93] Compiling DictAIAppTests LibraryStoreTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:29.1998170Z [86/97] Compiling DictAIAppTests LiveEditorTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:29.2090350Z [87/97] Compiling DictAIAppTests MenuBarIconTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:29.2128490Z [88/97] Compiling DictAIAppTests OptionShortcutTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:29.2130740Z [89/97] Compiling DictAIAppTests SetupTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:30.1709230Z [90/97] Compiling DictAIAppTests AppUpdateCheckerTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:30.1730780Z [91/97] Compiling DictAIAppTests AppUpdateViewTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:30.1731490Z [92/97] Compiling DictAIAppTests CloudCleanupTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:30.1732070Z [93/97] Compiling DictAIAppTests CursiveLoopTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:30.1732660Z [94/97] Compiling DictAIAppTests DictationFlowTests.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:30.1733180Z [95/97] Emitting module DictAIAppTests
+macos	Test data integrity and native storage	2026-10-11T18:14:30.5464820Z [96/99] Emitting module DictAIPackageTests
+macos	Test data integrity and native storage	2026-10-11T18:14:30.5466310Z [97/99] Compiling DictAIPackageTests runner.swift
+macos	Test data integrity and native storage	2026-10-11T18:14:30.5518760Z [97/99] Write Objects.LinkFileList
+macos	Test data integrity and native storage	2026-10-11T18:14:31.5513900Z [98/99] Linking DictAIPackageTests
+macos	Test data integrity and native storage	2026-10-11T18:14:31.5562690Z Build complete! (34.07s)
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5184640Z Test Suite 'All tests' started at 2026-10-11 18:14:32.853.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5187560Z Test Suite 'All tests' passed at 2026-10-11 18:14:32.857.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5193330Z 	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5200230Z ◇ Test run started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5201810Z ↳ Testing Library Version: 124.4
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5204390Z ↳ Target Platform: arm64e-apple-macos14.0
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5204940Z ◇ Suite AppUpdateCheckerTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5205590Z ◇ Test cachesOffersThrottlesAndDiscardsInstalledUpdates() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5209200Z ✔ Test cachesOffersThrottlesAndDiscardsInstalledUpdates() passed after 0.015 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5211540Z ◇ Test failureRemainsVisibleAndKeepsLastKnownOffer() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5214830Z ✔ Test failureRemainsVisibleAndKeepsLastKnownOffer() passed after 0.004 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5216740Z ✔ Suite AppUpdateCheckerTests passed after 0.020 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5221120Z ◇ Suite AppUpdateViewTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5222780Z ◇ Test updateBannerAndSettingsRenderInBothAppearances() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5239350Z ✔ Test updateBannerAndSettingsRenderInBothAppearances() passed after 0.819 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5255330Z ✔ Suite AppUpdateViewTests passed after 0.819 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5258090Z ◇ Suite CloudCleanupTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5259150Z ◇ Test retiredFormatsCannotChangeTheRequestEvenAfterSync() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5261610Z ✔ Test retiredFormatsCannotChangeTheRequestEvenAfterSync() passed after 0.019 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5262810Z ◇ Test missingKeyAndOversizedTranscriptFailBeforeNetwork() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5265630Z ✔ Test missingKeyAndOversizedTranscriptFailBeforeNetwork() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5267670Z ◇ Test rejectedOrMalformedResponsesNeverBecomeDictationText() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5269980Z ✔ Test rejectedOrMalformedResponsesNeverBecomeDictationText() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5274000Z ✔ Suite CloudCleanupTests passed after 0.027 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5274380Z ◇ Suite CursiveLoopTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5274770Z ◇ Test connectedLoopsNeverTearAtTheirJunctions() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5275460Z ✔ Test connectedLoopsNeverTearAtTheirJunctions() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5276080Z ◇ Test voiceExpandsCrestsAndValleysWithinTheCanvas() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5276590Z ✔ Test voiceExpandsCrestsAndValleysWithinTheCanvas() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5280510Z ◇ Test elapsedTimeMovesTheConnectedStroke() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5281050Z ✔ Test elapsedTimeMovesTheConnectedStroke() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5284050Z ◇ Test invalidAudioLevelsRemainFiniteAndBounded() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5284580Z ✔ Test invalidAudioLevelsRemainFiniteAndBounded() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5285150Z ✔ Suite CursiveLoopTests passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5285520Z ◇ Suite DictationFlowTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5286010Z ◇ Test learnedNamesAreProtectedDuringLiveUpdatesAndRestarts() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5286710Z ✔ Test learnedNamesAreProtectedDuringLiveUpdatesAndRestarts() passed after 0.034 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5287360Z ◇ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5288260Z ✔ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() passed after 0.024 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5288980Z ◇ Test failedInsertionIsRecoverableOnceAndRetryUpdatesHumanEdits() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5289850Z ✔ Test failedInsertionIsRecoverableOnceAndRetryUpdatesHumanEdits() passed after 0.013 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5290450Z ◇ Test manualTextAndCancelledDictationDoNotPopulateHistory() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5291210Z ✔ Test manualTextAndCancelledDictationDoNotPopulateHistory() passed after 0.017 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5291930Z ◇ Test retiringLocalPunctuationRestoresImmediateInsertion() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5292500Z ✔ Test retiringLocalPunctuationRestoresImmediateInsertion() passed after 0.011 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5293200Z ◇ Test aNoneditableDestinationDoesNotFallBackToThePreviousApplication() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5297270Z ✔ Test aNoneditableDestinationDoesNotFallBackToThePreviousApplication() passed after 0.012 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5298050Z ◇ Test insertionResolvesTheCurrentFieldAfterAnInitiallyMissingTarget() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5298860Z ✔ Test insertionResolvesTheCurrentFieldAfterAnInitiallyMissingTarget() passed after 0.011 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5299510Z ◇ Test switchingApplicationsDoesNotDeliverIntoTheFieldCapturedAtStart() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5300260Z ✔ Test switchingApplicationsDoesNotDeliverIntoTheFieldCapturedAtStart() passed after 0.008 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5300920Z ◇ Test missingAccessibilityIsExplainedWhileTranscriptionRemainsUsable() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5301650Z ✔ Test missingAccessibilityIsExplainedWhileTranscriptionRemainsUsable() passed after 0.007 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5302310Z ◇ Test completingRawFrenchDictationRepairsObviousCapitalsAndFinalPeriod() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5303910Z ✔ Test completingRawFrenchDictationRepairsObviousCapitalsAndFinalPeriod() passed after 0.010 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5304860Z ◇ Test pauseDoesNotInventAPeriodInAnUnfinishedSentence() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5306880Z ✘ Test pauseDoesNotInventAPeriodInAnUnfinishedSentence() recorded an issue at DictationFlowTests.swift:132:9: Expectation failed: (rig.model.draft.text → "je travaille sur L’application dans le navigateur") == "je travaille sur l’application dans le navigateur"
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5308790Z ✘ Test pauseDoesNotInventAPeriodInAnUnfinishedSentence() failed after 0.235 seconds with 1 issue.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5309370Z ◇ Test humanTypographyIsNeverRewrittenAtDelivery() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5309960Z ✔ Test humanTypographyIsNeverRewrittenAtDelivery() passed after 0.007 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5310570Z ◇ Test frenchTypographyKeepsNamesAcronymsAndExistingSentencePunctuation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5311370Z ✔ Test frenchTypographyKeepsNamesAcronymsAndExistingSentencePunctuation() passed after 0.012 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5312450Z ◇ Test successfulDeliveryEndsTheSessionInEveryPresentation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5313020Z ✔ Test successfulDeliveryEndsTheSessionInEveryPresentation() passed after 0.044 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5313710Z ◇ Test aHistoryFailureAfterInsertionKeepsRecoveryWithoutSendingTwice() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5314410Z ✔ Test aHistoryFailureAfterInsertionKeepsRecoveryWithoutSendingTwice() passed after 0.019 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5315610Z ◇ Test doubleOptionPausesAndResumesInEveryPresentationWithoutInserting() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5316380Z ✔ Test doubleOptionPausesAndResumesInEveryPresentationWithoutInserting() passed after 0.029 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5317850Z ◇ Test tripleOptionCancelsEveryPresentationAndRetainsTheDraft() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5318600Z ✔ Test tripleOptionCancelsEveryPresentationAndRetainsTheDraft() passed after 0.016 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5319660Z ◇ Test singleOptionResumesPausedDraftThenInsertsOnceIntoCurrentField() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5320430Z ✔ Test singleOptionResumesPausedDraftThenInsertsOnceIntoCurrentField() passed after 0.041 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5321110Z ◇ Test correctionWaitsUntilOptionFinishesTheResumedDictation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5321740Z ✔ Test correctionWaitsUntilOptionFinishesTheResumedDictation() passed after 0.013 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5322400Z ◇ Test resumeGestureDuringPauseFinalizationIsNotLost() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5323010Z ✔ Test resumeGestureDuringPauseFinalizationIsNotLost() passed after 0.007 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5323660Z ◇ Test singleGestureResumesAPauseThatIsStillFinalizing() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5324190Z ✔ Test singleGestureResumesAPauseThatIsStillFinalizing() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5324800Z ◇ Test singleOptionResumesAnEmptyPausedDictation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5325340Z ✔ Test singleOptionResumesAnEmptyPausedDictation() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5326230Z ◇ Test tripleOptionCancelsPausedAndPendingResumeWithoutInserting() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5326960Z ✔ Test tripleOptionCancelsPausedAndPendingResumeWithoutInserting() passed after 0.012 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5327620Z ◇ Test doubleAndTripleWhileIdleNeverStartMicrophone() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5328190Z ✔ Test doubleAndTripleWhileIdleNeverStartMicrophone() passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5328710Z ◇ Test emptySpeechCallbackNeverErasesLiveDraft() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5329170Z ✔ Test emptySpeechCallbackNeverErasesLiveDraft() passed after 0.003 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5329800Z ◇ Test naturalSpeechEndContinuesSameDraftUntilOptionStopsIt() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5330450Z ✔ Test naturalSpeechEndContinuesSameDraftUntilOptionStopsIt() passed after 0.010 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5331020Z ◇ Test closingAndResumingAppendsWithoutArchivingOrErasing() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5332460Z ✔ Test closingAndResumingAppendsWithoutArchivingOrErasing() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5333270Z ◇ Test finishingANoteArchivesItAndClearsTheActiveDraft() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5333850Z ✔ Test finishingANoteArchivesItAndClearsTheActiveDraft() passed after 0.008 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5334450Z ◇ Test optionAfterClosingStartsFreshAndPreservesPreviousDraftInHistory() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5335240Z ✔ Test optionAfterClosingStartsFreshAndPreservesPreviousDraftInHistory() passed after 0.007 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5335830Z ◇ Test explicitNewNoteDoesNotResumeAnUnfinishedDictation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5336480Z ✔ Test explicitNewNoteDoesNotResumeAnUnfinishedDictation() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5337120Z ◇ Test presentationChangesKeepOneCaptureAndOneEditableDraft() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5337690Z ✔ Test presentationChangesKeepOneCaptureAndOneEditableDraft() passed after 0.008 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5338290Z ◇ Test reviewAndCleanupKeepTheWorkspaceOpen() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5338770Z ✔ Test reviewAndCleanupKeepTheWorkspaceOpen() passed after 0.008 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5339350Z ◇ Test reviewActionStopsWithoutSendingAndAllowsExplicitInsertion() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5339960Z ✔ Test reviewActionStopsWithoutSendingAndAllowsExplicitInsertion() passed after 0.010 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5340600Z ◇ Test noteModeSavesInSelectedFolderInsteadOfExternalField() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5341590Z ✔ Test noteModeSavesInSelectedFolderInsteadOfExternalField() passed after 0.011 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5342290Z ◇ Test editingDuringCleanupRequiresReviewInsteadOfDeliveringStaleText() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5343460Z ✔ Test editingDuringCleanupRequiresReviewInsteadOfDeliveringStaleText() passed after 0.008 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5344170Z ◇ Test additionalOptionWhileCleanupRunsDoesNotStartAnotherCapture() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5345290Z ✔ Test additionalOptionWhileCleanupRunsDoesNotStartAnotherCapture() passed after 0.010 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5346080Z ◇ Test secondOptionTapInsertsFinalTranscriptExactlyOnce() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5346740Z ✔ Test secondOptionTapInsertsFinalTranscriptExactlyOnce() passed after 0.008 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5347330Z ◇ Test manualCorrectionsAreDeliveredWithNewlyDictatedWords() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5347980Z ✔ Test manualCorrectionsAreDeliveredWithNewlyDictatedWords() passed after 0.007 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5348620Z ◇ Test pauseResumeAndOptionWorkInAllThreePresentations() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5349260Z ✔ Test pauseResumeAndOptionWorkInAllThreePresentations() passed after 0.034 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5350010Z ◇ Test automaticInsertionWaitsForCleanupAndAppliesVocabulary() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5350590Z ✔ Test automaticInsertionWaitsForCleanupAndAppliesVocabulary() passed after 0.011 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5351240Z ◇ Test cancellationWhileCleanupRunsNeverInsertsLateResult() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5351800Z ✔ Test cancellationWhileCleanupRunsNeverInsertsLateResult() passed after 0.007 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5352490Z ◇ Test failedInsertionKeepsEditableRecoverableText() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5353150Z ✔ Test failedInsertionKeepsEditableRecoverableText() passed after 0.007 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5353780Z ◇ Test emptyRecognitionDoesNotInsertTrailingSpace() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5354250Z ✔ Test emptyRecognitionDoesNotInsertTrailingSpace() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5354800Z ◇ Test speechFailureDoesNotAutomaticallyDeliverPartialResult() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5355580Z ✔ Test speechFailureDoesNotAutomaticallyDeliverPartialResult() passed after 0.005 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5356170Z ✘ Suite DictationFlowTests failed after 0.804 seconds with 1 issue.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5356570Z ◇ Suite DictationHistoryTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5357140Z ◇ Test quickCopyUsesTheLatestCompleteTranscriptWithoutChangingTheLibrary() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5357840Z ✔ Test quickCopyUsesTheLatestCompleteTranscriptWithoutChangingTheLibrary() passed after 0.014 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5359430Z ◇ Test quickCopyWithNoDictationPreservesTheClipboard() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5518270Z ✔ Test quickCopyWithNoDictationPreservesTheClipboard() passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5519900Z ◇ Test elevenDictationsEvictTheOldestAndSurviveRelaunch() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5521500Z ✔ Test elevenDictationsEvictTheOldestAndSurviveRelaunch() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5523280Z ◇ Test retryUpdatesOneEntryAndEmptyTextDoesNotEvictAnything() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5524750Z ✔ Test retryUpdatesOneEntryAndEmptyTextDoesNotEvictAnything() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5526200Z ◇ Test clearingHistoryLeavesExistingNotesAndVocabularyUntouched() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5527750Z ✔ Test clearingHistoryLeavesExistingNotesAndVocabularyUntouched() passed after 0.003 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5529210Z ◇ Test accountsHaveSeparateLocalHistoryOutsideTheSyncDocument() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5530740Z ✔ Test accountsHaveSeparateLocalHistoryOutsideTheSyncDocument() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5532790Z ◇ Test failedWriteAndCorruptHistoryCannotSilentlyEraseRecovery() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5534410Z ✔ Test failedWriteAndCorruptHistoryCannotSilentlyEraseRecovery() passed after 0.003 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5535730Z ✔ Suite DictationHistoryTests passed after 0.034 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5536600Z ◇ Suite DictationWindowTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5537600Z ◇ Test reflectivePauseShowsAContinuousSentenceInNativeEditors() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5539010Z ✔ Test reflectivePauseShowsAContinuousSentenceInNativeEditors() passed after 1.075 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5540510Z ◇ Test singleOptionResumesPauseInRealWindowsThenDismissesAfterInsertion() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5542700Z ✔ Test singleOptionResumesPauseInRealWindowsThenDismissesAfterInsertion() passed after 4.459 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5544290Z ◇ Test cloudCorrectionSettingsAndReviewRenderInNativeViews() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5545730Z ✔ Test cloudCorrectionSettingsAndReviewRenderInNativeViews() passed after 1.078 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5547190Z ◇ Test missingAccessibilityRemainsVisibleWithARecoverableDraft() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5548610Z ✔ Test missingAccessibilityRemainsVisibleWithARecoverableDraft() passed after 0.895 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5550000Z ◇ Test optionAfterEditingClosesRealWindowsWithoutReopening() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5551330Z ✔ Test optionAfterEditingClosesRealWindowsWithoutReopening() passed after 3.704 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5552660Z ◇ Test expandControlOpensAStandardResizableWindow() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5554030Z ✔ Test expandControlOpensAStandardResizableWindow() passed after 0.206 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5555230Z ✔ Suite DictationWindowTests passed after 11.420 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5556090Z ◇ Suite HistoryViewTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5557460Z ◇ Test historyRendersEmptyListAndFullTranscriptInBothAppearances() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5559610Z ✔ Test historyRendersEmptyListAndFullTranscriptInBothAppearances() passed after 1.652 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5560550Z ✔ Suite HistoryViewTests passed after 1.652 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5560970Z ◇ Suite InsertionDeliveryTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5561510Z ◇ Test consumedPasteCompletesEvenWhenTheEditorsAccessibilityValueIsStale() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5562230Z ✔ Test consumedPasteCompletesEvenWhenTheEditorsAccessibilityValueIsStale() passed after 0.005 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5562830Z ◇ Test confirmedDirectInsertionNeverPastesTwice() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5563260Z ✔ Test confirmedDirectInsertionNeverPastesTwice() passed after 0.003 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5563840Z ◇ Test aPartialDirectInsertionDoesNotTriggerAnotherPaste() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5564420Z ✔ Test aPartialDirectInsertionDoesNotTriggerAnotherPaste() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5565680Z ◇ Test unconsumedPasteRemainsAFailure() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5566110Z ✔ Test unconsumedPasteRemainsAFailure() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5566960Z ◇ Test unreadableEditorsUseOnlyThePastePath() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5567480Z ✔ Test unreadableEditorsUseOnlyThePastePath() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5567950Z ✔ Suite InsertionDeliveryTests passed after 0.010 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5568370Z ◇ Suite LibraryStoreTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5568860Z ◇ Test retiredFormatSelectionIsIgnoredWithoutDeletingSyncedData() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5569540Z ✔ Test retiredFormatSelectionIsIgnoredWithoutDeletingSyncedData() passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5570170Z ◇ Test retiredLocalSettingsCannotPreventLoadingExistingNotes() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5570830Z ✔ Test retiredLocalSettingsCannotPreventLoadingExistingNotes() passed after 0.003 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5571450Z ◇ Test manualDraftIsReadyForCorrectionWithoutStartingMicrophone() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5572150Z ✔ Test manualDraftIsReadyForCorrectionWithoutStartingMicrophone() passed after 0.003 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5572750Z ◇ Test persistenceSurvivesRelaunchIncludingTombstones() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5573230Z ✔ Test persistenceSurvivesRelaunchIncludingTombstones() passed after 0.004 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5573830Z ◇ Test switchingAccountsNeverUploadsPreviousAccountData() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5574420Z ✔ Test switchingAccountsNeverUploadsPreviousAccountData() passed after 0.007 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5574970Z ◇ Test openEditorSavesSeparateCopyAfterRemoteEdit() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5575470Z ✔ Test openEditorSavesSeparateCopyAfterRemoteEdit() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5575990Z ◇ Test corruptLibraryIsNeverSilentlyReplaced() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5576500Z ✔ Test corruptLibraryIsNeverSilentlyReplaced() passed after 0.003 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5577330Z ◇ Test failedAccountLibraryRestoreSuspendsSyncBeforeNetwork() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5578020Z ✔ Test failedAccountLibraryRestoreSuspendsSyncBeforeNetwork() passed after 0.005 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5578560Z ◇ Test autoTitleHandlesLongEmojiDictation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5579040Z ✔ Test autoTitleHandlesLongEmojiDictation() passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5579500Z ◇ Test failedAtomicWriteDoesNotAdvanceMemory() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5580000Z ✔ Test failedAtomicWriteDoesNotAdvanceMemory() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5580500Z ✔ Suite LibraryStoreTests passed after 0.046 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5580950Z ◇ Suite LiveEditorTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5581410Z ◇ Test swiftUIEditorObservesIncomingSpeechAfterItsCreation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5582260Z ✔ Test swiftUIEditorObservesIncomingSpeechAfterItsCreation() passed after 0.170 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5582850Z ◇ Test realTextViewKeepsSelectionAndViewportWhileSpeechAppends() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5583500Z ✔ Test realTextViewKeepsSelectionAndViewportWhileSpeechAppends() passed after 0.019 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5584110Z ◇ Test openingAnotherPresentationRestoresTheSameSelection() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5584670Z ✔ Test openingAnotherPresentationRestoresTheSameSelection() passed after 0.045 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5585310Z ◇ Test realTypingInAnEarlierParagraphDoesNotDeleteConcurrentSpeech() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5588150Z ✔ Test realTypingInAnEarlierParagraphDoesNotDeleteConcurrentSpeech() passed after 0.041 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5588740Z ✔ Suite LiveEditorTests passed after 0.277 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5589090Z ◇ Suite MenuBarIconTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5589550Z ◇ Test menuIconHasVisiblePixelsAndAdaptsToTheSystemAppearance() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5590230Z ✔ Test menuIconHasVisiblePixelsAndAdaptsToTheSystemAppearance() passed after 0.016 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5590750Z ✔ Suite MenuBarIconTests passed after 0.016 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5591150Z ◇ Suite OptionShortcutTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5592190Z ◇ Test aBusyMainThreadDoesNotRestartTheWholeGestureDelay() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5593000Z ✔ Test aBusyMainThreadDoesNotRestartTheWholeGestureDelay() passed after 0.783 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5593560Z ◇ Test nativeAdapterDeliversOnlyDoubleAfterItsRealTimer() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:49.5594160Z ✔ Test nativeAdapterDeliversOnlyDoubleAfterItsRealTimer() passed after 0.671 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9767460Z ◇ Test stoppingTheMonitorCancelsAnOutstandingCommand() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9769620Z ✔ Test stoppingTheMonitorCancelsAnOutstandingCommand() passed after 0.684 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9771720Z ◇ Test overlappingLeftAndRightOptionKeysAreNotATap() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9773150Z ✔ Test overlappingLeftAndRightOptionKeysAreNotATap() passed after 0.720 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9774350Z ✔ Suite OptionShortcutTests passed after 2.859 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9775250Z ◇ Suite SetupTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9776190Z ◇ Test completionSurvivesRelaunchAndReplayPreservesLibrary() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9777750Z ✔ Test completionSurvivesRelaunchAndReplayPreservesLibrary() passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9779130Z ◇ Test failedSaveDoesNotMarkSetupComplete() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9780220Z ✔ Test failedSaveDoesNotMarkSetupComplete() passed after 0.004 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9781470Z ◇ Test permissionsAloneNeverPromiseWorkingDictation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9782680Z ✔ Test permissionsAloneNeverPromiseWorkingDictation() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9783900Z ✔ Suite SetupTests passed after 0.011 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9784730Z ◇ Suite AppUpdateTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9785660Z ◇ Test onlyNewerCompatibleMacBuildOffersDownload() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9787000Z ✔ Test onlyNewerCompatibleMacBuildOffersDownload() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9788800Z ◇ Test refusesUntrustedOrMisleadingDownloadURLs() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9790660Z ✔ Test refusesUntrustedOrMisleadingDownloadURLs() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9792270Z ◇ Test rejectsMalformedOversizedAndUnknownFeeds() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9925410Z ✔ Test rejectsMalformedOversizedAndUnknownFeeds() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9926070Z ◇ Test backgroundChecksBackOffAndRecoverAfterClockChanges() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9926800Z ✔ Test backgroundChecksBackOffAndRecoverAfterClockChanges() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9927310Z ✔ Suite AppUpdateTests passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9928240Z ◇ Suite DictationTypographyTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9929910Z ◇ Test vocabularyChangesNeverReuseAnOldProtectionDecision() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9931480Z ✔ Test vocabularyChangesNeverReuseAnOldProtectionDecision() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9933210Z ◇ Test cumulativeHypothesesRepairPauseCapitalsWithoutAddingPunctuation() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9935030Z ✔ Test cumulativeHypothesesRepairPauseCapitalsWithoutAddingPunctuation() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9936930Z ◇ Test liveRepairsPreserveNamesAcronymsQuotesAndTechnicalText() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9938500Z ✔ Test liveRepairsPreserveNamesAcronymsQuotesAndTechnicalText() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9940500Z ◇ Test everySentenceStartIsCapitalizedWithoutTreatingAbbreviationsAsSentences() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9942680Z ✔ Test everySentenceStartIsCapitalizedWithoutTreatingAbbreviationsAsSentences() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9944420Z ◇ Test aClosingQuoteDoesNotSuppressTheFinalPeriodOfProse() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9946160Z ✔ Test aClosingQuoteDoesNotSuppressTheFinalPeriodOfProse() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9947660Z ◇ Test explicitFrenchQuestionsMatchTheAndroidCleanupRule() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9949200Z ✔ Test explicitFrenchQuestionsMatchTheAndroidCleanupRule() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9950610Z ◇ Test literalNamesAndFilenamesKeepTheirSpelling() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9954150Z ✔ Test literalNamesAndFilenamesKeepTheirSpelling() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9956170Z ◇ Test englishAndLiteralAddressesArePreserved() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9957440Z ✔ Test englishAndLiteralAddressesArePreserved() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9958950Z ◇ Test existingPunctuationAndParagraphsArePreserved() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9960420Z ✔ Test existingPunctuationAndParagraphsArePreserved() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9961840Z ✔ Suite DictationTypographyTests passed after 0.006 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9962750Z ◇ Suite DraftHistoryIdentityTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9963780Z ◇ Test restoredDraftRetainsItsHistoryIdentityAcrossRetries() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9965410Z ✔ Test restoredDraftRetainsItsHistoryIdentityAcrossRetries() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9967030Z ◇ Test draftFromPreviousVersionStillLoadsWithoutHistoryIdentity() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9968790Z ✔ Test draftFromPreviousVersionStillLoadsWithoutHistoryIdentity() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9970600Z ✔ Suite DraftHistoryIdentityTests passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9971900Z ◇ Suite InsertionReceiptTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9973030Z ◇ Test webEditorWhitespaceDoesNotTurnASuccessfulInsertionIntoAnError() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9974680Z ✔ Test webEditorWhitespaceDoesNotTurnASuccessfulInsertionIntoAnError() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9976150Z ◇ Test acknowledgingAnUnchangedFieldIsNotSuccess() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9977550Z ✔ Test acknowledgingAnUnchangedFieldIsNotSuccess() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9978860Z ◇ Test replacementUsesMacUTF16SelectionWithoutLosingSurroundingText() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9980370Z ✔ Test replacementUsesMacUTF16SelectionWithoutLosingSurroundingText() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9981650Z ✔ Suite InsertionReceiptTests passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9982440Z ◇ Suite InteractionTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9983160Z ◇ Test testHumanEditSurvivesLateRecognition() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9984200Z ✔ Test testHumanEditSurvivesLateRecognition() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9985420Z ◇ Test testVocabularyUsesWholeWordsAndDoesNotCascadeRules() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9986710Z ✔ Test testVocabularyUsesWholeWordsAndDoesNotCascadeRules() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9988000Z ◇ Test testVocabularyIdentityMatchesAndroidNormalization() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9989260Z ✔ Test testVocabularyIdentityMatchesAndroidNormalization() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9990710Z ◇ Test testLearningOffersOnlySmallReplacementAndNeverLearnsAutomatically() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9992380Z ✔ Test testLearningOffersOnlySmallReplacementAndNeverLearnsAutomatically() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9993660Z ✔ Suite InteractionTests passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9994420Z ◇ Suite NoteSyncTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9995110Z ◇ Test testCanonicalNoteBytesMatchAndroid() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9996170Z ✔ Test testCanonicalNoteBytesMatchAndroid() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9997230Z ◇ Test unicodeConflictTitleStaysWithinAndroidLimit() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9998380Z ✔ Test unicodeConflictTitleStaysWithinAndroidLimit() passed after 0.004 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:50.9999840Z ◇ Test conflictCopyPreservesLeadingSpacesLikeAndroid() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0000640Z ✔ Test conflictCopyPreservesLeadingSpacesLikeAndroid() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0001140Z ◇ Test testConcurrentNoteEditsKeepVisibleCopyAndConverge() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0001660Z ✔ Test testConcurrentNoteEditsKeepVisibleCopyAndConverge() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0002200Z ◇ Test testSequentialEditDoesNotCreateConflictCopy() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0002650Z ✔ Test testSequentialEditDoesNotCreateConflictCopy() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0004700Z ◇ Test testDeleteVersusConcurrentEditKeepsOriginalDeletedAndCopyVisible() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0005690Z ✔ Test testDeleteVersusConcurrentEditKeepsOriginalDeletedAndCopyVisible() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0006170Z ✔ Suite NoteSyncTests passed after 0.008 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0006430Z ◇ Suite OptionGestureTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0006730Z ◇ Test singleWaitsForThePossibilityOfADoubleTap() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0007150Z ✔ Test singleWaitsForThePossibilityOfADoubleTap() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0007540Z ◇ Test doubleTapNeverAlsoEmitsASingle() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0009560Z ✔ Test doubleTapNeverAlsoEmitsASingle() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0010790Z ◇ Test tripleCancelsImmediatelyAndAnExtraTapCannotRestart() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0012130Z ✔ Test tripleCancelsImmediatelyAndAnExtraTapCannotRestart() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0013240Z ◇ Test secondPressSuspendsTheFirstDeadlineUntilRelease() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0013780Z ✔ Test secondPressSuspendsTheFirstDeadlineUntilRelease() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0014320Z ◇ Test systemIntervalDeterminesWhetherTapsBelongTogether() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0014830Z ✔ Test systemIntervalDeterminesWhetherTapsBelongTogether() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0015350Z ◇ Test keyboardMouseOrModifierChordsCancelThePendingSequence() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0015880Z ✔ Test keyboardMouseOrModifierChordsCancelThePendingSequence() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0016390Z ◇ Test longHoldsBouncesAndRepeatedFlagsNeverBecomeCommands() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0016890Z ✔ Test longHoldsBouncesAndRepeatedFlagsNeverBecomeCommands() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0017340Z ◇ Test resetDiscardsEveryPendingAction() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0017720Z ✔ Test resetDiscardsEveryPendingAction() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0018330Z ✔ Suite OptionGestureTests passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0018660Z ◇ Suite PreferenceContractTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0020340Z ◇ Test formatsOutsideAndroidLimitsAreRejectedBeforePublication() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0021860Z ✔ Test formatsOutsideAndroidLimitsAreRejectedBeforePublication() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0023330Z ◇ Test invalidPreferenceCannotPoisonAllAndroidReplicas() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0025250Z ✔ Test invalidPreferenceCannotPoisonAllAndroidReplicas() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0026480Z ◇ Test vocabularyHashMustIdentifyTheActualSource() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0027600Z ✔ Test vocabularyHashMustIdentifyTheActualSource() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0028930Z ◇ Test unknownPreferenceIncludingTombstoneCannotBePublished() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0030330Z ✔ Test unknownPreferenceIncludingTombstoneCannotBePublished() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0032000Z ◇ Test missingValueFieldIsNotAnImplicitDeletion() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0032550Z ✔ Test missingValueFieldIsNotAnImplicitDeletion() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0033010Z ✔ Suite PreferenceContractTests passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0033340Z ◇ Suite PunctuationRestorationTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0033730Z ◇ Test theModelSeesPlaceholdersInsteadOfNamesAndTechnicalLiterals() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0034300Z ✔ Test theModelSeesPlaceholdersInsteadOfNamesAndTechnicalLiterals() passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0035160Z ◇ Test missingOrDuplicatedPlaceholdersCannotLoseOrRepeatProtectedText() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0035780Z ✔ Test missingOrDuplicatedPlaceholdersCannotLoseOrRepeatProtectedText() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0036390Z ◇ Test sentenceBoundariesAndCommonWordCaseCanChangeWithoutChangingWords() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0037000Z ✔ Test sentenceBoundariesAndCommonWordCaseCanChangeWithoutChangingWords() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0038210Z ◇ Test changedWordsNamesNumbersNegationsAndMarkdownAreRejected() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0039120Z ✔ Test changedWordsNamesNumbersNegationsAndMarkdownAreRejected() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0039660Z ◇ Test protectedNamesQuotesAndIdentifiersKeepTheirExactSpelling() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0040230Z ✔ Test protectedNamesQuotesAndIdentifiersKeepTheirExactSpelling() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0040760Z ◇ Test paragraphBreaksCannotBeRemovedOrAdded() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0041260Z ✔ Test paragraphBreaksCannotBeRemovedOrAdded() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0041680Z ✔ Suite PunctuationRestorationTests passed after 0.003 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0041990Z ◇ Suite SpeechContinuityTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0042330Z ◇ Test vocabularyProtectionAlsoAppliesWithinTheSpeechBuffer() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0042870Z ✔ Test vocabularyProtectionAlsoAppliesWithinTheSpeechBuffer() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0043440Z ◇ Test frenchRepairsDoNotChangeEnglishCapitalization() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0043910Z ✔ Test frenchRepairsDoNotChangeEnglishCapitalization() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0044420Z ◇ Test newSpeechAfterAManualCorrectionUsesTheEditedSentenceBoundary() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0044990Z ✔ Test newSpeechAfterAManualCorrectionUsesTheEditedSentenceBoundary() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0045540Z ◇ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0047190Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:44:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "C’est Complètement incohérent") == (expected → "C’est complètement incohérent")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0049160Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:45:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "C’est Complètement incohérent maintenant") == (expected + " maintenant" → "C’est complètement incohérent maintenant")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0051440Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:48:13: Expectation failed: (draft.text → "C’est Complètement incohérent") == (expected → "C’est complètement incohérent")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0053100Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:44:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "Je fais une pause, Ensuite je continue") == (expected → "Je fais une pause, ensuite je continue")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0054960Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:45:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "Je fais une pause, Ensuite je continue maintenant") == (expected + " maintenant" → "Je fais une pause, ensuite je continue maintenant")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0056710Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:48:13: Expectation failed: (draft.text → "Je fais une pause, Ensuite je continue") == (expected → "Je fais une pause, ensuite je continue")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0058290Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:44:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "Je pense J’ai encore quelque chose à dire") == (expected → "Je pense j’ai encore quelque chose à dire")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0060190Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:45:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "Je pense J’ai encore quelque chose à dire maintenant") == (expected + " maintenant" → "Je pense j’ai encore quelque chose à dire maintenant")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0062600Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:48:13: Expectation failed: (draft.text → "Je pense J’ai encore quelque chose à dire") == (expected → "Je pense j’ai encore quelque chose à dire")
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0063970Z ✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() failed after 0.007 seconds with 9 issues.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0064630Z ◇ Test aProperNameAfterAContinuationDoesNotCapitalizeThePronoun() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0065310Z ✔ Test aProperNameAfterAContinuationDoesNotCapitalizeThePronoun() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0065870Z ◇ Test frenchArticlesContinueAcrossRecognitionRestarts() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0067000Z ✘ Test frenchArticlesContinueAcrossRecognitionRestarts() recorded an issue at SpeechContinuityTests.swift:58:9: Expectation failed: (buffer.receive("L’application", start: 3, end: 4) → "Je regarde L’application") == "Je regarde l’application"
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0068110Z ✘ Test frenchArticlesContinueAcrossRecognitionRestarts() failed after 0.001 seconds with 1 issue.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0068960Z ◇ Test manualCorrectionsPreserveParagraphsInNewSpeech() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0069450Z ✔ Test manualCorrectionsPreserveParagraphsInNewSpeech() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0070210Z ◇ Test silenceDoesNotCapitalizeAnUnfinishedFrenchSentence() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0086580Z ✔ Test silenceDoesNotCapitalizeAnUnfinishedFrenchSentence() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0088750Z ◇ Test restartedRequestKeepsAContinuationLowercase() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0089260Z ✔ Test restartedRequestKeepsAContinuationLowercase() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0089710Z ◇ Test namesAndRealSentenceStartsKeepTheirCapitals() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0090170Z ✔ Test namesAndRealSentenceStartsKeepTheirCapitals() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0090670Z ◇ Test silenceBoundaryDoesNotReplaceThePreviousSentence() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0091160Z ✔ Test silenceBoundaryDoesNotReplaceThePreviousSentence() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0091820Z ◇ Test cumulativeResultsAndCorrectionsDoNotDuplicateSentences() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0092390Z ✔ Test cumulativeResultsAndCorrectionsDoNotDuplicateSentences() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0092900Z ◇ Test repeatingTheSameWordLaterIsRealSpeech() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0093340Z ✔ Test repeatingTheSameWordLaterIsRealSpeech() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0093860Z ◇ Test engineTimestampResetAfterCompletedUtteranceKeepsHistory() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0094470Z ✔ Test engineTimestampResetAfterCompletedUtteranceKeepsHistory() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0094990Z ◇ Test newWordsContinueAfterManualCorrection() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0099730Z ✔ Test newWordsContinueAfterManualCorrection() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0100750Z ◇ Test intentionalDeletionAndOldDraftDecodingRemainSupported() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0102380Z ✔ Test intentionalDeletionAndOldDraftDecodingRemainSupported() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0104120Z ◇ Test delayedPunctuationSurvivesAWordCorrection() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0105250Z ✔ Test delayedPunctuationSurvivesAWordCorrection() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0105920Z ◇ Test finalPunctuationArrivesAfterAnEditWithoutNewWords() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0106500Z ✔ Test finalPunctuationArrivesAfterAnEditWithoutNewWords() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0107020Z ◇ Test manualPunctuationAndDeletionsTakePriority() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0107570Z ✔ Test manualPunctuationAndDeletionsTakePriority() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0108150Z ✘ Suite SpeechContinuityTests failed after 0.014 seconds with 10 issues.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0108540Z ◇ Suite SyncDocumentTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0108860Z ◇ Test testIndependentOfflineEditsSurviveMerge() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0110070Z ✔ Test testIndependentOfflineEditsSurviveMerge() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0110800Z ◇ Test testDeletionSurvivesStaleReplica() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0111220Z ✔ Test testDeletionSurvivesStaleReplica() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0111750Z ◇ Test testEqualClockWithDifferentBytesIsRejected() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0112210Z ✔ Test testEqualClockWithDifferentBytesIsRejected() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0112690Z ◇ Test testInvalidKeyAndActorAreRejected() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0114700Z ✔ Test testInvalidKeyAndActorAreRejected() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0115300Z ◇ Test testClockAdvancesPastReceivedEventsAndNoOpDoesNotTick() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0115930Z ✔ Test testClockAdvancesPastReceivedEventsAndNoOpDoesNotTick() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0116450Z ✔ Suite SyncDocumentTests passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0116780Z ◇ Suite TranscriptFollowTests started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0117660Z ◇ Test lastInteractionRestartsTheEightSecondGracePeriod() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0118270Z ✔ Test lastInteractionRestartsTheEightSecondGracePeriod() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0118850Z ◇ Test draggingCompositionAndPauseNeverTriggerAnAutomaticReturn() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0119500Z ✔ Test draggingCompositionAndPauseNeverTriggerAnAutomaticReturn() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0120050Z ◇ Test manualModeWaitsUntilTheUserChoosesFollow() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0120560Z ✔ Test manualModeWaitsUntilTheUserChoosesFollow() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0121110Z ◇ Test appendingSpeechDoesNotMoveTheCaretOrSelection() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0121640Z ✔ Test appendingSpeechDoesNotMoveTheCaretOrSelection() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0122200Z ◇ Test unicodeReplacementAndSelectionOffsetsStayValid() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0125930Z ✔ Test unicodeReplacementAndSelectionOffsetsStayValid() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0127430Z ◇ Test editingAnOlderSnapshotRetainsNewlyArrivedWords() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0128820Z ✔ Test editingAnOlderSnapshotRetainsNewlyArrivedWords() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0130950Z ◇ Test namesQuotesAndParagraphsAreNotFlattened() started.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0132560Z ✔ Test namesQuotesAndParagraphsAreNotFlattened() passed after 0.001 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0133750Z ✔ Suite TranscriptFollowTests passed after 0.002 seconds.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0134740Z ✘ Test run with 173 tests failed after 18.051 seconds with 11 issues.
+macos	Test data integrity and native storage	2026-10-11T18:14:51.0155300Z ##[error]Process completed with exit code 1.

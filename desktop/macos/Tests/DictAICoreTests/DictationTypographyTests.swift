@@ -2,6 +2,22 @@ import Testing
 @testable import DictAICore
 
 struct DictationTypographyTests {
+    @Test func commonFrenchContinuationsWorkWithoutGrammarTags() {
+        for (input, expected) in [
+            ("C’est Complètement incohérent", "C’est complètement incohérent"),
+            ("Je fais une pause, Ensuite je continue", "Je fais une pause, ensuite je continue"),
+            ("Je pense J’ai encore quelque chose à dire", "Je pense j’ai encore quelque chose à dire"),
+            ("Je regarde L’application", "Je regarde l’application"),
+            ("Je pense C’est cohérent", "Je pense c’est cohérent"),
+            ("Je pense Qu’il faut continuer", "Je pense qu’il faut continuer")
+        ] {
+            #expect(SpeechCapitalization.normalize(input, wordTags: { _ in [:] }) == expected)
+        }
+        #expect(SpeechCapitalization.normalize("Je parle à D’Artagnan et L’Oréal", wordTags: { _ in [:] }) == "Je parle à D’Artagnan et L’Oréal")
+        #expect(SpeechCapitalization.normalize("Je cite Ensuite et Complètement", protectedTerms: ["Ensuite", "Complètement"], wordTags: { _ in [:] }) == "Je cite Ensuite et Complètement")
+        #expect(SpeechCapitalization.normalize("Je visite Paris. Ensuite je continue", wordTags: { _ in [:] }) == "Je visite Paris. Ensuite je continue")
+    }
+
     @Test func vocabularyChangesNeverReuseAnOldProtectionDecision() {
         let text = "Je dis Tu vois"
         #expect(DictationTypography.live(text, language: "fr") == "Je dis tu vois")

@@ -1,0 +1,31 @@
+Building for debugging...
+[0/6] Write sources
+[2/6] Write swift-version--1AB21518FC5DEDBE.txt
+[4/8] Emitting module DictAICore
+[5/8] Compiling DictAICore SpeechCapitalization.swift
+[6/10] Compiling DictAICore SpeechTextJoin.swift
+[7/10] Compiling DictAICore DictationTypography.swift
+[8/13] Emitting module DictAICoreTests
+[9/13] Compiling DictAICoreTests DictationTypographyTests.swift
+[10/13] Emitting module DictAI
+[10/15] Write Objects.LinkFileList
+[11/15] Linking DictAI
+[12/15] Applying DictAI
+[14/16] Emitting module DictAIAppTests
+[14/16] Write Objects.LinkFileList
+[15/16] Linking DictAIPackageTests
+Build complete! (4.85s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite DictationTypographyTests started.
+◇ Test commonFrenchContinuationsWorkWithoutGrammarTags() started.
+✘ Test commonFrenchContinuationsWorkWithoutGrammarTags() recorded an issue at DictationTypographyTests.swift:14:13: Expectation failed: (SpeechCapitalization.normalize(input, wordTags: { _ in [:] }) → "C’est Complètement incohérent") == (expected → "C’est complètement incohérent")
+✘ Test commonFrenchContinuationsWorkWithoutGrammarTags() recorded an issue at DictationTypographyTests.swift:14:13: Expectation failed: (SpeechCapitalization.normalize(input, wordTags: { _ in [:] }) → "Je fais une pause, Ensuite je continue") == (expected → "Je fais une pause, ensuite je continue")
+✘ Test commonFrenchContinuationsWorkWithoutGrammarTags() recorded an issue at DictationTypographyTests.swift:14:13: Expectation failed: (SpeechCapitalization.normalize(input, wordTags: { _ in [:] }) → "Je pense J’ai encore quelque chose à dire") == (expected → "Je pense j’ai encore quelque chose à dire")
+✘ Test commonFrenchContinuationsWorkWithoutGrammarTags() recorded an issue at DictationTypographyTests.swift:14:13: Expectation failed: (SpeechCapitalization.normalize(input, wordTags: { _ in [:] }) → "Je regarde L’application") == (expected → "Je regarde l’application")
+✘ Test commonFrenchContinuationsWorkWithoutGrammarTags() recorded an issue at DictationTypographyTests.swift:14:13: Expectation failed: (SpeechCapitalization.normalize(input, wordTags: { _ in [:] }) → "Je pense C’est cohérent") == (expected → "Je pense c’est cohérent")
+✘ Test commonFrenchContinuationsWorkWithoutGrammarTags() recorded an issue at DictationTypographyTests.swift:14:13: Expectation failed: (SpeechCapitalization.normalize(input, wordTags: { _ in [:] }) → "Je pense Qu’il faut continuer") == (expected → "Je pense qu’il faut continuer")
+✘ Test commonFrenchContinuationsWorkWithoutGrammarTags() failed after 0.006 seconds with 6 issues.
+✘ Suite DictationTypographyTests failed after 0.006 seconds with 6 issues.
+✘ Test run with 1 test in 1 suite failed after 0.006 seconds with 6 issues.

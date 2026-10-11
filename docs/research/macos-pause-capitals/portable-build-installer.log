@@ -1,0 +1,30 @@
+Another instance of SwiftPM (PID: 90120) is already running using '/Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/.build', waiting until that process has finished execution...[0/1] Planning build
+Building for production...
+[0/3] Write sources
+[1/3] Write swift-version--1AB21518FC5DEDBE.txt
+[3/4] Compiling DictAICore AppUpdate.swift
+[4/6] Compiling DictAI AppModel.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking DictAI
+Build complete! (17.68s)
+[0/1] Planning build
+Building for production...
+[0/3] Write sources
+[1/3] Write swift-version--1AB21518FC5DEDBE.txt
+[3/4] Compiling DictAICore AppUpdate.swift
+[4/6] Compiling DictAI AppModel.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking DictAI
+Build complete! (16.92s)
+/Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/build-hRmAyJpl/DictAI.app: replacing existing signature
+/Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/DictAI.app
+pkgbuild: Inferring bundle components from contents of /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/installer-pVJJtaho/payload
+pkgbuild: Writing new component property list to /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/installer-pVJJtaho/components.plist
+pkgbuild: Reading components from /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/installer-pVJJtaho/components.plist
+pkgbuild: Adding component at Applications/DictAI.app
+pkgbuild: Adding top-level preinstall script
+pkgbuild: Wrote package to /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/installer-pVJJtaho/DictAI.pkg
+productbuild: Wrote product to /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/DictAI-0.4.9-macOS-test.pkg
+Installer verified: arm64 + x86_64, macOS 14+, production app only, no personal data, no relocation.
+VERSION DE TEST : signature Developer ID et notarisation non validées.
+/Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/DictAI-0.4.9-macOS-test.pkg

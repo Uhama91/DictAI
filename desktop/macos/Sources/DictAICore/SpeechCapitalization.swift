@@ -4,11 +4,12 @@ import NaturalLanguage
 /// Repairs recognition casing inside a sentence without inventing punctuation.
 enum SpeechCapitalization {
     private static let words = try! NSRegularExpression(pattern: "(?<![\\p{L}\\p{M}])\\p{Lu}[\\p{L}\\p{M}]*(?:['’][\\p{L}\\p{M}]+)?")
-    private static let ordinary: Set<String> = ["je", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles", "ce", "ça", "cela", "ceci", "voilà", "voici", "incohérent", "incohérente", "de", "du", "des", "et", "mais", "donc", "car", "parce", "puisque", "lorsque", "quand", "si", "que", "qui", "pour", "avec", "sans", "dans", "sur", "sous", "alors", "le", "la", "les", "un", "une"]
+    private static let ordinary: Set<String> = ["je", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles", "ce", "ça", "cela", "ceci", "voilà", "voici", "incohérent", "incohérente", "complètement", "ensuite", "de", "du", "des", "et", "mais", "donc", "car", "parce", "puisque", "lorsque", "quand", "si", "que", "qui", "pour", "avec", "sans", "dans", "sur", "sous", "alors", "le", "la", "les", "un", "une"]
+    private static let elisions: Set<String> = ["j", "t", "m", "s", "n", "c", "d", "l", "qu"]
     private static let grammar: Set<NLTag> = [.pronoun, .determiner, .preposition, .conjunction, .adverb, .verb, .adjective, .particle, .interjection]
     private static let names: Set<NLTag> = [.personalName, .placeName, .organizationName]
 
-    static func normalize(_ text: String, after prefix: String = "", protectedTerms: [String] = []) -> String {
+    static func normalize(_ text: String, after prefix: String = "", protectedTerms: [String] = [], wordTags: ((String) -> [Int: NLTag])? = nil) -> String {
         let context = DictationDraft.join(prefix, text)
         let source = context as NSString
         let offset = source.length - text.utf16.count
@@ -18,16 +19,7 @@ enum SpeechCapitalization {
         var tags: [Int: NLTag]?
         func grammatical(_ location: Int) -> Bool {
             if tags == nil {
-                let tagger = NLTagger(tagSchemes: [.nameTypeOrLexicalClass])
-                tagger.string = context
-                tagger.setLanguage(.french, range: context.startIndex..<context.endIndex)
-                var found: [Int: NLTag] = [:]
-                tagger.enumerateTags(in: context.startIndex..<context.endIndex, unit: .word,
-                                     scheme: .nameTypeOrLexicalClass, options: [.omitWhitespace, .omitPunctuation]) { tag, range in
-                    if let tag { found[range.lowerBound.utf16Offset(in: context)] = tag }
-                    return true
-                }
-                tags = found
+                tags = wordTags?(context) ?? grammaticalTags(in: context)
             }
             guard let tag = tags?[location] else { return false }
             return !names.contains(tag) && grammar.contains(tag)
@@ -41,7 +33,10 @@ enum SpeechCapitalization {
             guard let contextRange = Range(match.range, in: context),
                   let previous = context[..<contextRange.lowerBound].reversed().first(where: { !$0.isWhitespace || "\n\r".contains($0) }),
                   !".!?…\n\r:»\"”«“([{`".contains(previous) else { continue }
-            guard ordinary.contains(word.lowercased()) || grammatical(match.range.location) else { continue }
+            let lowered = word.lowercased()
+            let elidedPrefix = lowered.split(whereSeparator: { $0 == "'" || $0 == "’" })
+            let commonElision = elidedPrefix.count == 2 && elisions.contains(String(elidedPrefix[0]))
+            guard ordinary.contains(lowered) || commonElision || grammatical(match.range.location) else { continue }
             // Articles and elisions can be part of names even before the tagger has enough context.
             let next = context[contextRange.upperBound...].drop(while: { $0.isWhitespace }).first
             let namePrefix = ["de", "du", "des", "le", "la", "les", "un", "une"].contains(word.lowercased())
@@ -53,5 +48,18 @@ enum SpeechCapitalization {
             result.replaceSubrange(range, with: first.lowercased())
         }
         return result
+    }
+
+    private static func grammaticalTags(in context: String) -> [Int: NLTag] {
+        let tagger = NLTagger(tagSchemes: [.nameTypeOrLexicalClass])
+        tagger.string = context
+        tagger.setLanguage(.french, range: context.startIndex..<context.endIndex)
+        var found: [Int: NLTag] = [:]
+        tagger.enumerateTags(in: context.startIndex..<context.endIndex, unit: .word,
+                             scheme: .nameTypeOrLexicalClass, options: [.omitWhitespace, .omitPunctuation]) { tag, range in
+            if let tag { found[range.lowerBound.utf16Offset(in: context)] = tag }
+            return true
+        }
+        return found
     }
 }
