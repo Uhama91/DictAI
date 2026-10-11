@@ -6,12 +6,19 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 
 /** Requires the service enabled on an isolated emulator; never modifies a user's permissions. */
 class AccessibilityInsertionAndroidTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private var targetToken = ""
+
+    @Before fun awaitAccessibilityReconnectionAfterInstrumentationStarts() {
+        val deadline = SystemClock.uptimeMillis() + 20_000
+        while (InjectionGateway.current() == null && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(50)
+        assertNotNull("Enable accessibility on the emulator after the runner starts", InjectionGateway.current())
+    }
 
     @Test fun insertsIntoAnEmptyExternalFieldWithoutItsPlaceholder() {
         launchTarget("")
@@ -26,6 +33,41 @@ class AccessibilityInsertionAndroidTest {
     @Test fun insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste() {
         launchTarget("", withoutPaste = true)
         assertInsertion("Bonjour.", "Bonjour.")
+    }
+
+    @Test fun insertsOneContinuousSentenceAfterSeveralRecognitionPauses() {
+        val draft = EditableTranscript()
+        val gate = RecordingCaptureGate()
+        gate.deliver { draft.update("Je prends le temps de réfléchir") }
+        gate.pause()
+        gate.resume()
+        gate.deliver { draft.update("Je prends le temps de réfléchir Tu vois ce que je veux dire") }
+        gate.pause()
+        gate.resume()
+        gate.deliver { draft.update("Je prends le temps de réfléchir Tu vois ce que je veux dire Je suis toujours dans la même phrase") }
+        val final = draft.resolveFinal("Je prends le temps de réfléchir Tu vois ce que je veux dire Je suis toujours dans la même phrase")!!
+        val expected = "Je prends le temps de réfléchir tu vois ce que je veux dire je suis toujours dans la même phrase"
+        assertEquals(expected, final)
+        launchTarget("")
+        assertInsertion(final, expected)
+        val screenshot = instrumentation.getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+            .takeScreenshot()
+        try {
+            java.io.File(instrumentation.targetContext.cacheDir, "pause-sentence-inserted.png").outputStream().use {
+                assertTrue(screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally { screenshot.recycle() }
+    }
+
+    @Test fun resumedRecognitionKeepsUserEditsAndRealSentenceStartsInTheExternalField() {
+        val draft = EditableTranscript()
+        draft.update("Je consulte mari")
+        draft.edit("Je consulte Marie.")
+        assertEquals("Je consulte Marie. Tu vois", draft.update("Je consulte mari Tu vois"))
+        val final = draft.resolveFinal("Je consulte mari Tu vois Je continue")!!
+        assertEquals("Je consulte Marie. Tu vois je continue", final)
+        launchTarget("Déjà écrit. ")
+        assertInsertion(final, "Déjà écrit. Je consulte Marie. Tu vois je continue")
     }
 
     private fun launchTarget(initial: String, withoutPaste: Boolean = false) {

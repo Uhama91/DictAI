@@ -962,7 +962,8 @@ class OverlayService : Service() {
         if (run.cancellation.isCancelled) {
             return
         }
-        val resolvedText = editableTranscript.resolveFinal(r.text) { normalizeRecognizedText(it, capture.options) }
+        val resolvedText = editableTranscript.resolveFinal(r.text, capture.options.language,
+            Vocabulary.corrections(this).map { it.second }) { normalizeRecognizedText(it, capture.options) }
         val formatStarted = SystemClock.elapsedRealtime()
         val lightCleanupApplied = !resolvedText.isNullOrBlank() && capture.options.lightTextCleanup &&
             !editableTranscript.hasUserEdits()
@@ -1482,7 +1483,8 @@ class OverlayService : Service() {
             isRecording = state == State.RECORDING,
             cancellation = run.cancellation,
         ) {
-            val display = editableTranscript.update(text) { normalizeRecognizedText(it, run.formatOptions) }
+            val display = editableTranscript.update(text, run.formatOptions.language,
+                Vocabulary.corrections(this).map { it.second }) { normalizeRecognizedText(it, run.formatOptions) }
             val editor = liveText ?: return@publishIfAllowed
             if (display.isNotEmpty()) editor.hint = "Touchez pour corriger pendant la dictée"
             val oldProjection = imageBlockRenderer.read(editor)

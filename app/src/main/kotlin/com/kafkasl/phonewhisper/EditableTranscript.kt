@@ -40,17 +40,22 @@ internal class EditableTranscript {
 
     // Align the recognizer's words, not vocabulary output: a two-word alias can become one name.
     // Transform only the unedited continuation so a user's manual prefix is never rewritten.
-    @Synchronized fun update(text: String, transform: (String) -> String = { it }): String {
+    @Synchronized fun update(text: String, language: DictationLanguage = DictationLanguage.FRENCH,
+        protectedTerms: List<String> = emptyList(), transform: (String) -> String = { it }): String {
         val matches = Regex("\\S+").findAll(text).toList()
         val next = matches.map { it.value }
         if (edited == null) {
             raw = next
-            return transform(text).also { displayed = it }
+            return SpeechCapitalization.normalize(transform(text), language = language, protectedTerms = protectedTerms)
+                .also { displayed = it }
         }
         protectedWords = mapBoundary(raw, next, protectedWords)
         raw = next
-        val tail = transform(matches.getOrNull(protectedWords)?.range?.first?.let { text.substring(it) }.orEmpty())
         val prefix = edited.orEmpty()
+        val tail = SpeechCapitalization.normalize(
+            transform(matches.getOrNull(protectedWords)?.range?.first?.let { text.substring(it) }.orEmpty()),
+            after = prefix, language = language, protectedTerms = protectedTerms,
+        )
         if (tail.isEmpty()) return prefix.also { displayed = it }
         val sentenceStart = prefix.trimEnd().lastOrNull() in listOf('.', '!', '?', '…') || prefix.endsWith('\n')
         val continuation = if (sentenceStart) tail.replaceFirstChar { it.titlecase() } else tail
@@ -59,8 +64,10 @@ internal class EditableTranscript {
     }
 
     /** A manually written draft remains publishable when the recognizer returns no speech. */
-    @Synchronized fun resolveFinal(recognized: String?, transform: (String) -> String = { it }): String? =
-        if (recognized.isNullOrBlank()) edited?.also { displayed = it } else update(recognized, transform)
+    @Synchronized fun resolveFinal(recognized: String?, language: DictationLanguage = DictationLanguage.FRENCH,
+        protectedTerms: List<String> = emptyList(), transform: (String) -> String = { it }): String? =
+        if (recognized.isNullOrBlank()) edited?.also { displayed = it }
+        else update(recognized, language, protectedTerms, transform)
 
     private fun trackChange(next: String, manual: Boolean) {
         if (next == displayed) return

@@ -116,11 +116,59 @@ class EditableTranscriptTest {
     @Test fun `normalization cannot move the raw ASR boundary after a manual edit`() {
         val buffer = EditableTranscript()
         val normalize: (String) -> String = { it.replace("vingt trois", "23").replace("ma yotte", "Maillot") }
-        assertEquals("Les 23 élèves", buffer.update("Les vingt trois élèves", normalize))
+        assertEquals("Les 23 élèves", buffer.update("Les vingt trois élèves", transform = normalize))
         buffer.edit("Les 23 élèves.")
-        assertEquals("Les 23 élèves. Appellent Maillot", buffer.update("Les vingt trois élèves appellent ma yotte", normalize))
+        assertEquals("Les 23 élèves. Appellent Maillot", buffer.update("Les vingt trois élèves appellent ma yotte", transform = normalize))
         buffer.edit("Les 23 élèves. Appellent M. Maillot !")
-        assertEquals("Les 23 élèves. Appellent M. Maillot ! Demain", buffer.resolveFinal("Les vingt trois élèves appellent ma yotte demain", normalize))
+        assertEquals("Les 23 élèves. Appellent M. Maillot ! Demain", buffer.resolveFinal("Les vingt trois élèves appellent ma yotte demain", transform = normalize))
+    }
+
+    @Test fun `natural pauses do not capitalize the middle of a live sentence`() {
+        val buffer = EditableTranscript()
+        assertEquals("Je prends le temps de réfléchir", buffer.update("Je prends le temps de réfléchir"))
+        assertEquals("Je prends le temps de réfléchir tu vois ce que je veux dire",
+            buffer.update("Je prends le temps de réfléchir Tu vois ce que je veux dire"))
+        assertEquals("Je prends le temps de réfléchir tu vois ce que je veux dire je suis toujours dans la même phrase",
+            buffer.resolveFinal("Je prends le temps de réfléchir Tu vois ce que je veux dire Je suis toujours dans la même phrase"))
+    }
+
+    @Test fun `resumed speech respects the manually edited sentence boundary`() {
+        val buffer = EditableTranscript()
+        buffer.update("Je réfléchis")
+        buffer.edit("Je réfléchis")
+        assertEquals("Je réfléchis tu vois", buffer.update("Je réfléchis Tu vois"))
+        buffer.edit("Je réfléchis tu vois.")
+        assertEquals("Je réfléchis tu vois. Je continue", buffer.update("Je réfléchis Tu vois Je continue"))
+    }
+
+    @Test fun `mid sentence adverbs and elisions stay lowercase in final recognition`() {
+        val buffer = EditableTranscript()
+        assertEquals("C’est complètement incohérent et ensuite j’ai repris l’application",
+            buffer.resolveFinal("C’est Complètement Incohérent et Ensuite J’ai repris L’application"))
+    }
+
+    @Test fun `casing of the manually edited prefix is never normalized`() {
+        val buffer = EditableTranscript()
+        buffer.update("Je dis tu vois")
+        buffer.edit("Je dis Tu vois")
+        assertEquals("Je dis Tu vois je continue", buffer.update("Je dis Tu vois Je continue"))
+    }
+
+    @Test fun `vocabulary output stays protected in preview and final without shifting edits`() {
+        val buffer = EditableTranscript()
+        val normalize: (String) -> String = { Vocabulary.applyCorrectionsTo(it, listOf("voila" to "Voilà")) }
+        assertEquals("Je consulte Voilà tu vois", buffer.update("Je consulte voila Tu vois",
+            protectedTerms = listOf("Voilà"), transform = normalize))
+        buffer.edit("Je consulte Voilà tu vois")
+        assertEquals("Je consulte Voilà tu vois je continue", buffer.resolveFinal("Je consulte voila Tu vois Je continue",
+            protectedTerms = listOf("Voilà"), transform = normalize))
+    }
+
+    @Test fun `English previews and final respect the selected language`() {
+        val buffer = EditableTranscript()
+        assertEquals("I work with La Company", buffer.update("I work with La Company", DictationLanguage.ENGLISH))
+        assertEquals("I work with La Company and Tu Linux",
+            buffer.resolveFinal("I work with La Company and Tu Linux", DictationLanguage.ENGLISH))
     }
 
 }

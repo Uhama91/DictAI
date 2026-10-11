@@ -1,0 +1,203 @@
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest:
+INSTRUMENTATION_STATUS: test=insertsIntoAnEmptyExternalFieldWithoutItsPlaceholder
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsIntoAnEmptyExternalFieldWithoutItsPlaceholder(AccessibilityInsertionAndroidTest.kt:17)
+
+INSTRUMENTATION_STATUS: stream=
+Error in insertsIntoAnEmptyExternalFieldWithoutItsPlaceholder(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest):
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsIntoAnEmptyExternalFieldWithoutItsPlaceholder(AccessibilityInsertionAndroidTest.kt:17)
+
+INSTRUMENTATION_STATUS: test=insertsIntoAnEmptyExternalFieldWithoutItsPlaceholder
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=resumedRecognitionKeepsUserEditsAndRealSentenceStartsInTheExternalField
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.resumedRecognitionKeepsUserEditsAndRealSentenceStartsInTheExternalField(AccessibilityInsertionAndroidTest.kt:62)
+
+INSTRUMENTATION_STATUS: stream=
+Error in resumedRecognitionKeepsUserEditsAndRealSentenceStartsInTheExternalField(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest):
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.resumedRecognitionKeepsUserEditsAndRealSentenceStartsInTheExternalField(AccessibilityInsertionAndroidTest.kt:62)
+
+INSTRUMENTATION_STATUS: test=resumedRecognitionKeepsUserEditsAndRealSentenceStartsInTheExternalField
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=insertsOneContinuousSentenceAfterSeveralRecognitionPauses
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsOneContinuousSentenceAfterSeveralRecognitionPauses(AccessibilityInsertionAndroidTest.kt:44)
+
+INSTRUMENTATION_STATUS: stream=
+Error in insertsOneContinuousSentenceAfterSeveralRecognitionPauses(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest):
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsOneContinuousSentenceAfterSeveralRecognitionPauses(AccessibilityInsertionAndroidTest.kt:44)
+
+INSTRUMENTATION_STATUS: test=insertsOneContinuousSentenceAfterSeveralRecognitionPauses
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(AccessibilityInsertionAndroidTest.kt:27)
+
+INSTRUMENTATION_STATUS: stream=
+Error in insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest):
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(AccessibilityInsertionAndroidTest.kt:27)
+
+INSTRUMENTATION_STATUS: test=insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=preservesExistingTextInAnExternalField
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.preservesExistingTextInAnExternalField(AccessibilityInsertionAndroidTest.kt:22)
+
+INSTRUMENTATION_STATUS: stream=
+Error in preservesExistingTextInAnExternalField(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest):
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.preservesExistingTextInAnExternalField(AccessibilityInsertionAndroidTest.kt:22)
+
+INSTRUMENTATION_STATUS: test=preservesExistingTextInAnExternalField
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 26.341
+There were 5 failures:
+1) insertsIntoAnEmptyExternalFieldWithoutItsPlaceholder(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest)
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsIntoAnEmptyExternalFieldWithoutItsPlaceholder(AccessibilityInsertionAndroidTest.kt:17)
+2) resumedRecognitionKeepsUserEditsAndRealSentenceStartsInTheExternalField(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest)
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.resumedRecognitionKeepsUserEditsAndRealSentenceStartsInTheExternalField(AccessibilityInsertionAndroidTest.kt:62)
+3) insertsOneContinuousSentenceAfterSeveralRecognitionPauses(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest)
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsOneContinuousSentenceAfterSeveralRecognitionPauses(AccessibilityInsertionAndroidTest.kt:44)
+4) insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest)
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.insertsIntoAnEmptyHintFieldEvenWhenTheAppDoesNotImplementPaste(AccessibilityInsertionAndroidTest.kt:27)
+5) preservesExistingTextInAnExternalField(com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest)
+java.lang.AssertionError: External editor did not reach the expected state (service connected=false)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.waitFor(AccessibilityInsertionAndroidTest.kt:103)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget(AccessibilityInsertionAndroidTest.kt:75)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.launchTarget$default(AccessibilityInsertionAndroidTest.kt:66)
+	at com.kafkasl.phonewhisper.AccessibilityInsertionAndroidTest.preservesExistingTextInAnExternalField(AccessibilityInsertionAndroidTest.kt:22)
+
+FAILURES!!!
+Tests run: 5,  Failures: 5
+
+
+INSTRUMENTATION_CODE: -1
