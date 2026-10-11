@@ -34,6 +34,16 @@ La vérification de fermeture de l’installateur vise désormais le chemin de l
 
 ## Publication GitHub
 
-La publication de la 0.4.9 est en préparation. La première CI a mis en évidence une différence de classification grammaticale entre le Mac local et l’environnement GitHub : « Complètement », « Ensuite » et les élisions telles que « J’ai » ou « L’application » restaient capitalisées. Un repli déterministe traite désormais ces continuations même sans étiquette grammaticale. Un test reproduit explicitement cette absence et protège les noms, le vocabulaire et les vrais débuts de phrase.
+La [préversion Mac 0.4.9](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-macos-0.4.9-preview) est publiée depuis le commit `430e8ae`. Le [nouvel installateur Mac](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-macos-0.4.9-preview/DictAI-macOS.pkg) est construit par la CI GitHub et contient les architectures ARM et Intel.
 
-Le paquet destiné à GitHub sera reconstruit avec ce repli supplémentaire. L’essai vocal réel ci-dessus concerne le premier paquet installé ; la validation du repli ajoute une régression automatisée. L’APK Android reste celui de la version 0.9.17, sans changement de code ni d’octets.
+La première CI a mis en évidence une différence de classification grammaticale entre le Mac local et l’environnement GitHub : « Complètement », « Ensuite » et les élisions telles que « J’ai » ou « L’application » restaient capitalisées. Un repli déterministe traite désormais ces continuations même sans étiquette grammaticale. Un test reproduit explicitement cette absence et protège les noms, le vocabulaire et les vrais débuts de phrase. Les 174 tests passent sur ARM, sur Intel via Rosetta et dans la [CI Mac 38163446031](https://github.com/Uhama91/DictAI/actions/runs/38163446031). La [CI Android 38163446051](https://github.com/Uhama91/DictAI/actions/runs/38163446051) réussit également.
+
+Le téléchargement anonyme des quatre fichiers publiés répond en HTTP 200. Les empreintes du manifeste et de `SHA256SUMS` correspondent exactement aux installateurs téléchargés. Le paquet Mac public est identique à l’artefact de la CI réussie ; son SHA-256 est `fbc43ffa64b6c90b24e07c1fa1cf49818cf8d9725d0fff7223a75f574d790eda`. L’APK Android reste celui de la version 0.9.17, sans changement de code ni d’octets : ce correctif des majuscules n’est pas encore porté sur Android.
+
+Le [tableau de téléchargement du dépôt](https://github.com/Uhama91/DictAI) affiche désormais Mac 0.4.9 et Android 0.9.17-dictai. Sa mise à jour automatique est confirmée par le [workflow 38163801005](https://github.com/Uhama91/DictAI/actions/runs/38163801005) et le commit `e445940`. Le tableau et la page de version ont été inspectés visuellement sans connexion GitHub. La preuve des fichiers, des empreintes et des CI est conservée dans [publication.json](research/macos-pause-capitals/publication.json).
+
+L’essai vocal réel décrit ci-dessus concerne le premier paquet 0.4.9 installé. Le paquet public inclut aussi le repli supplémentaire validé par les régressions automatisées ; il n’a pas remplacé cette installation pendant la publication.
+
+![Tableau GitHub avec les nouveaux liens d’installation](research/macos-pause-capitals/publication-renders/github-download-table.jpg)
+
+![Préversion GitHub publiée et périmètre Android explicite](research/macos-pause-capitals/publication-renders/github-release-header.jpg)

@@ -1,0 +1,49 @@
+{
+  "release_url": "https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-macos-0.4.9-preview",
+  "tag": "dictai-20261011-macos-0.4.9-preview",
+  "source_commit": "430e8aeced2122d41a9e57ddf122bf7f476b3b50",
+  "published": true,
+  "prerelease": true,
+  "assets": [
+    {
+      "filename": "DictAI-macOS.pkg",
+      "version": "0.4.9",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-macos-0.4.9-preview/DictAI-macOS.pkg",
+      "anonymous_http_status": 200,
+      "sha256": "fbc43ffa64b6c90b24e07c1fa1cf49818cf8d9725d0fff7223a75f574d790eda",
+      "bytes": 2094689
+    },
+    {
+      "filename": "DictAI-android.apk",
+      "version": "0.9.17-dictai",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-macos-0.4.9-preview/DictAI-android.apk",
+      "anonymous_http_status": 200,
+      "sha256": "03f08f71edc4db58e4c134d6f53473fe64ee5a9bbbb10947f4eb4548da5fd081",
+      "bytes": 58303264
+    }
+  ],
+  "metadata_files": [
+    "SHA256SUMS",
+    "updates-preview.json"
+  ],
+  "metadata_anonymous_http_status": 200,
+  "public_macos_matches_ci_artifact": true,
+  "public_android_identical_to_previous_release": true,
+  "macos_tests": {
+    "arm64": 174,
+    "x86_64_rosetta": 174,
+    "github_ci": 174
+  },
+  "successful_workflows": {
+    "macos": 38163446031,
+    "android": 38163446051,
+    "download_table": 38163801005
+  },
+  "download_table_commit": "e445940",
+  "browser_without_login_verified": true,
+  "visual_evidence": [
+    "publication-renders/github-download-table.jpg",
+    "publication-renders/github-release-header.jpg"
+  ],
+  "installed_package_note": "Physical dictation acceptance concerns the initial installed 0.4.9 package. The published CI package also contains the deterministic grammar-tag fallback and was not installed during publication."
+}
