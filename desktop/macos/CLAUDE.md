@@ -1,0 +1,37 @@
+# DictAI macOS
+
+Application native SwiftUI/AppKit, macOS 14+, compagnon de DictAI Android. `DictAICore` contient les contrats de données testables sans interface ; `DictAI` contient les services macOS et les vues.
+
+## Commandes
+
+`./scripts/test.sh`
+
+`./scripts/build-app.sh`
+
+## Contraintes
+
+Protocole Android v1 : encodage canonique des chaînes note/folder/asset, horloges Int64 et copies de conflit déterministes. Ne jamais synchroniser les secrets, les permissions ou les fichiers audio. Les identifiants et les sessions sont conservés dans le Trousseau. Aucune donnée de démonstration dans la bibliothèque réelle.
+
+## Session Log
+
+| Date | Action |
+|---|---|
+| 2026-10-11 | Retour au parcours rapide dans la 0.4.2 installée : ponctuation IA désactivée et préférence persistante vérifiée, typographie simple conservée. DictAI était désactivée dans l’accessibilité tandis que Preview était autorisée ; réactivation validée par l’utilisateur, trois permissions reconnues et raccourci relancé. 39 notes et 56 entrées de vocabulaire présentes ; deux insertions rapides successives dans Codex confirmées par l’utilisateur. Aucune réinstallation ni modification du code. Voir `walkthrough-0.4.2.md`. |
+| 2026-10-10 | 0.4.2 installée (build 12) : ponctuation française Apple Intelligence locale, protection des mots/noms/liens et des retouches, pause intacte et délai de repli ; 144 tests ARM + 144 sous Rosetta et essai supplémentaire avec le modèle réel (11,6 s), quatre rendus natifs audités, installateur universel vérifié. Douze fichiers identiques après installation, 33 notes et 55 entrées de vocabulaire conservées ; Trousseau validé, autorisations en cours de renouvellement et essai vocal réel restant. Voir `walkthrough-0.4.2.md`. |
+| 2026-10-10 | 0.4.1 installée (build 11) après authentification de l’utilisateur : avertissement visible, nouvelle recherche du champ avant insertion et typographie française prudente. 123 tests ARM et 123 sous Rosetta, deux rendus natifs audités, installateur vérifié. Douze fichiers et contenu des données conservés ; les trois autorisations et le modèle vocal français sont confirmés dans DictAI. L’utilisateur confirme l’insertion réussie dans Codex lors de l’essai réel demandé. Voir `walkthrough-0.4.1.md`. |
+| 2026-10-10 | 0.4.0 : installateur universel `.pkg` de test, assistant rejouable en quatre étapes et contrôle du modèle vocal local ; 110 tests ARM et 110 tests x86 sous Rosetta réussis, rendus natifs audités. Paquet livré sans remplacer la 0.3.6 ; Intel physique et notarisation non validés. Voir `installation-0.4.0.md`. |
+| 2026-10-10 | 0.3.6 : faux échec après collage consommé corrigé, fermeture des trois présentations et archivage vérifiés ; 107 tests Mac et 50 tests Android ciblés réussis. 31 notes, 2 corrections et brouillon conservés ; trois autorisations renouvelées, moteur vocal et reconnaissance confirmés, insertion ChatGPT restant à tester. Voir `walkthrough-0.3.6.md`. |
+| 2026-10-07 | 0.3.5 installée : insertion/enregistrement réussi → note archivée, session au repos et brouillon actif vidé ; contrôle d’insertion tolérant aux espaces de fin et aux fins de ligne équivalentes. 101 tests et fermeture native isolée vérifiés ; 13 notes et brouillon préservés, trois permissions confirmées et moteur démarré, insertion physique à retester. |
+| 2026-10-07 | 0.3.4 installée : Option simple pour terminer, double pour pause/reprise, triple pour annuler sans envoyer ; délai macOS de 500 ms, 98 tests verts et trois aperçus natifs vérifiés. Treize notes et brouillon conservés à l’installation ; trois permissions confirmées et moteur démarré, gestes physiques et essai vocal à confirmer. |
+| 2026-10-07 | 0.3.3 installée : sélection protégée et suivi après 8 s réglables dans les deux éditeurs, raccords de capitalisation et paragraphes conservés après retouche ; 81 tests et aperçu natif vérifiés. Douze notes et brouillon inchangés à l’installation, accessibilité rétablie ; validation audio macOS et test vocal réel en attente. |
+| 2026-10-07 | 0.3.2 installée : Pause/Reprendre et Annuler dans les fenêtres, nouvelle dictée après fermeture sans reprendre l’ancien texte, ponctuation tardive préservée après correction ; 66 tests verts et parcours UI isolé vérifié. Huit notes et brouillon inchangés ; accessibilité confirmée, demandes audio au prochain démarrage de dictée. |
+| 2026-10-07 | 0.3.1 installée : brouillon continu après silence/pause/édition/enregistrement, pastille 440 pt et fondu des anciennes lignes, restitution du focus et vérification AX avant succès ; 61 tests verts et parcours UI isolés vérifiés. Six notes et brouillon réel conservés ; accessibilité réinscrite, test vocal physique en attente. |
+| 2026-10-07 | Version 0.3 installée : texte en pastille, clic vers édition rapide, vraie fenêtre native/plein écran, boucles animées et icône Android ; 48 tests verts, parcours UI isolés clair/sombre vérifiés, 6 notes conservées. Accessibilité réinscrite ; autorisations audio à renouveler manuellement après changement de signature locale. |
+| 2026-10-07 | Version 0.2 installée : second appui Option → transcription/correction → insertion automatique ; Relire et mode Note explicites. Identité Android et thèmes carnet, 41 tests Mac + 3 rendus Android verts ; trois permissions actives après réinscription Accessibilité. |
+| 2026-10-06 | Compagnon macOS natif compilé, raccourci Option, overlay éditable, bibliothèque et synchronisation Android v1 ; interface auditée en mode isolé et tests de données/régressions dans `Tests/`. |
+
+## TODO
+
+Le parcours de la 0.4.2 a été refusé par l’utilisateur : attente de ponctuation trop longue et copie manuelle nécessaire. La ponctuation IA est désactivée et l’accessibilité rétablie ; l’utilisateur confirme deux insertions rapides successives dans Codex le 11 octobre 2026. La qualité de la ponctuation simple sur les dictées longues reste à apprécier.
+
+Valider le parcours réel Option → voix → Option → champ externe (test TextEdit prêt, appui Option seul non simulable par l’outil UI) ; connecter le même compte Google sur Mac et Android pour mesurer la convergence. Les modèles locaux Android et le mode réunion ne sont pas portés. Sous-dossiers représentés par des chemins de noms ; pas de relation parent dans le contrat Android v1. Signature Developer ID et notarisation nécessaires pour une diffusion publique.

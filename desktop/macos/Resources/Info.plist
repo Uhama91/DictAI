@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>DictAI</string>
+<key>CFBundleIdentifier</key><string>com.uhama.dictai.desktop</string>
+<key>CFBundleIconFile</key><string>DictAI.icns</string>
+<key>CFBundleName</key><string>DictAI</string>
+<key>CFBundleDisplayName</key><string>DictAI</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.4.2</string>
+<key>CFBundleVersion</key><string>12</string>
+<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSMicrophoneUsageDescription</key><string>DictAI utilise le microphone quand vous lancez une dictée avec Option ou le bouton Dicter.</string>
+<key>NSSpeechRecognitionUsageDescription</key><string>DictAI transcrit votre voix avec le modèle local d’Apple. Votre audio reste sur ce Mac.</string>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>DictAI Account</string><key>CFBundleURLSchemes</key><array><string>com.uhama.whisperpin</string></array></dict></array>
+<key>NSPrincipalClass</key><string>NSApplication</string>
+</dict></plist>

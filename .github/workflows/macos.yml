@@ -1,0 +1,31 @@
+name: DictAI macOS
+on:
+  workflow_dispatch:
+  push:
+    paths: ['desktop/macos/**', '.github/workflows/macos.yml']
+  pull_request:
+    paths: ['desktop/macos/**', '.github/workflows/macos.yml']
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: desktop/macos
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode toolchain
+        run: echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+      - name: Test data integrity and native storage
+        run: ./scripts/test.sh
+      - name: Build and verify universal installer
+        run: ./scripts/build-installer.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dictai-macos
+          path: |
+            desktop/macos/dist/DictAI-macOS.zip
+            desktop/macos/dist/DictAI-*-macOS-test.pkg
+            desktop/macos/dist/DictAI-*-macOS-test.pkg.sha256
+          if-no-files-found: error
