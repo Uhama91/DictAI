@@ -31,9 +31,9 @@ class DownloadTableTests(unittest.TestCase):
         table = render_table(choose_downloads([offer]))
         self.assertEqual(2, table.count(manifest["android"]["downloadUrl"]))
         self.assertEqual(1, table.count(manifest["macos"]["downloadUrl"]))
-        self.assertIn("Téléphone Android | 0.9.17-dictai (test)", table)
+        self.assertIn(f"Téléphone Android | [Télécharger]({manifest['android']['downloadUrl']}) | 0.9.17-dictai (test)", table)
         self.assertIn("Android 11+ · ARM64", table)
-        self.assertIn("Mac | 0.4.7 (test)", table)
+        self.assertIn(f"Mac | [Télécharger]({manifest['macos']['downloadUrl']}) | 0.4.7 (test)", table)
         self.assertIn("Apple silicon et Intel", table)
         self.assertIn(release["html_url"], table)
 

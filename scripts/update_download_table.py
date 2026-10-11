@@ -79,10 +79,10 @@ def render_table(selected):
     mac_compat = f"macOS {mac['minSystemVersion']}+ · " + " et ".join(mac_arch[a] for a in mac["architectures"])
     versions = {p: selected[p]["manifest"][p]["versionName"] + (" (test)" if selected[p]["release"]["prerelease"] else "")
                 for p in PLATFORMS}
-    lines = ["| Appareil | Version | Compatibilité | Téléchargement |", "|---|---|---|---|",
-             f"| Téléphone Android | {versions['android']} | {android_compat} | [Télécharger l’APK]({android['downloadUrl']}) |",
-             f"| Tablette Android | {versions['android']} | {android_compat} | [Télécharger l’APK]({android['downloadUrl']}) |",
-             f"| Mac | {versions['macos']} | {mac_compat} | [Télécharger l’installateur]({mac['downloadUrl']}) |", ""]
+    lines = ["| Appareil | Téléchargement | Version | Compatibilité |", "|---|---|---|---|",
+             f"| Téléphone Android | [Télécharger]({android['downloadUrl']}) | {versions['android']} | {android_compat} |",
+             f"| Tablette Android | [Télécharger]({android['downloadUrl']}) | {versions['android']} | {android_compat} |",
+             f"| Mac | [Télécharger]({mac['downloadUrl']}) | {versions['macos']} | {mac_compat} |", ""]
     if any(selected[p]["release"]["prerelease"] for p in PLATFORMS):
         lines += ["Les versions marquées « test » sont destinées aux premiers essais. Consultez les instructions d’installation avant de les ouvrir.", ""]
     notes = list(dict.fromkeys(selected[p]["release"]["html_url"] for p in PLATFORMS))
