@@ -4,7 +4,8 @@ struct WorkspaceView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var setup: SetupState
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
+            AppUpdateBanner(updates: model.appUpdates)
             if setup.presented {
                 SetupView(model: model, setup: setup, library: model.library, account: model.account, sync: model.sync)
             } else {

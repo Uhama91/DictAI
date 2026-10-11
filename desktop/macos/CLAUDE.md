@@ -16,6 +16,7 @@ Protocole Android v1 : encodage canonique des chaînes note/folder/asset, horlog
 
 | Date | Action |
 |---|---|
+| 2026-10-11 | 0.4.7/build 17 préparée : notification des mises à jour, vérification manuelle dans réglages/menu et téléchargement navigateur ; 159 tests ARM et 159 sous Rosetta, rendus clairs/sombres audités, paquet universel de test vérifié. La 0.4.6 reste installée ; Developer ID, notarisation, publication stable et essais sur appareil restants. Voir `../../docs/2026-10-11-app-updates.md`. |
 | 2026-10-11 | 0.4.6 (build 16) installée : menu rapide avec copie intégrale, historique, bibliothèque, réglages, pause/reprise et fermeture ; icône visible et copie du menu confirmées. 152 tests ARM et Intel via Rosetta, CI 38138576586 réussie et paquet vérifié ; contenu antérieur préservé (62 notes, 56 mots, 10 dossiers, 7 images), sept dictées relues après fermeture/mise à jour et trois permissions confirmées. Voir `../../docs/2026-10-11-macos-quick-access.md`. |
 | 2026-10-11 | 0.4.4 (build 14) : tampon local de dix dictées, lecture et copie depuis bibliothèque/menu, retouches et nouvelles tentatives sans doublon ; envoi vers un champ sans note permanente automatique. 149 tests ARM et Intel via Rosetta réussis et rendus natifs clairs/sombres audités ; notes existantes préservées, installation et dictée physique restantes. |
 | 2026-10-11 | 0.4.3 (build 13) installée depuis le paquet GitHub et lancée dans `/Applications` : 13 fichiers identiques avant ouverture, contenu intégral conservé après ouverture, 55 notes, 56 entrées de vocabulaire, 10 dossiers et 7 images. Microphone, reconnaissance et modèle vocal français disponibles ; accessibilité renouvelée après validation Touch ID et raccourci relancé. Sauvegarde privée conservée. |
@@ -35,6 +36,8 @@ Protocole Android v1 : encodage canonique des chaînes note/folder/asset, horlog
 | 2026-10-06 | Compagnon macOS natif compilé, raccourci Option, overlay éditable, bibliothèque et synchronisation Android v1 ; interface auditée en mode isolé et tests de données/régressions dans `Tests/`. |
 
 ## TODO
+
+La 0.4.7 et son parcours de mise à jour sont préparés localement. Publier des installateurs signés/notarisés et le manifeste stable, puis valider deux versions successives avec les données et permissions existantes. Le site de téléchargement et le domaine indépendant sont prévus pour une étape ultérieure.
 
 La 0.4.6 est installée et ses trois autorisations sont confirmées. Les dictées physiques, la récupération de l’historique après fermeture/mise à jour et la copie du menu sont vérifiées. Valider la correction cloud et les dictées longues. Sans correction cloud, seules les règles de typographie et de vocabulaire sont appliquées par le code, en complément de la ponctuation du moteur vocal Apple.
 

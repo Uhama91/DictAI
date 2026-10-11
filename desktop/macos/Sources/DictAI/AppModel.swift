@@ -12,6 +12,7 @@ enum DictationPresentation { case compact, editor, window }
     let account = AccountController()
     let sync: SyncCoordinator
     let shortcut = OptionShortcut()
+    let appUpdates = AppUpdateChecker()
     let speech: any SpeechCapturing
     let insertion: any TextDelivering
     let cleaner: any DictationCleaning
@@ -82,6 +83,7 @@ enum DictationPresentation { case compact, editor, window }
             if let session = account.session { try library.switchScope(session.userId); draft = library.loadDraft() ?? DictationDraft() }
         } catch { library.error = error.localizedDescription }
         shortcut.start(); sync.start()
+        appUpdates.start()
         Task { await sync.sync() }
     }
     private func handleOption(_ action: OptionGesture.Action) {

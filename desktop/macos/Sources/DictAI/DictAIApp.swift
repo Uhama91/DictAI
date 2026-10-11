@@ -59,6 +59,7 @@ struct MenuContent: View {
         Button("Historique des dictées") { openLibrary(page: "history") }
         Button("Ouvrir la bibliothèque") { openLibrary(page: "notes") }
         Button("Réglages…") { openLibrary(page: "settings") }.keyboardShortcut(",")
+        AppUpdateMenu(updates: model.appUpdates)
         Divider()
         Button("Synchroniser") { Task { await model.sync.sync() } }
             .disabled(model.account.session == nil)

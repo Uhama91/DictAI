@@ -18,6 +18,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 28) {
                 Text("Réglages").font(Theme.handwriting(40))
                 Button("Reprendre la configuration") { model.closeOverlay(); model.setup.restart() }
+                group("Mises à jour", icon: "arrow.down.circle") {
+                    AppUpdateSettings(updates: model.appUpdates)
+                }
                 group("Compte et synchronisation", icon: "arrow.triangle.2.circlepath") {
                     Text(account.session?.email ?? "Retrouvez vos notes et vos mots sur tous vos appareils.").font(.system(size: 14, weight: .medium))
                     Text("Notes, dossiers, images et préférences sont partagés avec Android. Sans compte, tout reste sur ce Mac.").font(.caption).foregroundStyle(Theme.muted)

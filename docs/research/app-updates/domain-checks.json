@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-10-11T14:46:09.418489+00:00",
+  "domains": [
+    {
+      "domain": "dictai.fr",
+      "registryUrl": "https://rdap.nic.fr/domain/dictai.fr",
+      "status": 404,
+      "interpretation": "No registration found; registrar availability still required"
+    },
+    {
+      "domain": "getdictai.com",
+      "registryUrl": "https://rdap.verisign.com/com/v1/domain/getdictai.com",
+      "status": 404,
+      "interpretation": "No registration found; registrar availability still required"
+    },
+    {
+      "domain": "dictaiapp.com",
+      "registryUrl": "https://rdap.verisign.com/com/v1/domain/dictaiapp.com",
+      "status": 404,
+      "interpretation": "No registration found; registrar availability still required"
+    }
+  ]
+}

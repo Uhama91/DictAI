@@ -198,7 +198,10 @@ class MainActivityNativeRenderTest {
         assertTrue("ScrollView should be measured", scroll != null && scroll.width == width && scroll.height == height)
         assertTrue("Home page should be measured", page != null && page.width > 0 && page.height > 0)
         assertTrue("Rendered tree should contain the DictAI wordmark", page?.let { containsText(it, "DictAI") } == true)
-        val brand = page?.getChildAt(0) as? ViewGroup
+        val brand = page?.let { group ->
+            (0 until group.childCount).map { group.getChildAt(it) }
+                .firstOrNull { it.visibility == View.VISIBLE }
+        } as? ViewGroup
         assertTrue("Brand row should be measured", brand != null && brand.width > 0 && brand.height > 0)
         assertTrue(
             "Native brand wave should have a drawable viewport",

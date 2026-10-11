@@ -69,6 +69,16 @@ OpenRouter and the model provider selected through it may process the transcript
 text, including locally corrected vocabulary, according to their own terms and
 privacy policies.
 
+## Update checks
+
+DictAI checks public version metadata on GitHub over HTTPS when the application
+is opened or used. Automatic checks are limited to once a day after a successful
+response; a manual check is available in settings. GitHub receives standard
+connection information, including your IP address. Update requests contain no
+audio, transcript, notes, vocabulary, account identifiers, or API keys. Version
+comparison and the update cache remain on the device. Clicking the update banner
+opens the installer download in your browser.
+
 ## Contact
 
 For privacy questions, open an issue in the

@@ -29,6 +29,11 @@ class MainActivity : AppCompatActivity() {
     private var screen = Screen.HOME
     private var contentScroll: ScrollView? = null
     private val synchronizedData = { renderScreen(contentScroll?.scrollY ?: 0) }
+    private val appUpdates by lazy { AppUpdateChecker.get(this) }
+    private var updateBannerContainer: LinearLayout? = null
+    private var displayedUpdate: AppUpdate? = null
+    private var updateStatusSubtitle: TextView? = null
+    private val updatedVersion = { refreshAppUpdates() }
 
     private val palette: ThemePalette
         get() = ThemeTokens.palette(this)
@@ -36,10 +41,13 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         PreferenceSyncCoordinator.get(this).observeData(synchronizedData)
+        appUpdates.observe(updatedVersion)
+        refreshAppUpdates()
     }
 
     override fun onStop() {
         PreferenceSyncCoordinator.get(this).unobserveData(synchronizedData)
+        appUpdates.unobserve(updatedVersion)
         super.onStop()
     }
 
@@ -107,6 +115,9 @@ class MainActivity : AppCompatActivity() {
         overlayRowSub = null
         modelContainer = null
         modelRows.clear()
+        updateBannerContainer = null
+        displayedUpdate = null
+        updateStatusSubtitle = null
 
         val root = when (screen) {
             Screen.HOME -> buildHomePage()
@@ -114,6 +125,8 @@ class MainActivity : AppCompatActivity() {
             Screen.FORMATTING -> buildFormattingPage()
             Screen.PREFERENCES -> buildPreferencesPage()
         }.apply {
+            updateBannerContainer = vertical(0, 0).apply { visibility = View.GONE }
+            addView(updateBannerContainer, 0)
             background = NotebookBackgroundDrawable(this@MainActivity)
             setPadding(dp(18), dp(28), dp(18), dp(32))
         }
@@ -127,6 +140,22 @@ class MainActivity : AppCompatActivity() {
         setContentView(scroll)
         if (scrollY > 0) scroll.post { scroll.scrollTo(0, scrollY) }
         refresh()
+        refreshAppUpdates()
+    }
+
+    private fun refreshAppUpdates() {
+        // Keep ongoing model downloads and dialog callbacks attached to their views.
+        // A network result only changes the update banner and its status row.
+        updateBannerContainer?.let { container ->
+            val offer = appUpdates.offer
+            if (offer != displayedUpdate) {
+                container.removeAllViews()
+                offer?.let { container.addView(AppUpdateBannerView(this, it)) }
+                displayedUpdate = offer
+            }
+            container.visibility = if (offer == null) View.GONE else View.VISIBLE
+        }
+        updateStatusSubtitle?.text = appUpdates.statusText
     }
 
     private fun buildHomePage(): LinearLayout {
@@ -279,6 +308,12 @@ class MainActivity : AppCompatActivity() {
         val root = vertical(0, 0)
         root.addView(navigationHeader("Préférences"))
         root.addView(buildAppearanceCard())
+        root.addView(sectionHeader("Mises à jour"))
+        val updateRow = settingsRow("Vérifier les mises à jour", appUpdates.statusText) {
+            appUpdates.check(force = true)
+        }
+        updateStatusSubtitle = updateRow.findViewWithTag("subtitle")
+        root.addView(updateRow)
         root.addView(sectionHeader("Mes appareils"))
         root.addView(settingsRow("Compte et synchronisation", "Partager vocabulaire, préférences, dossiers et notes") {
             startActivity(Intent(this, AccountSyncActivity::class.java))
@@ -564,6 +599,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        appUpdates.check()
         PreferenceSyncCoordinator.get(this).requestSync()
         if (android.provider.Settings.canDrawOverlays(this)) {
             startForegroundService(
