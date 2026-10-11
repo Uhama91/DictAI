@@ -16,6 +16,7 @@ Protocole Android v1 : encodage canonique des chaînes note/folder/asset, horlog
 
 | Date | Action |
 |---|---|
+| 2026-10-11 | 0.4.5 (build 15) installée : accès rapide à la dernière transcription complète, historique, bibliothèque, réglages, pause/reprise et fermeture. 151 tests ARM et Intel via Rosetta réussis ; treize fichiers identiques avant ouverture et contenu antérieur préservé (62 notes, 56 mots, 10 dossiers, 7 images). Trois autorisations confirmées après renouvellement de la signature ; essai vocal physique restant. Voir `../../docs/2026-10-11-macos-quick-access.md`. |
 | 2026-10-11 | 0.4.4 (build 14) : tampon local de dix dictées, lecture et copie depuis bibliothèque/menu, retouches et nouvelles tentatives sans doublon ; envoi vers un champ sans note permanente automatique. 149 tests ARM et Intel via Rosetta réussis et rendus natifs clairs/sombres audités ; notes existantes préservées, installation et dictée physique restantes. |
 | 2026-10-11 | 0.4.3 (build 13) installée depuis le paquet GitHub et lancée dans `/Applications` : 13 fichiers identiques avant ouverture, contenu intégral conservé après ouverture, 55 notes, 56 entrées de vocabulaire, 10 dossiers et 7 images. Microphone, reconnaissance et modèle vocal français disponibles ; accessibilité renouvelée après validation Touch ID et raccourci relancé. Sauvegarde privée conservée. |
 | 2026-10-11 | 0.4.3 : ponctuation Apple Intelligence et formats Liste/Mail/personnels retirés, correction OpenRouter fidèle facultative ; reconnaissance Apple locale, typographie et données conservées. 139 tests ARM et 139 sous Rosetta réussis, réglages clairs/sombres et dictée audités, installateur universel construit ; application installée encore en 0.4.2. Voir `../../docs/2026-10-11-cloud-cleanup-only.md`. |
@@ -35,6 +36,6 @@ Protocole Android v1 : encodage canonique des chaînes note/folder/asset, horlog
 
 ## TODO
 
-La 0.4.3 est installée et ses trois autorisations sont confirmées. Valider la correction cloud et les dictées longues. Sans correction cloud, seules les règles de typographie et de vocabulaire sont appliquées par le code, en complément de la ponctuation du moteur vocal Apple.
+La 0.4.5 est installée et ses trois autorisations sont confirmées. Valider l’historique avec une dictée physique, la correction cloud et les dictées longues. Sans correction cloud, seules les règles de typographie et de vocabulaire sont appliquées par le code, en complément de la ponctuation du moteur vocal Apple.
 
 Valider le parcours réel Option → voix → Option → champ externe (test TextEdit prêt, appui Option seul non simulable par l’outil UI) ; connecter le même compte Google sur Mac et Android pour mesurer la convergence. Les modèles locaux Android et le mode réunion ne sont pas portés. Sous-dossiers représentés par des chemins de noms ; pas de relation parent dans le contrat Android v1. Signature Developer ID et notarisation nécessaires pour une diffusion publique.

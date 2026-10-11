@@ -1,8 +1,32 @@
 import Foundation
+import AppKit
 import Testing
 @testable import DictAI
 
 @MainActor struct DictationHistoryTests {
+    @Test func quickCopyUsesTheLatestCompleteTranscriptWithoutChangingTheLibrary() throws {
+        let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-quick-copy-" + UUID().uuidString))
+        _ = try model.library.createNote(text: "Note à conserver")
+        try model.library.history.record(id: "old", text: "Ancienne dictée")
+        try model.library.history.record(id: "latest", text: "La dernière transcription 🐈.\n\nDeuxième paragraphe intégral.")
+        model.edit("Un brouillon distinct qui ne doit pas être copié")
+        let history = model.library.history.entries
+        let document = model.library.document
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        #expect(model.copyLatestDictation(to: pasteboard))
+        #expect(pasteboard.string(forType: .string) == "La dernière transcription 🐈.\n\nDeuxième paragraphe intégral.")
+        #expect(model.library.history.entries == history)
+        #expect(model.library.document == document)
+    }
+    @Test func quickCopyWithNoDictationPreservesTheClipboard() throws {
+        let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-empty-copy-" + UUID().uuidString))
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        pasteboard.setString("À conserver dans le presse-papiers", forType: .string)
+        #expect(!model.copyLatestDictation(to: pasteboard))
+        #expect(pasteboard.string(forType: .string) == "À conserver dans le presse-papiers")
+    }
     private func library() throws -> LibraryStore {
         try LibraryStore(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-history-" + UUID().uuidString))
     }

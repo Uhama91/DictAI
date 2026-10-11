@@ -25,6 +25,8 @@ L’application reprend le tracé exact du logo Android à trois boucles, y comp
 
 La version **0.4.4** ajoute **Historique des dictées** dans la bibliothèque et le menu de la barre des menus : les dix dernières transcriptions peuvent être relues et copiées, même si l’insertion échoue. La onzième remplace la plus ancienne. Ce tampon reste local, survit à la fermeture et peut être vidé ; les dictées envoyées ne sont plus automatiquement archivées dans les notes. Les notes existantes et les notes enregistrées volontairement sont conservées. [Fonctionnement et vérifications](../../docs/2026-10-11-recent-dictations.md).
 
+La version **0.4.5** complète le menu de l’icône DictAI dans la barre des menus : **Copier la dernière transcription**, accès direct à l’historique, à la bibliothèque et aux réglages, pause/reprise de la dictée en cours et **Quitter DictAI**. La copie rapide utilise le texte intégral de la dernière dictée terminée. Elle est désactivée lorsque l’historique est vide.
+
 ## Notes, dossiers et vocabulaire
 
 Les notes s’enregistrent progressivement sur le Mac. La bibliothèque propose la recherche, le classement, l’export texte, la suppression synchronisée et l’affichage des images reçues d’Android. Le menu « Classer » du panneau choisit le dossier de destination.

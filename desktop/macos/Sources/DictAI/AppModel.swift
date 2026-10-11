@@ -268,6 +268,11 @@ enum DictationPresentation { case compact, editor, window }
         editorSession.reset(); overlay.hide(); panelVisible = false; presentation = .compact
     }
     func completeDictation() { if destination == .note { saveNote() } else { insert() } }
+    @discardableResult func copyLatestDictation(to pasteboard: NSPasteboard = .general) -> Bool {
+        guard let latest = library.history.entries.first else { return false }
+        pasteboard.clearContents()
+        return pasteboard.setString(latest.text, forType: .string)
+    }
     private func recordRecentDictation() throws {
         guard !historyCancelled, !draft.recognized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         try library.history.record(id: draft.historyID, text: draft.text)
