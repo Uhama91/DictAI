@@ -44,6 +44,14 @@ Si une seule plateforme évolue, le manifeste doit conserver les informations ex
 
 Une fois la version publiée, contrôler le téléchargement public du manifeste, de l’APK et du paquet Mac, puis le bandeau depuis une installation antérieure. Un fichier absent doit produire « Vérification indisponible », jamais un faux message indiquant que l’application est à jour.
 
+## Distribuer aux premiers testeurs sans site
+
+La [préversion du 11 octobre 2026](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-preview) fournit l’APK Android 0.9.17, le paquet Mac 0.4.7 et leurs empreintes. Les fichiers sont téléchargeables sans compte GitHub ; les notes de version expliquent leur installation. Les trois téléchargements publics ont été vérifiés et comparés aux fichiers locaux.
+
+Pour une prochaine préversion, préparer et contrôler les installateurs, créer une release en brouillon marquée comme préversion, joindre les fichiers et les instructions, puis publier avec `--latest=false`. Partager le lien exact de la release. Conserver les téléchargements d’une version publiée pour les testeurs qui l’utilisent encore.
+
+Ce canal de test ne fournit pas de manifeste `updates.json` et ne remplace pas la dernière release stable. Les notifications automatiques restent liées à la préparation d’une diffusion stable signée.
+
 ## Site et domaine, à réaliser ultérieurement
 
 Prévoir une page de présentation, deux boutons de téléchargement clairement identifiés, les nouveautés, l’aide à l’installation et la confidentialité. Le site partagera les versions du manifeste, avec des fichiers hébergés sur GitHub Releases. Un hébergement statique gratuit suffit pour démarrer ; le domaine sera choisi séparément.

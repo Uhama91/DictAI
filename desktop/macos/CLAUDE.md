@@ -16,6 +16,7 @@ Protocole Android v1 : encodage canonique des chaînes note/folder/asset, horlog
 
 | Date | Action |
 |---|---|
+| 2026-10-11 | 0.4.7/build 17 publiée dans la préversion GitHub `dictai-20261011-preview` : paquet universel de test téléchargeable sans compte, SHA-256 public identique au fichier contrôlé et CI 38149850971 réussie ; 159 tests locaux relancés, guide d’installation et procédure Apple disponibles. L’application installée reste en 0.4.6 ; Developer ID et notarisation restants. |
 | 2026-10-11 | 0.4.7/build 17 préparée : notification des mises à jour, vérification manuelle dans réglages/menu et téléchargement navigateur ; 159 tests ARM et 159 sous Rosetta, rendus clairs/sombres audités, paquet universel de test vérifié. La 0.4.6 reste installée ; Developer ID, notarisation, publication stable et essais sur appareil restants. Voir `../../docs/2026-10-11-app-updates.md`. |
 | 2026-10-11 | 0.4.6 (build 16) installée : menu rapide avec copie intégrale, historique, bibliothèque, réglages, pause/reprise et fermeture ; icône visible et copie du menu confirmées. 152 tests ARM et Intel via Rosetta, CI 38138576586 réussie et paquet vérifié ; contenu antérieur préservé (62 notes, 56 mots, 10 dossiers, 7 images), sept dictées relues après fermeture/mise à jour et trois permissions confirmées. Voir `../../docs/2026-10-11-macos-quick-access.md`. |
 | 2026-10-11 | 0.4.4 (build 14) : tampon local de dix dictées, lecture et copie depuis bibliothèque/menu, retouches et nouvelles tentatives sans doublon ; envoi vers un champ sans note permanente automatique. 149 tests ARM et Intel via Rosetta réussis et rendus natifs clairs/sombres audités ; notes existantes préservées, installation et dictée physique restantes. |
@@ -37,7 +38,7 @@ Protocole Android v1 : encodage canonique des chaînes note/folder/asset, horlog
 
 ## TODO
 
-La 0.4.7 et son parcours de mise à jour sont préparés localement. Publier des installateurs signés/notarisés et le manifeste stable, puis valider deux versions successives avec les données et permissions existantes. Le site de téléchargement et le domaine indépendant sont prévus pour une étape ultérieure.
+La 0.4.7 de test est téléchargeable dans la préversion GitHub `dictai-20261011-preview`. Publier des installateurs signés/notarisés et le manifeste stable, puis valider deux versions successives avec les données et permissions existantes. Le site de téléchargement et le domaine indépendant sont prévus pour une étape ultérieure.
 
 La 0.4.6 est installée et ses trois autorisations sont confirmées. Les dictées physiques, la récupération de l’historique après fermeture/mise à jour et la copie du menu sont vérifiées. Valider la correction cloud et les dictées longues. Sans correction cloud, seules les règles de typographie et de vocabulaire sont appliquées par le code, en complément de la ponctuation du moteur vocal Apple.
 

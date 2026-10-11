@@ -1,0 +1,42 @@
+{
+  "checkedAt": "2026-10-11T17:14:01.017229+02:00",
+  "releaseUrl": "https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-preview",
+  "tag": "dictai-20261011-preview",
+  "sourceCommit": "4e8288b1026277ea3dae02ae9b82d1fa404d65fc",
+  "prerelease": true,
+  "stableTag": "v0.5.6-wp",
+  "downloads": [
+    {
+      "name": "DictAI-android.apk",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/DictAI-android.apk",
+      "status": 200,
+      "bytes": 58303264,
+      "digest": "sha256:03f08f71edc4db58e4c134d6f53473fe64ee5a9bbbb10947f4eb4548da5fd081",
+      "authentication": false
+    },
+    {
+      "name": "DictAI-macOS.pkg",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/DictAI-macOS.pkg",
+      "status": 200,
+      "bytes": 2069549,
+      "digest": "sha256:1a613699365ad5ec05c90b7e29c9dc4e0b423643d149711117c1db2a05272d25",
+      "authentication": false
+    },
+    {
+      "name": "SHA256SUMS",
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-preview/SHA256SUMS",
+      "status": 200,
+      "bytes": 168,
+      "digest": "sha256:33471085d96def1bc3b69d8f0cd81cf4ea52f7a5f157d7d4ff1270444105d9bb",
+      "authentication": false
+    }
+  ],
+  "localTests": {
+    "android": 759,
+    "macos": 159
+  },
+  "ciRuns": {
+    "android": 38149850934,
+    "macos": 38149850971
+  }
+}
