@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-if /usr/bin/pgrep -x DictAI >/dev/null; then
+if /usr/bin/pgrep -f '^/Applications/DictAI[.]app/Contents/MacOS/DictAI([[:space:]]|$)' >/dev/null; then
   echo "Quittez DictAI depuis son menu, puis relancez l’installation. Vos notes seront conservées." >&2
   exit 1
 fi

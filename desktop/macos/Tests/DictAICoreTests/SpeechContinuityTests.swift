@@ -3,6 +3,55 @@ import Testing
 @testable import DictAICore
 
 struct SpeechContinuityTests {
+    @Test func vocabularyProtectionAlsoAppliesWithinTheSpeechBuffer() {
+        var buffer = SpeechTranscriptBuffer(protectedTerms: ["Ensuite"])
+        buffer.receive("Je travaille avec", start: 0, end: 2, complete: true)
+        #expect(buffer.receive("Ensuite", start: 4, end: 5) == "Je travaille avec Ensuite")
+    }
+    @Test func frenchRepairsDoNotChangeEnglishCapitalization() {
+        var buffer = SpeechTranscriptBuffer(language: "en")
+        buffer.receive("I work with", start: 0, end: 2, complete: true)
+        #expect(buffer.receive("Car Next", start: 4, end: 5) == "I work with Car Next")
+        var draft = DictationDraft()
+        draft.receive("I work with", language: "en"); draft.beginSegment()
+        draft.receive("Car Next", language: "en")
+        #expect(draft.text == "I work with Car Next")
+    }
+    @Test func newSpeechAfterAManualCorrectionUsesTheEditedSentenceBoundary() {
+        var draft = DictationDraft()
+        draft.receive("je réfléchi")
+        draft.edit("Je réfléchis")
+        draft.receive("je réfléchi Tu vois")
+        #expect(draft.text == "Je réfléchis tu vois")
+        draft.edit("Je réfléchis. Tu vois")
+        draft.receive("je réfléchi Tu vois Je continue")
+        #expect(draft.text == "Je réfléchis. Tu vois je continue")
+    }
+    @Test func reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() {
+        let cases = [
+            ("Je prends une pause", "Tu vois ce que je veux dire", "Je prends une pause tu vois ce que je veux dire"),
+            ("Je réfléchis", "Je suis toujours dans la même phrase", "Je réfléchis je suis toujours dans la même phrase"),
+            ("C’est", "Complètement incohérent", "C’est complètement incohérent"),
+            ("C’est complètement", "Incohérent", "C’est complètement incohérent"),
+            ("Je fais une pause", "Voilà pourquoi", "Je fais une pause voilà pourquoi"),
+            ("Je fais une pause,", "Ensuite je continue", "Je fais une pause, ensuite je continue"),
+            ("Je fais une pause ;", "Nous continuons", "Je fais une pause ; nous continuons"),
+            ("Je pense", "J’ai encore quelque chose à dire", "Je pense j’ai encore quelque chose à dire")
+        ]
+        for (prefix, suffix, expected) in cases {
+            var buffer = SpeechTranscriptBuffer()
+            buffer.receive(prefix, start: 0, end: 2, complete: true)
+            #expect(buffer.receive(suffix, start: 8, end: 10) == expected)
+            #expect(buffer.receive(suffix + " maintenant", start: 8, end: 11) == expected + " maintenant")
+            var draft = DictationDraft()
+            draft.receive(prefix); draft.beginSegment(); draft.receive(suffix)
+            #expect(draft.text == expected)
+        }
+    }
+    @Test func aProperNameAfterAContinuationDoesNotCapitalizeThePronoun() {
+        #expect(SpeechTextJoin.join("Je réfléchis", "Tu connais Paris") == "Je réfléchis tu connais Paris")
+        #expect(SpeechTextJoin.join("Je réfléchis", "Avec DictAI") == "Je réfléchis avec DictAI")
+    }
     @Test func frenchArticlesContinueAcrossRecognitionRestarts() {
         var buffer = SpeechTranscriptBuffer()
         buffer.receive("Je regarde", start: 0, end: 2, complete: true)
@@ -71,7 +120,7 @@ struct SpeechContinuityTests {
         draft.receive("")
         #expect(draft.text == "Bonjour DictAI et la suite")
         draft.beginSegment(); draft.receive("Un autre paragraphe.")
-        #expect(draft.text == "Bonjour DictAI et la suite Un autre paragraphe.")
+        #expect(draft.text == "Bonjour DictAI et la suite un autre paragraphe.")
     }
     @Test func intentionalDeletionAndOldDraftDecodingRemainSupported() throws {
         var draft = try JSONDecoder().decode(DictationDraft.self, from: Data(#"{"text":"Ancien texte.","recognized":"Ancien texte.","edited":false}"#.utf8))

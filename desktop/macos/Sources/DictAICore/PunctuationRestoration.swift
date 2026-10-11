@@ -4,6 +4,11 @@ public enum PunctuationRestoration {
     private static let words = try! NSRegularExpression(pattern: "[\\p{L}\\p{M}\\p{N}]+")
     private static let literals = try! NSRegularExpression(pattern: #""[^"]*"|«[^»]*»|“[^”]*”|`[^`]*`|\S*(?:https?://|www\.|@|/|\\|\.[A-Za-z]{2,8})\S*"#)
     private static let punctuation = CharacterSet(charactersIn: ".,;:!?… \t\r\n\u{00a0}\u{202f}")
+    private static let termPatterns: NSCache<NSString, NSRegularExpression> = {
+        let cache = NSCache<NSString, NSRegularExpression>()
+        cache.countLimit = 512
+        return cache
+    }()
 
     /// Accept punctuation/case only. Rebuild literals from the source, not the model.
     public static func accept(_ candidate: String, for source: String, protectedTerms: [String] = []) -> String? {
@@ -41,8 +46,15 @@ public enum PunctuationRestoration {
         let value = text as NSString, full = NSRange(location: 0, length: value.length)
         var ranges = literals.matches(in: text, range: full).map(\.range)
         for term in terms where !term.isEmpty {
-            let pattern = "(?<![\\p{L}\\p{N}_])" + NSRegularExpression.escapedPattern(for: term) + "(?![\\p{L}\\p{N}_])"
-            if let expression = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) { ranges += expression.matches(in: text, range: full).map(\.range) }
+            let key = term as NSString
+            let expression: NSRegularExpression
+            if let cached = termPatterns.object(forKey: key) { expression = cached }
+            else {
+                let pattern = "(?<![\\p{L}\\p{N}_])" + NSRegularExpression.escapedPattern(for: term) + "(?![\\p{L}\\p{N}_])"
+                guard let compiled = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { continue }
+                expression = compiled; termPatterns.setObject(compiled, forKey: key)
+            }
+            ranges += expression.matches(in: text, range: full).map(\.range)
         }
         for match in words.matches(in: text, range: full) {
             let word = value.substring(with: match.range), letters = word.filter(\.isLetter)

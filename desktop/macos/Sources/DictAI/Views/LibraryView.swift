@@ -92,7 +92,7 @@ struct LibraryView: View {
             }
             Spacer(minLength: 16)
             VStack(alignment: .leading, spacing: 10) {
-                HStack { Text("⌥").font(.system(size: 22)).frame(width: 38, height: 34).background(Theme.elevated, in: RoundedRectangle(cornerRadius: 6)); Text("Démarrer ou terminer.\n×2 Pause · ×3 Annuler").font(.system(size: 11)).fixedSize(horizontal: false, vertical: true).foregroundStyle(Theme.muted) }
+                HStack { Text("⌥").font(.system(size: 22)).frame(width: 38, height: 34).background(Theme.elevated, in: RoundedRectangle(cornerRadius: 6)); Text("Démarrer, reprendre ou terminer.\n×2 Pause · ×3 Annuler").font(.system(size: 11)).fixedSize(horizontal: false, vertical: true).foregroundStyle(Theme.muted) }
                 Button { model.state == .listening ? model.toggle() : model.begin(destination: .note) } label: { Label(model.state == .listening ? "Terminer la dictée" : "Dicter une note", systemImage: "mic").frame(maxWidth: .infinity).padding(.vertical, 7) }.buttonStyle(AccentButtonStyle())
                 Button("Ouvrir le brouillon") { model.showDraft() }.font(.system(size: 11)).buttonStyle(.plain).foregroundStyle(Theme.muted).frame(maxWidth: .infinity)
                     .disabled(model.state == .idle && model.draft.text.isEmpty)

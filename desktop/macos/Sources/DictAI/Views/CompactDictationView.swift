@@ -5,7 +5,7 @@ struct CompactDictationView: View {
     private var hint: String {
         if !model.message.isEmpty { return model.message.components(separatedBy: ". ").first ?? model.message }
         if model.state == .listening { return "⌥ terminer · ×2 pause · ×3 annuler" }
-        if model.state == .paused { return "⌥ terminer · ×2 reprendre · ×3 annuler" }
+        if model.state == .paused { return "⌥ reprendre · ×2 reprendre · ×3 annuler" }
         return "Cliquer sur le texte pour modifier"
     }
     var body: some View {
@@ -21,7 +21,7 @@ struct CompactDictationView: View {
                 if model.state == .listening {
                     OverlayIconButton("Mettre en pause · ⌥ deux fois", symbol: "pause.fill", size: 28) { model.pauseListening() }
                 } else if model.busy { ProgressView().controlSize(.small).frame(width: 28) }
-                else { OverlayIconButton("Reprendre la dictée · ⌥ deux fois", symbol: "play.fill", size: 28) { model.resumeListening() } }
+                else { OverlayIconButton("Reprendre la dictée · ⌥ une fois", symbol: "play.fill", size: 28) { model.resumeListening() } }
                 OverlayIconButton("Ouvrir dans une fenêtre", symbol: "arrow.up.left.and.arrow.down.right", size: 28) { model.showWorkspace() }
                 OverlayIconButton("Annuler sans envoyer · ⌥ trois fois ou Échap", symbol: "xmark", size: 28) { model.closeOverlay() }
             }

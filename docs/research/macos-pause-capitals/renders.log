@@ -1,0 +1,12 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write swift-version--1AB21518FC5DEDBE.txt
+Build complete! (0.21s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite DictationWindowTests started.
+◇ Test reflectivePauseShowsAContinuousSentenceInNativeEditors() started.
+✔ Test reflectivePauseShowsAContinuousSentenceInNativeEditors() passed after 1.530 seconds.
+✔ Suite DictationWindowTests passed after 1.531 seconds.
+✔ Test run with 1 test in 1 suite passed after 1.531 seconds.

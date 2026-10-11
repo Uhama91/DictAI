@@ -64,7 +64,9 @@ enum DictationPresentation { case compact, editor, window }
         self.speech.onText = { [weak self] text in
             guard let self, [.preparing, .listening, .finishing].contains(self.state) else { return }
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { self.segmentHasSpeech = true }
-            self.draft.receive(DictationTypography.live(text, language: self.library.preference("dictation_language", default: "fr")))
+            let language = self.library.preference("dictation_language", default: "fr")
+            let terms = self.dictationTerms
+            self.draft.receive(DictationTypography.live(text, language: language, protectedTerms: terms), language: language, protectedTerms: terms)
             self.persistDraft()
         }
         self.speech.onLevel = { [weak self] in self?.level = $0 }
@@ -90,7 +92,7 @@ enum DictationPresentation { case compact, editor, window }
         switch action {
         case .single:
             if state == .finishing && pauseWhenFinished {
-                pauseWhenFinished = false; resumeAfterPause = false; deliverWhenFinished = true
+                resumeAfterPause = true
             } else { toggle() }
         case .double:
             guard panelVisible, !delivered else { return }
@@ -107,11 +109,8 @@ enum DictationPresentation { case compact, editor, window }
         case .preparing: closeOverlay()
         case .finishing, .cleaning, .inserting: break
         case .paused:
-            if panelVisible {
-                if draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { closeOverlay() }
-                else if !draft.edited && library.preference("formatting_engine", default: "off") == "cloud" { clean(deliverAfter: true) }
-                else { completeDictation() }
-            } else { begin() }
+            if panelVisible { resumeListening() }
+            else { begin() }
         case .review where panelVisible && !delivered && !draft.text.isEmpty: completeDictation()
         default: begin()
         }
@@ -304,8 +303,11 @@ enum DictationPresentation { case compact, editor, window }
     }
     private func finalizeTypography() {
         guard !draft.edited, library.preference("formatting_engine", default: "off") != "cloud" else { return }
-        draft.normalizeRecognition(DictationTypography.finalized(draft.text, language: library.preference("dictation_language", default: "fr")))
+        draft.normalizeRecognition(DictationTypography.finalized(draft.text, language: library.preference("dictation_language", default: "fr"), protectedTerms: dictationTerms))
         persistDraft()
+    }
+    private var dictationTerms: [String] {
+        library.vocabulary.map { $0.value.components(separatedBy: "=>").last!.trimmingCharacters(in: .whitespaces) }
     }
     func clean(deliverAfter: Bool = false) {
         guard !draft.text.isEmpty, [.review, .paused].contains(state) else { return }

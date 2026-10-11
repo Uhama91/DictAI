@@ -40,7 +40,7 @@ struct SettingsView: View {
                         Text("Comme le Mac").tag("system"); Text("Carnet clair").tag("light"); Text("Carnet sombre").tag("dark")
                     }
                     HStack { Text("Raccourci global"); Spacer(); Text("⌥ Option seule").fontWeight(.semibold).foregroundStyle(Theme.accent) }
-                    Text("1 appui : démarrer, ou terminer et insérer. 2 appuis rapides : pause ou reprise. 3 appuis rapides : annuler sans envoyer ; le brouillon reste disponible. En mode Note, terminer enregistre la note.").font(.caption).foregroundStyle(Theme.muted)
+                    Text("1 appui : démarrer au repos, reprendre en pause, terminer et insérer pendant la dictée. 2 appuis rapides : pause ou reprise. 3 appuis rapides : annuler sans envoyer ; le brouillon reste disponible. En mode Note, terminer enregistre la note.").font(.caption).foregroundStyle(Theme.muted)
                     Text("Le rythme suit le réglage de double-clic du Mac (\(Int(NSEvent.doubleClickInterval * 1_000)) ms). Un bref délai distingue les gestes avant d’agir. Appuyez puis relâchez ; maintenir Option, écrire ou cliquer en même temps ne déclenche aucune commande.").font(.caption).foregroundStyle(Theme.muted)
                     Text("Les mots récents apparaissent en bas de la pastille ; les lignes précédentes remontent et s’effacent progressivement en haut. Cliquez sur le texte pour le modifier, ou sur les flèches pour ouvrir une fenêtre. Pause et Reprendre conservent le même brouillon. Échap ferme sans effacer.").font(.caption).foregroundStyle(Theme.muted)
                     HStack { Text("Moteur vocal"); Spacer(); Text("Apple · sur cet appareil").foregroundStyle(Theme.muted) }

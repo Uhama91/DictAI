@@ -1,0 +1,107 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write sources
+[2/6] Write swift-version--1AB21518FC5DEDBE.txt
+[4/9] Compiling DictAICoreTests DictationTypographyTests.swift
+[5/9] Emitting module DictAICoreTests
+[6/9] Compiling DictAICoreTests SpeechContinuityTests.swift
+[7/10] Compiling DictAIAppTests DictationFlowTests.swift
+[8/10] Emitting module DictAIAppTests
+[8/10] Write Objects.LinkFileList
+[9/10] Linking DictAIPackageTests
+Build complete! (6.55s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite DictationFlowTests started.
+◇ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() started.
+✘ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() recorded an issue at DictationFlowTests.swift:11:9: Expectation failed: (rig.model.draft.text → "Je prends une pause Tu vois") == "Je prends une pause tu vois"
+✘ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() recorded an issue at DictationFlowTests.swift:14:9: Expectation failed: (rig.model.draft.text → "Je prends une pause Tu vois Je suis toujours dans la même phrase") == "Je prends une pause tu vois je suis toujours dans la même phrase"
+✘ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() recorded an issue at DictationFlowTests.swift:18:9: Expectation failed: (rig.model.draft.text → "Je prends une pause Tu vois Je suis toujours dans la même phrase Voilà pourquoi c’est complètement Incohérent") == "Je prends une pause tu vois je suis toujours dans la même phrase voilà pourquoi c’est complètement incohérent"
+✘ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() recorded an issue at DictationFlowTests.swift:21:9: Expectation failed: (rig.delivery.texts → ["Je prends une pause Tu vois Je suis toujours dans la même phrase Voilà pourquoi c’est complètement Incohérent. "]) == ([expected + " "] → ["Je prends une pause tu vois je suis toujours dans la même phrase voilà pourquoi c’est complètement incohérent. "])
+± inserted ["Je prends une pause Tu vois Je suis toujours dans la même phrase Voilà pourquoi c’est complètement Incohérent. "], removed ["Je prends une pause tu vois je suis toujours dans la même phrase voilà pourquoi c’est complètement incohérent. "]
+✘ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() recorded an issue at DictationFlowTests.swift:22:9: Expectation failed: (rig.model.library.history.entries.map(\.text) → ["Je prends une pause Tu vois Je suis toujours dans la même phrase Voilà pourquoi c’est complètement Incohérent."]) == ([expected] → ["Je prends une pause tu vois je suis toujours dans la même phrase voilà pourquoi c’est complètement incohérent."])
+± inserted ["Je prends une pause Tu vois Je suis toujours dans la même phrase Voilà pourquoi c’est complètement Incohérent."], removed ["Je prends une pause tu vois je suis toujours dans la même phrase voilà pourquoi c’est complètement incohérent."]
+✘ Test thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() failed after 0.026 seconds with 5 issues.
+✘ Suite DictationFlowTests failed after 0.027 seconds with 5 issues.
+◇ Suite DictationTypographyTests started.
+◇ Test cumulativeHypothesesRepairPauseCapitalsWithoutAddingPunctuation() started.
+✘ Test cumulativeHypothesesRepairPauseCapitalsWithoutAddingPunctuation() recorded an issue at DictationTypographyTests.swift:6:9: Expectation failed: (DictationTypography.live("Je prends une pause Tu vois c’est complètement Incohérent Voilà pourquoi", language: "fr") → "Je prends une pause Tu vois c’est complètement Incohérent Voilà pourquoi") == "Je prends une pause tu vois c’est complètement incohérent voilà pourquoi"
+✘ Test cumulativeHypothesesRepairPauseCapitalsWithoutAddingPunctuation() recorded an issue at DictationTypographyTests.swift:7:9: Expectation failed: (DictationTypography.live("Je réfléchis Tu vois. Tu comprends ? Je continue", language: "fr") → "Je réfléchis Tu vois. Tu comprends ? Je continue") == "Je réfléchis tu vois. Tu comprends ? Je continue"
+✘ Test cumulativeHypothesesRepairPauseCapitalsWithoutAddingPunctuation() failed after 0.001 seconds with 2 issues.
+◇ Test liveRepairsPreserveNamesAcronymsQuotesAndTechnicalText() started.
+✔ Test liveRepairsPreserveNamesAcronymsQuotesAndTechnicalText() passed after 0.001 seconds.
+◇ Test everySentenceStartIsCapitalizedWithoutTreatingAbbreviationsAsSentences() started.
+✔ Test everySentenceStartIsCapitalizedWithoutTreatingAbbreviationsAsSentences() passed after 0.001 seconds.
+◇ Test aClosingQuoteDoesNotSuppressTheFinalPeriodOfProse() started.
+✔ Test aClosingQuoteDoesNotSuppressTheFinalPeriodOfProse() passed after 0.001 seconds.
+◇ Test explicitFrenchQuestionsMatchTheAndroidCleanupRule() started.
+✔ Test explicitFrenchQuestionsMatchTheAndroidCleanupRule() passed after 0.001 seconds.
+◇ Test literalNamesAndFilenamesKeepTheirSpelling() started.
+✔ Test literalNamesAndFilenamesKeepTheirSpelling() passed after 0.001 seconds.
+◇ Test englishAndLiteralAddressesArePreserved() started.
+✔ Test englishAndLiteralAddressesArePreserved() passed after 0.001 seconds.
+◇ Test existingPunctuationAndParagraphsArePreserved() started.
+✔ Test existingPunctuationAndParagraphsArePreserved() passed after 0.001 seconds.
+✘ Suite DictationTypographyTests failed after 0.001 seconds with 2 issues.
+◇ Suite SpeechContinuityTests started.
+◇ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() started.
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:20:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "Je prends une pause Tu vois ce que je veux dire") == (expected → "Je prends une pause tu vois ce que je veux dire")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:21:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "Je prends une pause Tu vois ce que je veux dire maintenant") == (expected + " maintenant" → "Je prends une pause tu vois ce que je veux dire maintenant")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:24:13: Expectation failed: (draft.text → "Je prends une pause Tu vois ce que je veux dire") == (expected → "Je prends une pause tu vois ce que je veux dire")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:20:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "Je réfléchis Je suis toujours dans la même phrase") == (expected → "Je réfléchis je suis toujours dans la même phrase")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:21:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "Je réfléchis Je suis toujours dans la même phrase maintenant") == (expected + " maintenant" → "Je réfléchis je suis toujours dans la même phrase maintenant")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:24:13: Expectation failed: (draft.text → "Je réfléchis Je suis toujours dans la même phrase") == (expected → "Je réfléchis je suis toujours dans la même phrase")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:20:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "C’est Complètement incohérent") == (expected → "C’est complètement incohérent")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:21:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "C’est Complètement incohérent maintenant") == (expected + " maintenant" → "C’est complètement incohérent maintenant")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:24:13: Expectation failed: (draft.text → "C’est Complètement incohérent") == (expected → "C’est complètement incohérent")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:20:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "C’est complètement Incohérent") == (expected → "C’est complètement incohérent")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:21:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "C’est complètement Incohérent maintenant") == (expected + " maintenant" → "C’est complètement incohérent maintenant")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:24:13: Expectation failed: (draft.text → "C’est complètement Incohérent") == (expected → "C’est complètement incohérent")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:20:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "Je fais une pause Voilà pourquoi") == (expected → "Je fais une pause voilà pourquoi")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:21:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "Je fais une pause Voilà pourquoi maintenant") == (expected + " maintenant" → "Je fais une pause voilà pourquoi maintenant")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:24:13: Expectation failed: (draft.text → "Je fais une pause Voilà pourquoi") == (expected → "Je fais une pause voilà pourquoi")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:20:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "Je fais une pause, Ensuite je continue") == (expected → "Je fais une pause, ensuite je continue")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:21:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "Je fais une pause, Ensuite je continue maintenant") == (expected + " maintenant" → "Je fais une pause, ensuite je continue maintenant")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:24:13: Expectation failed: (draft.text → "Je fais une pause, Ensuite je continue") == (expected → "Je fais une pause, ensuite je continue")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:20:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "Je fais une pause ; Nous continuons") == (expected → "Je fais une pause ; nous continuons")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:21:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "Je fais une pause ; Nous continuons maintenant") == (expected + " maintenant" → "Je fais une pause ; nous continuons maintenant")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:24:13: Expectation failed: (draft.text → "Je fais une pause ; Nous continuons") == (expected → "Je fais une pause ; nous continuons")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:20:13: Expectation failed: (buffer.receive(suffix, start: 8, end: 10) → "Je pense J’ai encore quelque chose à dire") == (expected → "Je pense j’ai encore quelque chose à dire")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:21:13: Expectation failed: (buffer.receive(suffix + " maintenant", start: 8, end: 11) → "Je pense J’ai encore quelque chose à dire maintenant") == (expected + " maintenant" → "Je pense j’ai encore quelque chose à dire maintenant")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() recorded an issue at SpeechContinuityTests.swift:24:13: Expectation failed: (draft.text → "Je pense J’ai encore quelque chose à dire") == (expected → "Je pense j’ai encore quelque chose à dire")
+✘ Test reflectiveSilenceKeepsPronounsAndOrdinaryWordsLowercase() failed after 0.001 seconds with 24 issues.
+◇ Test aProperNameAfterAContinuationDoesNotCapitalizeThePronoun() started.
+✘ Test aProperNameAfterAContinuationDoesNotCapitalizeThePronoun() recorded an issue at SpeechContinuityTests.swift:28:9: Expectation failed: (SpeechTextJoin.join("Je réfléchis", "Tu connais Paris") → "Je réfléchis Tu connais Paris") == "Je réfléchis tu connais Paris"
+✘ Test aProperNameAfterAContinuationDoesNotCapitalizeThePronoun() recorded an issue at SpeechContinuityTests.swift:29:9: Expectation failed: (SpeechTextJoin.join("Je réfléchis", "Avec DictAI") → "Je réfléchis Avec DictAI") == "Je réfléchis avec DictAI"
+✘ Test aProperNameAfterAContinuationDoesNotCapitalizeThePronoun() failed after 0.001 seconds with 2 issues.
+◇ Test frenchArticlesContinueAcrossRecognitionRestarts() started.
+✔ Test frenchArticlesContinueAcrossRecognitionRestarts() passed after 0.001 seconds.
+◇ Test manualCorrectionsPreserveParagraphsInNewSpeech() started.
+✔ Test manualCorrectionsPreserveParagraphsInNewSpeech() passed after 0.001 seconds.
+◇ Test silenceDoesNotCapitalizeAnUnfinishedFrenchSentence() started.
+✔ Test silenceDoesNotCapitalizeAnUnfinishedFrenchSentence() passed after 0.001 seconds.
+◇ Test restartedRequestKeepsAContinuationLowercase() started.
+✔ Test restartedRequestKeepsAContinuationLowercase() passed after 0.001 seconds.
+◇ Test namesAndRealSentenceStartsKeepTheirCapitals() started.
+✔ Test namesAndRealSentenceStartsKeepTheirCapitals() passed after 0.001 seconds.
+◇ Test silenceBoundaryDoesNotReplaceThePreviousSentence() started.
+✔ Test silenceBoundaryDoesNotReplaceThePreviousSentence() passed after 0.001 seconds.
+◇ Test cumulativeResultsAndCorrectionsDoNotDuplicateSentences() started.
+✔ Test cumulativeResultsAndCorrectionsDoNotDuplicateSentences() passed after 0.001 seconds.
+◇ Test repeatingTheSameWordLaterIsRealSpeech() started.
+✔ Test repeatingTheSameWordLaterIsRealSpeech() passed after 0.001 seconds.
+◇ Test engineTimestampResetAfterCompletedUtteranceKeepsHistory() started.
+✔ Test engineTimestampResetAfterCompletedUtteranceKeepsHistory() passed after 0.001 seconds.
+◇ Test newWordsContinueAfterManualCorrection() started.
+✔ Test newWordsContinueAfterManualCorrection() passed after 0.001 seconds.
+◇ Test intentionalDeletionAndOldDraftDecodingRemainSupported() started.
+✔ Test intentionalDeletionAndOldDraftDecodingRemainSupported() passed after 0.001 seconds.
+◇ Test delayedPunctuationSurvivesAWordCorrection() started.
+✔ Test delayedPunctuationSurvivesAWordCorrection() passed after 0.001 seconds.
+◇ Test finalPunctuationArrivesAfterAnEditWithoutNewWords() started.
+✔ Test finalPunctuationArrivesAfterAnEditWithoutNewWords() passed after 0.001 seconds.
+◇ Test manualPunctuationAndDeletionsTakePriority() started.
+✔ Test manualPunctuationAndDeletionsTakePriority() passed after 0.001 seconds.
+✘ Suite SpeechContinuityTests failed after 0.003 seconds with 26 issues.
+✘ Test run with 25 tests in 3 suites failed after 0.032 seconds with 33 issues.

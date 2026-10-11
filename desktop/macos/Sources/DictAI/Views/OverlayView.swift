@@ -33,7 +33,7 @@ struct QuickDictationEditor: View {
             DictationTextEditor(model: model, spacious: false)
             DictationFeedback(model: model, compact: true)
             DictationActions(model: model, library: library)
-            Text("⌥ terminer · ×2 pause ou reprise · ×3 annuler sans envoyer").font(.system(size: 10)).foregroundStyle(Theme.muted)
+            Text("⌥ \(model.state == .paused ? "reprendre" : "terminer") · ×2 pause ou reprise · ×3 annuler sans envoyer").font(.system(size: 10)).foregroundStyle(Theme.muted)
         }.padding(16).frame(width: 560, height: 330)
     }
 }
@@ -62,7 +62,7 @@ struct DictationWorkspaceView: View {
             DictationTextEditor(model: model, spacious: true)
             DictationFeedback(model: model, compact: false)
             DictationActions(model: model, library: library)
-            Text("⌥ terminer · ×2 pause ou reprise · ×3 annuler sans envoyer · Brouillon conservé")
+            Text("⌥ \(model.state == .paused ? "reprendre" : "terminer") · ×2 pause ou reprise · ×3 annuler sans envoyer · Brouillon conservé")
                 .font(.system(size: 11)).foregroundStyle(Theme.muted)
         }.padding(28).frame(maxWidth: 860).frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundStyle(Theme.cream).tint(Theme.accent).background(Theme.surface)
@@ -178,7 +178,7 @@ struct DictationActions: View {
                 Button(model.destination == .note ? "Terminer la note" : "Terminer et insérer") { model.toggle() }.buttonStyle(AccentButtonStyle())
             } else {
                 Button { model.resumeListening() } label: { Label("Reprendre", systemImage: "play.fill") }
-                    .help("Continuer la dictée dans le même brouillon · ⌥ deux fois").disabled(model.busy)
+                    .help("Continuer la dictée dans le même brouillon · ⌥ une fois").disabled(model.busy)
                 Button(model.delivered ? (model.destination == .note ? "Note enregistrée" : "Texte envoyé") : model.deliveryLabel) { model.completeDictation() }
                     .buttonStyle(AccentButtonStyle())
                     .disabled(model.delivered || model.busy || model.draft.text.isEmpty)

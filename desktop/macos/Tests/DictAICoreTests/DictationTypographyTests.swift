@@ -2,6 +2,20 @@ import Testing
 @testable import DictAICore
 
 struct DictationTypographyTests {
+    @Test func vocabularyChangesNeverReuseAnOldProtectionDecision() {
+        let text = "Je dis Tu vois"
+        #expect(DictationTypography.live(text, language: "fr") == "Je dis tu vois")
+        #expect(DictationTypography.live(text, language: "fr", protectedTerms: ["Tu"]) == text)
+        #expect(DictationTypography.live(text, language: "fr") == "Je dis tu vois")
+    }
+    @Test func cumulativeHypothesesRepairPauseCapitalsWithoutAddingPunctuation() {
+        #expect(DictationTypography.live("Je prends une pause Tu vois c’est complètement Incohérent Voilà pourquoi", language: "fr") == "Je prends une pause tu vois c’est complètement incohérent voilà pourquoi")
+        #expect(DictationTypography.live("Je réfléchis Tu vois. Tu comprends ? Je continue", language: "fr") == "Je réfléchis tu vois. Tu comprends ? Je continue")
+    }
+    @Test func liveRepairsPreserveNamesAcronymsQuotesAndTechnicalText() {
+        let text = "Je parle à Paul et Paris avec DictAI API et Le Havre, je lis « Tu vois » et Tu.pdf"
+        #expect(DictationTypography.live(text, language: "fr") == text)
+    }
     @Test func everySentenceStartIsCapitalizedWithoutTreatingAbbreviationsAsSentences() {
         #expect(DictationTypography.finalized("bonjour. nous reprenons demain ! puis nous terminons", language: "fr") == "Bonjour. Nous reprenons demain ! Puis nous terminons.")
         #expect(DictationTypography.finalized("je parle à M. Dupont et au Dr. martin", language: "fr") == "Je parle à M. Dupont et au Dr. martin.")

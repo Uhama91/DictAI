@@ -4,6 +4,36 @@ import DictAICore
 @testable import DictAI
 
 @MainActor struct DictationFlowTests {
+    @Test func learnedNamesAreProtectedDuringLiveUpdatesAndRestarts() async throws {
+        let rig = try Rig()
+        try rig.model.library.addVocabulary("Ensuite")
+        rig.model.toggle(); await rig.settle()
+        rig.speech.onText?("Je travaille avec Ensuite")
+        #expect(rig.model.draft.text == "Je travaille avec Ensuite")
+        rig.speech.onFinish?(nil); await rig.settle()
+        rig.speech.onText?("Ensuite fonctionne")
+        #expect(rig.model.draft.text == "Je travaille avec Ensuite Ensuite fonctionne")
+        rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
+        #expect(rig.delivery.texts == ["Je travaille avec Ensuite Ensuite fonctionne. "])
+    }
+    @Test func thinkingPauseAndCumulativeUpdatesStayInTheSameSentenceUntilDelivery() async throws {
+        let rig = try Rig()
+        rig.model.toggle(); await rig.settle()
+        rig.speech.onText?("Je prends une pause Tu vois")
+        #expect(rig.model.draft.text == "Je prends une pause tu vois")
+        rig.speech.onFinish?(nil); await rig.settle()
+        rig.speech.onText?("Je suis toujours dans la même phrase")
+        #expect(rig.model.draft.text == "Je prends une pause tu vois je suis toujours dans la même phrase")
+        rig.model.pauseListening(); rig.speech.onFinish?(nil); await rig.settle()
+        rig.model.toggle(); await rig.settle()
+        rig.speech.onText?("Voilà pourquoi c’est complètement Incohérent")
+        #expect(rig.model.draft.text == "Je prends une pause tu vois je suis toujours dans la même phrase voilà pourquoi c’est complètement incohérent")
+        rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
+        let expected = "Je prends une pause tu vois je suis toujours dans la même phrase voilà pourquoi c’est complètement incohérent."
+        #expect(rig.delivery.texts == [expected + " "])
+        #expect(rig.model.library.history.entries.map(\.text) == [expected])
+        #expect(rig.model.state == .idle && !rig.model.panelVisible)
+    }
     @Test func failedInsertionIsRecoverableOnceAndRetryUpdatesHumanEdits() async throws {
         let rig = try Rig(); rig.delivery.failure = true
         rig.model.toggle(); await rig.settle()
@@ -191,16 +221,33 @@ import DictAICore
             #expect(rig.delivery.texts.isEmpty)
         }
     }
-    @Test func singleOptionWhilePausedFinishesInsteadOfResuming() async throws {
-        let rig = try Rig()
-        rig.model.toggle(); await rig.settle()
-        rig.speech.onText?("Texte terminé.")
-        rig.model.pauseListening(); rig.speech.onFinish?(nil); await rig.settle()
-        rig.model.shortcut.onGesture?(.single); await rig.settle()
-        #expect(rig.delivery.texts == ["Texte terminé. "])
-        #expect(rig.speech.starts == 1)
+    @Test func singleOptionResumesPausedDraftThenInsertsOnceIntoCurrentField() async throws {
+        for mode in [DictationPresentation.compact, .editor, .window] {
+            let rig = try Rig()
+            rig.model.shortcut.onGesture?(.single); await rig.settle()
+            rig.speech.onText?("Première partie.")
+            if mode == .editor { rig.model.showDraft() }
+            if mode == .window { rig.model.showWorkspace() }
+            rig.model.shortcut.onGesture?(.double)
+            rig.speech.onFinish?(nil); await rig.settle()
+            rig.model.shortcut.onGesture?(.single); await rig.settle()
+            #expect(rig.model.state == .listening && rig.model.presentation == mode)
+            #expect(rig.model.draft.text == "Première partie.")
+            #expect(rig.delivery.texts.isEmpty && rig.cleaner.inputs.isEmpty)
+            #expect(rig.speech.starts == 2 && rig.delivery.captures == 1)
+            rig.speech.onText?("Et la suite.")
+            rig.delivery.currentField = "Champ actuel"
+            rig.model.shortcut.onGesture?(.single)
+            rig.speech.onFinish?(nil); await rig.settle()
+            rig.speech.onFinish?(nil); await rig.settle()
+            #expect(rig.delivery.texts == ["Première partie. Et la suite. "])
+            #expect(rig.delivery.fields["Champ actuel"] == "Première partie. Et la suite. ")
+            #expect(rig.delivery.fields["Champ d’origine"] == nil)
+            #expect(rig.model.state == .idle && !rig.model.panelVisible)
+            #expect(rig.model.library.history.entries.map(\.text) == ["Première partie. Et la suite."])
+        }
     }
-    @Test func finishingFromPauseStillUsesTheConfiguredCorrection() async throws {
+    @Test func correctionWaitsUntilOptionFinishesTheResumedDictation() async throws {
         let rig = try Rig()
         rig.model.library.setPreference("formatting_engine", "cloud")
         rig.model.toggle(); await rig.settle()
@@ -208,10 +255,15 @@ import DictAICore
         rig.model.shortcut.onGesture?(.double)
         rig.speech.onFinish?(nil); await rig.settle()
         rig.model.shortcut.onGesture?(.single); await rig.settle()
-        #expect(rig.cleaner.inputs == ["texte à corriger"])
+        #expect(rig.model.state == .listening)
+        #expect(rig.cleaner.inputs.isEmpty && rig.delivery.texts.isEmpty)
+        rig.speech.onText?("et continuer")
+        rig.model.shortcut.onGesture?(.single)
+        rig.speech.onFinish?(nil); await rig.settle()
+        #expect(rig.cleaner.inputs == ["texte à corriger et continuer"])
         #expect(rig.delivery.texts.isEmpty)
-        rig.cleaner.resolve("Texte à corriger."); await rig.settle()
-        #expect(rig.delivery.texts == ["Texte à corriger. "])
+        rig.cleaner.resolve("Texte à corriger et continuer."); await rig.settle()
+        #expect(rig.delivery.texts == ["Texte à corriger et continuer. "])
     }
     @Test func resumeGestureDuringPauseFinalizationIsNotLost() async throws {
         let rig = try Rig()
@@ -227,15 +279,41 @@ import DictAICore
         #expect(rig.model.draft.text == "Première partie. La suite.")
         #expect(rig.delivery.texts.isEmpty)
     }
-    @Test func singleGestureCanFinishAPauseThatIsStillFinalizing() async throws {
+    @Test func singleGestureResumesAPauseThatIsStillFinalizing() async throws {
         let rig = try Rig()
         rig.model.toggle(); await rig.settle()
         rig.speech.onText?("Phrase finale")
         rig.model.shortcut.onGesture?(.double)
         rig.model.shortcut.onGesture?(.single)
+        rig.model.shortcut.onGesture?(.single)
         rig.speech.onText?("Phrase finale.")
         rig.speech.onFinish?(nil); await rig.settle()
-        #expect(rig.delivery.texts == ["Phrase finale. "])
+        #expect(rig.model.state == .listening)
+        #expect(rig.model.draft.text == "Phrase finale.")
+        #expect(rig.delivery.texts.isEmpty && rig.speech.starts == 2)
+    }
+    @Test func singleOptionResumesAnEmptyPausedDictation() async throws {
+        let rig = try Rig()
+        rig.model.toggle(); await rig.settle()
+        rig.model.pauseListening(); rig.speech.onFinish?(nil); await rig.settle()
+        rig.model.shortcut.onGesture?(.single); await rig.settle()
+        #expect(rig.model.state == .listening && rig.model.panelVisible)
+        #expect(rig.speech.starts == 2 && rig.delivery.texts.isEmpty)
+    }
+    @Test func tripleOptionCancelsPausedAndPendingResumeWithoutInserting() async throws {
+        for finalizing in [false, true] {
+            let rig = try Rig()
+            rig.model.toggle(); await rig.settle()
+            rig.speech.onText?("Brouillon annulé.")
+            rig.model.shortcut.onGesture?(.double)
+            if finalizing { rig.model.shortcut.onGesture?(.single) }
+            else { rig.speech.onFinish?(nil); await rig.settle() }
+            rig.model.shortcut.onGesture?(.triple)
+            rig.speech.onFinish?(nil); await rig.settle()
+            #expect(!rig.model.panelVisible && rig.speech.starts == 1)
+            #expect(rig.model.library.loadDraft()?.text == "Brouillon annulé.")
+            #expect(rig.delivery.texts.isEmpty && rig.model.library.history.entries.isEmpty)
+        }
     }
     @Test func doubleAndTripleWhileIdleNeverStartMicrophone() async throws {
         let rig = try Rig()

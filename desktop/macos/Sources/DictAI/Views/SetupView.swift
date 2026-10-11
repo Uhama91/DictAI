@@ -130,8 +130,8 @@ struct SetupView: View {
         VStack(alignment: .leading, spacing: 24) {
             heading("Faites un premier essai", detail: "Ouvrez DictAI, puis placez le curseur dans un document TextEdit vide.")
             feature("1.circle", title: "Appuyez puis relâchez Option", detail: "La pastille apparaît. Prononcez une phrase avec quelques mots de votre vocabulaire.")
-            feature("2.circle", title: "Appuyez à nouveau sur Option", detail: "La dictée se termine, le texte est inséré et la pastille se ferme. Une copie est conservée dans vos notes.")
-            Text("Deux appuis rapides : pause ou reprise. Trois appuis : annuler sans envoyer. Échap ferme la fenêtre en conservant le brouillon.")
+            feature("2.circle", title: "Appuyez à nouveau sur Option", detail: "Pendant la dictée, un appui termine et insère le texte, puis ferme la pastille. Une copie est conservée dans l’historique des dix dernières dictées.")
+            Text("Deux appuis rapides : pause ou reprise. En pause, un appui reprend la même dictée ; l’appui suivant la termine et insère le texte. Trois appuis rapides : annuler sans envoyer. Échap ferme la fenêtre en conservant le brouillon.")
                 .font(.system(size: 13)).foregroundStyle(Theme.muted).lineSpacing(4)
             Label(permissions.readiness.canInsert ? "Les prérequis sont réunis pour cet essai." : "La configuration reste à compléter dans l’étape Ce Mac.",
                   systemImage: permissions.readiness.canInsert ? "checkmark.circle" : "info.circle")

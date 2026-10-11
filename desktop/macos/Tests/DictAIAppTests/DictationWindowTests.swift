@@ -5,6 +5,64 @@ import DictAICore
 @testable import DictAI
 
 @MainActor struct DictationWindowTests {
+    @Test func reflectivePauseShowsAContinuousSentenceInNativeEditors() async throws {
+        _ = NSApplication.shared
+        Theme.registerFonts()
+        for theme in ["light", "dark"] {
+            let speech = WindowTestSpeech()
+            let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-capitals-render-" + UUID().uuidString), speech: speech, insertion: WindowTestDelivery())
+            defer { model.closeOverlay() }
+            model.library.setPreference("theme_mode", theme)
+            model.begin()
+            for _ in 0..<30 { await Task.yield() }
+            speech.onText?("Je prends une pause")
+            model.pauseListening()
+            model.toggle()
+            for _ in 0..<30 { await Task.yield() }
+            speech.onText?("Tu vois ce que je veux dire, c’est complètement Incohérent")
+            #expect(model.draft.text == "Je prends une pause tu vois ce que je veux dire, c’est complètement incohérent")
+            model.showDraft()
+            try await Task.sleep(for: .milliseconds(200))
+            let window = try #require(NSApp.windows.first { $0.isVisible && $0.title == "DictAI · Votre dictée" })
+            window.contentView?.layoutSubtreeIfNeeded()
+            try render(window.contentView, name: "reflective-pause-editor-\(theme)")
+        }
+    }
+    @Test func singleOptionResumesPauseInRealWindowsThenDismissesAfterInsertion() async throws {
+        _ = NSApplication.shared
+        Theme.registerFonts()
+        for theme in ["light", "dark"] {
+            for mode in [DictationPresentation.compact, .editor, .window] {
+                let speech = WindowTestSpeech()
+                let delivery = WindowTestDelivery()
+                let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-pause-render-" + UUID().uuidString), speech: speech, insertion: delivery)
+                defer { model.closeOverlay() }
+                model.library.setPreference("theme_mode", theme)
+                model.begin()
+                for _ in 0..<30 { await Task.yield() }
+                speech.onText?("Je prends le temps de réfléchir.")
+                if mode == .editor { model.showDraft() }
+                if mode == .window { model.showWorkspace() }
+                model.shortcut.onGesture?(.double)
+                #expect(model.state == .paused)
+                try await Task.sleep(for: .milliseconds(200))
+                let window = try #require(NSApp.windows.first { $0.isVisible && $0.title == "DictAI · Votre dictée" })
+                window.contentView?.layoutSubtreeIfNeeded()
+                try render(window.contentView, name: "pause-option-\(mode)-\(theme)")
+                model.shortcut.onGesture?(.single)
+                for _ in 0..<30 { await Task.yield() }
+                #expect(model.state == .listening && model.presentation == mode)
+                #expect(window.isVisible && model.panelVisible)
+                #expect(model.draft.text == "Je prends le temps de réfléchir.")
+                #expect(delivery.texts.isEmpty)
+                speech.onText?("Puis je poursuis ma dictée.")
+                model.shortcut.onGesture?(.single)
+                try await Task.sleep(for: .milliseconds(300))
+                #expect(delivery.texts == ["Je prends le temps de réfléchir. Puis je poursuis ma dictée. "])
+                #expect(model.state == .idle && !window.isVisible && !model.panelVisible)
+            }
+        }
+    }
     @Test func cloudCorrectionSettingsAndReviewRenderInNativeViews() async throws {
         _ = NSApplication.shared
         Theme.registerFonts()

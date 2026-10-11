@@ -1,0 +1,394 @@
+[0/1] Planning build
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--1AB21518FC5DEDBE.txt
+[3/8] Emitting module DictAI
+[4/8] Compiling DictAI OverlayView.swift
+[5/8] Compiling DictAI LibraryView.swift
+[5/10] Write Objects.LinkFileList
+[6/10] Linking DictAI
+[7/10] Applying DictAI
+[9/11] Emitting module DictAIAppTests
+[9/11] Write Objects.LinkFileList
+[10/11] Linking DictAIPackageTests
+Build complete! (4.06s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite AppUpdateCheckerTests started.
+◇ Test cachesOffersThrottlesAndDiscardsInstalledUpdates() started.
+✔ Test cachesOffersThrottlesAndDiscardsInstalledUpdates() passed after 0.005 seconds.
+◇ Test failureRemainsVisibleAndKeepsLastKnownOffer() started.
+✔ Test failureRemainsVisibleAndKeepsLastKnownOffer() passed after 0.001 seconds.
+✔ Suite AppUpdateCheckerTests passed after 0.008 seconds.
+◇ Suite AppUpdateViewTests started.
+◇ Test updateBannerAndSettingsRenderInBothAppearances() started.
+✔ Test updateBannerAndSettingsRenderInBothAppearances() passed after 0.721 seconds.
+✔ Suite AppUpdateViewTests passed after 0.721 seconds.
+◇ Suite CloudCleanupTests started.
+◇ Test retiredFormatsCannotChangeTheRequestEvenAfterSync() started.
+✔ Test retiredFormatsCannotChangeTheRequestEvenAfterSync() passed after 0.006 seconds.
+◇ Test missingKeyAndOversizedTranscriptFailBeforeNetwork() started.
+✔ Test missingKeyAndOversizedTranscriptFailBeforeNetwork() passed after 0.001 seconds.
+◇ Test rejectedOrMalformedResponsesNeverBecomeDictationText() started.
+✔ Test rejectedOrMalformedResponsesNeverBecomeDictationText() passed after 0.002 seconds.
+✔ Suite CloudCleanupTests passed after 0.010 seconds.
+◇ Suite CursiveLoopTests started.
+◇ Test connectedLoopsNeverTearAtTheirJunctions() started.
+✔ Test connectedLoopsNeverTearAtTheirJunctions() passed after 0.001 seconds.
+◇ Test voiceExpandsCrestsAndValleysWithinTheCanvas() started.
+✔ Test voiceExpandsCrestsAndValleysWithinTheCanvas() passed after 0.001 seconds.
+◇ Test elapsedTimeMovesTheConnectedStroke() started.
+✔ Test elapsedTimeMovesTheConnectedStroke() passed after 0.001 seconds.
+◇ Test invalidAudioLevelsRemainFiniteAndBounded() started.
+✔ Test invalidAudioLevelsRemainFiniteAndBounded() passed after 0.001 seconds.
+✔ Suite CursiveLoopTests passed after 0.001 seconds.
+◇ Suite DictationFlowTests started.
+◇ Test failedInsertionIsRecoverableOnceAndRetryUpdatesHumanEdits() started.
+✔ Test failedInsertionIsRecoverableOnceAndRetryUpdatesHumanEdits() passed after 0.007 seconds.
+◇ Test manualTextAndCancelledDictationDoNotPopulateHistory() started.
+✔ Test manualTextAndCancelledDictationDoNotPopulateHistory() passed after 0.005 seconds.
+◇ Test retiringLocalPunctuationRestoresImmediateInsertion() started.
+✔ Test retiringLocalPunctuationRestoresImmediateInsertion() passed after 0.004 seconds.
+◇ Test aNoneditableDestinationDoesNotFallBackToThePreviousApplication() started.
+✔ Test aNoneditableDestinationDoesNotFallBackToThePreviousApplication() passed after 0.003 seconds.
+◇ Test insertionResolvesTheCurrentFieldAfterAnInitiallyMissingTarget() started.
+✔ Test insertionResolvesTheCurrentFieldAfterAnInitiallyMissingTarget() passed after 0.003 seconds.
+◇ Test switchingApplicationsDoesNotDeliverIntoTheFieldCapturedAtStart() started.
+✔ Test switchingApplicationsDoesNotDeliverIntoTheFieldCapturedAtStart() passed after 0.018 seconds.
+◇ Test missingAccessibilityIsExplainedWhileTranscriptionRemainsUsable() started.
+✔ Test missingAccessibilityIsExplainedWhileTranscriptionRemainsUsable() passed after 0.002 seconds.
+◇ Test completingRawFrenchDictationRepairsObviousCapitalsAndFinalPeriod() started.
+✔ Test completingRawFrenchDictationRepairsObviousCapitalsAndFinalPeriod() passed after 0.004 seconds.
+◇ Test pauseDoesNotInventAPeriodInAnUnfinishedSentence() started.
+✔ Test pauseDoesNotInventAPeriodInAnUnfinishedSentence() passed after 0.005 seconds.
+◇ Test humanTypographyIsNeverRewrittenAtDelivery() started.
+✔ Test humanTypographyIsNeverRewrittenAtDelivery() passed after 0.003 seconds.
+◇ Test frenchTypographyKeepsNamesAcronymsAndExistingSentencePunctuation() started.
+✔ Test frenchTypographyKeepsNamesAcronymsAndExistingSentencePunctuation() passed after 0.003 seconds.
+◇ Test successfulDeliveryEndsTheSessionInEveryPresentation() started.
+✔ Test successfulDeliveryEndsTheSessionInEveryPresentation() passed after 0.015 seconds.
+◇ Test aHistoryFailureAfterInsertionKeepsRecoveryWithoutSendingTwice() started.
+✔ Test aHistoryFailureAfterInsertionKeepsRecoveryWithoutSendingTwice() passed after 0.006 seconds.
+◇ Test doubleOptionPausesAndResumesInEveryPresentationWithoutInserting() started.
+✔ Test doubleOptionPausesAndResumesInEveryPresentationWithoutInserting() passed after 0.010 seconds.
+◇ Test tripleOptionCancelsEveryPresentationAndRetainsTheDraft() started.
+✔ Test tripleOptionCancelsEveryPresentationAndRetainsTheDraft() passed after 0.008 seconds.
+◇ Test singleOptionResumesPausedDraftThenInsertsOnceIntoCurrentField() started.
+✔ Test singleOptionResumesPausedDraftThenInsertsOnceIntoCurrentField() passed after 0.016 seconds.
+◇ Test correctionWaitsUntilOptionFinishesTheResumedDictation() started.
+✔ Test correctionWaitsUntilOptionFinishesTheResumedDictation() passed after 0.005 seconds.
+◇ Test resumeGestureDuringPauseFinalizationIsNotLost() started.
+✔ Test resumeGestureDuringPauseFinalizationIsNotLost() passed after 0.003 seconds.
+◇ Test singleGestureResumesAPauseThatIsStillFinalizing() started.
+✔ Test singleGestureResumesAPauseThatIsStillFinalizing() passed after 0.003 seconds.
+◇ Test singleOptionResumesAnEmptyPausedDictation() started.
+✔ Test singleOptionResumesAnEmptyPausedDictation() passed after 0.003 seconds.
+◇ Test tripleOptionCancelsPausedAndPendingResumeWithoutInserting() started.
+✔ Test tripleOptionCancelsPausedAndPendingResumeWithoutInserting() passed after 0.005 seconds.
+◇ Test doubleAndTripleWhileIdleNeverStartMicrophone() started.
+✔ Test doubleAndTripleWhileIdleNeverStartMicrophone() passed after 0.001 seconds.
+◇ Test emptySpeechCallbackNeverErasesLiveDraft() started.
+✔ Test emptySpeechCallbackNeverErasesLiveDraft() passed after 0.002 seconds.
+◇ Test naturalSpeechEndContinuesSameDraftUntilOptionStopsIt() started.
+✔ Test naturalSpeechEndContinuesSameDraftUntilOptionStopsIt() passed after 0.005 seconds.
+◇ Test closingAndResumingAppendsWithoutArchivingOrErasing() started.
+✔ Test closingAndResumingAppendsWithoutArchivingOrErasing() passed after 0.003 seconds.
+◇ Test finishingANoteArchivesItAndClearsTheActiveDraft() started.
+✔ Test finishingANoteArchivesItAndClearsTheActiveDraft() passed after 0.003 seconds.
+◇ Test optionAfterClosingStartsFreshAndPreservesPreviousDraftInHistory() started.
+✔ Test optionAfterClosingStartsFreshAndPreservesPreviousDraftInHistory() passed after 0.003 seconds.
+◇ Test explicitNewNoteDoesNotResumeAnUnfinishedDictation() started.
+✔ Test explicitNewNoteDoesNotResumeAnUnfinishedDictation() passed after 0.004 seconds.
+◇ Test presentationChangesKeepOneCaptureAndOneEditableDraft() started.
+✔ Test presentationChangesKeepOneCaptureAndOneEditableDraft() passed after 0.004 seconds.
+◇ Test reviewAndCleanupKeepTheWorkspaceOpen() started.
+✔ Test reviewAndCleanupKeepTheWorkspaceOpen() passed after 0.003 seconds.
+◇ Test reviewActionStopsWithoutSendingAndAllowsExplicitInsertion() started.
+✔ Test reviewActionStopsWithoutSendingAndAllowsExplicitInsertion() passed after 0.004 seconds.
+◇ Test noteModeSavesInSelectedFolderInsteadOfExternalField() started.
+✔ Test noteModeSavesInSelectedFolderInsteadOfExternalField() passed after 0.004 seconds.
+◇ Test editingDuringCleanupRequiresReviewInsteadOfDeliveringStaleText() started.
+✔ Test editingDuringCleanupRequiresReviewInsteadOfDeliveringStaleText() passed after 0.003 seconds.
+◇ Test additionalOptionWhileCleanupRunsDoesNotStartAnotherCapture() started.
+✔ Test additionalOptionWhileCleanupRunsDoesNotStartAnotherCapture() passed after 0.003 seconds.
+◇ Test secondOptionTapInsertsFinalTranscriptExactlyOnce() started.
+✔ Test secondOptionTapInsertsFinalTranscriptExactlyOnce() passed after 0.003 seconds.
+◇ Test manualCorrectionsAreDeliveredWithNewlyDictatedWords() started.
+✔ Test manualCorrectionsAreDeliveredWithNewlyDictatedWords() passed after 0.004 seconds.
+◇ Test pauseResumeAndOptionWorkInAllThreePresentations() started.
+✔ Test pauseResumeAndOptionWorkInAllThreePresentations() passed after 0.016 seconds.
+◇ Test automaticInsertionWaitsForCleanupAndAppliesVocabulary() started.
+✔ Test automaticInsertionWaitsForCleanupAndAppliesVocabulary() passed after 0.006 seconds.
+◇ Test cancellationWhileCleanupRunsNeverInsertsLateResult() started.
+✔ Test cancellationWhileCleanupRunsNeverInsertsLateResult() passed after 0.003 seconds.
+◇ Test failedInsertionKeepsEditableRecoverableText() started.
+✔ Test failedInsertionKeepsEditableRecoverableText() passed after 0.003 seconds.
+◇ Test emptyRecognitionDoesNotInsertTrailingSpace() started.
+✔ Test emptyRecognitionDoesNotInsertTrailingSpace() passed after 0.003 seconds.
+◇ Test speechFailureDoesNotAutomaticallyDeliverPartialResult() started.
+✔ Test speechFailureDoesNotAutomaticallyDeliverPartialResult() passed after 0.003 seconds.
+✔ Suite DictationFlowTests passed after 0.236 seconds.
+◇ Suite DictationHistoryTests started.
+◇ Test quickCopyUsesTheLatestCompleteTranscriptWithoutChangingTheLibrary() started.
+✔ Test quickCopyUsesTheLatestCompleteTranscriptWithoutChangingTheLibrary() passed after 0.003 seconds.
+◇ Test quickCopyWithNoDictationPreservesTheClipboard() started.
+✔ Test quickCopyWithNoDictationPreservesTheClipboard() passed after 0.001 seconds.
+◇ Test elevenDictationsEvictTheOldestAndSurviveRelaunch() started.
+✔ Test elevenDictationsEvictTheOldestAndSurviveRelaunch() passed after 0.011 seconds.
+◇ Test retryUpdatesOneEntryAndEmptyTextDoesNotEvictAnything() started.
+✔ Test retryUpdatesOneEntryAndEmptyTextDoesNotEvictAnything() passed after 0.001 seconds.
+◇ Test clearingHistoryLeavesExistingNotesAndVocabularyUntouched() started.
+✔ Test clearingHistoryLeavesExistingNotesAndVocabularyUntouched() passed after 0.002 seconds.
+◇ Test accountsHaveSeparateLocalHistoryOutsideTheSyncDocument() started.
+✔ Test accountsHaveSeparateLocalHistoryOutsideTheSyncDocument() passed after 0.001 seconds.
+◇ Test failedWriteAndCorruptHistoryCannotSilentlyEraseRecovery() started.
+✔ Test failedWriteAndCorruptHistoryCannotSilentlyEraseRecovery() passed after 0.003 seconds.
+✔ Suite DictationHistoryTests passed after 0.026 seconds.
+◇ Suite DictationWindowTests started.
+◇ Test singleOptionResumesPauseInRealWindowsThenDismissesAfterInsertion() started.
+✔ Test singleOptionResumesPauseInRealWindowsThenDismissesAfterInsertion() passed after 4.258 seconds.
+◇ Test cloudCorrectionSettingsAndReviewRenderInNativeViews() started.
+✔ Test cloudCorrectionSettingsAndReviewRenderInNativeViews() passed after 1.106 seconds.
+◇ Test missingAccessibilityRemainsVisibleWithARecoverableDraft() started.
+✔ Test missingAccessibilityRemainsVisibleWithARecoverableDraft() passed after 0.914 seconds.
+◇ Test optionAfterEditingClosesRealWindowsWithoutReopening() started.
+✔ Test optionAfterEditingClosesRealWindowsWithoutReopening() passed after 3.964 seconds.
+◇ Test expandControlOpensAStandardResizableWindow() started.
+✔ Test expandControlOpensAStandardResizableWindow() passed after 0.329 seconds.
+✔ Suite DictationWindowTests passed after 10.573 seconds.
+◇ Suite HistoryViewTests started.
+◇ Test historyRendersEmptyListAndFullTranscriptInBothAppearances() started.
+✔ Test historyRendersEmptyListAndFullTranscriptInBothAppearances() passed after 1.379 seconds.
+✔ Suite HistoryViewTests passed after 1.379 seconds.
+◇ Suite InsertionDeliveryTests started.
+◇ Test consumedPasteCompletesEvenWhenTheEditorsAccessibilityValueIsStale() started.
+✔ Test consumedPasteCompletesEvenWhenTheEditorsAccessibilityValueIsStale() passed after 0.001 seconds.
+◇ Test confirmedDirectInsertionNeverPastesTwice() started.
+✔ Test confirmedDirectInsertionNeverPastesTwice() passed after 0.001 seconds.
+◇ Test aPartialDirectInsertionDoesNotTriggerAnotherPaste() started.
+✔ Test aPartialDirectInsertionDoesNotTriggerAnotherPaste() passed after 0.001 seconds.
+◇ Test unconsumedPasteRemainsAFailure() started.
+✔ Test unconsumedPasteRemainsAFailure() passed after 0.001 seconds.
+◇ Test unreadableEditorsUseOnlyThePastePath() started.
+✔ Test unreadableEditorsUseOnlyThePastePath() passed after 0.001 seconds.
+✔ Suite InsertionDeliveryTests passed after 0.001 seconds.
+◇ Suite LibraryStoreTests started.
+◇ Test retiredFormatSelectionIsIgnoredWithoutDeletingSyncedData() started.
+✔ Test retiredFormatSelectionIsIgnoredWithoutDeletingSyncedData() passed after 0.001 seconds.
+◇ Test retiredLocalSettingsCannotPreventLoadingExistingNotes() started.
+✔ Test retiredLocalSettingsCannotPreventLoadingExistingNotes() passed after 0.002 seconds.
+◇ Test manualDraftIsReadyForCorrectionWithoutStartingMicrophone() started.
+✔ Test manualDraftIsReadyForCorrectionWithoutStartingMicrophone() passed after 0.001 seconds.
+◇ Test persistenceSurvivesRelaunchIncludingTombstones() started.
+✔ Test persistenceSurvivesRelaunchIncludingTombstones() passed after 0.001 seconds.
+◇ Test switchingAccountsNeverUploadsPreviousAccountData() started.
+✔ Test switchingAccountsNeverUploadsPreviousAccountData() passed after 0.002 seconds.
+◇ Test openEditorSavesSeparateCopyAfterRemoteEdit() started.
+✔ Test openEditorSavesSeparateCopyAfterRemoteEdit() passed after 0.002 seconds.
+◇ Test corruptLibraryIsNeverSilentlyReplaced() started.
+✔ Test corruptLibraryIsNeverSilentlyReplaced() passed after 0.002 seconds.
+◇ Test failedAccountLibraryRestoreSuspendsSyncBeforeNetwork() started.
+✔ Test failedAccountLibraryRestoreSuspendsSyncBeforeNetwork() passed after 0.003 seconds.
+◇ Test autoTitleHandlesLongEmojiDictation() started.
+✔ Test autoTitleHandlesLongEmojiDictation() passed after 0.002 seconds.
+◇ Test failedAtomicWriteDoesNotAdvanceMemory() started.
+✔ Test failedAtomicWriteDoesNotAdvanceMemory() passed after 0.002 seconds.
+✔ Suite LibraryStoreTests passed after 0.023 seconds.
+◇ Suite LiveEditorTests started.
+◇ Test swiftUIEditorObservesIncomingSpeechAfterItsCreation() started.
+✔ Test swiftUIEditorObservesIncomingSpeechAfterItsCreation() passed after 0.105 seconds.
+◇ Test realTextViewKeepsSelectionAndViewportWhileSpeechAppends() started.
+✔ Test realTextViewKeepsSelectionAndViewportWhileSpeechAppends() passed after 0.009 seconds.
+◇ Test openingAnotherPresentationRestoresTheSameSelection() started.
+✔ Test openingAnotherPresentationRestoresTheSameSelection() passed after 0.010 seconds.
+◇ Test realTypingInAnEarlierParagraphDoesNotDeleteConcurrentSpeech() started.
+✔ Test realTypingInAnEarlierParagraphDoesNotDeleteConcurrentSpeech() passed after 0.009 seconds.
+✔ Suite LiveEditorTests passed after 0.135 seconds.
+◇ Suite MenuBarIconTests started.
+◇ Test menuIconHasVisiblePixelsAndAdaptsToTheSystemAppearance() started.
+✔ Test menuIconHasVisiblePixelsAndAdaptsToTheSystemAppearance() passed after 0.061 seconds.
+✔ Suite MenuBarIconTests passed after 0.061 seconds.
+◇ Suite OptionShortcutTests started.
+◇ Test aBusyMainThreadDoesNotRestartTheWholeGestureDelay() started.
+✔ Test aBusyMainThreadDoesNotRestartTheWholeGestureDelay() passed after 0.711 seconds.
+◇ Test nativeAdapterDeliversOnlyDoubleAfterItsRealTimer() started.
+✔ Test nativeAdapterDeliversOnlyDoubleAfterItsRealTimer() passed after 0.692 seconds.
+◇ Test stoppingTheMonitorCancelsAnOutstandingCommand() started.
+✔ Test stoppingTheMonitorCancelsAnOutstandingCommand() passed after 0.652 seconds.
+◇ Test overlappingLeftAndRightOptionKeysAreNotATap() started.
+✔ Test overlappingLeftAndRightOptionKeysAreNotATap() passed after 0.688 seconds.
+✔ Suite OptionShortcutTests passed after 2.745 seconds.
+◇ Suite SetupTests started.
+◇ Test completionSurvivesRelaunchAndReplayPreservesLibrary() started.
+✔ Test completionSurvivesRelaunchAndReplayPreservesLibrary() passed after 1.334 seconds.
+◇ Test failedSaveDoesNotMarkSetupComplete() started.
+✔ Test failedSaveDoesNotMarkSetupComplete() passed after 0.003 seconds.
+◇ Test permissionsAloneNeverPromiseWorkingDictation() started.
+✔ Test permissionsAloneNeverPromiseWorkingDictation() passed after 0.001 seconds.
+✔ Suite SetupTests passed after 1.338 seconds.
+◇ Suite AppUpdateTests started.
+◇ Test onlyNewerCompatibleMacBuildOffersDownload() started.
+✔ Test onlyNewerCompatibleMacBuildOffersDownload() passed after 0.001 seconds.
+◇ Test refusesUntrustedOrMisleadingDownloadURLs() started.
+✔ Test refusesUntrustedOrMisleadingDownloadURLs() passed after 0.001 seconds.
+◇ Test rejectsMalformedOversizedAndUnknownFeeds() started.
+✔ Test rejectsMalformedOversizedAndUnknownFeeds() passed after 0.001 seconds.
+◇ Test backgroundChecksBackOffAndRecoverAfterClockChanges() started.
+✔ Test backgroundChecksBackOffAndRecoverAfterClockChanges() passed after 0.001 seconds.
+✔ Suite AppUpdateTests passed after 0.002 seconds.
+◇ Suite DictationTypographyTests started.
+◇ Test everySentenceStartIsCapitalizedWithoutTreatingAbbreviationsAsSentences() started.
+✔ Test everySentenceStartIsCapitalizedWithoutTreatingAbbreviationsAsSentences() passed after 0.001 seconds.
+◇ Test aClosingQuoteDoesNotSuppressTheFinalPeriodOfProse() started.
+✔ Test aClosingQuoteDoesNotSuppressTheFinalPeriodOfProse() passed after 0.001 seconds.
+◇ Test explicitFrenchQuestionsMatchTheAndroidCleanupRule() started.
+✔ Test explicitFrenchQuestionsMatchTheAndroidCleanupRule() passed after 0.001 seconds.
+◇ Test literalNamesAndFilenamesKeepTheirSpelling() started.
+✔ Test literalNamesAndFilenamesKeepTheirSpelling() passed after 0.001 seconds.
+◇ Test englishAndLiteralAddressesArePreserved() started.
+✔ Test englishAndLiteralAddressesArePreserved() passed after 0.001 seconds.
+◇ Test existingPunctuationAndParagraphsArePreserved() started.
+✔ Test existingPunctuationAndParagraphsArePreserved() passed after 0.001 seconds.
+✔ Suite DictationTypographyTests passed after 0.001 seconds.
+◇ Suite DraftHistoryIdentityTests started.
+◇ Test restoredDraftRetainsItsHistoryIdentityAcrossRetries() started.
+✔ Test restoredDraftRetainsItsHistoryIdentityAcrossRetries() passed after 0.001 seconds.
+◇ Test draftFromPreviousVersionStillLoadsWithoutHistoryIdentity() started.
+✔ Test draftFromPreviousVersionStillLoadsWithoutHistoryIdentity() passed after 0.001 seconds.
+✔ Suite DraftHistoryIdentityTests passed after 0.001 seconds.
+◇ Suite InsertionReceiptTests started.
+◇ Test webEditorWhitespaceDoesNotTurnASuccessfulInsertionIntoAnError() started.
+✔ Test webEditorWhitespaceDoesNotTurnASuccessfulInsertionIntoAnError() passed after 0.001 seconds.
+◇ Test acknowledgingAnUnchangedFieldIsNotSuccess() started.
+✔ Test acknowledgingAnUnchangedFieldIsNotSuccess() passed after 0.001 seconds.
+◇ Test replacementUsesMacUTF16SelectionWithoutLosingSurroundingText() started.
+✔ Test replacementUsesMacUTF16SelectionWithoutLosingSurroundingText() passed after 0.001 seconds.
+✔ Suite InsertionReceiptTests passed after 0.001 seconds.
+◇ Suite InteractionTests started.
+◇ Test testHumanEditSurvivesLateRecognition() started.
+✔ Test testHumanEditSurvivesLateRecognition() passed after 0.001 seconds.
+◇ Test testVocabularyUsesWholeWordsAndDoesNotCascadeRules() started.
+✔ Test testVocabularyUsesWholeWordsAndDoesNotCascadeRules() passed after 0.001 seconds.
+◇ Test testVocabularyIdentityMatchesAndroidNormalization() started.
+✔ Test testVocabularyIdentityMatchesAndroidNormalization() passed after 0.001 seconds.
+◇ Test testLearningOffersOnlySmallReplacementAndNeverLearnsAutomatically() started.
+✔ Test testLearningOffersOnlySmallReplacementAndNeverLearnsAutomatically() passed after 0.001 seconds.
+✔ Suite InteractionTests passed after 0.001 seconds.
+◇ Suite NoteSyncTests started.
+◇ Test testCanonicalNoteBytesMatchAndroid() started.
+✔ Test testCanonicalNoteBytesMatchAndroid() passed after 0.001 seconds.
+◇ Test unicodeConflictTitleStaysWithinAndroidLimit() started.
+✔ Test unicodeConflictTitleStaysWithinAndroidLimit() passed after 0.001 seconds.
+◇ Test conflictCopyPreservesLeadingSpacesLikeAndroid() started.
+✔ Test conflictCopyPreservesLeadingSpacesLikeAndroid() passed after 0.001 seconds.
+◇ Test testConcurrentNoteEditsKeepVisibleCopyAndConverge() started.
+✔ Test testConcurrentNoteEditsKeepVisibleCopyAndConverge() passed after 0.001 seconds.
+◇ Test testSequentialEditDoesNotCreateConflictCopy() started.
+✔ Test testSequentialEditDoesNotCreateConflictCopy() passed after 0.001 seconds.
+◇ Test testDeleteVersusConcurrentEditKeepsOriginalDeletedAndCopyVisible() started.
+✔ Test testDeleteVersusConcurrentEditKeepsOriginalDeletedAndCopyVisible() passed after 0.001 seconds.
+✔ Suite NoteSyncTests passed after 0.005 seconds.
+◇ Suite OptionGestureTests started.
+◇ Test singleWaitsForThePossibilityOfADoubleTap() started.
+✔ Test singleWaitsForThePossibilityOfADoubleTap() passed after 0.001 seconds.
+◇ Test doubleTapNeverAlsoEmitsASingle() started.
+✔ Test doubleTapNeverAlsoEmitsASingle() passed after 0.001 seconds.
+◇ Test tripleCancelsImmediatelyAndAnExtraTapCannotRestart() started.
+✔ Test tripleCancelsImmediatelyAndAnExtraTapCannotRestart() passed after 0.001 seconds.
+◇ Test secondPressSuspendsTheFirstDeadlineUntilRelease() started.
+✔ Test secondPressSuspendsTheFirstDeadlineUntilRelease() passed after 0.001 seconds.
+◇ Test systemIntervalDeterminesWhetherTapsBelongTogether() started.
+✔ Test systemIntervalDeterminesWhetherTapsBelongTogether() passed after 0.001 seconds.
+◇ Test keyboardMouseOrModifierChordsCancelThePendingSequence() started.
+✔ Test keyboardMouseOrModifierChordsCancelThePendingSequence() passed after 0.001 seconds.
+◇ Test longHoldsBouncesAndRepeatedFlagsNeverBecomeCommands() started.
+✔ Test longHoldsBouncesAndRepeatedFlagsNeverBecomeCommands() passed after 0.001 seconds.
+◇ Test resetDiscardsEveryPendingAction() started.
+✔ Test resetDiscardsEveryPendingAction() passed after 0.001 seconds.
+✔ Suite OptionGestureTests passed after 0.001 seconds.
+◇ Suite PreferenceContractTests started.
+◇ Test formatsOutsideAndroidLimitsAreRejectedBeforePublication() started.
+✔ Test formatsOutsideAndroidLimitsAreRejectedBeforePublication() passed after 0.001 seconds.
+◇ Test invalidPreferenceCannotPoisonAllAndroidReplicas() started.
+✔ Test invalidPreferenceCannotPoisonAllAndroidReplicas() passed after 0.001 seconds.
+◇ Test vocabularyHashMustIdentifyTheActualSource() started.
+✔ Test vocabularyHashMustIdentifyTheActualSource() passed after 0.001 seconds.
+◇ Test unknownPreferenceIncludingTombstoneCannotBePublished() started.
+✔ Test unknownPreferenceIncludingTombstoneCannotBePublished() passed after 0.001 seconds.
+◇ Test missingValueFieldIsNotAnImplicitDeletion() started.
+✔ Test missingValueFieldIsNotAnImplicitDeletion() passed after 0.001 seconds.
+✔ Suite PreferenceContractTests passed after 0.001 seconds.
+◇ Suite PunctuationRestorationTests started.
+◇ Test theModelSeesPlaceholdersInsteadOfNamesAndTechnicalLiterals() started.
+✔ Test theModelSeesPlaceholdersInsteadOfNamesAndTechnicalLiterals() passed after 0.003 seconds.
+◇ Test missingOrDuplicatedPlaceholdersCannotLoseOrRepeatProtectedText() started.
+✔ Test missingOrDuplicatedPlaceholdersCannotLoseOrRepeatProtectedText() passed after 0.001 seconds.
+◇ Test sentenceBoundariesAndCommonWordCaseCanChangeWithoutChangingWords() started.
+✔ Test sentenceBoundariesAndCommonWordCaseCanChangeWithoutChangingWords() passed after 0.001 seconds.
+◇ Test changedWordsNamesNumbersNegationsAndMarkdownAreRejected() started.
+✔ Test changedWordsNamesNumbersNegationsAndMarkdownAreRejected() passed after 0.001 seconds.
+◇ Test protectedNamesQuotesAndIdentifiersKeepTheirExactSpelling() started.
+✔ Test protectedNamesQuotesAndIdentifiersKeepTheirExactSpelling() passed after 0.001 seconds.
+◇ Test paragraphBreaksCannotBeRemovedOrAdded() started.
+✔ Test paragraphBreaksCannotBeRemovedOrAdded() passed after 0.001 seconds.
+✔ Suite PunctuationRestorationTests passed after 0.005 seconds.
+◇ Suite SpeechContinuityTests started.
+◇ Test frenchArticlesContinueAcrossRecognitionRestarts() started.
+✔ Test frenchArticlesContinueAcrossRecognitionRestarts() passed after 0.001 seconds.
+◇ Test manualCorrectionsPreserveParagraphsInNewSpeech() started.
+✔ Test manualCorrectionsPreserveParagraphsInNewSpeech() passed after 0.001 seconds.
+◇ Test silenceDoesNotCapitalizeAnUnfinishedFrenchSentence() started.
+✔ Test silenceDoesNotCapitalizeAnUnfinishedFrenchSentence() passed after 0.001 seconds.
+◇ Test restartedRequestKeepsAContinuationLowercase() started.
+✔ Test restartedRequestKeepsAContinuationLowercase() passed after 0.001 seconds.
+◇ Test namesAndRealSentenceStartsKeepTheirCapitals() started.
+✔ Test namesAndRealSentenceStartsKeepTheirCapitals() passed after 0.001 seconds.
+◇ Test silenceBoundaryDoesNotReplaceThePreviousSentence() started.
+✔ Test silenceBoundaryDoesNotReplaceThePreviousSentence() passed after 0.001 seconds.
+◇ Test cumulativeResultsAndCorrectionsDoNotDuplicateSentences() started.
+✔ Test cumulativeResultsAndCorrectionsDoNotDuplicateSentences() passed after 0.001 seconds.
+◇ Test repeatingTheSameWordLaterIsRealSpeech() started.
+✔ Test repeatingTheSameWordLaterIsRealSpeech() passed after 0.001 seconds.
+◇ Test engineTimestampResetAfterCompletedUtteranceKeepsHistory() started.
+✔ Test engineTimestampResetAfterCompletedUtteranceKeepsHistory() passed after 0.001 seconds.
+◇ Test newWordsContinueAfterManualCorrection() started.
+✔ Test newWordsContinueAfterManualCorrection() passed after 0.001 seconds.
+◇ Test intentionalDeletionAndOldDraftDecodingRemainSupported() started.
+✔ Test intentionalDeletionAndOldDraftDecodingRemainSupported() passed after 0.001 seconds.
+◇ Test delayedPunctuationSurvivesAWordCorrection() started.
+✔ Test delayedPunctuationSurvivesAWordCorrection() passed after 0.001 seconds.
+◇ Test finalPunctuationArrivesAfterAnEditWithoutNewWords() started.
+✔ Test finalPunctuationArrivesAfterAnEditWithoutNewWords() passed after 0.001 seconds.
+◇ Test manualPunctuationAndDeletionsTakePriority() started.
+✔ Test manualPunctuationAndDeletionsTakePriority() passed after 0.001 seconds.
+✔ Suite SpeechContinuityTests passed after 0.001 seconds.
+◇ Suite SyncDocumentTests started.
+◇ Test testIndependentOfflineEditsSurviveMerge() started.
+✔ Test testIndependentOfflineEditsSurviveMerge() passed after 0.001 seconds.
+◇ Test testDeletionSurvivesStaleReplica() started.
+✔ Test testDeletionSurvivesStaleReplica() passed after 0.001 seconds.
+◇ Test testEqualClockWithDifferentBytesIsRejected() started.
+✔ Test testEqualClockWithDifferentBytesIsRejected() passed after 0.001 seconds.
+◇ Test testInvalidKeyAndActorAreRejected() started.
+✔ Test testInvalidKeyAndActorAreRejected() passed after 0.001 seconds.
+◇ Test testClockAdvancesPastReceivedEventsAndNoOpDoesNotTick() started.
+✔ Test testClockAdvancesPastReceivedEventsAndNoOpDoesNotTick() passed after 0.001 seconds.
+✔ Suite SyncDocumentTests passed after 0.001 seconds.
+◇ Suite TranscriptFollowTests started.
+◇ Test lastInteractionRestartsTheEightSecondGracePeriod() started.
+✔ Test lastInteractionRestartsTheEightSecondGracePeriod() passed after 0.001 seconds.
+◇ Test draggingCompositionAndPauseNeverTriggerAnAutomaticReturn() started.
+✔ Test draggingCompositionAndPauseNeverTriggerAnAutomaticReturn() passed after 0.001 seconds.
+◇ Test manualModeWaitsUntilTheUserChoosesFollow() started.
+✔ Test manualModeWaitsUntilTheUserChoosesFollow() passed after 0.001 seconds.
+◇ Test appendingSpeechDoesNotMoveTheCaretOrSelection() started.
+✔ Test appendingSpeechDoesNotMoveTheCaretOrSelection() passed after 0.001 seconds.
+◇ Test unicodeReplacementAndSelectionOffsetsStayValid() started.
+✔ Test unicodeReplacementAndSelectionOffsetsStayValid() passed after 0.001 seconds.
+◇ Test editingAnOlderSnapshotRetainsNewlyArrivedWords() started.
+✔ Test editingAnOlderSnapshotRetainsNewlyArrivedWords() passed after 0.001 seconds.
+◇ Test namesQuotesAndParagraphsAreNotFlattened() started.
+✔ Test namesQuotesAndParagraphsAreNotFlattened() passed after 0.001 seconds.
+✔ Suite TranscriptFollowTests passed after 0.001 seconds.
+✔ Test run with 162 tests in 26 suites passed after 17.286 seconds.

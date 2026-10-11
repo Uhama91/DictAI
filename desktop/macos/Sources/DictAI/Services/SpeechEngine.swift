@@ -19,7 +19,8 @@ import DictAICore
     func start(language: String, vocabulary: [String]) async throws {
         cancel()
         let session = UUID(); epoch = session; completed = false
-        transcript = SpeechTranscriptBuffer()
+        let terms = vocabulary.map { $0.components(separatedBy: "=>").last!.trimmingCharacters(in: .whitespaces) }
+        transcript = SpeechTranscriptBuffer(language: language, protectedTerms: terms)
         let microphone = await AVCaptureDevice.requestAccess(for: .audio)
         try require(epoch == session, "Dictée annulée.")
         try require(microphone, "Autorisez le microphone dans Réglages Système → Confidentialité et sécurité → Microphone.")
@@ -36,7 +37,7 @@ import DictAICore
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
         request.addsPunctuation = true
-        request.contextualStrings = Array(vocabulary.prefix(100)).map { $0.components(separatedBy: "=>").last!.trimmingCharacters(in: .whitespaces) }
+        request.contextualStrings = Array(terms.prefix(100))
         request.taskHint = .dictation
         let engine = AVAudioEngine()
         let input = engine.inputNode

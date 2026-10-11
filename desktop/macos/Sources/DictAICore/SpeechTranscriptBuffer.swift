@@ -8,8 +8,12 @@ public struct SpeechTranscriptBuffer {
     private var firstTime: TimeInterval?
     private var lastEnd: TimeInterval?
     private var utteranceComplete = false
-    public init() {}
-    public var text: String { SpeechTextJoin.join(committed, current) }
+    private let language: String
+    private let protectedTerms: [String]
+    public init(language: String = "fr", protectedTerms: [String] = []) {
+        self.language = language; self.protectedTerms = protectedTerms
+    }
+    public var text: String { SpeechTextJoin.join(committed, current, language: language, protectedTerms: protectedTerms) }
 
     @discardableResult public mutating func receive(_ value: String, start: TimeInterval? = nil,
                                                     end: TimeInterval? = nil, complete: Bool = false) -> String {
@@ -20,7 +24,7 @@ public struct SpeechTranscriptBuffer {
             lastEnd.map { end in end > 0 && start >= end - 0.04 && start > (firstTime ?? 0) + 0.1 }
         } ?? false
         if !current.isEmpty && (nextTime || (utteranceComplete && !cumulative)) {
-            committed = SpeechTextJoin.join(committed, current)
+            committed = SpeechTextJoin.join(committed, current, language: language, protectedTerms: protectedTerms)
             firstTime = nil; lastEnd = nil; utteranceComplete = false
         } else if value != current && newWords.count > oldWords.count { utteranceComplete = false }
         current = value

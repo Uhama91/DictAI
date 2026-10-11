@@ -1,0 +1,33 @@
+{
+  "version": "0.4.8",
+  "build": "18",
+  "previous_version": "0.4.6",
+  "installed_path": "/Applications/DictAI.app",
+  "signature_verified": true,
+  "binary_sha256": "d6785eef9db16857dce61057db3556474f4f2dd7bf31bb8b0ce9feeab183ee6a",
+  "package_sha256": "4c7b81c79e336d460597ff094021f0e6affbed393e9818fcc6db6dddf92cb279",
+  "unchanged_data_files_before_launch": 14,
+  "tests_arm64": 162,
+  "tests_x86_64_rosetta": 162,
+  "physical_voice_test": false,
+  "all_original_library_entries_preserved_after_launch": true,
+  "unchanged_original_files_after_launch": 12,
+  "changed_original_file_types_after_launch": [
+    "draft.json",
+    "library.json"
+  ],
+  "permissions_confirmed": {
+    "microphone": true,
+    "speech_recognition": true,
+    "accessibility": true
+  },
+  "historical_dictations_preserved_after_launch": true,
+  "draft_text_preserved_after_launch": true,
+  "images_preserved": 7,
+  "largest_library_counts": {
+    "notes": 62,
+    "folders": 10,
+    "vocabulary": 57
+  },
+  "application_launched": true
+}

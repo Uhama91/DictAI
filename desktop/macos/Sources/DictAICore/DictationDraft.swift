@@ -24,9 +24,9 @@ public struct DictationDraft: Codable {
         baseText = text; baseRecognition = recognized
         editAnchor = nil; editText = ""
     }
-    public mutating func receive(_ value: String) {
+    public mutating func receive(_ value: String, language: String = "fr", protectedTerms: [String] = []) {
         guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let incoming = SpeechTextJoin.join(baseRecognition, value)
+        let incoming = SpeechTextJoin.join(baseRecognition, value, language: language, protectedTerms: protectedTerms)
         recognized = incoming
         if let anchor = editAnchor {
             // Only genuinely new words after the edited recognition snapshot may be appended.
@@ -37,8 +37,8 @@ public struct DictationDraft: Codable {
                   zip(old, new).allSatisfy({ Self.word($0) == Self.word($1) }) else { return }
             let boundary = old.isEmpty ? incoming.startIndex : new[old.count - 1].endIndex
             let suffix = String(incoming[boundary...])
-            text = Self.join(punctuatedEdit(anchor: old, incoming: new), suffix)
-        } else { text = SpeechTextJoin.join(baseText, value) }
+            text = SpeechTextJoin.join(punctuatedEdit(anchor: old, incoming: new), suffix, language: language, protectedTerms: protectedTerms)
+        } else { text = SpeechTextJoin.join(baseText, value, language: language, protectedTerms: protectedTerms) }
     }
     public mutating func edit(_ value: String) {
         guard value != text else { return }

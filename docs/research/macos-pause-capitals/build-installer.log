@@ -1,0 +1,20 @@
+[0/1] Planning build
+Building for production...
+[0/2] Write swift-version--1AB21518FC5DEDBE.txt
+Build complete! (0.23s)
+[0/1] Planning build
+Building for production...
+[0/2] Write swift-version--1AB21518FC5DEDBE.txt
+Build complete! (0.17s)
+/Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/build-e0Dy2GFe/DictAI.app: replacing existing signature
+/Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/DictAI.app
+pkgbuild: Inferring bundle components from contents of /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/installer-0PBbS9MX/payload
+pkgbuild: Writing new component property list to /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/installer-0PBbS9MX/components.plist
+pkgbuild: Reading components from /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/installer-0PBbS9MX/components.plist
+pkgbuild: Adding component at Applications/DictAI.app
+pkgbuild: Adding top-level preinstall script
+pkgbuild: Wrote package to /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/installer-0PBbS9MX/DictAI.pkg
+productbuild: Wrote product to /Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/DictAI-0.4.9-macOS-test.pkg
+Installer verified: arm64 + x86_64, macOS 14+, production app only, no personal data, no relocation.
+VERSION DE TEST : signature Developer ID et notarisation non validées.
+/Users/ulliemaillot/dev_project/phone-whisper/desktop/macos/dist/DictAI-0.4.9-macOS-test.pkg
