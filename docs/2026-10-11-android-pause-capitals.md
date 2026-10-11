@@ -20,4 +20,20 @@ L’APK 0.9.18-dictai, code 47, est construit avec l’identifiant et le certifi
 
 ## Publication
 
-La publication GitHub du nouvel APK et l’actualisation du tableau de téléchargement sont en cours. Le paquet Mac 0.4.9 de la préversion précédente sera repris sans changement d’octets.
+La [préversion Android 0.9.18 et Mac 0.4.9](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-android-0.9.18-preview) est publiée. Le correctif Android est commité et poussé sur `main` dans `157f2b7406cd877353a138ce2feef83bceaa7277`. La [construction GitHub Actions](https://github.com/Uhama91/DictAI/actions/runs/38165724741) passe avec les tests, le contrôle des bibliothèques natives, la signature et l’alignement ZIP à 16 Ko.
+
+L’APK publié provient de cet artefact CI. Les cinq essais d’insertion sont également réussis avec ce fichier précis sur l’émulateur ARM64. Le paquet Mac 0.4.9 est repris de la publication précédente avec les mêmes octets. Les quatre fichiers de la préversion sont téléchargés publiquement sans authentification, avec un statut HTTP 200 et des empreintes identiques à celles des fichiers vérifiés.
+
+- [Installer Android 0.9.18 sur téléphone ou tablette](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk).
+- [Installer Mac 0.4.9](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-macOS.pkg).
+- [Empreintes SHA-256](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/SHA256SUMS).
+
+Le [workflow du tableau de téléchargement](https://github.com/Uhama91/DictAI/actions/runs/38166144318) réussit et actualise le README dans `4f107ba53187a3a9d606922fa380370d78947e59`. Les lignes téléphone et tablette proposent Android 0.9.18 ; la ligne Mac propose 0.4.9. Le manifeste reste celui d’une préversion de test.
+
+![Phrase continue insérée avec l’APK GitHub Actions effectivement publié](research/android-pause-capitals/renders/android-ci-sentence-inserted.png)
+
+![Tableau GitHub actualisé pour téléphone, tablette et Mac](research/android-pause-capitals/publication-renders/github-download-table.jpg)
+
+![Préversion GitHub publiée avec le correctif Android](research/android-pause-capitals/publication-renders/github-release-header.jpg)
+
+Les preuves de construction, d’insertion native et de téléchargement sont conservées dans `docs/research/android-pause-capitals/`. La validation acoustique avec une voix humaine et plusieurs silences sur les appareils physiques Poco F7 et Pad 7 reste à faire.

@@ -1,0 +1,80 @@
+{
+  "sourceCommit": "157f2b7406cd877353a138ce2feef83bceaa7277",
+  "androidCI": {
+    "id": 38165724741,
+    "url": "https://github.com/Uhama91/DictAI/actions/runs/38165724741",
+    "conclusion": "success"
+  },
+  "localUnitTests": {
+    "tests": 774,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": 116
+  },
+  "publishedAPKNativelyTested": {
+    "serial": "emulator-5582",
+    "tests": 5,
+    "result": "pass",
+    "ASR": "controlled recognition results",
+    "log": "android-ci-insertion.log"
+  },
+  "release": {
+    "id": 409859947,
+    "tag": "dictai-20261011-android-0.9.18-preview",
+    "url": "https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-android-0.9.18-preview",
+    "publishedAt": "2026-10-11T18:59:54Z",
+    "prerelease": true,
+    "targetCommitish": "157f2b7406cd877353a138ce2feef83bceaa7277"
+  },
+  "publicDownloads": [
+    {
+      "name": "DictAI-android.apk",
+      "httpStatus": 200,
+      "sha256": "79646ee66e1ba37f5593a2d1fc652ee6bcdf26ccb35e7d3531acaf466cbe471a",
+      "size": 56652368,
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk"
+    },
+    {
+      "name": "DictAI-macOS.pkg",
+      "httpStatus": 200,
+      "sha256": "fbc43ffa64b6c90b24e07c1fa1cf49818cf8d9725d0fff7223a75f574d790eda",
+      "size": 2094689,
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-macOS.pkg"
+    },
+    {
+      "name": "SHA256SUMS",
+      "httpStatus": 200,
+      "sha256": "cc9cb2178458f626a97d2a01d3e19bc265d48e5676e86e50a724861b7a779945",
+      "size": 255,
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/SHA256SUMS"
+    },
+    {
+      "name": "updates-preview.json",
+      "httpStatus": 200,
+      "sha256": "d079dbe02f150340e81f911cb3f45f287a93b8c3707b6067406f776a4fb02308",
+      "size": 963,
+      "url": "https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/updates-preview.json"
+    }
+  ],
+  "downloadTable": {
+    "runId": 38166144318,
+    "conclusion": "success",
+    "commit": "4f107ba53187a3a9d606922fa380370d78947e59"
+  },
+  "remainingAcceptance": "Human voice with natural pauses on physical Poco F7 and Pad 7",
+  "browserVerification": {
+    "browser": "Chrome",
+    "tableVersions": {
+      "phone": "0.9.18-dictai (test)",
+      "tablet": "0.9.18-dictai (test)",
+      "mac": "0.4.9 (test)"
+    },
+    "releaseTitle": "DictAI — Android 0.9.18 et Mac 0.4.9",
+    "screenshots": [
+      "publication-renders/github-download-table.jpg",
+      "publication-renders/github-release-header.jpg"
+    ],
+    "result": "visible links and release metadata verified"
+  }
+}

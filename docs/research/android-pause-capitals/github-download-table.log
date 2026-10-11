@@ -1,0 +1,211 @@
+downloads	Set up job	﻿2026-10-11T18:59:59.0077816Z Current runner version: '2.337.0'
+downloads	Set up job	2026-10-11T18:59:59.0112799Z ##[group]Runner Image Provisioner
+downloads	Set up job	2026-10-11T18:59:59.0114066Z Hosted Compute Agent
+downloads	Set up job	2026-10-11T18:59:59.0114911Z Version: 20261002.596
+downloads	Set up job	2026-10-11T18:59:59.0115802Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+downloads	Set up job	2026-10-11T18:59:59.0116943Z Build Date: 2026-10-02T22:28:27Z
+downloads	Set up job	2026-10-11T18:59:59.0117915Z Worker ID: {5762ceab-29bc-4b4c-beda-c945eb81f74b}
+downloads	Set up job	2026-10-11T18:59:59.0118897Z Region: centralus
+downloads	Set up job	2026-10-11T18:59:59.0119828Z Cloud: Azure
+downloads	Set up job	2026-10-11T18:59:59.0120616Z ##[endgroup]
+downloads	Set up job	2026-10-11T18:59:59.0122877Z ##[group]Operating System
+downloads	Set up job	2026-10-11T18:59:59.0123938Z Ubuntu
+downloads	Set up job	2026-10-11T18:59:59.0124666Z 24.04.5
+downloads	Set up job	2026-10-11T18:59:59.0125486Z LTS
+downloads	Set up job	2026-10-11T18:59:59.0126219Z ##[endgroup]
+downloads	Set up job	2026-10-11T18:59:59.0127667Z ##[group]Runner Image
+downloads	Set up job	2026-10-11T18:59:59.0128553Z Image: ubuntu-24.04
+downloads	Set up job	2026-10-11T18:59:59.0129305Z Version: 20261004.327.1
+downloads	Set up job	2026-10-11T18:59:59.0130778Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+downloads	Set up job	2026-10-11T18:59:59.0133376Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+downloads	Set up job	2026-10-11T18:59:59.0134679Z ##[endgroup]
+downloads	Set up job	2026-10-11T18:59:59.0136256Z ##[group]GITHUB_TOKEN Permissions
+downloads	Set up job	2026-10-11T18:59:59.0139194Z Contents: write
+downloads	Set up job	2026-10-11T18:59:59.0140003Z Metadata: read
+downloads	Set up job	2026-10-11T18:59:59.0140781Z ##[endgroup]
+downloads	Set up job	2026-10-11T18:59:59.0143744Z Secret source: Actions
+downloads	Set up job	2026-10-11T18:59:59.0144984Z Cache mode: write
+downloads	Set up job	2026-10-11T18:59:59.0146436Z Prepare workflow directory
+downloads	Set up job	2026-10-11T18:59:59.0490085Z Prepare all required actions
+downloads	Set up job	2026-10-11T18:59:59.0557659Z Getting action download info
+downloads	Set up job	2026-10-11T18:59:59.3038900Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+downloads	Set up job	2026-10-11T18:59:59.4040662Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+downloads	Set up job	2026-10-11T18:59:59.5970390Z Complete job name: downloads
+downloads	Run actions/checkout@v4	﻿2026-10-11T18:59:59.6634354Z ##[group]Run actions/checkout@v4
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6635180Z with:
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6635694Z   ref: main
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6636226Z   repository: Uhama91/DictAI
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6639915Z   token: ***
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6640428Z   ssh-strict: true
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6640910Z   ssh-user: git
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6641402Z   persist-credentials: true
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6642193Z   clean: true
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6642724Z   sparse-checkout-cone-mode: true
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6643300Z   fetch-depth: 1
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6643778Z   fetch-tags: false
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6644253Z   show-progress: true
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6644836Z   lfs: false
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6645296Z   submodules: false
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6646137Z   set-safe-directory: true
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6646709Z   allow-unsafe-pr-checkout: false
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.6647464Z ##[endgroup]
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7657204Z Syncing repository: Uhama91/DictAI
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7659827Z ##[group]Getting Git version info
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7660943Z Working directory is '/home/runner/work/DictAI/DictAI'
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7662834Z [command]/usr/bin/git version
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7732130Z git version 2.55.0
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7750964Z ##[endgroup]
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7764013Z Temporarily overriding HOME='/home/runner/work/_temp/c364b5c8-0a8f-473f-9c4b-036530b555d3' before making global git config changes
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7766617Z Adding repository directory to the temporary git global config as a safe directory
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7768804Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DictAI/DictAI
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7821359Z Deleting the contents of '/home/runner/work/DictAI/DictAI'
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7827887Z ##[group]Initializing the repository
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7833048Z [command]/usr/bin/git init /home/runner/work/DictAI/DictAI
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7958305Z hint: Using 'master' as the name for the initial branch. This default branch name
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7959839Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7962116Z hint: to use in all of your new repositories, which will suppress this warning,
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7963456Z hint: call:
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7964338Z hint:
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7965367Z hint: 	git config --global init.defaultBranch <name>
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7966445Z hint:
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7967623Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7969189Z hint: 'development'. The just-created branch can be renamed via this command:
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7970435Z hint:
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7971282Z hint: 	git branch -m <name>
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7972361Z hint:
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7973501Z hint: Disable this message with "git config set advice.defaultBranchName false"
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7974656Z Initialized empty Git repository in /home/runner/work/DictAI/DictAI/.git/
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.7978301Z [command]/usr/bin/git remote add origin https://github.com/Uhama91/DictAI
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8036429Z ##[endgroup]
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8038035Z ##[group]Disabling automatic garbage collection
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8039718Z [command]/usr/bin/git config --local gc.auto 0
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8093247Z ##[endgroup]
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8096646Z ##[group]Setting up auth
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8105923Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8138635Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8660093Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8693704Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8890737Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.8920902Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.9099757Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.9191563Z ##[endgroup]
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.9192986Z ##[group]Fetching the repository
+downloads	Run actions/checkout@v4	2026-10-11T18:59:59.9195938Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/heads/main*:refs/remotes/origin/main* +refs/tags/main*:refs/tags/main*
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.6998705Z From https://github.com/Uhama91/DictAI
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7003078Z  * [new branch]      main       -> origin/main
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7006671Z ##[endgroup]
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7009327Z ##[group]Determining the checkout info
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7014045Z [command]/usr/bin/git branch --list --remote origin/main
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7038005Z   origin/main
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7040948Z ##[endgroup]
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7046427Z [command]/usr/bin/git sparse-checkout disable
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7134359Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7162925Z ##[group]Checking out the ref
+downloads	Run actions/checkout@v4	2026-10-11T19:00:05.7166034Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+downloads	Run actions/checkout@v4	2026-10-11T19:00:06.3541160Z Switched to a new branch 'main'
+downloads	Run actions/checkout@v4	2026-10-11T19:00:06.3546670Z branch 'main' set up to track 'origin/main'.
+downloads	Run actions/checkout@v4	2026-10-11T19:00:06.3563898Z ##[endgroup]
+downloads	Run actions/checkout@v4	2026-10-11T19:00:06.3612695Z [command]/usr/bin/git log -1 --format=%H
+downloads	Run actions/checkout@v4	2026-10-11T19:00:06.3637349Z 157f2b7406cd877353a138ce2feef83bceaa7277
+downloads	Run actions/setup-python@v5	﻿2026-10-11T19:00:06.3897928Z ##[group]Run actions/setup-python@v5
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.3898400Z with:
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.3898785Z   python-version: 3.12
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.3899148Z   check-latest: false
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.3901510Z   token: ***
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.3901877Z   update-environment: true
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.3902522Z   allow-prereleases: false
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.3903072Z   freethreaded: false
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.3903429Z ##[endgroup]
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.5157918Z ##[group]Installed versions
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.5288757Z (node:2309) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.5290157Z (Use `node --trace-deprecation ...` to show where the warning was created)
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.5290744Z Successfully set up CPython (3.12.15)
+downloads	Run actions/setup-python@v5	2026-10-11T19:00:06.5291527Z ##[endgroup]
+downloads	Test release metadata and README maintenance	﻿2026-10-11T19:00:06.5409276Z ##[group]Run python3 -m unittest discover -s scripts -p 'test_*manifest.py' -v && python3 -m unittest discover -s scripts -p 'test_update_download_table.py' -v
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5410598Z [36;1mpython3 -m unittest discover -s scripts -p 'test_*manifest.py' -v && python3 -m unittest discover -s scripts -p 'test_update_download_table.py' -v[0m
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5689931Z shell: /usr/bin/bash -e {0}
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5690480Z env:
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5691075Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5691670Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5692582Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5693154Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5693669Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5694203Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.5694696Z ##[endgroup]
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8064248Z test_architectures_are_taken_from_artifact_metadata (test_prepare_update_manifest.UpdateManifestTests.test_architectures_are_taken_from_artifact_metadata) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8066775Z test_independent_versions_point_to_their_own_installers (test_prepare_update_manifest.UpdateManifestTests.test_independent_versions_point_to_their_own_installers) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8074111Z test_preview_and_public_manifests_cannot_share_the_output_folder (test_prepare_update_manifest.UpdateManifestTests.test_preview_and_public_manifests_cannot_share_the_output_folder) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8076450Z test_public_signer_must_be_private_and_explicitly_approved (test_prepare_update_manifest.UpdateManifestTests.test_public_signer_must_be_private_and_explicitly_approved) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8079540Z test_refuses_other_app_or_invalid_release_metadata (test_prepare_update_manifest.UpdateManifestTests.test_refuses_other_app_or_invalid_release_metadata) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8081099Z
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8081427Z ----------------------------------------------------------------------
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8082421Z Ran 5 tests in 0.002s
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8082698Z
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8082950Z OK
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8966238Z test_no_valid_release_fails_without_producing_empty_download_table (test_update_download_table.DownloadTableTests.test_no_valid_release_fails_without_producing_empty_download_table) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8970007Z test_older_release_published_later_cannot_downgrade_either_platform (test_update_download_table.DownloadTableTests.test_older_release_published_later_cannot_downgrade_either_platform) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8972820Z test_only_marked_block_changes_and_repeated_update_is_identical (test_update_download_table.DownloadTableTests.test_only_marked_block_changes_and_repeated_update_is_identical) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8975196Z test_phone_and_tablet_share_apk_and_mac_has_its_own_version (test_update_download_table.DownloadTableTests.test_phone_and_tablet_share_apk_and_mac_has_its_own_version) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8978167Z test_refuses_missing_assets_bad_hashes_other_apps_and_external_links (test_update_download_table.DownloadTableTests.test_refuses_missing_assets_bad_hashes_other_apps_and_external_links) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8981143Z test_stable_manifest_cannot_advertise_test_installers (test_update_download_table.DownloadTableTests.test_stable_manifest_cannot_advertise_test_installers) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8983491Z test_withdrawn_last_release_removes_its_download_links (test_update_download_table.DownloadTableTests.test_withdrawn_last_release_removes_its_download_links) ... ok
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8984417Z
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8984795Z ----------------------------------------------------------------------
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8985571Z Ran 7 tests in 0.001s
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8985829Z
+downloads	Test release metadata and README maintenance	2026-10-11T19:00:06.8986041Z OK
+downloads	Refresh verified download links	﻿2026-10-11T19:00:06.9139143Z ##[group]Run python3 scripts/update_download_table.py
+downloads	Refresh verified download links	2026-10-11T19:00:06.9139772Z [36;1mpython3 scripts/update_download_table.py[0m
+downloads	Refresh verified download links	2026-10-11T19:00:06.9183392Z shell: /usr/bin/bash -e {0}
+downloads	Refresh verified download links	2026-10-11T19:00:06.9183867Z env:
+downloads	Refresh verified download links	2026-10-11T19:00:06.9184342Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Refresh verified download links	2026-10-11T19:00:06.9184906Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+downloads	Refresh verified download links	2026-10-11T19:00:06.9185454Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Refresh verified download links	2026-10-11T19:00:06.9186001Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Refresh verified download links	2026-10-11T19:00:06.9186534Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Refresh verified download links	2026-10-11T19:00:06.9187102Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+downloads	Refresh verified download links	2026-10-11T19:00:06.9189671Z   GITHUB_TOKEN: ***
+downloads	Refresh verified download links	2026-10-11T19:00:06.9190012Z ##[endgroup]
+downloads	Refresh verified download links	2026-10-11T19:00:08.4437585Z Download table updated
+downloads	Publish the download table	﻿2026-10-11T19:00:08.4595087Z ##[group]Run if git diff --quiet -- README.md; then
+downloads	Publish the download table	2026-10-11T19:00:08.4595659Z [36;1mif git diff --quiet -- README.md; then[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4596081Z [36;1m  echo "Download table already current"[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4596483Z [36;1m  exit 0[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4596769Z [36;1mfi[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4597118Z [36;1mgit config user.name 'github-actions[bot]'[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4597629Z [36;1mgit config user.email '41898282+github-actions[bot]@users.noreply.github.com'[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4598142Z [36;1mgit add README.md[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4598577Z [36;1mgit commit -m 'docs: refresh DictAI downloads [skip ci]'[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4599015Z [36;1mgit push origin HEAD:main[0m
+downloads	Publish the download table	2026-10-11T19:00:08.4643742Z shell: /usr/bin/bash -e {0}
+downloads	Publish the download table	2026-10-11T19:00:08.4644213Z env:
+downloads	Publish the download table	2026-10-11T19:00:08.4644595Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Publish the download table	2026-10-11T19:00:08.4645110Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+downloads	Publish the download table	2026-10-11T19:00:08.4645777Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Publish the download table	2026-10-11T19:00:08.4646261Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Publish the download table	2026-10-11T19:00:08.4646725Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+downloads	Publish the download table	2026-10-11T19:00:08.4647208Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+downloads	Publish the download table	2026-10-11T19:00:08.4647602Z ##[endgroup]
+downloads	Publish the download table	2026-10-11T19:00:08.6390158Z [main 4f107ba] docs: refresh DictAI downloads [skip ci]
+downloads	Publish the download table	2026-10-11T19:00:08.6390896Z  1 file changed, 4 insertions(+), 4 deletions(-)
+downloads	Publish the download table	2026-10-11T19:00:09.7008011Z To https://github.com/Uhama91/DictAI
+downloads	Publish the download table	2026-10-11T19:00:09.7008696Z    157f2b7..4f107ba  HEAD -> main
+downloads	Post Run actions/setup-python@v5	﻿2026-10-11T19:00:09.7153929Z Post job cleanup.
+downloads	Post Run actions/setup-python@v5	2026-10-11T19:00:09.8293611Z (node:2336) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+downloads	Post Run actions/setup-python@v5	2026-10-11T19:00:09.8295266Z (Use `node --trace-deprecation ...` to show where the warning was created)
+downloads	Post Run actions/checkout@v4	﻿2026-10-11T19:00:09.8464100Z Post job cleanup.
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9286869Z [command]/usr/bin/git version
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9326459Z git version 2.55.0
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9365844Z Temporarily overriding HOME='/home/runner/work/_temp/ce0f63fe-b603-4027-8281-441d575ad0a3' before making global git config changes
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9366868Z Adding repository directory to the temporary git global config as a safe directory
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9372217Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DictAI/DictAI
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9411124Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9442635Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9651088Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9676310Z http.https://github.com/.extraheader
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9687403Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9727163Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9927785Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+downloads	Post Run actions/checkout@v4	2026-10-11T19:00:09.9957140Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+downloads	Complete job	﻿2026-10-11T19:00:10.0293071Z Cleaning up orphan processes
+downloads	Complete job	2026-10-11T19:00:10.0539086Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
