@@ -12,7 +12,7 @@
 - [x] Vérifier les insertions échouées, les retouches, les pauses, les annulations, les textes saisis sans voix, les comptes et la conservation des notes.
 - [x] Exécuter les suites complètes, construire l’APK et l’installateur universel et inspecter les rendus natifs clairs et sombres.
 
-Les sources vérifiées et les documents locaux seront publiés sur `main` après les commits de cette livraison.
+- [x] Publier les sources vérifiées et les documents locaux sur `main`, vérifier les deux builds GitHub et leurs artefacts téléchargés.
 
 ## Vérifications prioritaires
 

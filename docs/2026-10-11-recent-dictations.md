@@ -22,6 +22,15 @@ Les suites complètes réussissent : **748 tests Android**, **149 tests Mac sur
 
 Ces vérifications utilisent des bibliothèques isolées et des dictées synthétiques. Aucun appareil Android physique n’était connecté pendant cette livraison. Le parcours vocal réel sur Poco F7, Pad 7 et dans un champ externe du Mac reste à essayer après installation de ces versions. Le paquet Mac conserve le statut de version de test, sans validation Developer ID ni notarisation.
 
+## Publication GitHub
+
+Les sources sont publiées sur `main` au commit [`e0a6fda`](https://github.com/Uhama91/DictAI/commit/e0a6fda84d92e0ed3b9d41cd70228559abdfcb3a). Le commit précédent conserve les documents et rendus locaux historiques. Les deux builds GitHub de ces sources réussissent : [Android](https://github.com/Uhama91/DictAI/actions/runs/38135603758) et [macOS](https://github.com/Uhama91/DictAI/actions/runs/38135603762).
+
+- [APK Android 0.9.16 — artefact GitHub](https://github.com/Uhama91/DictAI/actions/runs/38135603758/artifacts/11700863347) : SHA-256 `fc53f27201eee7902a9515d351c38fb8e7f2e360dba5a39e44027a5df77403a0`.
+- [Installateur Mac 0.4.4 — artefact GitHub](https://github.com/Uhama91/DictAI/actions/runs/38135603762/artifacts/11700957844) : SHA-256 du paquet `87d5038e5d54eb309077b62e0d7adfb1ac0694d697ba6b9de5ff3ecaebf3faf2`.
+
+Les artefacts téléchargés ont été contrôlés : empreintes conformes, identité et signature de l’APK, alignement ELF/ZIP 16 Ko, signature de l’application Mac et présence des deux architectures. Ces nouvelles versions ne remplacent pas encore les applications installées sur les appareils.
+
 ## Aperçus natifs
 
 ### Mac — clair et sombre
