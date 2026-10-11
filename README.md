@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.svg" width="128" height="128" alt="DictAI logo">
+  <img src="docs/logo.png" width="128" height="128" alt="Logo de l’application DictAI">
 </p>
 
 # DictAI
@@ -37,11 +37,6 @@ It provides:
 - **Optional cloud cleanup** through OpenRouter for punctuation and conservative corrections
 - A persistent overlay, accessibility insertion, local notes, and PDF/HTML
   export
-
-DictAI is a modified derivative of [Phone Whisper by kafkasl](https://github.com/kafkasl/phone-whisper).
-See the repository [NOTICE](NOTICE), [LICENSE](LICENSE), and [bundled third-party notices](app/src/main/assets/THIRD_PARTY_NOTICES.txt)
-for provenance and license terms.
-
 
 ## Install
 
@@ -195,14 +190,6 @@ Once text is inserted into the native input box, Termux sends it to the terminal
 - Local models are large
 - Optional cloud cleanup requires your own OpenRouter API key
 
-## License and attribution
-
-The Phone Whisper-derived source is distributed under the Apache License 2.0;
-see [LICENSE](LICENSE) and [NOTICE](NOTICE). DictAI changes are identified in
-the modified inherited files. Bundled native libraries and models may use
-separate terms; see [THIRD_PARTY_NOTICES.txt](app/src/main/assets/THIRD_PARTY_NOTICES.txt)
-and the license texts in [app/src/main/assets/licenses](app/src/main/assets/licenses).
-
 ## DictAI 0.9.16 — historique des dictées
 
 Android et macOS proposent un tampon local des **10 dernières dictées**, avec lecture du texte intégral et copie, y compris après un échec d’insertion. La onzième remplace la plus ancienne. Aucun audio n’est conservé dans ce tampon et son contenu reste hors synchronisation. Les notes existantes sont conservées. Voir le [rapport de fonctionnement et de vérification](docs/2026-10-11-recent-dictations.md).
@@ -284,3 +271,11 @@ Essais sur appareil : écrire une note sans micro, la ranger, ouvrir une autre n
 Suivi du développement par étapes : [demandes et validations](docs/SUIVI-DEVELOPPEMENT.md). Les recherches de mise en forme locale sont archivées ; leurs moteurs et interfaces ne font pas partie de l’application livrée.
 
 Le correctif 0.9.5 et son essai ciblé sont décrits dans [Notes et édition](docs/NOTES-ET-EDITION-0.9.5.md). Les gestes, le clavier et le rendu de cette version restent à vérifier sur appareil ; les tests instrumentés sont compilés sans être exécutés ici.
+
+## Origine du projet et références
+
+DictAI a été construit à partir de **[Phone Whisper, créé par kafkasl](https://github.com/kafkasl/phone-whisper)**. Cette base Android a été adaptée pour DictAI ; le dépôt comprend également son application macOS native. Le fichier [NOTICE](NOTICE) décrit l’origine du code et les références des composants intégrés.
+
+Le code issu de Phone Whisper est distribué sous la **licence Apache 2.0**, disponible dans [LICENSE](LICENSE). Les modifications apportées à DictAI sont signalées dans les fichiers hérités et modifiés.
+
+Les bibliothèques natives et les modèles peuvent relever de licences distinctes. Leurs références figurent dans [les notices des composants tiers](app/src/main/assets/THIRD_PARTY_NOTICES.txt) et [les textes des licences incluses](app/src/main/assets/licenses).
