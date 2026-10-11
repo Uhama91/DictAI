@@ -2,6 +2,7 @@ import Foundation
 
 /// A persistent document, independent of the recognizer's shorter-lived requests.
 public struct DictationDraft: Codable {
+    public private(set) var historyID = UUID().uuidString
     public private(set) var text = ""
     public private(set) var recognized = ""
     public private(set) var edited = false
@@ -9,8 +10,15 @@ public struct DictationDraft: Codable {
     private var baseRecognition = ""
     private var editAnchor: String?
     private var editText = ""
-    private enum CodingKeys: String, CodingKey { case text, recognized, edited }
+    private enum CodingKeys: String, CodingKey { case text, recognized, edited, historyID }
     public init() {}
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        text = try values.decode(String.self, forKey: .text)
+        recognized = try values.decode(String.self, forKey: .recognized)
+        edited = try values.decode(Bool.self, forKey: .edited)
+        historyID = try values.decodeIfPresent(String.self, forKey: .historyID) ?? UUID().uuidString
+    }
 
     public mutating func beginSegment() {
         baseText = text; baseRecognition = recognized

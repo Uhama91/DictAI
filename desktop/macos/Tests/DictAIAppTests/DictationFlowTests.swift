@@ -4,6 +4,31 @@ import DictAICore
 @testable import DictAI
 
 @MainActor struct DictationFlowTests {
+    @Test func failedInsertionIsRecoverableOnceAndRetryUpdatesHumanEdits() async throws {
+        let rig = try Rig(); rig.delivery.failure = true
+        rig.model.toggle(); await rig.settle()
+        rig.speech.onText?("Texte à récupérer")
+        rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
+        #expect(rig.model.library.history.entries.map(\.text) == ["Texte à récupérer."])
+        rig.model.edit("Texte corrigé à récupérer.")
+        rig.delivery.failure = false
+        rig.model.insert(); await rig.settle()
+        #expect(rig.model.library.history.entries.map(\.text) == ["Texte corrigé à récupérer."])
+        #expect(rig.model.library.notes.isEmpty)
+    }
+    @Test func manualTextAndCancelledDictationDoNotPopulateHistory() async throws {
+        let typed = try Rig()
+        typed.model.edit("Texte saisi au clavier")
+        typed.model.saveNote()
+        #expect(typed.model.library.history.entries.isEmpty)
+        #expect(typed.model.library.notes.map(\.text) == ["Texte saisi au clavier"])
+        let rig = try Rig()
+        rig.model.toggle(); await rig.settle()
+        rig.speech.onText?("Résultat intermédiaire")
+        rig.model.shortcut.onGesture?(.triple)
+        rig.speech.onFinish?(nil); await rig.settle()
+        #expect(rig.model.library.history.entries.isEmpty)
+    }
     @Test func retiringLocalPunctuationRestoresImmediateInsertion() async throws {
         let rig = try Rig()
         let legacy = rig.model.library.root.appendingPathComponent("mac-preferences.json")
@@ -64,7 +89,7 @@ import DictAICore
         #expect(rig.model.draft.text == "je parle sur l'application dans le navigateur avec la fenêtre ouverte")
         rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
         #expect(rig.delivery.texts == ["Je parle sur l'application dans le navigateur avec la fenêtre ouverte. "])
-        #expect(rig.model.library.notes.map(\.text) == ["Je parle sur l'application dans le navigateur avec la fenêtre ouverte."])
+        #expect(rig.model.library.history.entries.map(\.text) == ["Je parle sur l'application dans le navigateur avec la fenêtre ouverte."])
     }
     @Test func pauseDoesNotInventAPeriodInAnUnfinishedSentence() async throws {
         let rig = try Rig()
@@ -107,7 +132,7 @@ import DictAICore
             #expect(!rig.model.panelVisible && !rig.panel.visible)
             #expect(rig.model.draft.text.isEmpty)
             #expect(rig.model.library.loadDraft()?.text.isEmpty == true)
-            #expect(rig.model.library.notes.map(\.text) == ["Une dictée terminée."])
+            #expect(rig.model.library.history.entries.map(\.text) == ["Une dictée terminée."])
             rig.speech.onText?("Dernier résultat en retard")
             rig.speech.onFinish?(nil); await rig.settle()
             rig.model.showDraft()
@@ -115,13 +140,13 @@ import DictAICore
             rig.model.shortcut.onGesture?(.single); await rig.settle()
             rig.speech.onText?("La dictée suivante.")
             #expect(rig.model.draft.text == "La dictée suivante.")
-            #expect(rig.model.library.notes.count == 1)
+            #expect(rig.model.library.notes.isEmpty && rig.model.library.history.entries.count == 1)
             #expect(rig.delivery.captures == 2)
         }
     }
-    @Test func anArchiveFailureAfterInsertionKeepsRecoveryWithoutSendingTwice() async throws {
+    @Test func aHistoryFailureAfterInsertionKeepsRecoveryWithoutSendingTwice() async throws {
         let rig = try Rig()
-        try FileManager.default.createDirectory(at: rig.model.library.directory.appendingPathComponent("library.json"), withIntermediateDirectories: false)
+        try FileManager.default.createDirectory(at: rig.model.library.directory.appendingPathComponent("dictation-history.json"), withIntermediateDirectories: false)
         rig.model.toggle(); await rig.settle()
         rig.speech.onText?("Texte envoyé mais à conserver.")
         rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
@@ -262,8 +287,9 @@ import DictAICore
         #expect(rig.model.draft.text.isEmpty)
         #expect(rig.model.library.loadDraft()?.text.isEmpty == true)
         #expect(rig.model.library.notes.map(\.text) == ["Ma note continue."])
+        #expect(rig.model.library.history.entries.map(\.text) == ["Ma note continue."])
     }
-    @Test func optionAfterClosingStartsFreshAndPreservesPreviousDraftAsANote() async throws {
+    @Test func optionAfterClosingStartsFreshAndPreservesPreviousDraftInHistory() async throws {
         let rig = try Rig()
         rig.model.toggle(); await rig.settle()
         rig.speech.onText?("Ancienne dictée")
@@ -272,7 +298,7 @@ import DictAICore
         #expect(rig.model.draft.text.isEmpty)
         rig.speech.onText?("Nouvelle dictée")
         #expect(rig.model.draft.text == "Nouvelle dictée")
-        #expect(rig.model.library.notes.map(\.text) == ["Ancienne dictée"])
+        #expect(rig.model.library.history.entries.map(\.text) == ["Ancienne dictée"])
         #expect(rig.delivery.captures == 2)
         #expect(rig.model.presentation == .compact)
     }
@@ -284,7 +310,7 @@ import DictAICore
         rig.model.begin(destination: .note); await rig.settle()
         rig.speech.onText?("Nouvelle note")
         #expect(rig.model.draft.text == "Nouvelle note")
-        #expect(rig.model.library.notes.map(\.text) == ["Dictée précédente"])
+        #expect(rig.model.library.history.entries.map(\.text) == ["Dictée précédente"])
     }
     @Test func presentationChangesKeepOneCaptureAndOneEditableDraft() async throws {
         let rig = try Rig()
@@ -380,7 +406,7 @@ import DictAICore
         #expect(rig.delivery.texts == ["Bonjour le monde. "])
         #expect(!rig.panel.visible)
         #expect(rig.model.library.loadDraft()?.text.isEmpty == true)
-        #expect(rig.model.library.notes.map(\.text) == ["Bonjour le monde."])
+        #expect(rig.model.library.history.entries.map(\.text) == ["Bonjour le monde."])
         rig.speech.onFinish?(nil)
         await rig.settle()
         #expect(rig.delivery.texts.count == 1)

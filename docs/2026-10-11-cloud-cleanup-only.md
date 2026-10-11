@@ -28,7 +28,7 @@ Les builds Android sont disponibles dans le workflow [Build DictAI APK](https://
 - Android : les contrôles de packaging exigent les bibliothèques ASR et refusent les runtimes, poids et prompts des modèles de correction locaux.
 - Interfaces : cinq rendus Android téléphone/tablette et quatorze rendus Mac sont produits avec les vues natives et audités visuellement.
 
-Les requêtes cloud sont vérifiées avec des réponses HTTP de test ; aucun résultat de qualité ou de délai d’un modèle cloud réel n’est revendiqué. Les rendus utilisent des bibliothèques isolées. La 0.4.2 reste installée sur le Mac ; aucun téléphone n’était connecté par ADB. L’installation et l’essai vocal physique des nouvelles versions restent à faire. La notarisation macOS et un essai sur Mac Intel physique restent également à valider.
+Les requêtes cloud sont vérifiées avec des réponses HTTP de test ; aucun résultat de qualité ou de délai d’un modèle cloud réel n’est revendiqué. Les rendus utilisent des bibliothèques isolées. La 0.4.3 est désormais installée sur le Mac : les 13 fichiers étaient identiques avant ouverture et leur contenu intégral reste conservé après ouverture (55 notes, 56 entrées de vocabulaire, 10 dossiers et 7 images). Le microphone, la reconnaissance et le modèle vocal français sont disponibles ; l’accessibilité a été renouvelée après validation Touch ID et le raccourci Option a été relancé. Aucun téléphone n’était connecté par ADB. L’installation Android, l’essai vocal physique des nouvelles versions, la notarisation macOS et un essai sur Mac Intel physique restent à valider.
 
 ## Aperçus Android
 

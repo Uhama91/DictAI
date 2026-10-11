@@ -25,6 +25,7 @@ enum DictationPresentation { case compact, editor, window }
     @Published var level: Float = 0
     @Published var message = ""
     @Published var panelVisible = false
+    @Published var libraryPage = "notes"
     @Published private(set) var presentation: DictationPresentation = .editor
     @Published private(set) var delivered = false
     @Published private(set) var destination: DictationDestination = .field
@@ -37,6 +38,7 @@ enum DictationPresentation { case compact, editor, window }
     private var resumeAfterPause = false
     private var capturedTarget = false
     private var segmentHasSpeech = false
+    private var historyCancelled = false
     private var savedNote: Note?
     private var savedNoteBase: String?
     private var didStart = false
@@ -94,7 +96,7 @@ enum DictationPresentation { case compact, editor, window }
             else if state == .paused { resumeListening() }
             else if state == .finishing && pauseWhenFinished { resumeAfterPause.toggle() }
         case .triple:
-            if panelVisible || busy { closeOverlay() }
+            if panelVisible || busy { historyCancelled = true; closeOverlay() }
         }
     }
     func toggle() {
@@ -121,12 +123,15 @@ enum DictationPresentation { case compact, editor, window }
                         note.text = draft.text
                         _ = try library.save(note, basedOn: savedNoteBase)
                     }
+                } else if self.destination == .field && !draft.recognized.isEmpty {
+                    try recordRecentDictation()
                 } else { _ = try library.createNote(text: draft.text, folder: library.selectedFolder) }
             }
         } catch { reveal(error.localizedDescription); return }
         self.destination = destination
         insertion.capture(); capturedTarget = true
         draft = DictationDraft(); savedNote = nil; savedNoteBase = nil
+        historyCancelled = false
         editorSession.reset()
         presentation = .compact
         startSpeechSegment()
@@ -135,6 +140,7 @@ enum DictationPresentation { case compact, editor, window }
         guard !busy, state != .listening else { return }
         if !capturedTarget { insertion.capture(); capturedTarget = true }
         delivered = false
+        historyCancelled = false
         startSpeechSegment()
     }
     private func startSpeechSegment() {
@@ -247,14 +253,14 @@ enum DictationPresentation { case compact, editor, window }
         savedNoteBase = savedNote.flatMap { library.document.entries["note:" + $0.id]?.value }
     }
     private func endDeliveredSession(_ result: String) {
-        // Archive before clearing: completed dictations remain recoverable in the library.
+        // The recovery buffer must be durable before the active draft is cleared.
         message = result; delivered = true
         do {
-            try archiveDraft()
+            try recordRecentDictation()
             try library.saveDraft(DictationDraft())
             draft = DictationDraft(); savedNote = nil; savedNoteBase = nil
         } catch {
-            library.error = "La dictée est terminée, mais son archivage a échoué. Le brouillon est conservé : " + error.localizedDescription
+            library.error = "La dictée est terminée, mais son historique n’a pas pu être enregistré. Le brouillon est conservé : " + error.localizedDescription
         }
         revision = UUID(); generation = UUID()
         deliverWhenFinished = false; pauseWhenFinished = false; resumeAfterPause = false
@@ -262,9 +268,15 @@ enum DictationPresentation { case compact, editor, window }
         editorSession.reset(); overlay.hide(); panelVisible = false; presentation = .compact
     }
     func completeDictation() { if destination == .note { saveNote() } else { insert() } }
+    private func recordRecentDictation() throws {
+        guard !historyCancelled, !draft.recognized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        try library.history.record(id: draft.historyID, text: draft.text)
+    }
     func insert() {
         guard [.review, .paused].contains(state), !delivered, !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         finalizeTypography()
+        do { try recordRecentDictation() }
+        catch { library.error = "L’historique n’a pas pu être enregistré. Le brouillon est conservé : " + error.localizedDescription }
         let text = draft.text + (library.preference("trailing_space", default: "true") == "true" ? " " : "")
         let edit = revision; let epoch = generation; let scope = library.generation
         state = .inserting

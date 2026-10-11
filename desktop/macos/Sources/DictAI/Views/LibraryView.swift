@@ -6,7 +6,10 @@ struct LibraryView: View {
     @ObservedObject var library: LibraryStore
     @ObservedObject var account: AccountController
     @ObservedObject var sync: SyncCoordinator
-    @State private var page = "notes"
+    private var page: String {
+        get { model.libraryPage }
+        nonmutating set { model.libraryPage = newValue }
+    }
     @State private var query = ""
     @State private var newFolder = false
     @State private var folderName = ""
@@ -29,6 +32,8 @@ struct LibraryView: View {
                 } else { emptyEditor }
             } else if page == "vocabulary" {
                 VocabularyView(library: library)
+            } else if page == "history" {
+                HistoryView(history: library.history)
             } else {
                 SettingsView(model: model, library: library, account: account, sync: sync)
             }
@@ -61,6 +66,7 @@ struct LibraryView: View {
             Brand().padding(.top, 32).padding(.bottom, 4)
             Text("Le carnet de votre voix.").font(.system(size: 12)).foregroundStyle(Theme.muted).padding(.bottom, 34)
             nav("Mes notes", icon: "book.closed", target: "notes", count: library.notes.count)
+            nav("Historique des dictées", icon: "clock.arrow.circlepath", target: "history")
             nav("Vocabulaire", icon: "textformat.abc", target: "vocabulary", count: library.vocabulary.count)
             nav("Réglages", icon: "slider.horizontal.3", target: "settings")
             HStack { SmallLabel(text: "Dossiers"); Spacer(); Button { folderParent = ""; newFolder = true } label: { Image(systemName: "plus").frame(width: 28, height: 28) }.buttonStyle(.plain).help("Créer un dossier") }.padding(.top, 30).padding(.bottom, 7)

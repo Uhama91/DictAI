@@ -23,6 +23,8 @@ L’application reprend le tracé exact du logo Android à trois boucles, y comp
 
 [Simplification de la correction dans la version 0.4.3](../../docs/2026-10-11-cloud-cleanup-only.md).
 
+La version **0.4.4** ajoute **Historique des dictées** dans la bibliothèque et le menu de la barre des menus : les dix dernières transcriptions peuvent être relues et copiées, même si l’insertion échoue. La onzième remplace la plus ancienne. Ce tampon reste local, survit à la fermeture et peut être vidé ; les dictées envoyées ne sont plus automatiquement archivées dans les notes. Les notes existantes et les notes enregistrées volontairement sont conservées. [Fonctionnement et vérifications](../../docs/2026-10-11-recent-dictations.md).
+
 ## Notes, dossiers et vocabulaire
 
 Les notes s’enregistrent progressivement sur le Mac. La bibliothèque propose la recherche, le classement, l’export texte, la suppression synchronisée et l’affichage des images reçues d’Android. Le menu « Classer » du panneau choisit le dossier de destination.

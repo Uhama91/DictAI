@@ -39,6 +39,10 @@ struct MenuContent: View {
         Button("Afficher le brouillon") { model.showDraft() }
             .disabled(model.state == .idle && model.draft.text.isEmpty)
         Button("Ouvrir la bibliothèque") { openWindow(id: "library"); NSApp.activate(ignoringOtherApps: true) }
+        Button("Historique des dictées") {
+            model.libraryPage = "history"
+            openWindow(id: "library"); NSApp.activate(ignoringOtherApps: true)
+        }
         Divider()
         Button("Synchroniser") { Task { await model.sync.sync() } }
         Divider()

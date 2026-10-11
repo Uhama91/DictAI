@@ -207,6 +207,10 @@ class MainActivity : AppCompatActivity() {
             openNotes()
         })
         root.addView(homeSpacer(weight = 0f, minDp = 16))
+        root.addView(homeAccessRow("Historique des dictées", "Les 10 dernières · retrouver et copier le texte", android.R.drawable.ic_menu_recent_history, minHeightDp = 88) {
+            startActivity(Intent(this, DictationHistoryActivity::class.java))
+        })
+        root.addView(homeSpacer(weight = 0f, minDp = 16))
         root.addView(sectionHeader("Réglages").apply {
             textSize = 24f
             ResourcesCompat.getFont(this@MainActivity, R.font.caveat)?.let {

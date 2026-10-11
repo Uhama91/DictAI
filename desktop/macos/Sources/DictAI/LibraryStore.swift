@@ -3,6 +3,7 @@ import Combine
 import DictAICore
 
 @MainActor final class LibraryStore: ObservableObject {
+    let history = DictationHistoryStore()
     @Published private(set) var document = SyncDocument()
     @Published private(set) var scope = "local"
     @Published var error: String?
@@ -43,6 +44,7 @@ import DictAICore
         let incoming = FileManager.default.fileExists(atPath: file.path) ? try SyncDocument.decode(Data(contentsOf: file)) : SyncDocument()
         try incoming.validateContent()
         generation = UUID(); scope = name; document = incoming; selectedNote = nil; selectedFolder = nil
+        history.load(directory: path)
     }
     func commit(_ incoming: SyncDocument, notify: Bool = true) throws {
         try incoming.validateContent()

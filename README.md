@@ -184,6 +184,10 @@ the modified inherited files. Bundled native libraries and models may use
 separate terms; see [THIRD_PARTY_NOTICES.txt](app/src/main/assets/THIRD_PARTY_NOTICES.txt)
 and the license texts in [app/src/main/assets/licenses](app/src/main/assets/licenses).
 
+## DictAI 0.9.16 — historique des dictées
+
+Android et macOS proposent un tampon local des **10 dernières dictées**, avec lecture du texte intégral et copie, y compris après un échec d’insertion. La onzième remplace la plus ancienne. Aucun audio n’est conservé dans ce tampon et son contenu reste hors synchronisation. Les notes existantes sont conservées. Voir le [rapport de fonctionnement et de vérification](docs/2026-10-11-recent-dictations.md).
+
 ## DictAI 0.9.15 — correction facultative
 
 La transcription Nemotron et les autres modèles vocaux restent locaux. Dans

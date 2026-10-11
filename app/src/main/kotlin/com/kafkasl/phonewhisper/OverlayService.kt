@@ -199,6 +199,7 @@ class OverlayService : Service() {
         val purpose: DictationPurpose,
         val cancellation: DictationCancellationCoordinator = DictationCancellationCoordinator(),
     ) {
+        val historyId = java.util.UUID.randomUUID().toString()
         val captureGate = RecordingCaptureGate()
         @Volatile var pauseWorker: Thread? = null
         var resumeAfterPause = false
@@ -974,6 +975,8 @@ class OverlayService : Service() {
             main.post {
                 if (!isCurrentRun(run) || run.cancellation.isCancelled || localEngineLifecycle.isDestroyed()) return@post
                 val text = localText ?: rawTranscriptText()
+                runCatching { DictationHistory(this).recordTranscript(r.text, text, run.historyId) }
+                    .onFailure { toast("L’historique n’a pas pu être enregistré.") }
                 val saved = saveNoteWithCaptures(text)
                 run.afterCompletion = {
                     toast("Note enregistrée : ${saved.title}")
@@ -1037,6 +1040,8 @@ class OverlayService : Service() {
                         if (purpose == DictationPurpose.NOTE) purpose else run.purpose,
                         archive = run.archiveAsNote, export = run.exportNote,
                     )
+                    runCatching { DictationHistory(this).recordTranscript(r.text, outText, run.historyId) }
+                        .onFailure { toast("L’historique n’a pas pu être enregistré.") }
                     if (destination != NoteInteractionPolicy.Destination.MESSAGE) {
                         val saved = saveNoteWithCaptures(outText ?: rawTranscriptText())
                         run.afterCompletion = {
@@ -4284,6 +4289,10 @@ class OverlayService : Service() {
             NotesView.Unfiled -> "Sans dossier"
             is NotesView.Folder -> notes.getFolder(actualView.id)?.name ?: "Mes notes"
         }
+        if (actualView == NotesView.Root) entries += MenuEntry("Historique des dictées", {
+            dismissFloatingMenu()
+            startActivity(Intent(this, DictationHistoryActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        })
         showFloatingMenu(title, entries, goBack = if (actualView == NotesView.Root) null else {
             { showNotesOverlay(NotesView.Root) }
         })

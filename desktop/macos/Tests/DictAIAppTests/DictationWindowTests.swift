@@ -92,7 +92,7 @@ import DictAICore
             #expect(delivery.texts == ["Une dictée corrigée. "])
             #expect(!model.panelVisible)
             #expect(windows.allSatisfy { !$0.isVisible })
-            #expect(model.library.notes.map(\.text) == ["Une dictée corrigée."])
+            #expect(model.library.history.entries.map(\.text) == ["Une dictée corrigée."])
             #expect(model.library.loadDraft()?.text.isEmpty == true)
             if mode == .window {
                 let library = NSHostingView(rootView: LibraryView(model: model, library: model.library, account: model.account, sync: model.sync))

@@ -53,6 +53,8 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:launchMode="singleTop" />
 
+        <activity android:name=".DictationHistoryActivity" android:exported="false" />
+
         <activity android:name=".NoteCameraActivity" android:exported="false"
             android:theme="@style/Theme.NoteCamera"
             android:taskAffinity=""
