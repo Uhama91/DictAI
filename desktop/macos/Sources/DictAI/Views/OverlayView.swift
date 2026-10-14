@@ -31,7 +31,7 @@ struct QuickDictationEditor: View {
             }
             DictationContextRow(model: model, library: library)
             DictationTextEditor(model: model, spacious: false)
-            DictationFeedback(model: model, compact: true)
+            DictationFeedback(model: model, library: library, compact: true)
             DictationActions(model: model, library: library)
             Text("⌥ \(model.state == .paused ? "reprendre" : "terminer") · ×2 pause ou reprise · ×3 annuler sans envoyer").font(.system(size: 10)).foregroundStyle(Theme.muted)
         }.padding(16).frame(width: 560, height: 330)
@@ -60,7 +60,7 @@ struct DictationWorkspaceView: View {
             DictationContextRow(model: model, library: library)
             Rectangle().fill(Theme.line).frame(height: 1)
             DictationTextEditor(model: model, spacious: true)
-            DictationFeedback(model: model, compact: false)
+            DictationFeedback(model: model, library: library, compact: false)
             DictationActions(model: model, library: library)
             Text("⌥ \(model.state == .paused ? "reprendre" : "terminer") · ×2 pause ou reprise · ×3 annuler sans envoyer · Brouillon conservé")
                 .font(.system(size: 11)).foregroundStyle(Theme.muted)
@@ -134,6 +134,7 @@ struct DictationContextRow: View {
 
 struct DictationFeedback: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var library: LibraryStore
     let compact: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

@@ -64,7 +64,7 @@ def choose_downloads(offers):
 
 def refresh_readme(original, offers):
     table = (render_table(choose_downloads(offers)) if offers else
-             "Aucun installateur vérifié n’est actuellement disponible. Consultez les [releases](" + GITHUB.rstrip("/") + ").\n")
+             "No verified installer is currently available. See the [releases](" + GITHUB.rstrip("/") + ").\n")
     return replace_table(original, table)
 
 
@@ -73,20 +73,20 @@ def render_table(selected):
     mac = selected["macos"]["manifest"]["macos"]
     api_labels = {30: "11", 31: "12", 32: "12L", 33: "13", 34: "14", 35: "15", 36: "16"}
     android_os = api_labels.get(android["minSdk"], f"API {android['minSdk']}")
-    abi_labels = {"arm64-v8a": "ARM64", "armeabi-v7a": "ARM 32 bits", "x86": "x86", "x86_64": "x86_64"}
+    abi_labels = {"arm64-v8a": "ARM64", "armeabi-v7a": "ARM 32-bit", "x86": "x86", "x86_64": "x86_64"}
     android_compat = f"Android {android_os}+ · " + ", ".join(abi_labels[a] for a in android["abis"])
     mac_arch = {"arm64": "Apple silicon", "x86_64": "Intel"}
-    mac_compat = f"macOS {mac['minSystemVersion']}+ · " + " et ".join(mac_arch[a] for a in mac["architectures"])
+    mac_compat = f"macOS {mac['minSystemVersion']}+ · " + " and ".join(mac_arch[a] for a in mac["architectures"])
     versions = {p: selected[p]["manifest"][p]["versionName"] + (" (test)" if selected[p]["release"]["prerelease"] else "")
                 for p in PLATFORMS}
-    lines = ["| Appareil | Téléchargement | Version | Compatibilité |", "|---|---|---|---|",
-             f"| Téléphone Android | [Télécharger]({android['downloadUrl']}) | {versions['android']} | {android_compat} |",
-             f"| Tablette Android | [Télécharger]({android['downloadUrl']}) | {versions['android']} | {android_compat} |",
-             f"| Mac | [Télécharger]({mac['downloadUrl']}) | {versions['macos']} | {mac_compat} |", ""]
+    lines = ["| Device | Download | Version | Requirements |", "|---|---|---|---|",
+             f"| Android phone | [Download]({android['downloadUrl']}) | {versions['android']} | {android_compat} |",
+             f"| Android tablet | [Download]({android['downloadUrl']}) | {versions['android']} | {android_compat} |",
+             f"| Mac | [Download]({mac['downloadUrl']}) | {versions['macos']} | {mac_compat} |", ""]
     if any(selected[p]["release"]["prerelease"] for p in PLATFORMS):
-        lines += ["Les versions marquées « test » sont destinées aux premiers essais. Consultez les instructions d’installation avant de les ouvrir.", ""]
+        lines += ["Versions marked \"test\" are preview builds. Read the installation instructions before opening them.", ""]
     notes = list(dict.fromkeys(selected[p]["release"]["html_url"] for p in PLATFORMS))
-    lines += ["Instructions et nouveautés : " + " · ".join(f"[Notes de version{'' if len(notes) == 1 else ' ' + str(i + 1)}]({url})"
+    lines += ["Installation and changes: " + " · ".join(f"[Release notes{'' if len(notes) == 1 else ' ' + str(i + 1)}]({url})"
                                                          for i, url in enumerate(notes)) + ".", ""]
     return "\n".join(lines)
 

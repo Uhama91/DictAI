@@ -32,7 +32,7 @@ public enum Vocabulary {
         }
         return result as String
     }
-    public static func suggestion(before: String, after: String) -> String? {
+    public static func suggestion(before: String, after: String, learnedLines: [String] = []) -> String? {
         let a = before.split(whereSeparator: \.isWhitespace).map(String.init)
         let b = after.split(whereSeparator: \.isWhitespace).map(String.init)
         guard !a.isEmpty, !b.isEmpty, a != b else { return nil }
@@ -43,7 +43,8 @@ public enum Vocabulary {
         guard (1...4).contains(endA - prefix), (1...4).contains(endB - prefix) else { return nil }
         let old = a[prefix..<endA].joined(separator: " ").trimmingCharacters(in: .punctuationCharacters)
         let new = b[prefix..<endB].joined(separator: " ").trimmingCharacters(in: .punctuationCharacters)
-        guard !old.isEmpty, !new.isEmpty, old != new, old.count <= 80, new.count <= 80 else { return nil }
+        guard !old.isEmpty, !new.isEmpty, old != new, old.count <= 80, new.count <= 80,
+              apply(old, lines: learnedLines) != new else { return nil }
         return old + " => " + new
     }
 }

@@ -3,6 +3,61 @@ import Testing
 @testable import DictAICore
 
 struct SpeechContinuityTests {
+    @Test func revisionsBeforeTheProtectedBoundaryDoNotDuplicateRecognizedWords() {
+        var draft = DictationDraft()
+        draft.receive("Je fais une insertion")
+        draft.edit("Je fais une insertion corrigée")
+        draft.receive("Je fais une très bonne insertion et je continue")
+        #expect(draft.text == "Je fais une insertion corrigée et je continue")
+    }
+    @Test func aSingleCorrectedWordStillAllowsTheNextWords() {
+        var draft = DictationDraft()
+        draft.receive("dicta")
+        draft.edit("DictAI")
+        draft.receive("DictAI et la suite")
+        #expect(draft.text == "DictAI et la suite")
+    }
+    @Test func revisingARecognizedWordDoesNotStopSpeechAfterAnEdit() {
+        var draft = DictationDraft()
+        draft.receive("je fais une inserts")
+        draft.edit("Je fais une insertion")
+        draft.receive("je fais une insertion et je continue")
+        #expect(draft.text == "Je fais une insertion et je continue")
+        draft.receive("je fais une insertion et je continue à parler")
+        #expect(draft.text == "Je fais une insertion et je continue à parler")
+    }
+    @Test func revisedRecognitionDoesNotRestoreWordsDeletedByTheUser() {
+        var draft = DictationDraft()
+        draft.receive("je corrige cette faute")
+        draft.edit("Je corrige")
+        draft.receive("je corrige cette erreur et je continue")
+        #expect(draft.text == "Je corrige et je continue")
+        draft.receive("je corrige cette erreur et je continue")
+        #expect(draft.text == "Je corrige et je continue")
+    }
+    @Test func recognitionCanResegmentWordsBeforeAppendingNewSpeech() {
+        var draft = DictationDraft()
+        draft.receive("J’ai quatre vingt euros")
+        draft.edit("J’ai quatre-vingts euros")
+        draft.receive("J’ai quatre-vingts euros et je poursuis")
+        #expect(draft.text == "J’ai quatre-vingts euros et je poursuis")
+    }
+    @Test func anUnrelatedReplacementHypothesisCannotRestoreAnErasedDraft() {
+        var draft = DictationDraft()
+        draft.receive("Bonjour le monde.")
+        draft.edit("")
+        draft.receive("Je préfère recommencer autrement.")
+        #expect(draft.text.isEmpty)
+    }
+    @Test func aRevisedHypothesisWithNoNewSpeechKeepsManualCorrections() {
+        var draft = DictationDraft()
+        draft.receive("je fais une inserts")
+        draft.edit("Une insertion corrigée par moi")
+        draft.receive("je fais une insertion")
+        #expect(draft.text == "Une insertion corrigée par moi")
+        draft.receive("je fais une insertion puis je continue")
+        #expect(draft.text == "Une insertion corrigée par moi puis je continue")
+    }
     @Test func vocabularyProtectionAlsoAppliesWithinTheSpeechBuffer() {
         var buffer = SpeechTranscriptBuffer(protectedTerms: ["Ensuite"])
         buffer.receive("Je travaille avec", start: 0, end: 2, complete: true)

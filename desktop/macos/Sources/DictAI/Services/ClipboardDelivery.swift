@@ -4,9 +4,10 @@ import DictAICore
 
 /// The clipboard is restored only after a consumer has actually requested our text.
 @MainActor final class ClipboardDelivery {
+    private let board: NSPasteboard
     private var provider: PasteProvider?
-    func paste(_ text: String, stillFocused: () -> Bool) async throws {
-        let board = NSPasteboard.general
+    init(board: NSPasteboard = .general) { self.board = board }
+    func paste(_ text: String, performPaste: (() throws -> Void)? = nil, stillFocused: () -> Bool) async throws {
         let previous = (board.pasteboardItems ?? []).map { item -> NSPasteboardItem in
             let copy = NSPasteboardItem()
             for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
@@ -21,12 +22,16 @@ import DictAICore
         let change = board.changeCount
         defer { restore(previous, change: change); provider = nil }
         guard stillFocused() else { restore(previous, change: change); provider = nil; throw DataError.invalid("Le champ actif a changé. Le texte reste dans le brouillon.") }
-        let code = pasteKeyCode()
-        guard let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true), let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else {
-            restore(previous, change: change); provider = nil; throw DataError.invalid("Impossible d’envoyer le raccourci de collage.")
+        if let performPaste {
+            try performPaste()
+        } else {
+            let code = pasteKeyCode()
+            guard let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true), let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else {
+                throw DataError.invalid("Impossible d’envoyer le raccourci de collage.")
+            }
+            down.flags = .maskCommand; up.flags = .maskCommand
+            down.post(tap: .cghidEventTap); up.post(tap: .cghidEventTap)
         }
-        down.flags = .maskCommand; up.flags = .maskCommand
-        down.post(tap: .cghidEventTap); up.post(tap: .cghidEventTap)
         for _ in 0..<20 {
             try await Task.sleep(nanoseconds: 100_000_000)
             if source.received {
@@ -42,8 +47,8 @@ import DictAICore
         throw DataError.invalid("Le collage n’a pas été confirmé. Le texte reste copié et dans le brouillon.")
     }
     private func restore(_ items: [NSPasteboardItem], change: Int) {
-        guard NSPasteboard.general.changeCount == change else { return }
-        NSPasteboard.general.clearContents(); if !items.isEmpty { NSPasteboard.general.writeObjects(items) }
+        guard board.changeCount == change else { return }
+        board.clearContents(); if !items.isEmpty { board.writeObjects(items) }
     }
     private func pasteKeyCode() -> CGKeyCode {
         guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),

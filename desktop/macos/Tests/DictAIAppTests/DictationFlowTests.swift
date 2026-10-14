@@ -4,6 +4,60 @@ import DictAICore
 @testable import DictAI
 
 @MainActor struct DictationFlowTests {
+    @Test func switchingToAnAccountRestoresAnInsertableDraftWithoutAnotherEdit() async throws {
+        let rig = try Rig()
+        let user = UUID().uuidString.lowercased()
+        try rig.model.library.switchScope(user)
+        var draft = DictationDraft()
+        draft.receive("Un brouillon à insérer.")
+        try rig.model.library.saveDraft(draft)
+        try rig.model.library.switchScope(nil)
+        let session = AccountSession(userId: user, email: "test@example.invalid", accessToken: "test-only",
+                                     refreshToken: "test-only", expiresAt: .distantFuture)
+        try rig.model.account.onChange?(session)
+        #expect(rig.model.state == .review)
+        rig.model.showDraft()
+        rig.model.insert(); await rig.settle()
+        #expect(rig.delivery.texts == ["Un brouillon à insérer. "])
+        #expect(rig.model.delivered && !rig.panel.visible)
+    }
+    @Test func speechContinuesInTheQuickEditorAfterEditingAndARecognitionRevision() async throws {
+        let rig = try Rig()
+        rig.model.toggle(); await rig.settle()
+        rig.speech.onText?("Je fais une inserts")
+        rig.model.showDraft()
+        rig.model.edit("Je fais une insertion")
+        // A silence may revise the previous words without ending the recognition request.
+        rig.speech.onText?("Je fais une insertion")
+        rig.speech.onText?("Je fais une insertion et je continue")
+        #expect(rig.model.state == .listening && rig.model.presentation == .editor)
+        #expect(rig.model.draft.text == "Je fais une insertion et je continue")
+        #expect(rig.model.library.loadDraft()?.text == "Je fais une insertion et je continue")
+        #expect(rig.speech.starts == 1 && rig.speech.stops == 0)
+        rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
+        #expect(rig.delivery.texts == ["Je fais une insertion et je continue "])
+        #expect(rig.model.delivered && !rig.model.panelVisible)
+    }
+    @Test func insertionAfterEditingReleasesKeyboardFocusBeforeResolvingTheDestination() async throws {
+        for presentation in [DictationPresentation.editor, .window] {
+            let rig = try Rig()
+            rig.delivery.currentField = "Antigravity"
+            rig.delivery.resolveField = { [weak rig] in
+                guard let rig else { return "" }
+                return rig.panel.ownsKeyboardFocus ? "" : rig.delivery.currentField
+            }
+            rig.model.toggle(); await rig.settle()
+            rig.speech.onText?("Une transcription à corriger.")
+            if presentation == .editor { rig.model.showDraft() }
+            else { rig.model.showWorkspace() }
+            rig.model.edit("Une transcription corrigée.")
+            rig.model.toggle(); rig.speech.onFinish?(nil); await rig.settle()
+            #expect(rig.delivery.fields == ["Antigravity": "Une transcription corrigée. "])
+            #expect(rig.model.delivered && rig.model.state == .idle)
+            #expect(!rig.model.panelVisible && !rig.panel.visible)
+            #expect(rig.model.library.history.entries.map(\.text) == ["Une transcription corrigée."])
+        }
+    }
     @Test func learnedNamesAreProtectedDuringLiveUpdatesAndRestarts() async throws {
         let rig = try Rig()
         try rig.model.library.addVocabulary("Ensuite")
@@ -604,8 +658,9 @@ import DictAICore
     var currentField = "Champ d’origine"
     var selectedField = ""
     var fields: [String: String] = [:]
+    var resolveField: (() -> String)?
     func capture() { captures += 1; selectedField = available ? currentField : "" }
-    func prepareForInsertion() { selectedField = currentField }
+    func prepareForInsertion() { selectedField = resolveField?() ?? currentField }
     func insert(_ text: String) async throws -> String {
         if failure || selectedField.isEmpty { throw DataError.invalid("Champ fermé, copiez le brouillon.") }
         texts.append(text); fields[selectedField, default: ""] += text; return "Texte inséré"
@@ -614,8 +669,9 @@ import DictAICore
 }
 @MainActor private final class RecordedPanel: OverlayPresenting {
     var visible = false
-    func show(focus: Bool) { visible = true }
-    func hide() { visible = false }
+    var ownsKeyboardFocus = false
+    func show(focus: Bool) { visible = true; if focus { ownsKeyboardFocus = true } }
+    func hide() { visible = false; ownsKeyboardFocus = false }
 }
 @MainActor private final class ControlledCleaner: DictationCleaning {
     var inputs: [String] = []

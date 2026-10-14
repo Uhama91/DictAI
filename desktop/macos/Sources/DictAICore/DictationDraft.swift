@@ -29,15 +29,13 @@ public struct DictationDraft: Codable {
         let incoming = SpeechTextJoin.join(baseRecognition, value, language: language, protectedTerms: protectedTerms)
         recognized = incoming
         if let anchor = editAnchor {
-            // Only genuinely new words after the edited recognition snapshot may be appended.
-            // A replacement hypothesis must never undo an intentional user deletion.
             let old = anchor.split(whereSeparator: \.isWhitespace)
             let new = incoming.split(whereSeparator: \.isWhitespace)
-            guard new.count >= old.count,
-                  zip(old, new).allSatisfy({ Self.word($0) == Self.word($1) }) else { return }
-            let boundary = old.isEmpty ? incoming.startIndex : new[old.count - 1].endIndex
+            guard let count = RecognitionContinuation.prefixLength(anchor: old, incoming: new,
+                                                                  allowSingleWordRevision: !editText.isEmpty) else { return }
+            let boundary = count == 0 ? incoming.startIndex : new[count - 1].endIndex
             let suffix = String(incoming[boundary...])
-            text = SpeechTextJoin.join(punctuatedEdit(anchor: old, incoming: new), suffix, language: language, protectedTerms: protectedTerms)
+            text = SpeechTextJoin.join(punctuatedEdit(anchor: old, incoming: new, boundary: count), suffix, language: language, protectedTerms: protectedTerms)
         } else { text = SpeechTextJoin.join(baseText, value, language: language, protectedTerms: protectedTerms) }
     }
     public mutating func edit(_ value: String) {
@@ -53,18 +51,15 @@ public struct DictationDraft: Codable {
         guard !suffix.isEmpty else { return prefix }
         return prefix + (prefix.last?.isWhitespace == true || suffix.first?.isWhitespace == true ? "" : " ") + suffix
     }
-    private static func word(_ word: Substring) -> String {
-        String(word).trimmingCharacters(in: .punctuationCharacters).lowercased()
-    }
-    private func punctuatedEdit(anchor: [Substring], incoming: [Substring]) -> String {
+    private func punctuatedEdit(anchor: [Substring], incoming: [Substring], boundary: Int) -> String {
         // A word correction must not swallow punctuation finalized later by the recognizer.
         // Only accept newly added punctuation at this boundary; manual punctuation wins.
         let end = editText.lastIndex(where: { !$0.isWhitespace })
-        guard let end, let previous = anchor.last?.last,
+        guard boundary > 0, let end, let previous = anchor.last?.last,
               previous.isLetter || previous.isNumber,
               editText[end].isLetter || editText[end].isNumber,
               editText.split(whereSeparator: \.isWhitespace).count == anchor.count else { return editText }
-        let punctuation = incoming[anchor.count - 1].reversed().prefix { ".,;:!?…".contains($0) }.reversed()
+        let punctuation = incoming[boundary - 1].reversed().prefix { ".,;:!?…".contains($0) }.reversed()
         guard !punctuation.isEmpty else { return editText }
         return String(editText[...end]) + String(punctuation) + editText[editText.index(after: end)...]
     }

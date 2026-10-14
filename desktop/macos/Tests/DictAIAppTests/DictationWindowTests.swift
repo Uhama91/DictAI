@@ -5,6 +5,86 @@ import DictAICore
 @testable import DictAI
 
 @MainActor struct DictationWindowTests {
+    @Test func memorizingACorrectionReturnsItsRowHeightToTheNativeEditor() async throws {
+        _ = NSApplication.shared
+        Theme.registerFonts()
+        for theme in ["light", "dark"] {
+            for mode in [DictationPresentation.editor, .window] {
+                let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-learning-render-" + UUID().uuidString), speech: WindowTestSpeech(), insertion: WindowTestDelivery())
+                defer { model.closeOverlay() }
+                model.library.setPreference("theme_mode", theme)
+                model.draft.receive("Je lis les noncés.\n\nJe conserve le texte et la place pour poursuivre ma dictée.")
+                model.state = .review
+                if mode == .editor { model.showDraft() } else { model.showWorkspace() }
+                try await Task.sleep(for: .milliseconds(200))
+                let window = try #require(NSApp.windows.first { $0.isVisible && $0.title == "DictAI · Votre dictée" })
+                func editor(_ view: NSView) -> DictationNativeTextView? {
+                    if let text = view as? DictationNativeTextView { return text }
+                    return view.subviews.lazy.compactMap(editor).first
+                }
+                let text = try #require(window.contentView.flatMap(editor))
+                let scroll = try #require(text.enclosingScrollView)
+                window.contentView?.layoutSubtreeIfNeeded()
+                let availableHeight = scroll.frame.height
+                let windowFrame = window.frame
+                text.insertText("l’énoncé", replacementRange: (text.string as NSString).range(of: "les noncés"))
+                try await Task.sleep(for: .milliseconds(100))
+                window.contentView?.layoutSubtreeIfNeeded()
+                let suggestionHeight = scroll.frame.height
+                let selection = text.selectedRange()
+                let rule = try #require(model.learningSuggestion)
+                try render(window.contentView, name: "vocabulary-before-\(mode)-\(theme)")
+                model.learn(rule)
+                try await Task.sleep(for: .milliseconds(100))
+                window.contentView?.layoutSubtreeIfNeeded()
+                #expect(model.learningSuggestion == nil)
+                #expect(model.message.isEmpty)
+                #expect(scroll.frame.height > suggestionHeight + 15)
+                #expect(abs(scroll.frame.height - availableHeight) < 1)
+                #expect(window.frame == windowFrame)
+                #expect(text.string == "Je lis l’énoncé.\n\nJe conserve le texte et la place pour poursuivre ma dictée.")
+                #expect(text.selectedRange() == selection)
+                try render(window.contentView, name: "vocabulary-after-\(mode)-\(theme)")
+            }
+        }
+    }
+    @Test func quickEditorKeepsAppendingSpeechAfterTypingAndARecognitionRevision() async throws {
+        _ = NSApplication.shared
+        Theme.registerFonts()
+        for theme in ["light", "dark"] {
+            let speech = WindowTestSpeech()
+            let delivery = WindowTestDelivery()
+            let model = try AppModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("dictai-continuation-render-" + UUID().uuidString), speech: speech, insertion: delivery)
+            defer { model.closeOverlay() }
+            model.library.setPreference("theme_mode", theme)
+            model.begin()
+            for _ in 0..<30 { await Task.yield() }
+            speech.onText?("Je fais une inserts")
+            model.showDraft()
+            try await Task.sleep(for: .milliseconds(200))
+            let window = try #require(NSApp.windows.first { $0.isVisible && $0.title == "DictAI · Votre dictée" })
+            func editor(_ view: NSView) -> DictationNativeTextView? {
+                if let text = view as? DictationNativeTextView { return text }
+                return view.subviews.lazy.compactMap(editor).first
+            }
+            let text = try #require(window.contentView.flatMap(editor))
+            text.insertText("insertion", replacementRange: NSRange(location: 12, length: 7))
+            #expect(model.draft.text == "Je fais une insertion")
+            speech.onText?("Je fais une insertion et je reprends ma dictée.")
+            try await Task.sleep(for: .milliseconds(100))
+            #expect(text.string == "Je fais une insertion et je reprends ma dictée.")
+            #expect(text.selectedRange() == NSRange(location: 21, length: 0))
+            #expect(model.state == .listening)
+            try render(window.contentView, name: "edited-continuation-\(theme)")
+            model.toggle()
+            for _ in 0..<40 {
+                if !model.busy { break }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+            #expect(delivery.texts == ["Je fais une insertion et je reprends ma dictée. "])
+            #expect(model.delivered && !window.isVisible)
+        }
+    }
     @Test func reflectivePauseShowsAContinuousSentenceInNativeEditors() async throws {
         _ = NSApplication.shared
         Theme.registerFonts()
@@ -57,7 +137,10 @@ import DictAICore
                 #expect(delivery.texts.isEmpty)
                 speech.onText?("Puis je poursuis ma dictée.")
                 model.shortcut.onGesture?(.single)
-                try await Task.sleep(for: .milliseconds(300))
+                for _ in 0..<40 {
+                    if !model.busy { break }
+                    try await Task.sleep(for: .milliseconds(50))
+                }
                 #expect(delivery.texts == ["Je prends le temps de réfléchir. Puis je poursuis ma dictée. "])
                 #expect(model.state == .idle && !window.isVisible && !model.panelVisible)
             }

@@ -51,12 +51,12 @@ enum DictationPresentation { case compact, editor, window }
         self.speech = speech ?? SpeechEngine(); self.insertion = insertion ?? TextInsertion()
         self.cleaner = cleaner ?? LiveDictationCleaner(); self.makeOverlay = makeOverlay
         sync = SyncCoordinator(library: library, account: account)
-        if let restored = library.loadDraft() { draft = restored; if !draft.text.isEmpty { state = .review } }
+        restoreDraft()
         account.onChange = { [weak self] session in
             guard let self else { return }
             self.closeOverlay()
             try self.library.switchScope(session?.userId)
-            self.draft = self.library.loadDraft() ?? DictationDraft()
+            self.restoreDraft()
             self.editorSession.reset()
             self.delivered = false
             self.capturedTarget = false; self.savedNote = nil; self.savedNoteBase = nil
@@ -82,7 +82,7 @@ enum DictationPresentation { case compact, editor, window }
         }
         do {
             try account.restore()
-            if let session = account.session { try library.switchScope(session.userId); draft = library.loadDraft() ?? DictationDraft() }
+            if let session = account.session { try library.switchScope(session.userId); restoreDraft() }
         } catch { library.error = error.localizedDescription }
         shortcut.start(); sync.start()
         appUpdates.start()
@@ -176,6 +176,10 @@ enum DictationPresentation { case compact, editor, window }
         if state == .listening { finishListening(deliver: false) }
         present(presentation == .window ? .window : .editor, focus: true)
     }
+    private func restoreDraft() {
+        draft = library.loadDraft() ?? DictationDraft()
+        state = draft.text.isEmpty ? .idle : .review
+    }
     func edit(_ text: String) {
         guard text != draft.text else { return }
         draft.edit(text); revision = UUID(); delivered = false
@@ -232,10 +236,12 @@ enum DictationPresentation { case compact, editor, window }
         } else if shouldDeliver { completeDictation() }
         else { finalizeTypography(); revealEditor() }
     }
-    var learningSuggestion: String? { Vocabulary.suggestion(before: draft.recognized, after: draft.text) }
+    var learningSuggestion: String? {
+        Vocabulary.suggestion(before: draft.recognized, after: draft.text, learnedLines: library.vocabulary.map(\.value))
+    }
     var busy: Bool { [.preparing, .finishing, .cleaning, .inserting].contains(state) }
     var deliveryLabel: String { destination == .note ? "Enregistrer la note" : "Insérer le texte" }
-    func learn(_ rule: String) { library.perform { try library.addVocabulary(rule); message = "Préférence ajoutée au vocabulaire" } }
+    func learn(_ rule: String) { library.perform { try library.addVocabulary(rule) } }
     func saveNote() {
         guard !busy, !delivered, state != .listening, !draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         finalizeTypography()
@@ -286,9 +292,9 @@ enum DictationPresentation { case compact, editor, window }
         let text = draft.text + (library.preference("trailing_space", default: "true") == "true" ? " " : "")
         let edit = revision; let epoch = generation; let scope = library.generation
         state = .inserting
-        insertion.prepareForInsertion()
-        // A nonactivating NSPanel can still own keyboard focus. Release it before delivery.
+        // Release the editor's keyboard focus before resolving the external destination.
         overlay.hide(); panelVisible = false
+        insertion.prepareForInsertion()
         operation = Task {
             do {
                 let result = try await insertion.insert(text)

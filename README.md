@@ -1,281 +1,104 @@
-<p align="center">
-  <img src="docs/logo.png" width="128" height="128" alt="Logo de l’application DictAI">
-</p>
+<p align="center"><img src="docs/logo.png" width="112" height="112" alt="DictAI logo"></p>
 
 # DictAI
 
-Dictez du texte dans vos applications depuis un téléphone Android, une tablette Android ou un Mac.
+**Dictate, review, and write in your apps.**
 
-## Télécharger DictAI
+DictAI brings local voice dictation to Android phones, Android tablets, and macOS. Speak into a floating panel, edit your transcript, then insert it into a supported text field or save it as a note.
 
-Choisissez votre appareil dans le tableau. Le téléphone et la tablette utilisent le même fichier APK. Les téléchargements sont directs et ne nécessitent pas de compte GitHub.
+The current app interface is in French. This guide describes its functions in English.
+
+## Downloads
+
+Android phones and tablets use the same APK. Direct downloads do not require a GitHub account.
 
 <!-- dictai-downloads:start -->
-| Appareil | Téléchargement | Version | Compatibilité |
+| Device | Download | Version | Requirements |
 |---|---|---|---|
-| Téléphone Android | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
-| Tablette Android | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
-| Mac | [Télécharger](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-macOS.pkg) | 0.4.9 (test) | macOS 14.0+ · Apple silicon et Intel |
+| Android phone | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
+| Android tablet | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
+| Mac | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-macOS.pkg) | 0.4.9 (test) | macOS 14.0+ · Apple silicon and Intel |
 
-Les versions marquées « test » sont destinées aux premiers essais. Consultez les instructions d’installation avant de les ouvrir.
+Versions marked "test" are preview builds. Read the installation instructions before opening them.
 
-Instructions et nouveautés : [Notes de version](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-android-0.9.18-preview).
+Installation and changes: [Release notes](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-android-0.9.18-preview).
 <!-- dictai-downloads:end -->
 
-Le tableau est actualisé automatiquement à chaque publication d’une version complète vérifiée. Vous pouvez partager cette adresse : **[github.com/Uhama91/DictAI](https://github.com/Uhama91/DictAI)**.
+The Android APK is unchanged in this release. The Mac package is universal, ad hoc signed, and not Apple-notarized. Speech recognition on a physical Intel Mac remains unverified.
 
-## Présentation
+## From speech to text
 
-DictAI lets you dictate into most apps without switching keyboards. Tap the
-floating button, speak, and edit the transcript before inserting it into the
-currently focused text field when the app exposes a standard Android input
-field.
+1. Place the cursor in the app where you want to write.
+2. Start dictation with the floating control on Android or **Option (⌥)** on Mac.
+3. Speak, pause to make corrections if needed, then finish to insert the text.
 
-It provides:
+DictAI does not press Enter or Send. You send messages yourself. Insertion depends on the target app and field; password and other secure fields are excluded. If insertion fails, the text remains available to copy.
 
-- **Local on-device transcription** with sherpa-onnx or transcribe.cpp
-- **Optional cloud cleanup** through OpenRouter for punctuation and conservative corrections
-- A persistent overlay, accessibility insertion, local notes, and PDF/HTML
-  export
+On Mac, a single Option press starts dictation when idle, finishes and inserts while listening, or resumes the same draft while paused. Two quick presses pause or resume; three cancel without inserting and preserve a recoverable draft. The panel offers equivalent buttons.
 
-## Install
+The Mac editor opens as a floating panel or a full, resizable window. Manual corrections remain protected when speech recognition continues or revises earlier words. Supported custom editors, including cmux/OpenCode, use a native Paste action with protection against duplicate insertion.
 
-### Download the APK
+## Keep a note
 
-Use the direct download table above and follow the linked release instructions.
-Historical versions remain available in
-[DictAI releases](https://github.com/Uhama91/DictAI/releases).
+Save text in notes and organize it in folders. Saved notes are separate from the local rolling history of the last ten dictations and remain until you delete them.
 
-Open the APK on your phone, install it, and launch DictAI once to complete the
-initial setup.
+On Android, add screenshots or photos when you explicitly request a capture. A note can contain up to ten images. Export notes as PDF, HTML, or text and images; inserting into another app transfers the text.
 
-### Build from source
+Personal vocabulary helps with names and recurring terms. On Mac, you can explicitly remember a correction from the editor. Once you remember it, its prompt disappears and the editor regains the space; existing rules are not offered again.
 
-Requires JDK 21 and the Android SDK. Set `JAVA_HOME` to a JDK 21 installation
-before running `make`. On macOS with Android Studio, for example:
+## Set up Android
 
-```bash
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-export PATH="$JAVA_HOME/bin:$PATH"
-```
+Install the APK, then follow the setup assistant to allow microphone access, download a local speech model, and enable display over other apps. Enable Accessibility for insertion into supported fields and for captures you request. Notes and manual copying remain available without it.
 
-```bash
-git clone https://github.com/Uhama91/DictAI.git && cd DictAI
+Xiaomi, Redmi, and Poco devices may also require restricted-settings access, unrestricted battery use, and automatic startup. Check these settings if the floating control disappears.
+
+For an update, install the APK over the existing app with its matching signature to preserve app data. This release keeps the existing Android test signature.
+
+## Set up Mac
+
+Quit DictAI before running the PKG installer, then open `/Applications/DictAI.app`. Allow microphone access, speech recognition, and Accessibility in macOS settings. Refresh the shortcut check in DictAI after changing permissions.
+
+After an ad hoc signed update, macOS may require you to remove and re-add the installed `/Applications/DictAI.app` entry in Accessibility, then refresh the shortcut check. For opening a package that macOS blocks, see [Apple's installation guidance](https://support.apple.com/en-us/102445).
+
+Keep DictAI running in the menu bar to use Option. Try a short dictation in TextEdit before using your usual app. See the [Mac setup and usage guide](desktop/macos/README.md) for controls, recovery, and troubleshooting.
+
+## Local use and optional services
+
+**Local dictation.** Android uses a downloaded speech model. Mac uses Apple Speech with on-device recognition required and no remote speech fallback. Model availability and initial downloads may require a connection. No account is required for local-only use.
+
+**Optional cloud correction.** With your OpenRouter key, DictAI can send the transcript and useful vocabulary for text correction. Recorded audio is not sent for this correction. Provider charges may apply. The key stays on the device, in Keychain on Mac, and does not sync. If correction fails, the transcript remains available.
+
+**Optional account sync.** Sign in with Google to sync saved notes, folders, images, vocabulary, and shared preferences through Supabase. Sync is periodic and is not guaranteed to be instant.
+
+Secrets, permissions, installed models, audio, drafts, recent dictation history, and panel positions do not sync. Mac notes created without an account stay in local storage and are not automatically imported when you sign in.
+
+Read the [privacy policy](PRIVACY.md) before enabling optional services.
+
+## Build and test
+
+Android requires JDK 21 and the Android SDK. From the repository root:
+
+```sh
 make build
+make test
 ```
 
-The debug APK is written to:
+The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
-```bash
-app/build/outputs/apk/debug/app-debug.apk
+For Mac:
+
+```sh
+cd desktop/macos
+./scripts/test.sh
+./scripts/build-installer.sh
 ```
 
-For an ADB install:
+The [Mac guide](desktop/macos/README.md) covers requirements and distribution limits. Automated tests do not establish compatibility with every device or text field.
 
-```bash
-make adb-install
-```
+Report problems in [GitHub Issues](https://github.com/Uhama91/DictAI/issues), including your device, app version, target app, and steps to reproduce with a non-sensitive example.
 
-## How it works
+## Attribution and licenses
 
-1. DictAI displays a small overlay on top of your apps.
-2. Tap the overlay to start recording and tap again to finish.
-3. The selected local model transcribes the audio on the device.
-4. If enabled, cloud correction sends the transcript to OpenRouter with a fixed
-   conservative correction prompt; audio stays on the device. Vocabulary is
-   applied locally before correction, and protected spellings are checked on return.
-5. DictAI keeps the transcript available for editing during the dictation and
-   pause flows, then, when you finish, inserts it into the focused field when
-   possible and keeps a clipboard copy as a fallback.
+DictAI builds on [Phone Whisper by kafkasl](https://github.com/kafkasl/phone-whisper). The repository includes the adapted Android app and a native macOS companion.
 
-## Setup
-
-On first launch:
-
-1. Open **DictAI**.
-2. Grant the **microphone** permission and allow the overlay.
-3. Enable the **Accessibility Service** so DictAI can insert text into another
-   app's focused field.
-4. Download and select a local transcription model.
-5. Optionally enable cloud cleanup and enter your own OpenRouter API key.
-
-The floating overlay is ready after setup.
-
-The [0.9.15 change and validation report](docs/2026-10-11-cloud-cleanup-only.md)
-describes the simplified correction flow. The macOS companion and its installation
-instructions are documented in [desktop/macos/README.md](desktop/macos/README.md).
-
-## Why does DictAI need Accessibility?
-
-DictAI uses Android Accessibility Service to identify the focused text field and
-insert dictated text after you explicitly interact with the overlay. It can
-also capture a screenshot when you explicitly request the note-capture feature.
-
-It does not replace your keyboard, monitor browsing, collect screen content for
-analytics, or run background automation.
-
-## Privacy
-
-DictAI transcribes audio locally on the device. Audio is not sent to a server by
-the app's normal transcription path.
-
-Cloud cleanup is optional. When enabled, DictAI sends the transcript text
-directly from the device to OpenRouter with a fixed correction prompt, using
-your own API key. Audio
-is not sent for this cleanup step.
-
-An optional Google account synchronizes vocabulary, shared preferences, personal
-historical format definitions, saved folders, notes, and their images through Supabase.
-Historical format definitions are retained for compatibility and are never executed. DictAI remains
-usable locally without an account. API keys, unfinished drafts, audio, model
-installations, permissions, and overlay positions stay on the device.
-See the full [privacy policy](PRIVACY.md) and the
-[account setup and validation guide](docs/research/account-sync/README.md).
-
-
-## Local models
-
-Models are stored in app storage under:
-
-```bash
-/data/data/com.uhama.whisperpin/files/models/
-```
-
-Current catalog:
-
-| Model | Size | Notes |
-|---|---:|---|
-| Nemotron 3.5 Handy (FR/EN) | 751 MB | Recommended; transcribe.cpp |
-| Parakeet 0.6B (FR/EN) | 465 MB | sherpa-onnx transducer |
-| Nemotron 3.5 Live (FR/EN) | 453 MB | Experimental streaming model |
-| Nemotron 3.5 Compact (FR/EN) | 621 MB | Compact transcribe.cpp model |
-
-Models are downloaded to the app's private storage. The catalog includes
-sherpa-onnx archives and pinned GGUF downloads from the Handy Computer model
-repository.
-
-## Development
-
-```bash
-make build       # build debug APK
-make test        # run unit tests
-make adb-install # build + install via ADB
-make clean       # clean build artifacts
-```
-
-## App compatibility
-
-DictAI works best in apps that use standard Android text fields.
-Some apps use custom text surfaces or terminal-style views, which may not support direct accessibility paste.
-When insertion is not possible, DictAI copies the transcript to the clipboard.
-
-### Termux
-
-Termux's main terminal area is not a standard Android text field, so direct insertion may not work there.
-
-To use DictAI in Termux:
-
-1. Focus Termux
-2. Swipe the extra keys row (`ESC`, `CTRL`, `ALT`, arrows, etc.) left or right
-3. Switch to Termux's native text input box
-4. Dictate there
-
-Once text is inserted into the native input box, Termux sends it to the terminal normally.
-
-## Current limitations
-
-- Accessibility permission is required for cross-app insertion
-- Some apps may block paste or text injection
-- Some apps use custom input surfaces instead of standard Android text fields
-- Local models are large
-- Optional cloud cleanup requires your own OpenRouter API key
-
-## DictAI 0.9.16 — historique des dictées
-
-Android et macOS proposent un tampon local des **10 dernières dictées**, avec lecture du texte intégral et copie, y compris après un échec d’insertion. La onzième remplace la plus ancienne. Aucun audio n’est conservé dans ce tampon et son contenu reste hors synchronisation. Les notes existantes sont conservées. Voir le [rapport de fonctionnement et de vérification](docs/2026-10-11-recent-dictations.md).
-
-## DictAI 0.9.15 — correction facultative
-
-La transcription Nemotron et les autres modèles vocaux restent locaux. Dans
-**Correction du texte**, choisir **Cloud** ou **Désactivé**. Le cloud utilise votre
-clé OpenRouter pour corriger la ponctuation et les fautes évidentes sans appliquer
-de format de liste, de mail ou de consignes personnalisées. Le modèle proposé par
-défaut est GPT-5.4 Nano ; un modèle déjà choisi est conservé.
-
-Les anciens réglages de correction locale passent à **Cloud**. Les formats
-historiques restent stockés et synchronisés pour préserver les données, mais ne
-modifient plus la dictée. Les menus de formats, les gestes de sélection et le
-prototype Gemma sont retirés. L’ancien drapeau de compilation du prototype ne
-peut plus les réactiver.
-
-Le vocabulaire, la conversion des nombres et le nettoyage léger restent des
-règles locales. Après une retouche manuelle, la correction IA est ignorée pour
-préserver vos modifications. Sans clé, sans réseau ou si une réponse est refusée,
-le texte reste disponible pour insertion et copie.
-
-### Vérification sur téléphone / tablette
-
-1. Dicter dans un champ sélectionné, puis coller ailleurs : les deux textes doivent être identiques.
-2. Dicter sans champ sélectionné : récupérer le résultat avec Coller.
-3. Corriger un nom puis continuer à parler : vérifier la conservation de la correction et de la position du curseur.
-4. Maintenir jusqu’à la vibration, puis déplacer la pastille. Un glissement vers le haut au repos ne doit ouvrir aucun menu ; pendant une dictée ou une pause, il réaffiche le texte.
-5. Choisir Cloud, puis tester sans réseau et sans clé : le texte doit rester récupérable.
-
-L’APK de chaque branche est disponible dans **Actions → Build DictAI APK → Artifacts → dictai-debug-apk** une fois la compilation réussie.
-
-Le défilement suit les dernières lignes tant qu’aucune correction volontaire n’est en cours ; le focus automatique d’Android ne suspend pas ce suivi. Pendant une correction, le curseur et le point de lecture sont conservés. Retour ou reprise du micro libèrent l’éditeur et permettent de suivre les nouveaux mots. Le bouton Modifier agrandit le panneau et ouvre le clavier ; un toucher direct place le curseur avant son ouverture.
-
-## Pause et reprise de la dictée
-
-Pendant une dictée déjà en cours, un glissement direct vers le bas sur la pastille met en pause au relâchement (56 dp minimum, mouvement principalement vertical). La pastille reste fixe. Pour la déplacer, maintenir d’abord 400 ms jusqu’à la vibration. Un maintien seul ne termine pas la dictée.
-
-La pause coupe et libère le microphone, fige les mises à jour automatiques et garde le champ visible. Le symbole « Ⅱ » indique la pause. Le texte peut être corrigé, complété au clavier ou effacé. Un tap reprend la même session et conserve les ajouts. Pour un message, le tap suivant termine la dictée et tente l’insertion dans le champ de l’application, avec copie selon la disponibilité du champ. Pour une note ouverte volontairement, le tap suivant remet en pause : l’insertion exige le bouton Insérer… puis confirmation.
-
-Vérifier sur **Xiaomi Pad 7** et **Poco F7**, avec le micro intégré puis les écouteurs OnePlus :
-
-1. Dicter une phrase, descendre brièvement sur la pastille, attendre le symbole de pause. Vérifier que le microphone n’est plus utilisé.
-2. Parler pendant la pause : ces paroles ne doivent apparaître ni dans l’aperçu ni dans le résultat final.
-3. Corriger un mot et ajouter plusieurs lignes au clavier pendant la pause ; déplacer le curseur vers le début.
-4. Appuyer une fois pour reprendre : texte conservé, curseur et vue revenus en bas. Continuer à parler : les nouvelles lignes restent visibles.
-5. Appuyer à nouveau pour terminer : vérifier les ajouts manuels et les deux portions dictées dans le presse-papiers et le champ cible.
-6. Répéter plusieurs pauses ; tester une reprise immédiate pendant la fermeture du micro, une interruption du Bluetooth, la rotation, le double tap d’annulation et l’arrêt du service pendant la pause.
-
-Le texte est sauvegardé localement pendant la dictée et les corrections. Après destruction du service, il est restauré en pause ; la reprise ouvre une nouvelle session audio et ajoute la suite au brouillon protégé. L’audio de l’ancienne session n’est pas conservé. Le brouillon est supprimé après la fin ou l’annulation de la dictée.
-
-Les gestes de texte et de pause affichent une indication progressive sur la pastille et un retour haptique au seuil. Ils ne déplacent jamais le bouton. Le maintien immobile jusqu’à la vibration affiche « Déplacer » et réserve tout le mouvement suivant au positionnement.
-
-Dès le démarrage du micro, le champ de transcription apparaît avec « Écoute en cours… », sans attendre les premiers mots du modèle. Il est déjà éditable. Les lectures audio sont limitées à 20 ms par bloc ; le tampon matériel conserve sa taille minimale requise. Le délai de reconnaissance dépend toujours du modèle et de l’appareil.
-
-### Panneau de texte et brouillon (0.6.5)
-
-- « Agrandir / Réduire » passe de trois lignes à un panneau pouvant occuper 82 % de la hauteur disponible, ajusté au bord de la pastille et au clavier.
-- « Masquer » cache le texte et le clavier sans arrêter la dictée. Glisser vers le haut pendant une dictée ou une pause réaffiche le panneau.
-- Le réglage « Afficher le texte pendant la dictée » définit le comportement au démarrage de la prochaine dictée.
-- Les corrections manuelles restent prioritaires. Après une retouche manuelle, la correction IA est ignorée.
-- Le brouillon est privé, stocké dans les données locales de l’application, exclues des sauvegardes Android. Après un arrêt du service, le micro peut nécessiter une réactivation depuis l’application avant la reprise. Effacer les données ou désinstaller l’application supprime ce brouillon.
-
-À vérifier sur appareil : agrandir aux quatre bords, ouvrir le clavier en portrait/paysage, masquer puis réafficher, modifier en pause, verrouiller/déverrouiller puis reprendre ; enfin arrêter puis relancer le service pour vérifier la restauration du texte et l’ajout de la suite sans reformulation.
-
-### Notes locales et menus flottants (0.6.6)
-
-- Glisser directement vers la gauche range la dictée ouverte en note, sans la coller, puis ouvre « Mes notes ». Au repos, le même geste ouvre la liste. Un accès « Mes notes » existe aussi dans les réglages ; « Terminer » est disponible dans le panneau d’une note.
-- Une nouvelle note s’ouvre sans activer le micro et peut être écrite au clavier. Tap sur la pastille : dicter. En pause, un tap reprend après la fenêtre de double tap de 280 ms ; pendant la dictée de note, un tap met en pause. Deux taps rangent la note, sans la supprimer ni l’insérer. Un glissement vers le haut réaffiche la note ; seul le bouton Insérer… demande son insertion.
-- Les notes ouvertes sont sauvegardées automatiquement. Le rangement finalise les derniers mots localement. Les titres sont tirés de la première ligne (neuf mots, 60 caractères maximum), sans modèle ni réseau. Les titres renommés sont conservés.
-- Appuyer sur une note la rouvre en pause. Un appui maintenu ouvre Renommer / Supprimer. La liste affiche les notes récemment modifiées en premier, avec titre en gras, aperçu distinct, date de modification et nombre d’images.
-- « Insérer… » termine l’écoute si nécessaire puis présente le texte final à confirmer. « Insérer le texte » tente son insertion dans le champ de l’application ; « Rester dans la note » ne dépose rien. Si l’insertion n’est pas possible, le texte est copié pour collage manuel. La note reste ouverte et conservée après insertion. La propre fenêtre de DictAI est exclue des cibles. Les images se transmettent par l’export PDF/HTML.
-- Les menus de notes restent dans les limites de l’écran et se ferment au toucher extérieur.
-- Les icônes agrandir/réduire et masquer sont en haut à droite, avec des cibles tactiles de 48 dp. Le mode agrandi atteint 82 % de la hauteur disponible. La croix masque seulement le panneau.
-
-Essais sur appareil : écrire une note sans micro, la ranger, ouvrir une autre note et revenir à la première ; dicter/reprendre, ranger par double tap pendant la pause, renommer puis poursuivre, supprimer une seule note, annuler puis confirmer une insertion dans une autre application ; vérifier les menus aux quatre bords et le verrouillage/redémarrage avec une note ouverte.
-
-Suivi du développement par étapes : [demandes et validations](docs/SUIVI-DEVELOPPEMENT.md). Les recherches de mise en forme locale sont archivées ; leurs moteurs et interfaces ne font pas partie de l’application livrée.
-
-Le correctif 0.9.5 et son essai ciblé sont décrits dans [Notes et édition](docs/NOTES-ET-EDITION-0.9.5.md). Les gestes, le clavier et le rendu de cette version restent à vérifier sur appareil ; les tests instrumentés sont compilés sans être exécutés ici.
-
-## Origine du projet et références
-
-DictAI a été construit à partir de **[Phone Whisper, créé par kafkasl](https://github.com/kafkasl/phone-whisper)**. Cette base Android a été adaptée pour DictAI ; le dépôt comprend également son application macOS native. Le fichier [NOTICE](NOTICE) décrit l’origine du code et les références des composants intégrés.
-
-Le code issu de Phone Whisper est distribué sous la **licence Apache 2.0**, disponible dans [LICENSE](LICENSE). Les modifications apportées à DictAI sont signalées dans les fichiers hérités et modifiés.
-
-Les bibliothèques natives et les modèles peuvent relever de licences distinctes. Leurs références figurent dans [les notices des composants tiers](app/src/main/assets/THIRD_PARTY_NOTICES.txt) et [les textes des licences incluses](app/src/main/assets/licenses).
+The project is distributed under the [Apache 2.0 license](LICENSE). See [NOTICE](NOTICE) for attribution, [third-party notices](app/src/main/assets/THIRD_PARTY_NOTICES.txt), and [included licenses](app/src/main/assets/licenses) for components with separate terms.

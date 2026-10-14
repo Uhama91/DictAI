@@ -31,10 +31,10 @@ class DownloadTableTests(unittest.TestCase):
         table = render_table(choose_downloads([offer]))
         self.assertEqual(2, table.count(manifest["android"]["downloadUrl"]))
         self.assertEqual(1, table.count(manifest["macos"]["downloadUrl"]))
-        self.assertIn(f"Téléphone Android | [Télécharger]({manifest['android']['downloadUrl']}) | 0.9.17-dictai (test)", table)
+        self.assertIn(f"Android phone | [Download]({manifest['android']['downloadUrl']}) | 0.9.17-dictai (test)", table)
         self.assertIn("Android 11+ · ARM64", table)
-        self.assertIn(f"Mac | [Télécharger]({manifest['macos']['downloadUrl']}) | 0.4.7 (test)", table)
-        self.assertIn("Apple silicon et Intel", table)
+        self.assertIn(f"Mac | [Download]({manifest['macos']['downloadUrl']}) | 0.4.7 (test)", table)
+        self.assertIn("Apple silicon and Intel", table)
         self.assertIn(release["html_url"], table)
 
     def test_refuses_missing_assets_bad_hashes_other_apps_and_external_links(self):
@@ -88,7 +88,7 @@ class DownloadTableTests(unittest.TestCase):
         original = "Intro\n<!-- dictai-downloads:start -->\n[old](https://github.com/old.apk)\n<!-- dictai-downloads:end -->\nLicense\n"
         updated = refresh_readme(original, [])
         self.assertNotIn("old.apk", updated)
-        self.assertIn("Aucun installateur vérifié", updated)
+        self.assertIn("No verified installer", updated)
         self.assertTrue(updated.endswith("License\n"))
 
 
