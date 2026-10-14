@@ -15,13 +15,13 @@ Android phones and tablets use the same APK. Direct downloads do not require a G
 <!-- dictai-downloads:start -->
 | Device | Download | Version | Requirements |
 |---|---|---|---|
-| Android phone | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
-| Android tablet | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
-| Mac | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261011-android-0.9.18-preview/DictAI-macOS.pkg) | 0.4.9 (test) | macOS 14.0+ · Apple silicon and Intel |
+| Android phone | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261014-macos-0.4.14-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
+| Android tablet | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261014-macos-0.4.14-preview/DictAI-android.apk) | 0.9.18-dictai (test) | Android 11+ · ARM64 |
+| Mac | [Download](https://github.com/Uhama91/DictAI/releases/download/dictai-20261014-macos-0.4.14-preview/DictAI-macOS.pkg) | 0.4.14 (test) | macOS 14.0+ · Apple silicon and Intel |
 
 Versions marked "test" are preview builds. Read the installation instructions before opening them.
 
-Installation and changes: [Release notes](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261011-android-0.9.18-preview).
+Installation and changes: [Release notes](https://github.com/Uhama91/DictAI/releases/tag/dictai-20261014-macos-0.4.14-preview).
 <!-- dictai-downloads:end -->
 
 The Android APK is unchanged in this release. The Mac package is universal, ad hoc signed, and not Apple-notarized. Speech recognition on a physical Intel Mac remains unverified.
